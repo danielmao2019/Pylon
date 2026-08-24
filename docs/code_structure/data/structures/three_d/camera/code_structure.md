@@ -502,7 +502,7 @@ camera_vis.py
 io.py
 ├── import json
 ├── from pathlib import Path
-├── from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+├── from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 ├── import numpy as np
 ├── import torch
 ├── from data.structures.three_d.camera.intrinsics.camera_intrinsics import build_camera_intrinsics
@@ -526,26 +526,62 @@ io.py
 │   ├── calls deserialize_cameras
 │   └── return
 ├── def serialize_cameras(cameras: Union["Camera", "Cameras"], format: str = "json") -> Union[Dict[str, Any], List[Dict[str, Any]]]
-│   ├── # Serialize cameras to the canonical payload for the requested format.
+│   ├── # Serialize cameras to the canonical payload for the requested format, in the single or plural form the caller's own input carried.
 │   ├── from data.structures.three_d.camera.camera import Camera    # inline runtime import; camera.py imports io.py, so this would cycle at module top
 │   ├── from data.structures.three_d.camera.cameras import Cameras  # inline runtime import; cameras.py imports io.py, so this would cycle at module top
-│   ├── calls _normalize_format
-│   ├── impls input-normalize: was_single = isinstance(cameras, Camera); if was_single -> cameras = a one-element Cameras wrapping it
-│   ├── if format == "json"
-│   │   └── calls _serialize_cameras_json(cameras=cameras)  # -> the list of per-camera dicts
-│   ├── if format == "npz"
-│   │   └── calls _serialize_cameras_npz(cameras=cameras)  # -> the batched-array npz payload
-│   ├── impls output-normalize: if was_single -> reduce the plural payload to its single form (json: the sole dict; npz: tag the batched payload with an is_single flag)
+│   ├── def _validate_inputs [local]
+│   │   ├── impls assert cameras is a Camera or a Cameras
+│   │   └── impls assert format is in _CAMERA_SERIALIZATION_FORMATS  # drawn because this is format's only owner on this path
+│   ├── calls _validate_inputs
+│   ├── def _normalize_inputs [local]
+│   │   ├── impls was_single = isinstance(cameras, Camera)
+│   │   ├── if was_single
+│   │   │   └── calls Cameras(intrinsics=[cameras.intrinsics], extrinsics=[cameras.extrinsics], names=[cameras.name], ids=[cameras.id], device=cameras.device)
+│   │   └── return cameras, was_single
+│   ├── calls _normalize_inputs
+│   ├── def _serialize [local]
+│   │   ├── # Map the plural Cameras to the plural payload the requested format spells it in.
+│   │   ├── if format == "json"
+│   │   │   └── return _serialize_cameras_json(cameras=cameras)
+│   │   ├── if format == "npz"
+│   │   │   └── return _serialize_cameras_npz(cameras=cameras)
+│   │   └── assert 0, "Should not reach here."
+│   ├── calls _serialize
+│   ├── def _normalize_outputs [local]
+│   │   ├── # Hand back the single form the caller's own one Camera asked for, else the plural payload whole.
+│   │   ├── if was_single
+│   │   │   └── return _normalize_payload_to_single(payload=payload, format=format)
+│   │   └── return payload
+│   ├── calls _normalize_outputs
 │   └── return
 ├── def deserialize_cameras(payload: Union[Dict[str, Any], List[Dict[str, Any]]], device: Optional[Union[str, torch.device]] = None, format: str = "json") -> Union["Camera", "Cameras"]
 │   ├── # Deserialize the canonical payload back into cameras, the inverse of serialize_cameras.
-│   ├── calls _normalize_format
-│   ├── impls input-normalize: was_single = the payload is in single form (json: a bare dict; npz: carries an is_single flag); if was_single -> expand it to the plural form (json: wrap in a list; npz: drop the flag)
-│   ├── if format == "json"
-│   │   └── calls _deserialize_cameras_json(per_camera_dicts=payload, device=device)  # -> Cameras
-│   ├── if format == "npz"
-│   │   └── calls _deserialize_cameras_npz(payload=payload, device=device)  # -> Cameras
-│   ├── impls output-normalize: if was_single -> return cameras[0]
+│   ├── def _validate_inputs [local]
+│   │   ├── impls assert payload is a dict or a list
+│   │   ├── impls assert device is None, a str, or a torch.device
+│   │   ├── impls assert format is in _CAMERA_SERIALIZATION_FORMATS  # drawn because this is format's only owner on this path
+│   │   └── if format == "npz"
+│   │       └── impls assert payload is a dict  # cross-field: an npz payload is keyed, never a list
+│   ├── calls _validate_inputs
+│   ├── def _normalize_inputs [local]
+│   │   ├── calls _normalize_payload_to_plural(payload=payload, format=format)
+│   │   ├── impls target_device = torch.device(device) if device is not None else torch.device("cpu")
+│   │   └── return payload, target_device, was_single
+│   ├── calls _normalize_inputs
+│   ├── def _deserialize [local]
+│   │   ├── # Map the plural payload the requested format spells back to the plural Cameras.
+│   │   ├── if format == "json"
+│   │   │   └── return _deserialize_cameras_json(per_camera_dicts=payload, device=target_device)
+│   │   ├── if format == "npz"
+│   │   │   └── return _deserialize_cameras_npz(payload=payload, device=target_device)
+│   │   └── assert 0, "Should not reach here."
+│   ├── calls _deserialize
+│   ├── def _normalize_outputs [local]
+│   │   ├── # Hand back the one Camera the payload carried, else the Cameras whole.
+│   │   ├── if was_single
+│   │   │   └── return cameras[0]
+│   │   └── return cameras
+│   ├── calls _normalize_outputs
 │   └── return
 ├── def _serialize_cameras_json(cameras: "Cameras") -> List[Dict[str, Any]]
 │   ├── # Map a Cameras to the plural json payload: one dict per camera.
@@ -579,6 +615,26 @@ io.py
 │   │   └── calls CameraExtrinsics(extrinsics, convention)  # validates convention
 │   ├── calls Cameras(intrinsics=the per-camera CameraIntrinsics, extrinsics=the per-camera CameraExtrinsics, names=the decoded names, ids=the decoded ids, device=device)  # field-validates the batch
 │   └── return
+├── def _normalize_payload_to_plural(payload: Union[Dict[str, Any], List[Dict[str, Any]]], format: str) -> Tuple[Union[Dict[str, Any], List[Dict[str, Any]]], bool]
+│   ├── # Restore a payload to its format's plural form, reporting whether it arrived carrying one camera.
+│   ├── if format == "json"
+│   │   ├── impls was_single = isinstance(payload, dict)
+│   │   ├── if was_single
+│   │   │   └── impls payload = that bare per-camera dict wrapped in a list
+│   │   └── return payload, was_single
+│   ├── if format == "npz"
+│   │   ├── impls was_single = payload["extrinsics"] carries no leading batch axis
+│   │   ├── if was_single
+│   │   │   └── impls payload = each array given its leading batch axis back
+│   │   └── return payload, was_single
+│   └── assert 0, "Should not reach here."
+├── def _normalize_payload_to_single(payload: Union[Dict[str, Any], List[Dict[str, Any]]], format: str) -> Dict[str, Any]
+│   ├── # Reduce a plural payload to the single form its own format spells.
+│   ├── if format == "json"
+│   │   └── return payload[0]  # json spells one camera as the bare per-camera dict standing where the list would
+│   ├── if format == "npz"
+│   │   └── return each array in payload indexed at 0  # npz spells it as the same keys, one axis shorter
+│   └── assert 0, "Should not reach here."
 ├── def _resolve_format_from_path(cameras_path: Path) -> str
 │   ├── # Resolve a Cameras serialization format from a file path.
 │   └── calls _normalize_format

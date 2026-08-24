@@ -205,9 +205,11 @@ def test_single_camera_npz_round_trip(tmp_path: Path) -> None:
 
     serialized = serialize_cameras(cameras=camera, format="npz")
     assert isinstance(serialized, dict), f"{type(serialized)=}"
-    assert set(serialized.keys()) == _NPZ_KEYS | {
-        "is_single"
-    }, f"{set(serialized.keys())=}"
+    assert set(serialized.keys()) == _NPZ_KEYS, f"{set(serialized.keys())=}"
+    assert serialized["extrinsics"].shape == (
+        4,
+        4,
+    ), f"{serialized['extrinsics'].shape=}"
 
     deserialized = deserialize_cameras(payload=serialized, device="cpu", format="npz")
     _assert_camera_fields_equal(loaded=deserialized, original=camera)
@@ -215,7 +217,7 @@ def test_single_camera_npz_round_trip(tmp_path: Path) -> None:
     npz_path = tmp_path / "camera.npz"
     save_cameras(cameras=camera, cameras_path=npz_path)
     with np.load(npz_path, allow_pickle=False) as on_disk:
-        assert set(on_disk.files) == _NPZ_KEYS | {"is_single"}, f"{set(on_disk.files)=}"
+        assert set(on_disk.files) == _NPZ_KEYS, f"{set(on_disk.files)=}"
     _assert_camera_fields_equal(
         loaded=load_cameras(cameras_path=npz_path, device="cpu"), original=camera
     )
@@ -266,7 +268,6 @@ def test_multi_cameras_npz_round_trip(tmp_path: Path) -> None:
     serialized = serialize_cameras(cameras=cameras, format="npz")
     assert isinstance(serialized, dict), f"{type(serialized)=}"
     assert set(serialized.keys()) == _NPZ_KEYS, f"{set(serialized.keys())=}"
-    assert "is_single" not in serialized, f"{set(serialized.keys())=}"
     assert serialized["extrinsics"].shape == (
         len(cameras),
         4,

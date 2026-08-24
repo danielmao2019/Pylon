@@ -2,7 +2,7 @@
 
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -138,44 +138,75 @@ def serialize_cameras(
     Returns:
         For `json`, a list of per-camera dicts for a `Cameras` or a bare dict for
         a single `Camera`. For `npz`, the batched-array payload for a `Cameras` or
-        the same batched-array payload tagged with an `is_single` flag for a single
-        `Camera`.
+        the same batched-array payload with the leading batch axis dropped from
+        every array for a single `Camera`.
     """
     # Inline runtime imports; camera.py and cameras.py import this module, so a
     # module-top import would cycle.
     from data.structures.three_d.camera.camera import Camera
     from data.structures.three_d.camera.cameras import Cameras
 
-    # Input validations
-    assert isinstance(cameras, (Camera, Cameras)), (
-        "Expected object to serialize to be a Camera or a Cameras. " f"{type(cameras)=}"
-    )
-
-    # Input normalizations
-    format = _normalize_format(format=format)
-    was_single = isinstance(cameras, Camera)
-    if was_single:
-        cameras = Cameras(
-            intrinsics=[cameras.intrinsics],
-            extrinsics=[cameras.extrinsics],
-            names=[cameras.name],
-            ids=[cameras.id],
-            device=cameras.device,
+    def _validate_inputs() -> None:
+        assert isinstance(cameras, (Camera, Cameras)), (
+            "Expected object to serialize to be a Camera or a Cameras. "
+            f"{type(cameras)=}"
+        )
+        assert format in _CAMERA_SERIALIZATION_FORMATS, (
+            "Expected Cameras serialization format to be supported. "
+            f"{format=} {_CAMERA_SERIALIZATION_FORMATS=}"
         )
 
-    if format == "json":
-        payload = _serialize_cameras_json(cameras=cameras)
+    _validate_inputs()
+
+    def _normalize_inputs(
+        cameras: Union["Camera", "Cameras"],
+    ) -> Tuple["Cameras", bool]:
+        was_single = isinstance(cameras, Camera)
         if was_single:
-            return payload[0]
+            cameras = Cameras(
+                intrinsics=[cameras.intrinsics],
+                extrinsics=[cameras.extrinsics],
+                names=[cameras.name],
+                ids=[cameras.id],
+                device=cameras.device,
+            )
+        return cameras, was_single
+
+    cameras, was_single = _normalize_inputs(cameras=cameras)
+
+    def _serialize() -> Union[Dict[str, Any], List[Dict[str, Any]]]:
+        """Map the plural Cameras to the plural payload the format spells it in.
+
+        Args:
+            None; reads the normalized `cameras` and `format` of the enclosing call.
+
+        Returns:
+            The plural payload for the requested format.
+        """
+        if format == "json":
+            return _serialize_cameras_json(cameras=cameras)
+        if format == "npz":
+            return _serialize_cameras_npz(cameras=cameras)
+        assert False, (
+            "Expected Cameras serialization format to be handled. " f"{format=}"
+        )
+
+    payload = _serialize()
+
+    def _normalize_outputs() -> Union[Dict[str, Any], List[Dict[str, Any]]]:
+        """Hand back the single form one Camera asked for, else the plural payload.
+
+        Args:
+            None; reads the `payload`, `was_single` and `format` of the enclosing call.
+
+        Returns:
+            The payload in the form the caller's own input carried.
+        """
+        if was_single:
+            return _normalize_payload_to_single(payload=payload, format=format)
         return payload
 
-    if format == "npz":
-        payload = _serialize_cameras_npz(cameras=cameras)
-        if was_single:
-            payload["is_single"] = np.array(True)
-        return payload
-
-    assert False, "Expected Cameras serialization format to be handled. " f"{format=}"
+    return _normalize_outputs()
 
 
 def deserialize_cameras(
@@ -192,8 +223,8 @@ def deserialize_cameras(
 
     Args:
         payload: For `json`, a list of per-camera dicts (plural) or a bare dict
-            (single). For `npz`, the batched-array payload, optionally tagged with
-            an `is_single` flag.
+            (single). For `npz`, the batched-array payload, whose arrays carry no
+            leading batch axis when it holds a single camera.
         device: Target device for the deserialized cameras.
         format: Serialization format, either `json` or `npz`.
 
@@ -201,46 +232,78 @@ def deserialize_cameras(
         A single `Camera` when the payload was in single form, otherwise a
         `Cameras` collection.
     """
-    # Input validations
-    assert isinstance(payload, (dict, list)), (
-        "Expected Cameras payload to be a dictionary or a list. " f"{type(payload)=}"
-    )
-    assert device is None or isinstance(device, (str, torch.device)), (
-        "Expected Cameras device to be None, a string, or a torch device. " f"{device=}"
+
+    def _validate_inputs() -> None:
+        assert isinstance(payload, (dict, list)), (
+            "Expected Cameras payload to be a dictionary or a list. "
+            f"{type(payload)=}"
+        )
+        assert device is None or isinstance(device, (str, torch.device)), (
+            "Expected Cameras device to be None, a string, or a torch device. "
+            f"{device=}"
+        )
+        assert format in _CAMERA_SERIALIZATION_FORMATS, (
+            "Expected Cameras serialization format to be supported. "
+            f"{format=} {_CAMERA_SERIALIZATION_FORMATS=}"
+        )
+        if format == "npz":
+            assert isinstance(payload, dict), (
+                "Expected Cameras NPZ payload to be a dictionary. " f"{type(payload)=}"
+            )
+
+    _validate_inputs()
+
+    def _normalize_inputs(
+        payload: Union[Dict[str, Any], List[Dict[str, Any]]],
+        device: Optional[Union[str, torch.device]],
+    ) -> Tuple[Union[Dict[str, Any], List[Dict[str, Any]]], torch.device, bool]:
+        payload, was_single = _normalize_payload_to_plural(
+            payload=payload, format=format
+        )
+        target_device = (
+            torch.device(device) if device is not None else torch.device("cpu")
+        )
+        return payload, target_device, was_single
+
+    payload, target_device, was_single = _normalize_inputs(
+        payload=payload, device=device
     )
 
-    # Input normalizations
-    format = _normalize_format(format=format)
-    target_device = torch.device(device) if device is not None else torch.device("cpu")
+    def _deserialize() -> "Cameras":
+        """Map the plural payload the format spells back to the plural Cameras.
 
-    if format == "json":
-        was_single = isinstance(payload, dict)
-        per_camera_dicts = [payload] if was_single else payload
-        cameras = _deserialize_cameras_json(
-            per_camera_dicts=per_camera_dicts,
-            device=target_device,
-        )
-    elif format == "npz":
-        assert isinstance(payload, dict), (
-            "Expected Cameras NPZ payload to be a dictionary. " f"{type(payload)=}"
-        )
-        was_single = "is_single" in payload
-        if was_single:
-            payload = {
-                key: value for key, value in payload.items() if key != "is_single"
-            }
-        cameras = _deserialize_cameras_npz(
-            payload=payload,
-            device=target_device,
-        )
-    else:
+        Args:
+            None; reads the normalized `payload`, `format` and `target_device`.
+
+        Returns:
+            The `Cameras` the plural payload decodes to.
+        """
+        if format == "json":
+            return _deserialize_cameras_json(
+                per_camera_dicts=payload, device=target_device
+            )
+        if format == "npz":
+            return _deserialize_cameras_npz(payload=payload, device=target_device)
         assert False, (
             "Expected Cameras deserialization format to be handled. " f"{format=}"
         )
 
-    if was_single:
-        return cameras[0]
-    return cameras
+    cameras = _deserialize()
+
+    def _normalize_outputs() -> Union["Camera", "Cameras"]:
+        """Hand back the one Camera the payload carried, else the Cameras whole.
+
+        Args:
+            None; reads the decoded `cameras` and `was_single` of the enclosing call.
+
+        Returns:
+            A single `Camera` when the payload was in single form, else the `Cameras`.
+        """
+        if was_single:
+            return cameras[0]
+        return cameras
+
+    return _normalize_outputs()
 
 
 def _serialize_cameras_json(cameras: "Cameras") -> List[Dict[str, Any]]:
@@ -521,6 +584,63 @@ def _deserialize_cameras_npz(
     )
 
 
+def _normalize_payload_to_plural(
+    payload: Union[Dict[str, Any], List[Dict[str, Any]]],
+    format: str,
+) -> Tuple[Union[Dict[str, Any], List[Dict[str, Any]]], bool]:
+    """Restore a payload to its format's plural form.
+
+    Args:
+        payload: The payload as the caller supplied it, in either form. For `json`,
+            a list of per-camera dicts (plural) or a bare dict (single). For `npz`,
+            the batched-array payload keyed by `_CAMERA_NPZ_KEYS`, whose arrays carry
+            a leading batch axis in plural form and none in single form.
+        format: Normalized serialization format, either `json` or `npz`.
+
+    Returns:
+        The plural payload, and whether the input carried exactly one camera.
+    """
+    if format == "json":
+        was_single = isinstance(payload, dict)
+        if was_single:
+            payload = [payload]
+        return payload, was_single
+
+    if format == "npz":
+        was_single = np.asarray(payload["extrinsics"]).ndim == 2
+        if was_single:
+            payload = {
+                key: np.asarray(value)[None, ...] for key, value in payload.items()
+            }
+        return payload, was_single
+
+    assert False, "Expected Cameras deserialization format to be handled. " f"{format=}"
+
+
+def _normalize_payload_to_single(
+    payload: Union[Dict[str, Any], List[Dict[str, Any]]],
+    format: str,
+) -> Dict[str, Any]:
+    """Reduce a plural payload to the single form its own format spells.
+
+    Args:
+        payload: The plural payload the format helpers produced. For `json`, the list
+            of per-camera dicts; for `npz`, the batched-array payload.
+        format: Normalized serialization format, either `json` or `npz`.
+
+    Returns:
+        For `json`, the sole per-camera dict. For `npz`, the same keys with the
+        leading batch axis dropped from every array.
+    """
+    if format == "json":
+        return payload[0]
+
+    if format == "npz":
+        return {key: value[0] for key, value in payload.items()}
+
+    assert False, "Expected Cameras serialization format to be handled. " f"{format=}"
+
+
 def _resolve_format_from_path(cameras_path: Path) -> str:
     """Resolve a Cameras serialization format from a file path.
 
@@ -550,15 +670,6 @@ def _normalize_format(format: str) -> str:
     Returns:
         Normalized serialization format name.
     """
-    # Input validations
-    assert isinstance(format, str), (
-        "Expected Cameras serialization format to be a string. " f"{type(format)=}"
-    )
-    assert format != "", (
-        "Expected Cameras serialization format to be non-empty. " f"{format=}"
-    )
-
-    # Input normalizations
     format = format.strip()
     assert format != "", (
         "Expected Cameras serialization format to be non-empty after stripping. "
