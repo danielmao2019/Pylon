@@ -1,6 +1,16 @@
 # Camera Data Structure Code Structure
 
-## 1. Code structure trees
+## 1. Inheritance / type trees
+
+```text
+class ABC
+└── class CameraIntrinsics  # from here down, its complete set of direct subclasses
+    ├── class CameraIntrinsicsSimplePinhole
+    ├── class CameraIntrinsicsPinhole
+    └── class CameraIntrinsicsOrtho
+```
+
+## 2. Code structure trees
 
 `./data/structures/three_d/camera/intrinsics/validation.py`
 

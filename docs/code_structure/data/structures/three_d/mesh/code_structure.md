@@ -1,5 +1,14 @@
 # Mesh Data Structure Code Structure
 
+## Inheritance / type trees
+
+```text
+class abc.ABC
+└── class MeshTexture  # from here down, its complete set of direct subclasses
+    ├── class MeshTextureVertexColor
+    └── class MeshTextureUVTextureMap
+```
+
 ## Mesh class
 
 `data/structures/three_d/mesh/mesh.py`
