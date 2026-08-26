@@ -384,6 +384,8 @@ load.py
 
 ```text
 load_obj.py
+├── from pathlib import Path
+├── from typing import Dict, List, Union
 ├── from pytorch3d.io import load_obj
 ├── from data.structures.three_d.mesh.load.merge import merge_meshes, pack_texture_images
 ├── from data.structures.three_d.mesh.mesh import Mesh
@@ -425,9 +427,38 @@ load_obj.py
 │   ├── # Resolves a mesh path to exactly one OBJ file.
 │   └── calls _resolve_input_paths
 ├── def _resolve_input_paths(path: Union[str, Path]) -> List[Path]
-│   └── # Resolves a mesh path to one OBJ file, or every OBJ at the top level / one level below a directory.
+│   ├── # Resolves a mesh path to one OBJ file, or every OBJ at the top level / one level below a directory.
+│   ├── impls candidate_path = path as a Path
+│   ├── if candidate_path is a file
+│   │   ├── impls assert its lowercased suffix is ".obj"
+│   │   └── return [candidate_path]
+│   ├── impls assert candidate_path is a directory
+│   ├── impls top_level_obj_paths = the sorted *.obj entries directly under it
+│   ├── impls nested_obj_paths = the sorted */*.obj entries one level below it
+│   ├── impls assert the two are not both non-empty
+│   ├── impls candidate_obj_paths = top_level_obj_paths followed by nested_obj_paths
+│   ├── impls assert candidate_obj_paths is non-empty
+│   └── return candidate_obj_paths
 └── def _inspect_obj_file(obj_path: Path) -> Dict[str, bool]
-    └── # Inspects one OBJ to detect its texture representation (has_vertex_colors / has_uv_coords / has_uv_faces / has_mtllib).
+    ├── # Inspects one OBJ to detect its texture representation (has_vertex_colors / has_uv_coords / has_uv_faces / has_mtllib).
+    ├── impls start all four flags false
+    ├── for each stripped line of the OBJ file
+    │   ├── if the line is blank or starts with "#"
+    │   │   └── continue
+    │   ├── if the line starts with "mtllib "
+    │   │   ├── impls has_mtllib = True
+    │   │   └── continue
+    │   ├── if the line starts with "vt "
+    │   │   ├── impls has_uv_coords = True
+    │   │   └── continue
+    │   ├── if the line starts with "v "
+    │   │   ├── if it carries seven or more whitespace-separated tokens
+    │   │   │   └── impls has_vertex_colors = True
+    │   │   └── continue
+    │   └── if the line starts with "f "
+    │       └── if any of its corner tokens contains "/"
+    │           └── impls has_uv_faces = True
+    └── return the four flags keyed has_vertex_colors / has_uv_coords / has_uv_faces / has_mtllib
 ```
 
 ## Loading: GLB
@@ -436,6 +467,8 @@ load_obj.py
 
 ```text
 load_glb.py
+├── from pathlib import Path
+├── from typing import Any, Dict, Tuple, Union
 ├── import numpy as np
 ├── import torch
 ├── from data.structures.three_d.mesh.mesh import Mesh
@@ -481,9 +514,23 @@ load_glb.py
 │   ├── calls shift_seam_crossing_faces_to_seam_safe  # raw glTF verts_uvs -> seam-safe canonical
 │   └── return Mesh  # MeshTextureUVTextureMap(convention="top_left")
 ├── def _select_mesh_primitive(gltf: Dict[str, Any]) -> Tuple[int, int]
-│   └── # Selects the (mesh_index, primitive_index) to load — the primitive whose material carries a base-color texture (for a GLB of many untextured marker meshes plus one textured face, this uniquely picks the face).
+│   ├── # Selects the (mesh_index, primitive_index) to load — the primitive whose material carries a base-color texture (for a GLB of many untextured marker meshes plus one textured face, this uniquely picks the face).
+│   ├── impls assert the glTF declares at least one mesh
+│   ├── for each (mesh_index, primitive_index) over the glTF meshes and their primitives
+│   │   ├── impls is_textured = the primitive names a material that exists and carries a baseColorTexture  # impls-node-one-step:skip
+│   │   ├── impls vertex_count = the POSITION accessor's count, or 0 when the primitive declares none
+│   │   ├── if is_textured and no textured choice is held yet
+│   │   │   └── impls textured_choice = that pair
+│   │   └── if vertex_count exceeds the largest vertex count seen
+│   │       ├── impls largest_vertex_count = vertex_count
+│   │       └── impls largest_choice = that pair
+│   ├── impls assert largest_choice was set
+│   └── return textured_choice when one was found, else largest_choice  # the most-vertex primitive is the fallback
 └── def _resolve_base_color_texture_image_index(gltf: Dict[str, Any], primitive: Dict[str, Any]) -> int
-    └── # Resolves a primitive's material base-color texture to its glTF image index (glTF-semantic material navigation).
+    ├── # Resolves a primitive's material base-color texture to its glTF image index (glTF-semantic material navigation).
+    ├── impls base_color_texture = the primitive's material's pbrMetallicRoughness baseColorTexture
+    ├── impls texture_index = that texture's index
+    └── return the source of the glTF texture at texture_index, as an int
 ```
 
 ## Loading: block merging
@@ -492,6 +539,8 @@ load_glb.py
 
 ```text
 merge.py
+├── from typing import Dict, Sequence, Tuple
+├── import torch
 ├── from data.structures.three_d.mesh.mesh import Mesh
 ├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
 ├── from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import MeshTextureVertexColor
@@ -510,9 +559,23 @@ merge.py
 │   │   └── return
 │   └── assert 0, "should not reach here"
 ├── def _merge_geometry_only_meshes(mesh_blocks: Sequence[Mesh]) -> Mesh
-│   └── # Merges geometry-only mesh blocks, concatenating geometry with vertex offsets.
+│   ├── # Merges geometry-only mesh blocks, concatenating geometry with vertex offsets.
+│   ├── for each mesh block
+│   │   ├── impls append its verts
+│   │   ├── impls append its faces offset by the preceding blocks' vertex count
+│   │   └── impls advance the vertex offset by its vertex count
+│   ├── calls Mesh(verts=the concatenated verts, faces=the concatenated faces, texture=None)
+│   └── return
 ├── def _merge_vertex_color_meshes(mesh_blocks: Sequence[Mesh]) -> Mesh
-│   └── # Merges vertex-colored mesh blocks, concatenating geometry and vertex colors with vertex offsets.
+│   ├── # Merges vertex-colored mesh blocks, concatenating geometry and vertex colors with vertex offsets.
+│   ├── for each mesh block
+│   │   ├── impls append its verts
+│   │   ├── impls append its faces offset by the preceding blocks' vertex count
+│   │   ├── impls append its texture.vertex_color
+│   │   └── impls advance the vertex offset by its vertex count
+│   ├── calls MeshTextureVertexColor(vertex_color=the concatenated vertex colors)
+│   ├── calls Mesh(verts=the concatenated verts, faces=the concatenated faces, texture=that MeshTextureVertexColor)
+│   └── return
 ├── def _merge_uv_textured_meshes(mesh_blocks: Sequence[Mesh]) -> Mesh
 │   ├── # Merges UV-textured mesh blocks, concatenating geometry and UV and packing per-block textures into one atlas.
 │   └── calls _pack_texture_maps
@@ -523,7 +586,17 @@ merge.py
 │   ├── # Stacks texture maps into one atlas and rebuilds the per-corner UV table.
 │   └── calls _remap_uvs
 └── def _remap_uvs(verts_uvs: torch.Tensor, faces_uvs: torch.Tensor, map_offsets: torch.Tensor, atlas_height: int, atlas_width: int, materials_idx: torch.Tensor) -> torch.Tensor
-    └── # Rescales and offsets each material's UVs into its packed atlas region.
+    ├── # Rescales and offsets each material's UVs into its packed atlas region.
+    ├── impls flat_uv_coords = a copy of verts_uvs gathered by the flattened faces_uvs
+    ├── impls flat_material_ids = materials_idx repeated once per face corner
+    ├── for each distinct material id
+    │   ├── impls assert it indexes a row of map_offsets
+    │   ├── impls offset_y, texture_height, texture_width = that material's map_offsets row
+    │   ├── impls scale its rows' u by texture_width over atlas_width
+    │   ├── impls scale its rows' v by texture_height
+    │   ├── impls shift its rows' v by offset_y
+    │   └── impls divide its rows' v by atlas_height
+    └── return flat_uv_coords, contiguous
 ```
 
 ## Saving: API and format dispatch
