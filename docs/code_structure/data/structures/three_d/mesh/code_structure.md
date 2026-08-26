@@ -54,6 +54,9 @@ mesh.py
 
 ```text
 validate.py
+├── from typing import Any, Optional
+├── import torch
+├── from data.structures.three_d.mesh.texture.mesh_texture import MeshTexture
 ├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
 ├── from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import MeshTextureVertexColor
 ├── def validate_mesh_attributes(verts: torch.Tensor, faces: torch.Tensor, texture: Optional[MeshTexture] = None) -> None
@@ -68,11 +71,27 @@ validate.py
 │   └── if isinstance(texture, MeshTextureUVTextureMap)
 │       └── impls assert texture.faces_uvs.shape equals faces.shape
 ├── def validate_verts(obj: Any) -> None
-│   └── # Validates a mesh vertex tensor (float [V,3], finite, non-empty).
+│   ├── # Validates a mesh vertex tensor (float [V,3], finite, non-empty).
+│   ├── impls assert obj is a torch.Tensor
+│   ├── impls assert obj is rank 2
+│   ├── impls assert obj's last axis is the XYZ triple
+│   ├── impls assert obj carries at least one vertex
+│   ├── impls assert obj's dtype is floating
+│   └── impls assert every obj entry is finite
 ├── def validate_faces(obj: Any) -> None
-│   └── # Validates a mesh face tensor (integer [F,3], non-empty, non-negative indices).
+│   ├── # Validates a mesh face tensor (integer [F,3], non-empty, non-negative indices).
+│   ├── impls assert obj is a torch.Tensor
+│   ├── impls assert obj is rank 2
+│   ├── impls assert obj's last axis is the triangular index triple
+│   ├── impls assert obj carries at least one face
+│   ├── impls assert obj's dtype is not floating
+│   ├── impls assert obj's dtype is not bool
+│   └── impls assert obj's smallest index is at least 0
 └── def _validate_device_compatible(verts: torch.Tensor, faces: torch.Tensor, texture: Optional[MeshTexture]) -> None
-    └── # Asserts the texture's tensors live on the verts' device.
+    ├── # Asserts the texture's tensors live on the verts' device.
+    ├── impls assert faces.device equals verts.device
+    └── if texture is not None
+        └── impls assert texture.device equals verts.device
 ```
 
 ## Texture: abstract base
@@ -193,6 +212,8 @@ canonicalize.py
 
 ```text
 validate_vertex_color.py
+├── from typing import Any
+├── import torch
 ├── def validate_vertex_color(obj: Any) -> None
 │   ├── # Validates a vertex-color tensor ([V,3] or [1,V,3]; uint8 [0,255] or float32 [0,1]).
 │   ├── if obj.dtype == torch.uint8
@@ -203,9 +224,14 @@ validate_vertex_color.py
 │   │   └── return
 │   └── assert 0, "should not reach here"
 ├── def _validate_vertex_color_uint8(obj: Any) -> None
-│   └── # Validates a uint8 vertex-color tensor.
+│   ├── # Validates a uint8 vertex-color tensor.
+│   └── impls assert obj's dtype is torch.uint8
 └── def _validate_vertex_color_float32(obj: Any) -> None
-    └── # Validates a float32 vertex-color tensor (finite, RGB values within [0,1]).
+    ├── # Validates a float32 vertex-color tensor (finite, RGB values within [0,1]).
+    ├── impls assert obj's dtype is torch.float32
+    ├── impls assert every obj entry is finite
+    ├── impls assert obj's smallest value is at least 0
+    └── impls assert obj's largest value is at most 1
 ```
 
 ## Texture: uv-texture-map validation
@@ -214,6 +240,8 @@ validate_vertex_color.py
 
 ```text
 validate_uv_texture_map.py
+├── from typing import Any
+├── import torch
 ├── def validate_uv_texture_map(uv_texture_map: torch.Tensor, verts_uvs: torch.Tensor, faces_uvs: torch.Tensor, convention: str) -> None
 │   ├── # Validates the whole uv-texture-map representation: every single-field validator plus the cross-field invariants.
 │   ├── calls validate_uv_texture_map_image(uv_texture_map)                    # single-field
@@ -231,15 +259,37 @@ validate_uv_texture_map.py
 │   │   └── return
 │   └── assert 0, "should not reach here"
 ├── def _validate_uv_texture_map_image_uint8(obj: Any) -> None
-│   └── # Validates a uint8 UV texture image tensor.
+│   ├── # Validates a uint8 UV texture image tensor.
+│   └── impls assert obj's dtype is torch.uint8
 ├── def _validate_uv_texture_map_image_float32(obj: Any) -> None
-│   └── # Validates a float32 UV texture image tensor (finite, values within [0,1]).
+│   ├── # Validates a float32 UV texture image tensor (finite, values within [0,1]).
+│   ├── impls assert obj's dtype is torch.float32
+│   ├── impls assert every obj entry is finite
+│   ├── impls assert obj's smallest value is at least 0
+│   └── impls assert obj's largest value is at most 1
 ├── def validate_verts_uvs(obj: Any) -> None
-│   └── # Validates a UV-coordinate table (float [U,2], finite, non-negative; values may exceed 1 — see the seam contract on MeshTextureUVTextureMap).
+│   ├── # Validates a UV-coordinate table (float [U,2], finite, non-negative; values may exceed 1 — see the seam contract on MeshTextureUVTextureMap).
+│   ├── impls assert obj is a torch.Tensor
+│   ├── impls assert obj is rank 2
+│   ├── impls assert obj's last axis is the UV pair
+│   ├── impls assert obj carries at least one UV coordinate
+│   ├── impls assert obj's dtype is floating
+│   ├── impls assert every obj entry is finite
+│   └── impls assert obj's smallest value is at least 0
 ├── def validate_faces_uvs(obj: Any) -> None
-│   └── # Validates a face-to-UV index tensor (integer [F,3], non-empty, non-negative indices).
+│   ├── # Validates a face-to-UV index tensor (integer [F,3], non-empty, non-negative indices).
+│   ├── impls assert obj is a torch.Tensor
+│   ├── impls assert obj is rank 2
+│   ├── impls assert obj's last axis is the triangular UV index triple
+│   ├── impls assert obj carries at least one face
+│   ├── impls assert obj's dtype is not floating
+│   ├── impls assert obj's dtype is not bool
+│   └── impls assert obj's smallest index is at least 0
 ├── def validate_convention(obj: Any) -> str
-│   └── # Validates and returns a UV-origin convention string (one of "obj", "top_left").
+│   ├── # Validates and returns a UV-origin convention string (one of "obj", "top_left").
+│   ├── impls assert obj is a str
+│   ├── impls assert obj is one of ("obj", "top_left")
+│   └── return obj
 └── def _validate_verts_uvs_faces_uvs_cross_field(verts_uvs: torch.Tensor, faces_uvs: torch.Tensor) -> None
     ├── # Validates the cross-field invariants between verts_uvs and faces_uvs.
     ├── def _validate_faces_uvs_index_range() -> None [local]
