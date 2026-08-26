@@ -636,6 +636,10 @@ save.py
 
 ```text
 save_obj.py
+├── from pathlib import Path
+├── from typing import Union
+├── import numpy as np
+├── import torch
 ├── from data.structures.three_d.mesh.mesh import Mesh
 ├── from data.structures.three_d.mesh.texture.canonicalize import collapse_seam_shifted_uv_rows
 ├── from data.structures.three_d.mesh.texture.conventions import transform_convention
@@ -655,7 +659,10 @@ save_obj.py
 │   │   └── return
 │   └── assert 0, "should not reach here"
 ├── def _save_geometry_only_obj(mesh: Mesh, obj_path: Path) -> None
-│   └── # Writes the OBJ v / f lines.
+│   ├── # Writes the OBJ v / f lines.
+│   ├── impls write one "v x y z" line per verts row, each coordinate to six decimals
+│   ├── impls write one "f i j k" line per faces row, its indices 1-based
+│   └── return
 ├── def _save_vertex_color_obj(mesh: Mesh, obj_path: Path) -> None
 │   ├── # Writes the OBJ v-x-y-z-r-g-b / f lines.
 │   └── calls _normalize_vertex_color_for_obj
@@ -665,11 +672,23 @@ save_obj.py
 │   ├── calls transform_convention(mesh.texture.verts_uvs, mesh.texture.convention, "obj")  # the convention the vt lines are written in
 │   └── calls collapse_seam_shifted_uv_rows  # seam-safe canonical -> OBJ vt structure
 ├── def _resolve_output_obj_path(output_path: Union[str, Path]) -> Path
-│   └── # Resolves an output path to a concrete .obj file path (an ".obj" path, or "<dir>/mesh.obj").
+│   ├── # Resolves an output path to a concrete .obj file path (an ".obj" path, or "<dir>/mesh.obj").
+│   ├── impls candidate_path = output_path as a Path
+│   ├── if its lowercased suffix is ".obj"
+│   │   └── return candidate_path
+│   ├── impls assert it carries no suffix at all
+│   └── return candidate_path / "mesh.obj"
 ├── def _normalize_vertex_color_for_obj(vertex_color: torch.Tensor) -> torch.Tensor
-│   └── # Normalizes vertex color to float32 [0,1] for OBJ export.
+│   ├── # Normalizes vertex color to float32 [0,1] for OBJ export.
+│   ├── if vertex_color's dtype is torch.uint8
+│   │   └── return vertex_color as float32 divided by 255, contiguous
+│   └── return vertex_color, contiguous
 └── def _normalize_uv_texture_map_for_png(uv_texture_map: torch.Tensor) -> np.ndarray
-    └── # Normalizes a UV texture map to a uint8 HWC array for PNG export.
+    ├── # Normalizes a UV texture map to a uint8 HWC array for PNG export.
+    ├── impls texture_cpu = uv_texture_map on the host
+    ├── if texture_cpu's dtype is torch.uint8
+    │   └── return texture_cpu as an array
+    └── return texture_cpu scaled by 255, rounded, as a uint8 array
 ```
 
 ## Saving: PLY
@@ -678,6 +697,9 @@ save_obj.py
 
 ```text
 save_ply.py
+├── from pathlib import Path
+├── from typing import Union
+├── import torch
 ├── from data.structures.three_d.mesh.mesh import Mesh
 ├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
 ├── from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import MeshTextureVertexColor
@@ -694,14 +716,26 @@ save_ply.py
 │   │   └── raise ValueError  # a UV-atlas texture cannot be written to PLY; save to OBJ or GLB
 │   └── assert 0, "should not reach here"
 ├── def _save_geometry_only_ply(mesh: Mesh, ply_path: Path) -> None
-│   └── # Writes a geometry-only PLY.
+│   ├── # Writes a geometry-only PLY.
+│   ├── impls write the ascii PLY header declaring V vertex elements with float x / y / z and F face elements with a uchar-int vertex_indices list  # impls-node-one-step:skip
+│   ├── impls write one "x y z" row per verts row, each coordinate to six decimals
+│   ├── impls write one "3 i j k" row per faces row
+│   └── return
 ├── def _save_vertex_color_ply(mesh: Mesh, ply_path: Path) -> None
 │   ├── # Writes a vertex-colored PLY.
 │   └── calls _normalize_vertex_color_for_ply
 ├── def _resolve_output_ply_path(output_path: Union[str, Path]) -> Path
-│   └── # Resolves an output path to a concrete .ply file path (a ".ply" path, or "<dir>/mesh.ply").
+│   ├── # Resolves an output path to a concrete .ply file path (a ".ply" path, or "<dir>/mesh.ply").
+│   ├── impls candidate_path = output_path as a Path
+│   ├── if its lowercased suffix is ".ply"
+│   │   └── return candidate_path
+│   ├── impls assert it carries no suffix at all
+│   └── return candidate_path / "mesh.ply"
 └── def _normalize_vertex_color_for_ply(vertex_color: torch.Tensor) -> torch.Tensor
-    └── # Normalizes vertex color to uint8 [0,255] for PLY export.
+    ├── # Normalizes vertex color to uint8 [0,255] for PLY export.
+    ├── if vertex_color's dtype is torch.uint8
+    │   └── return vertex_color, contiguous
+    └── return vertex_color scaled by 255, rounded, as uint8, contiguous
 ```
 
 ## Saving: GLB
@@ -710,6 +744,8 @@ save_ply.py
 
 ```text
 save_glb.py
+├── from pathlib import Path
+├── from typing import Union
 ├── import numpy as np
 ├── import torch
 ├── from data.structures.three_d.mesh.mesh import Mesh
@@ -732,11 +768,11 @@ save_glb.py
 │   │   └── return
 │   └── assert 0, "should not reach here"
 ├── def _save_geometry_only_glb(mesh: Mesh, glb_path: Path) -> None
-│   ├── # Appends POSITION + indices accessors and writes the GLB (no material).
+│   ├── # Appends POSITION + indices accessors and writes the GLB.
 │   ├── calls append_accessor
 │   └── calls write_glb
 ├── def _save_vertex_color_glb(mesh: Mesh, glb_path: Path) -> None
-│   ├── # Appends POSITION + indices + COLOR_0 accessors and writes the GLB (no texture material).
+│   ├── # Appends POSITION + indices + COLOR_0 accessors and writes the GLB.
 │   ├── calls append_accessor
 │   └── calls write_glb
 ├── def _save_uv_texture_map_glb(mesh: Mesh, glb_path: Path) -> None
@@ -747,7 +783,12 @@ save_glb.py
 │   ├── calls append_image
 │   └── calls write_glb
 └── def _resolve_output_glb_path(output_path: Union[str, Path]) -> Path
-    └── # Resolves an output path to a concrete .glb file path (a ".glb" path, or "<dir>/mesh.glb").
+    ├── # Resolves an output path to a concrete .glb file path (a ".glb" path, or "<dir>/mesh.glb").
+    ├── impls candidate_path = output_path as a Path
+    ├── if its lowercased suffix is ".glb"
+    │   └── return candidate_path
+    ├── impls assert it carries no suffix at all
+    └── return candidate_path / "mesh.glb"
 ```
 
 ## Framework interop conversions
