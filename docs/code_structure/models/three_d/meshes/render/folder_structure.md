@@ -15,4 +15,5 @@ render/
 
 ```text
 tests/models/three_d/meshes/render/
+└── test_core.py  # _prepare_cameras: both camera frames reach PyTorch3D in its own frames.
 ```

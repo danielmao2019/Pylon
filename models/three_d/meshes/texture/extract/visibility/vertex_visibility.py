@@ -5,8 +5,11 @@ from typing import Optional
 import torch
 
 from data.structures.three_d.camera.cameras import Cameras
+from data.structures.three_d.camera.intrinsics.camera_intrinsics import CameraIntrinsics
 from data.structures.three_d.mesh.mesh import Mesh
 from models.three_d.meshes.texture.extract.camera_geometry import (
+    compute_camera_view_directions,
+    compute_points_in_front_of_camera,
     project_verts_to_image,
     render_camera_face_index_buffer,
 )
@@ -60,20 +63,10 @@ def compute_v_visibility_mask(
         image_height=image_height,
         image_width=image_width,
     )
-    intrinsics = camera[0].intrinsics
-    intrinsics_matrix = torch.tensor(
-        [
-            [intrinsics.fx, 0.0, intrinsics.cx],
-            [0.0, intrinsics.fy, intrinsics.cy],
-            [0.0, 0.0, 1.0],
-        ],
-        dtype=torch.float32,
-        device=intrinsics.device,
-    )
     visible_vertex_mask = _compute_rasterized_visible_vertex_mask(
         verts_camera=verts_camera,
         faces=mesh.faces.to(device=mesh.device, dtype=torch.long).contiguous(),
-        intrinsics=intrinsics_matrix,
+        intrinsics=camera[0].intrinsics,
         image_height=image_height,
         image_width=image_width,
     )
@@ -90,7 +83,7 @@ def compute_v_visibility_mask(
 def _compute_rasterized_visible_vertex_mask(
     verts_camera: torch.Tensor,
     faces: torch.Tensor,
-    intrinsics: torch.Tensor,
+    intrinsics: CameraIntrinsics,
     image_height: int,
     image_width: int,
 ) -> torch.Tensor:
@@ -99,7 +92,7 @@ def _compute_rasterized_visible_vertex_mask(
     Args:
         verts_camera: Camera-space verts [V, 3].
         faces: Mesh faces [F, 3].
-        intrinsics: Camera intrinsics [3, 3].
+        intrinsics: The view's CameraIntrinsics, whose own model owns the projection.
         image_height: Image height in pixels.
         image_width: Image width in pixels.
 
@@ -119,25 +112,28 @@ def _compute_rasterized_visible_vertex_mask(
         # Input validations
         assert isinstance(verts_camera, torch.Tensor), f"{type(verts_camera)=}"
         assert isinstance(faces, torch.Tensor), f"{type(faces)=}"
-        assert isinstance(intrinsics, torch.Tensor), f"{type(intrinsics)=}"
+        assert isinstance(intrinsics, CameraIntrinsics), f"{type(intrinsics)=}"
         assert isinstance(image_height, int), f"{type(image_height)=}"
         assert isinstance(image_width, int), f"{type(image_width)=}"
         assert verts_camera.ndim == 2, f"{verts_camera.shape=}"
         assert verts_camera.shape[1] == 3, f"{verts_camera.shape=}"
         assert faces.ndim == 2, f"{faces.shape=}"
         assert faces.shape[1] == 3, f"{faces.shape=}"
-        assert intrinsics.shape == (3, 3), f"{intrinsics.shape=}"
 
     _validate_inputs()
 
     device = verts_camera.device
     vertex_count = verts_camera.shape[0]
-    positive_depth = verts_camera[:, 2] > 1e-8
+    positive_depth = compute_points_in_front_of_camera(
+        points_camera=verts_camera,
+        intrinsics=intrinsics,
+    )
     if not torch.any(positive_depth):
         return torch.zeros((vertex_count,), device=device, dtype=torch.bool)
     face_front_facing_mask = _compute_face_front_facing_mask(
         verts_camera=verts_camera,
         faces=faces,
+        intrinsics=intrinsics,
     )
     front_facing_faces = faces[face_front_facing_mask].contiguous()
     if front_facing_faces.shape[0] == 0:
@@ -163,12 +159,14 @@ def _compute_rasterized_visible_vertex_mask(
 def _compute_face_front_facing_mask(
     verts_camera: torch.Tensor,
     faces: torch.Tensor,
+    intrinsics: CameraIntrinsics,
 ) -> torch.Tensor:
     """Compute which camera-space mesh faces are front-facing.
 
     Args:
         verts_camera: Camera-space verts [V, 3].
         faces: Mesh faces [F, 3].
+        intrinsics: The view's CameraIntrinsics, whose model decides how the rays run.
 
     Returns:
         Bool mask [F] where `True` means the face is front-facing.
@@ -220,10 +218,9 @@ def _compute_face_front_facing_mask(
     )
     face_normals_camera = face_normals_camera / face_normals_camera_norm
     face_centers_camera = (v0 + v1 + v2) / 3.0
-    face_view_direction = torch.nn.functional.normalize(
-        -face_centers_camera,
-        p=2,
-        dim=1,
+    face_view_direction = compute_camera_view_directions(
+        points_camera=face_centers_camera,
+        intrinsics=intrinsics,
     )
     alignment = (face_normals_camera * face_view_direction).sum(dim=1)
     return alignment > 0.0

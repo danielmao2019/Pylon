@@ -142,11 +142,14 @@ def validate_intrinsics(intrinsics: torch.Tensor) -> None:
 
     validate_camera_intrinsics_params(
         model="pinhole",
+        intr_convention="standard",
         params={
             "fx": float(intrinsics[0, 0]),
             "fy": float(intrinsics[1, 1]),
             "cx": float(intrinsics[0, 2]),
             "cy": float(intrinsics[1, 2]),
+            "h": int(round(2 * float(intrinsics[1, 2]))),
+            "w": int(round(2 * float(intrinsics[0, 2]))),
         },
     )
 

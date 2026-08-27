@@ -25,10 +25,12 @@ def _prepare_cameras(
     resolution: Tuple[int, int],
     device: torch.device,
 ) -> PerspectiveCameras:
-    assert isinstance(camera, Camera), f"{type(camera)=}"
-    camera_prepared = camera.to(device=device, convention='pytorch3d').scale_intrinsics(
-        resolution=resolution
-    )
+    assert isinstance(
+        camera, Camera
+    ), f"Expected `camera` to be a Camera. {type(camera)=}"
+    camera_prepared = camera.to(
+        device=device, intr_convention='pytorch3d', extr_convention='pytorch3d'
+    ).scale_intrinsics(resolution=resolution)
     intrinsics = camera_prepared.intrinsics
 
     # Convert to PyTorch3D coordinate system (right-handed):
@@ -47,17 +49,13 @@ def _prepare_cameras(
     cx = intrinsics.cx
     cy = intrinsics.cy
 
-    image_height, image_width = resolution
-
     cameras = PerspectiveCameras(
         focal_length=torch.tensor([[fx, fy]], dtype=torch.float32, device=device),
         principal_point=torch.tensor([[cx, cy]], dtype=torch.float32, device=device),
-        image_size=torch.tensor(
-            [[image_height, image_width]], dtype=torch.float32, device=device
-        ),
         R=rotation_w2c.unsqueeze(0),
         T=translation_w2c.unsqueeze(0),
-        in_ndc=False,
+        in_ndc=True,
+        device=device,
     )
 
     # Set zfar to maximum float32 value to prevent shader overflow with distant geometry

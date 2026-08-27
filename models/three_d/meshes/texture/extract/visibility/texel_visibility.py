@@ -17,8 +17,8 @@
         Local function: _pack_valid_face_pixel_polygons(...)
     - 1.1.2. Compute inter-polygon occlusion and remove the hidden regions.
       Helper function: _compute_visible_screen_space_polygon_regions_with_occlusion(...)
-      - 1.1.2.1. Compute affine inverse-depth coefficients for the projected faces.
-        Local function: _compute_projected_face_inverse_depth_coefficients(...)
+      - 1.1.2.1. Compute the affine depth-ordering plane the projected faces are compared on.
+        Local function: _compute_projected_face_depth_ordering_coefficients(...)
       - 1.1.2.2. Resolve the exact visible face-pixel polygons from the clipped overlaps.
         Local function: _build_exact_visible_face_pixel_polygons(...)
       - 1.1.2.3. Pack the exact visible polygons into the downstream tensor format.
@@ -57,6 +57,7 @@ from typing import Dict, Tuple
 import torch
 
 from data.structures.three_d.camera.cameras import Cameras
+from data.structures.three_d.camera.intrinsics.camera_intrinsics import CameraIntrinsics
 from data.structures.three_d.mesh.mesh import Mesh
 from models.three_d.meshes.texture.extract.camera_geometry import (
     _verts_world_to_camera,
@@ -68,7 +69,7 @@ from models.three_d.meshes.texture.extract.visibility.texel_visibility_geometry 
     build_visible_face_pixel_polygons,
     camera_verts_to_pixel,
     clip_convex_polygons_to_pixel_squares,
-    compute_face_inverse_depth_coefficients,
+    compute_face_depth_ordering_coefficients,
     duplicate_wrapped_uv_polygons,
     project_screen_polygons_to_face_uv,
     triangulate_convex_uv_polygons,
@@ -195,23 +196,13 @@ def compute_f_visibility_mask(
             )
             > 0.0
         )
-        intrinsics = camera[0].intrinsics
-        intrinsics_matrix = torch.tensor(
-            [
-                [intrinsics.fx, 0.0, intrinsics.cx],
-                [0.0, intrinsics.fy, intrinsics.cy],
-                [0.0, 0.0, 1.0],
-            ],
-            dtype=torch.float32,
-            device=intrinsics.device,
-        )
         (
             uv_polygon_verts,
             uv_polygon_vertex_counts,
         ) = _compute_visible_uv_polygon_regions_from_camera_pixels(
             verts_camera=verts_camera,
             faces=faces,
-            intrinsics=intrinsics_matrix,
+            intrinsics=camera[0].intrinsics,
             image_height=image_height,
             image_width=image_width,
             face_front_facing_mask=face_front_facing_mask,
@@ -229,7 +220,7 @@ def compute_f_visibility_mask(
 def _compute_visible_uv_polygon_regions_from_camera_pixels(
     verts_camera: torch.Tensor,
     faces: torch.Tensor,
-    intrinsics: torch.Tensor,
+    intrinsics: CameraIntrinsics,
     image_height: int,
     image_width: int,
     face_front_facing_mask: torch.Tensor,
@@ -240,7 +231,7 @@ def _compute_visible_uv_polygon_regions_from_camera_pixels(
     Args:
         verts_camera: Camera-space verts [V, 3].
         faces: Mesh faces [F, 3].
-        intrinsics: Camera intrinsics [3, 3].
+        intrinsics: The view's CameraIntrinsics, whose own model owns the projection.
         image_height: Image height in pixels.
         image_width: Image width in pixels.
         face_front_facing_mask: Binary front-facing face mask [F].
@@ -264,7 +255,7 @@ def _compute_visible_uv_polygon_regions_from_camera_pixels(
         # Input validations
         assert isinstance(verts_camera, torch.Tensor), f"{type(verts_camera)=}"
         assert isinstance(faces, torch.Tensor), f"{type(faces)=}"
-        assert isinstance(intrinsics, torch.Tensor), f"{type(intrinsics)=}"
+        assert isinstance(intrinsics, CameraIntrinsics), f"{type(intrinsics)=}"
         assert isinstance(image_height, int), f"{type(image_height)=}"
         assert isinstance(image_width, int), f"{type(image_width)=}"
         assert isinstance(
@@ -277,7 +268,6 @@ def _compute_visible_uv_polygon_regions_from_camera_pixels(
         assert verts_camera.shape[1] == 3, f"{verts_camera.shape=}"
         assert faces.ndim == 2, f"{faces.shape=}"
         assert faces.shape[1] == 3, f"{faces.shape=}"
-        assert intrinsics.shape == (3, 3), f"{intrinsics.shape=}"
         assert image_height > 0, f"{image_height=}"
         assert image_width > 0, f"{image_width=}"
         assert face_front_facing_mask.shape == (
@@ -325,6 +315,7 @@ def _compute_visible_uv_polygon_regions_from_camera_pixels(
     ) = _compute_visible_screen_space_polygon_regions_inside_camera_pixels(
         face_screen_verts=face_screen_verts,
         face_vertex_depth=face_vertex_depth,
+        intrinsics=intrinsics,
         image_height=image_height,
         image_width=image_width,
     )
@@ -349,12 +340,14 @@ def _compute_visible_uv_polygon_regions_from_camera_pixels(
         face_screen_verts=face_screen_verts,
         face_vertex_depth=face_vertex_depth,
         face_verts_uvs=face_verts_uvs,
+        intrinsics=intrinsics,
     )
 
 
 def _compute_visible_screen_space_polygon_regions_inside_camera_pixels(
     face_screen_verts: torch.Tensor,
     face_vertex_depth: torch.Tensor,
+    intrinsics: CameraIntrinsics,
     image_height: int,
     image_width: int,
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -363,6 +356,7 @@ def _compute_visible_screen_space_polygon_regions_inside_camera_pixels(
     Args:
         face_screen_verts: Projected triangle verts [F, 3, 2].
         face_vertex_depth: Camera-space vertex depths [F, 3].
+        intrinsics: The view's CameraIntrinsics, whose own model owns the projection.
         image_height: Image height in pixels.
         image_width: Image width in pixels.
 
@@ -441,6 +435,7 @@ def _compute_visible_screen_space_polygon_regions_inside_camera_pixels(
         clipped_face_indices=clipped_face_indices,
         face_screen_verts=face_screen_verts,
         face_vertex_depth=face_vertex_depth,
+        intrinsics=intrinsics,
         image_height=image_height,
         image_width=image_width,
     )
@@ -737,6 +732,7 @@ def _compute_visible_screen_space_polygon_regions_with_occlusion(
     clipped_face_indices: torch.Tensor,
     face_screen_verts: torch.Tensor,
     face_vertex_depth: torch.Tensor,
+    intrinsics: CameraIntrinsics,
     image_height: int,
     image_width: int,
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -749,6 +745,7 @@ def _compute_visible_screen_space_polygon_regions_with_occlusion(
         clipped_face_indices: Local face indices [P].
         face_screen_verts: Projected triangle verts [F, 3, 2].
         face_vertex_depth: Camera-space vertex depths [F, 3].
+        intrinsics: The view's CameraIntrinsics, whose model decides the depth plane.
         image_height: Image height in pixels.
         image_width: Image width in pixels.
 
@@ -815,27 +812,28 @@ def _compute_visible_screen_space_polygon_regions_with_occlusion(
 
     _validate_inputs()
 
-    def _compute_projected_face_inverse_depth_coefficients() -> torch.Tensor:
-        """Compute affine inverse-depth coefficients for the projected faces.
+    def _compute_projected_face_depth_ordering_coefficients() -> torch.Tensor:
+        """Compute the affine depth-ordering plane the projected faces are compared on.
 
         Args:
             None.
 
         Returns:
-            Inverse-depth coefficients [F, 3].
+            Depth-ordering coefficients [F, 3].
         """
-        return compute_face_inverse_depth_coefficients(
+        return compute_face_depth_ordering_coefficients(
             face_screen_verts=face_screen_verts,
             face_vertex_depth=face_vertex_depth,
+            intrinsics=intrinsics,
         )
 
     def _build_exact_visible_face_pixel_polygons(
-        face_inverse_depth_coefficients: torch.Tensor,
+        face_depth_ordering_coefficients: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Resolve exact visible face-pixel polygons from clipped overlaps.
 
         Args:
-            face_inverse_depth_coefficients: Inverse-depth coefficients [F, 3].
+            face_depth_ordering_coefficients: Depth-ordering coefficients [F, 3].
 
         Returns:
             Visible polygon verts, counts, and local face indices.
@@ -845,7 +843,7 @@ def _compute_visible_screen_space_polygon_regions_with_occlusion(
             clipped_polygon_vertex_counts=clipped_polygon_vertex_counts,
             clipped_pixel_indices=clipped_pixel_indices,
             clipped_face_indices=clipped_face_indices,
-            face_inverse_depth_coefficients=face_inverse_depth_coefficients,
+            face_depth_ordering_coefficients=face_depth_ordering_coefficients,
         )
 
     def _pack_visible_polygon_outputs(
@@ -888,15 +886,15 @@ def _compute_visible_screen_space_polygon_regions_with_occlusion(
             ),
         )
 
-    face_inverse_depth_coefficients = (
-        _compute_projected_face_inverse_depth_coefficients()
+    face_depth_ordering_coefficients = (
+        _compute_projected_face_depth_ordering_coefficients()
     )
     (
         visible_polygon_verts,
         visible_polygon_vertex_counts,
         visible_polygon_face_indices,
     ) = _build_exact_visible_face_pixel_polygons(
-        face_inverse_depth_coefficients=face_inverse_depth_coefficients,
+        face_depth_ordering_coefficients=face_depth_ordering_coefficients,
     )
     return _pack_visible_polygon_outputs(
         visible_polygon_verts=visible_polygon_verts,
@@ -912,6 +910,7 @@ def _map_visible_screen_space_polygon_regions_to_uv(
     face_screen_verts: torch.Tensor,
     face_vertex_depth: torch.Tensor,
     face_verts_uvs: torch.Tensor,
+    intrinsics: CameraIntrinsics,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """Map visible screen-space polygon regions into UV.
 
@@ -922,6 +921,7 @@ def _map_visible_screen_space_polygon_regions_to_uv(
         face_screen_verts: Projected triangle verts [F, 3, 2].
         face_vertex_depth: Camera-space vertex depths [F, 3].
         face_verts_uvs: Seam-safe per-face UV coordinates [F, 3, 2].
+        intrinsics: The view's CameraIntrinsics, whose model decides the barycentrics.
 
     Returns:
         Tuple of:
@@ -1023,6 +1023,7 @@ def _map_visible_screen_space_polygon_regions_to_uv(
             face_screen_verts=polygon_face_screen_verts,
             face_vertex_depth=polygon_face_vertex_depth,
             face_verts_uvs=polygon_face_verts_uvs,
+            intrinsics=intrinsics,
         )
 
     def _pack_visible_uv_polygons(

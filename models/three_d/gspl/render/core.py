@@ -665,7 +665,7 @@ def _prepare_camera(
     assert isinstance(camera, RepoCamera), f"{type(camera)=}"
     assert torch.cuda.is_available(), "CUDA is required for rendering."
     device = torch.device("cuda")
-    camera = camera.to(device=device, convention="opencv")
+    camera = camera.to(device=device, extr_convention="opencv")
     extrinsics = camera.extrinsics.extrinsics.to(dtype=torch.float32)
     w2c = torch.linalg.inv(extrinsics)
     R = w2c[:3, :3].unsqueeze(0)

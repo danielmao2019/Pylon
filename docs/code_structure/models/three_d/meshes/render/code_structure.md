@@ -15,6 +15,7 @@ __init__.py
 
 ```text
 core.py
+├── from pytorch3d.renderer.cameras import PerspectiveCameras
 ├── from data.structures.three_d.camera.camera import Camera
 ├── from data.structures.three_d.mesh.convert import mesh_to_pytorch3d
 ├── from data.structures.three_d.mesh.mesh import Mesh
@@ -28,18 +29,19 @@ core.py
 │   └── if return_mask
 │       ├── impls fragments = rasterizer(meshes); valid_mask = fragments.pix_to_face[0, :, :, 0] >= 0
 │       └── return rgb, valid_mask
-├── def _prepare_cameras(camera: Camera, resolution: Tuple[int, int], device: torch.device) -> CamerasBase
+├── def _prepare_cameras(camera: Camera, resolution: Tuple[int, int], device: torch.device) -> PerspectiveCameras
 │   ├── # Builds the PyTorch3D camera a rasterizer carries world-space vertices through.
-│   ├── calls camera.to(device=device, convention="pytorch3d").scale_intrinsics(resolution=resolution)  # -> camera_prepared: the placement restated in the convention PyTorch3D reads a camera in, at the rendered resolution
-│   ├── if camera.intrinsics.model in {"simple_pinhole", "pinhole"}
-│   │   └── impls build a PerspectiveCameras from camera.intrinsics.matrix
-│   ├── else
-│   │   └── impls build an OrthographicCameras from the weak-perspective scale + principal-point intrinsics (no perspective divide)
+│   ├── calls camera.to(device=device, intr_convention="pytorch3d", extr_convention="pytorch3d").scale_intrinsics(resolution=resolution)  # -> camera_prepared: both camera frames restated in PyTorch3D's own frames, at the rendered resolution
+│   ├── impls rotation_w2c = the prepared world-to-camera rotation transposed for PyTorch3D
+│   ├── impls translation_w2c = the prepared world-to-camera translation
+│   ├── impls focal_length = the prepared fx / fy as one batched row
+│   ├── impls principal_point = the prepared cx / cy as one batched row
+│   ├── calls PerspectiveCameras
 │   ├── impls lift the built cameras' zfar to the float32 maximum  # so no vertex is cut by a clip distance this render never chose
 │   └── return
-├── def _build_rasterizer(cameras: CamerasBase, resolution: Tuple[int, int]) -> MeshRasterizer
+├── def _build_rasterizer(cameras: PerspectiveCameras, resolution: Tuple[int, int]) -> MeshRasterizer
 │   └── # Builds a single-sample, no-blur MeshRasterizer for the given cameras and resolution.
-└── def _build_shader(cameras: CamerasBase, device: torch.device, background_color: Tuple[int, int, int]) -> SoftPhongShader
+└── def _build_shader(cameras: PerspectiveCameras, device: torch.device, background_color: Tuple[int, int, int]) -> SoftPhongShader
     └── # Builds a flat-ambient SoftPhongShader with the given normalized background color.
 ```
 
@@ -86,7 +88,7 @@ core_blender.py
 │       └── else
 │           └── impls obj.hide_render = True
 ├── def _create_camera_from_parameters_blender(camera: Camera, resolution: Tuple[int, int]) -> 'bpy.types.Object'
-│   ├── # Creates a Blender camera object from a repo Camera's intrinsics/extrinsics in the standard convention.
+│   ├── # Creates a Blender camera object from a repo Camera whose intr_convention and extr_convention are both standard.
 │   └── calls _torch_to_matrix_blender(extrinsics)
 ├── def _torch_to_matrix_blender(tensor: torch.Tensor) -> 'Matrix'
 │   ├── # Converts a 4x4 torch transform tensor into a mathutils Matrix, raising if the shape is wrong.

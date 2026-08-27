@@ -36,7 +36,7 @@ def gen_auxiliary_cameras(
     device = points.device
 
     center = points.mean(dim=0).to(device=device, dtype=torch.float32)
-    camera = camera.to(device=device, convention="standard")
+    camera = camera.to(device=device, extr_convention="standard")
     extrinsics_standard = camera.extrinsics.extrinsics
 
     camera_position = extrinsics_standard[:3, 3]
@@ -94,11 +94,11 @@ def gen_auxiliary_cameras(
             intrinsics=camera.intrinsics,
             extrinsics=CameraExtrinsics(
                 extrinsics=aux_standard,
-                convention="standard",
+                extr_convention="standard",
                 device=device,
             ),
             device=device,
-        ).to(convention=camera.extrinsics.convention)
+        ).to(extr_convention=camera.extrinsics.extr_convention)
         auxiliary_cameras.append(aux_camera)
 
     return auxiliary_cameras
@@ -277,7 +277,7 @@ def render_rgb_from_point_cloud_volumetric(
 
     intrinsics = camera.intrinsics
     extrinsics = camera.extrinsics
-    convention = camera.extrinsics.convention
+    convention = camera.extrinsics.extr_convention
 
     native_width = int(round(float(intrinsics.cx * 2.0)))
     native_height = int(round(float(intrinsics.cy * 2.0)))

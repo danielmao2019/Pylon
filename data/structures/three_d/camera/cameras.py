@@ -84,33 +84,43 @@ class Cameras:
         """
         if isinstance(index, str):
             assert index in self._name_to_index, f"Camera name '{index}' not found"
-            return self[self._name_to_index[index]]
-        if isinstance(index, slice):
+            camera_index = self._name_to_index[index]
+            return Camera(
+                intrinsics=self._intrinsics[camera_index],
+                extrinsics=self._extrinsics[camera_index],
+                name=self._names[camera_index],
+                id=self._ids[camera_index],
+                device=self._device,
+            )
+        if isinstance(index, (slice, list)):
+            if isinstance(index, slice):
+                intrinsics = self._intrinsics[index]
+                extrinsics = self._extrinsics[index]
+                names = self._names[index]
+                ids = self._ids[index]
+            else:
+                assert index, "Index list must be non-empty"
+                assert all(isinstance(item, int) for item in index), f"{index=}"
+                intrinsics = [self._intrinsics[item] for item in index]
+                extrinsics = [self._extrinsics[item] for item in index]
+                names = [self._names[item] for item in index]
+                ids = [self._ids[item] for item in index]
             return Cameras(
+                intrinsics=intrinsics,
+                extrinsics=extrinsics,
+                names=names,
+                ids=ids,
+                device=self._device,
+            )
+        if isinstance(index, int):
+            return Camera(
                 intrinsics=self._intrinsics[index],
                 extrinsics=self._extrinsics[index],
-                names=self._names[index],
-                ids=self._ids[index],
+                name=self._names[index],
+                id=self._ids[index],
                 device=self._device,
             )
-        if isinstance(index, list):
-            assert index, "Index list must be non-empty"
-            assert all(isinstance(item, int) for item in index), f"{index=}"
-            return Cameras(
-                intrinsics=[self._intrinsics[item] for item in index],
-                extrinsics=[self._extrinsics[item] for item in index],
-                names=[self._names[item] for item in index],
-                ids=[self._ids[item] for item in index],
-                device=self._device,
-            )
-        assert isinstance(index, int), f"{type(index)=}"
-        return Camera(
-            intrinsics=self._intrinsics[index],
-            extrinsics=self._extrinsics[index],
-            name=self._names[index],
-            id=self._ids[index],
-            device=self._device,
-        )
+        assert 0, "Should not reach here. " f"{type(index)=} {index=}"
 
     def __iter__(self) -> Iterator["Camera"]:
         """Iterate the collection one Camera at a time.
@@ -127,13 +137,17 @@ class Cameras:
     def to(
         self,
         device: Optional[Union[str, torch.device]] = None,
-        convention: Optional[str] = None,
+        intr_convention: Optional[str] = None,
+        extr_convention: Optional[str] = None,
     ) -> "Cameras":
-        """Return this Cameras on a target device / convention.
+        """Return this Cameras on a target device / image-plane frame / pose frame.
+
+        Each half is named exactly as the Camera it batches names it.
 
         Args:
             device: Target device; ``None`` keeps the current device.
-            convention: Target convention; ``None`` keeps each camera's convention.
+            intr_convention: Target image-plane frame; ``None`` keeps each camera's own.
+            extr_convention: Target pose frame; ``None`` keeps each camera's own.
 
         Returns:
             This Cameras when unchanged, else a new one.
@@ -143,19 +157,31 @@ class Cameras:
             "Expected target device to be None, a string, or torch.device. "
             f"{device=}"
         )
-        assert convention is None or isinstance(convention, str), (
-            "Expected target convention to be None or a string. " f"{convention=}"
+        assert intr_convention is None or isinstance(intr_convention, str), (
+            "Expected target image-plane frame to be None or a string. "
+            f"{intr_convention=}"
+        )
+        assert extr_convention is None or isinstance(extr_convention, str), (
+            "Expected target pose frame to be None or a string. " f"{extr_convention=}"
         )
 
         # Input normalizations
         target_device = torch.device(device) if device is not None else self._device
-        if target_device == self._device and convention is None:
-            return self
         if (
             target_device == self._device
-            and convention is not None
-            and all(
-                extrinsic.convention == convention for extrinsic in self._extrinsics
+            and (
+                intr_convention is None
+                or all(
+                    intrinsic.intr_convention == intr_convention
+                    for intrinsic in self._intrinsics
+                )
+            )
+            and (
+                extr_convention is None
+                or all(
+                    extrinsic.extr_convention == extr_convention
+                    for extrinsic in self._extrinsics
+                )
             )
         ):
             return self
@@ -165,7 +191,11 @@ class Cameras:
         names: List[Optional[str]] = []
         ids: List[Optional[int]] = []
         for camera in self:
-            moved = camera.to(device=target_device, convention=convention)
+            moved = camera.to(
+                device=target_device,
+                intr_convention=intr_convention,
+                extr_convention=extr_convention,
+            )
             intrinsics.append(moved.intrinsics)
             extrinsics.append(moved.extrinsics)
             names.append(moved.name)
@@ -178,7 +208,7 @@ class Cameras:
             device=target_device,
         )
 
-    def transform(
+    def transform_extrinsics(
         self,
         scale: float,
         rotation: np.ndarray,
@@ -199,7 +229,7 @@ class Cameras:
         names: List[Optional[str]] = []
         ids: List[Optional[int]] = []
         for camera in self:
-            transformed = camera.transform(
+            transformed = camera.transform_extrinsics(
                 scale=scale,
                 rotation=rotation,
                 translation=translation,
@@ -239,18 +269,6 @@ class Cameras:
             The per-camera list of CameraExtrinsics.
         """
         return self._extrinsics
-
-    @property
-    def conventions(self) -> Sequence[str]:
-        """The per-camera coordinate-frame conventions, one per CameraExtrinsics.
-
-        Args:
-            None.
-
-        Returns:
-            The per-camera list of convention strings.
-        """
-        return [extrinsic.convention for extrinsic in self._extrinsics]
 
     @property
     def names(self) -> Sequence[Optional[str]]:

@@ -9,21 +9,21 @@ _ROTATION_MATRIX_RESIDUAL_FLOOR_ULPS = 32
 
 
 def validate_camera_extrinsics_attributes(
-    extrinsics: Any, convention: Any, device: Any
+    extrinsics: Any, extr_convention: Any, device: Any
 ) -> None:
-    """Validate the 4x4 cam2world matrix, the convention, and the device.
+    """Validate the 4x4 cam2world matrix, the pose frame, and the device.
 
     Single-entry validation for ``CameraExtrinsics.__init__``.
 
     Args:
         extrinsics: Candidate 4x4 cam2world extrinsics matrix.
-        convention: Candidate coordinate-frame convention string.
+        extr_convention: Candidate pose-frame convention string.
         device: Candidate device, expected to be a torch device spec.
 
     Returns:
         None.
     """
-    validate_camera_convention(convention)
+    validate_extr_convention(extr_convention)
     validate_camera_extrinsics(extrinsics)
     assert isinstance(device, (str, torch.device)), (
         "Expected CameraExtrinsics device to be a string or torch.device. "
@@ -31,24 +31,24 @@ def validate_camera_extrinsics_attributes(
     )
 
 
-def validate_camera_convention(convention: Any) -> str:
-    """Validate a camera convention string against the supported set.
+def validate_extr_convention(extr_convention: Any) -> str:
+    """Validate a camera-pose convention string against the supported set.
 
     Args:
-        convention: Candidate coordinate-frame convention string.
+        extr_convention: Candidate pose-frame convention string.
 
     Returns:
-        The validated convention string.
+        The validated pose-frame convention string.
     """
-    assert isinstance(convention, str), f"{type(convention)=}"
-    assert convention in [
+    assert isinstance(extr_convention, str), f"{type(extr_convention)=}"
+    assert extr_convention in [
         "standard",
         "opengl",
         "opencv",
         "pytorch3d",
         "arkit",
-    ], f"Unsupported convention: {convention}"
-    return convention
+    ], f"Unsupported extr_convention: {extr_convention}"
+    return extr_convention
 
 
 def validate_camera_extrinsics(obj: Any) -> Union[np.ndarray, torch.Tensor]:

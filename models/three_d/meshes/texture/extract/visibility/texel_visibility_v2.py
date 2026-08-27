@@ -638,7 +638,7 @@ def _compute_texel_visibility_mask_from_world_coords(
 
     camera_single = camera[0].to(
         device=world_coords.device,
-        convention="opencv",
+        extr_convention="opencv",
     )
     texel_camera_coords = world_to_camera_transform(
         points=world_coords,

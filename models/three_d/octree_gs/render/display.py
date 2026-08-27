@@ -131,7 +131,7 @@ def _compute_debugger_info(
     ), f"Non-uniform scaling: {scale_x=} {scale_y=}"
     resolution_scale = (scale_x + scale_y) / 2
 
-    camera = camera.to(device=device, convention="opencv")
+    camera = camera.to(device=device, extr_convention="opencv")
     w2c = camera.extrinsics.w2c.detach().cpu().numpy()
     rotation = np.transpose(w2c[:3, :3])
     translation = w2c[:3, 3]

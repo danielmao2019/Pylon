@@ -26,16 +26,18 @@ _CAMERA_SERIALIZATION_FORMATS = {
 _CAMERA_JSON_KEYS = {
     "model",
     "params",
+    "intr_convention",
     "extrinsics",
-    "convention",
+    "extr_convention",
     "name",
     "id",
 }
 _CAMERA_NPZ_KEYS = {
     "model",
     "params",
+    "intr_convention",
     "extrinsics",
-    "convention",
+    "extr_convention",
     "name",
     "has_name",
     "id",
@@ -337,8 +339,9 @@ def _serialize_cameras_json(cameras: "Cameras") -> List[Dict[str, Any]]:
             {
                 "model": camera.intrinsics.model,
                 "params": dict(camera.intrinsics.params),
+                "intr_convention": camera.intrinsics.intr_convention,
                 "extrinsics": camera.extrinsics.extrinsics.detach().cpu().tolist(),
-                "convention": camera.extrinsics.convention,
+                "extr_convention": camera.extrinsics.extr_convention,
                 "name": camera.name,
                 "id": camera.id,
             }
@@ -391,9 +394,13 @@ def _deserialize_cameras_json(
                 "Expected json camera params to be a dictionary. "
                 f"{type(per_camera_dict['params'])=}"
             )
-            assert isinstance(per_camera_dict["convention"], str), (
-                "Expected json camera convention to be a string. "
-                f"{type(per_camera_dict['convention'])=}"
+            assert isinstance(per_camera_dict["intr_convention"], str), (
+                "Expected json camera intr_convention to be a string. "
+                f"{type(per_camera_dict['intr_convention'])=}"
+            )
+            assert isinstance(per_camera_dict["extr_convention"], str), (
+                "Expected json camera extr_convention to be a string. "
+                f"{type(per_camera_dict['extr_convention'])=}"
             )
             assert per_camera_dict["name"] is None or isinstance(
                 per_camera_dict["name"], str
@@ -424,13 +431,14 @@ def _deserialize_cameras_json(
             build_camera_intrinsics(
                 model=per_camera_dict["model"],
                 params=per_camera_dict["params"],
+                intr_convention=per_camera_dict["intr_convention"],
                 device=device,
             )
         )
         extrinsics_list.append(
             CameraExtrinsics(
                 extrinsics=extrinsics,
-                convention=per_camera_dict["convention"],
+                extr_convention=per_camera_dict["extr_convention"],
                 device=device,
             )
         )
@@ -455,13 +463,14 @@ def _serialize_cameras_npz(cameras: "Cameras") -> Dict[str, Any]:
     Returns:
         The batched-array npz payload keyed by `_CAMERA_NPZ_KEYS`: per-camera
         `model` strings, json-encoded `params` strings, stacked extrinsics
-        `[N, 4, 4]`, per-camera `convention` / `name` / `id` arrays of length N with
+        `[N, 4, 4]`, per-camera `intr_convention` / `extr_convention` / `name` / `id` arrays of length N with
         `has_name` / `has_id` flag arrays and a `-1` id sentinel for absent ids.
     """
     models: List[str] = []
     params: List[str] = []
+    intr_conventions: List[str] = []
     extrinsics_list: List[np.ndarray] = []
-    conventions: List[str] = []
+    extr_conventions: List[str] = []
     names: List[str] = []
     has_names: List[bool] = []
     ids: List[int] = []
@@ -469,13 +478,14 @@ def _serialize_cameras_npz(cameras: "Cameras") -> Dict[str, Any]:
     for camera in cameras:
         models.append(camera.intrinsics.model)
         params.append(json.dumps(camera.intrinsics.params))
+        intr_conventions.append(camera.intrinsics.intr_convention)
         extrinsics_list.append(
             np.asarray(
                 camera.extrinsics.extrinsics.detach().cpu().tolist(),
                 dtype=np.float32,
             )
         )
-        conventions.append(camera.extrinsics.convention)
+        extr_conventions.append(camera.extrinsics.extr_convention)
         names.append("" if camera.name is None else camera.name)
         has_names.append(camera.name is not None)
         ids.append(-1 if camera.id is None else camera.id)
@@ -484,8 +494,9 @@ def _serialize_cameras_npz(cameras: "Cameras") -> Dict[str, Any]:
     return {
         "model": np.array(models),
         "params": np.array(params),
+        "intr_convention": np.array(intr_conventions),
         "extrinsics": np.stack(extrinsics_list, axis=0),
-        "convention": np.array(conventions),
+        "extr_convention": np.array(extr_conventions),
         "name": np.array(names),
         "has_name": np.array(has_names),
         "id": np.array(ids, dtype=np.int64),
@@ -501,7 +512,7 @@ def _deserialize_cameras_npz(
     Args:
         payload: The batched-array npz payload keyed by `_CAMERA_NPZ_KEYS`:
             per-camera `model` strings, json-encoded `params` strings, stacked
-            extrinsics `[N, 4, 4]`, per-camera `convention` / `name` / `id` arrays of
+            extrinsics `[N, 4, 4]`, per-camera `intr_convention` / `extr_convention` / `name` / `id` arrays of
             length N with `has_name` / `has_id` flag arrays and a `-1` id sentinel.
         device: Target device for the decoded extrinsics tensors.
 
@@ -538,7 +549,8 @@ def _deserialize_cameras_npz(
         for key in (
             "model",
             "params",
-            "convention",
+            "intr_convention",
+            "extr_convention",
             "name",
             "has_name",
             "id",
@@ -559,7 +571,8 @@ def _deserialize_cameras_npz(
     batch_size = extrinsics.shape[0]
     model_array = payload["model"]
     params_array = payload["params"]
-    convention_array = payload["convention"]
+    intr_convention_array = payload["intr_convention"]
+    extr_convention_array = payload["extr_convention"]
     name_array = payload["name"]
     has_name_array = payload["has_name"]
     id_array = payload["id"]
@@ -576,6 +589,7 @@ def _deserialize_cameras_npz(
             build_camera_intrinsics(
                 model=model,
                 params=params,
+                intr_convention=str(intr_convention_array[index].item()),
                 device=device,
             )
         )
@@ -586,7 +600,7 @@ def _deserialize_cameras_npz(
                     dtype=torch.float32,
                     device=device,
                 ),
-                convention=str(convention_array[index].item()),
+                extr_convention=str(extr_convention_array[index].item()),
                 device=device,
             )
         )

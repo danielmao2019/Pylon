@@ -117,13 +117,18 @@ class Camera:
     def to(
         self,
         device: Optional[Union[str, torch.device]] = None,
-        convention: Optional[str] = None,
+        intr_convention: Optional[str] = None,
+        extr_convention: Optional[str] = None,
     ) -> "Camera":
-        """Return this Camera on a target device / extrinsics convention.
+        """Return this Camera on a target device / image-plane frame / pose frame.
+
+        Each half is named for the half it converts, because neither is the one a
+        bare convention would mean.
 
         Args:
             device: Target device; ``None`` keeps the current device.
-            convention: Target extrinsics convention; ``None`` keeps the current one.
+            intr_convention: Target image-plane frame; ``None`` keeps the current one.
+            extr_convention: Target pose frame; ``None`` keeps the current one.
 
         Returns:
             This Camera when unchanged, else a new one.
@@ -133,25 +138,72 @@ class Camera:
             "Expected target device to be None, a string, or torch.device. "
             f"{device=}"
         )
-        assert convention is None or isinstance(convention, str), (
-            "Expected target convention to be None or a string. " f"{convention=}"
+        assert intr_convention is None or isinstance(intr_convention, str), (
+            "Expected target image-plane frame to be None or a string. "
+            f"{intr_convention=}"
+        )
+        assert extr_convention is None or isinstance(extr_convention, str), (
+            "Expected target pose frame to be None or a string. " f"{extr_convention=}"
         )
 
         # Input normalizations
         target_device = torch.device(device) if device is not None else self._device
-        if target_device == self._device and (
-            convention is None or convention == self._extrinsics.convention
+        if (
+            target_device == self._device
+            and (
+                intr_convention is None
+                or intr_convention == self._intrinsics.intr_convention
+            )
+            and (
+                extr_convention is None
+                or extr_convention == self._extrinsics.extr_convention
+            )
         ):
             return self
 
-        intrinsics = self._intrinsics.to(device=target_device)
-        extrinsics = self._extrinsics.to(device=target_device, convention=convention)
+        intrinsics = self._intrinsics.to(
+            device=target_device,
+            intr_convention=intr_convention,
+        )
+        extrinsics = self._extrinsics.to(
+            device=target_device,
+            extr_convention=extr_convention,
+        )
         return Camera(
             intrinsics=intrinsics,
             extrinsics=extrinsics,
             name=self._name,
             id=self._id,
             device=target_device,
+        )
+
+    def transform_intrinsics(
+        self,
+        transform: torch.Tensor,
+        resolution: Tuple[int, int],
+    ) -> "Camera":
+        """Return this Camera with its CameraIntrinsics restated onto another image.
+
+        The affine is paired with that image's own raster, because a 3x3 carries no
+        size of its own.
+
+        Args:
+            transform: Pixel-frame affine as a ``(3, 3)`` float32 torch.Tensor whose last row is ``[0, 0, 1]``.
+            resolution: The target image's own resolution as ``(height, width)``.
+
+        Returns:
+            A new Camera whose CameraIntrinsics is stated against ``resolution``.
+        """
+        intrinsics = self._intrinsics.transform_intrinsics(
+            transform=transform,
+            resolution=resolution,
+        )
+        return Camera(
+            intrinsics=intrinsics,
+            extrinsics=self._extrinsics,
+            name=self._name,
+            id=self._id,
+            device=self._device,
         )
 
     def scale_intrinsics(
@@ -182,7 +234,7 @@ class Camera:
             device=self._device,
         )
 
-    def transform(
+    def transform_extrinsics(
         self,
         scale: float,
         rotation: np.ndarray,
@@ -198,7 +250,7 @@ class Camera:
         Returns:
             A new Camera with the transformed CameraExtrinsics pose.
         """
-        extrinsics = self._extrinsics.transform(
+        extrinsics = self._extrinsics.transform_extrinsics(
             scale=scale,
             rotation=rotation,
             translation=translation,

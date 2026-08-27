@@ -129,7 +129,7 @@ def _create_camera_from_parameters_blender(
     resolution: Tuple[int, int],
 ) -> 'bpy.types.Object':
     assert isinstance(camera, Camera), f"{type(camera)=}"
-    camera_for_resolution = camera.to(convention='standard').scale_intrinsics(
+    camera_for_resolution = camera.to(extr_convention='standard').scale_intrinsics(
         resolution=resolution
     )
     intrinsics = camera_for_resolution.intrinsics

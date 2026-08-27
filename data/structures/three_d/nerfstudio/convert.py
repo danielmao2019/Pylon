@@ -115,7 +115,7 @@ def _build_colmap_images(
         assert camera.name == filename, f"{camera.name=} {filename=}"
         camera_opencv = camera.to(
             device=torch.device("cpu"),
-            convention="opencv",
+            extr_convention="opencv",
         )
         world_to_camera = camera_opencv.extrinsics.w2c.cpu().numpy()
         rotation = world_to_camera[:3, :3]

@@ -328,7 +328,11 @@ def extract_texture_from_images(
     device = meshes[0].verts.device
     meshes = [view_mesh.to(device=device) for view_mesh in meshes]
     images_nchw = images_nchw.to(device=device)
-    cameras = cameras.to(device=device, convention="opencv")
+    cameras = cameras.to(
+        device=device,
+        intr_convention="standard",
+        extr_convention="opencv",
+    )
 
     if not extract_uv_texture_map:
         extracted_vertex_color = _extract_vertex_color_from_images(

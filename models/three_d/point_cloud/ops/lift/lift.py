@@ -12,7 +12,6 @@ import torch
 
 from data.structures.three_d.camera.camera import Camera
 from utils.input_checks.tensor_types import check_semantic_segmentation_pred
-from utils.ops.materialize_tensor import materialize_tensor
 
 
 def multi_view_fusion(
@@ -153,8 +152,10 @@ def _get_visible_mask(
     # Check if points are in front of camera
     depth_mask = points_cam[:, 2] > 0.01  # [N] - points with positive depth
 
-    # Project all points to image plane
-    points_2d_all = _project_to_image(points_cam=points_cam, camera=camera)  # [N, 2]
+    # Project all points to image plane through the camera's own model
+    points_2d_all = camera.intrinsics.project(
+        points_camera=points_cam, inplace=False
+    )  # [N, 2]
 
     # Check if within image bounds
     bounds_mask = (
@@ -199,7 +200,7 @@ def _transform_to_camera(
         points_cam: [N, 3] points in camera coordinates (OpenCV convention)
     """
     # Transform extrinsics to OpenCV convention for consistent processing
-    camera = camera.to(convention="opencv")
+    camera = camera.to(extr_convention="opencv")
     world_to_camera = camera.extrinsics.w2c
 
     N = points.shape[0]  # Number of points
@@ -218,51 +219,6 @@ def _transform_to_camera(
     points_cam = points_cam_homo[:, :3]  # [N, 3]
 
     return points_cam
-
-
-def _project_to_image(
-    points_cam: torch.Tensor,  # [N, 3] points in camera coordinates
-    camera: Camera,
-) -> torch.Tensor:
-    """
-    Project 3D camera coordinates to 2D image coordinates.
-
-    Args:
-        points_cam: [N, 3] points in camera coordinates (x, y, z)
-        camera: Camera containing intrinsics
-
-    Returns:
-        points_2d: [N, 2] projected 2D coordinates (x, y) in pixels
-    """
-    N = points_cam.shape[0]  # Number of points
-    device = points_cam.device
-
-    # Avoid division by zero
-    depths = points_cam[:, 2:3].clamp(min=1e-6)  # [N, 1]
-
-    # Normalize by depth (perspective projection)
-    points_normalized = points_cam / depths  # [N, 3]
-
-    # Apply camera intrinsics
-    # K @ [x/z, y/z, 1]^T gives [u, v, 1]^T in pixel coordinates
-    intrinsics = camera.intrinsics
-    intrinsics_matrix = torch.tensor(
-        [
-            [intrinsics.fx, 0.0, intrinsics.cx],
-            [0.0, intrinsics.fy, intrinsics.cy],
-            [0.0, 0.0, 1.0],
-        ],
-        dtype=torch.float32,
-        device=intrinsics.device,
-    )
-    points_2d_homo = (
-        intrinsics_matrix @ points_normalized.T
-    ).T  # [3, 3] @ [3, N] -> [3, N] -> [N, 3]
-
-    # Extract pixel coordinates
-    points_2d = points_2d_homo[:, :2]  # [N, 2]
-
-    return points_2d
 
 
 def _render_depth_buffer(

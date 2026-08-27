@@ -175,20 +175,22 @@ class NerfStudio_Data:
     def to(
         self,
         device: str | torch.device | None = None,
-        convention: str | None = None,
+        extr_convention: str | None = None,
     ) -> "NerfStudio_Data":
         # Input validations
         assert device is None or isinstance(
             device, (str, torch.device)
         ), f"{type(device)=}"
-        assert convention is None or isinstance(convention, str), f"{type(convention)=}"
+        assert extr_convention is None or isinstance(
+            extr_convention, str
+        ), f"{type(extr_convention)=}"
 
         # Input normalizations
         target_device = self.device if device is None else torch.device(device)
 
         self.cameras = self.cameras.to(
             device=target_device,
-            convention=convention,
+            extr_convention=extr_convention,
         )
         self.device = target_device
         return self

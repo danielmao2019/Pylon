@@ -1,6 +1,6 @@
-# Mesh Texture Extraction Tests Structure
+# `tests/models/three_d/meshes/texture/` tests skeleton
 
-## 1. Code structure trees
+## 1. Tests structure trees
 
 `tests/models/three_d/meshes/texture/test_extract.py`
 
@@ -168,8 +168,8 @@ test_texel_visibility_v2.py
 │   └── return
 └── def _build_one_camera() -> Cameras
     ├── # Build one identity OpenCV CPU camera for the focused v2 visibility tests.
-    ├── calls build_camera_intrinsics(model="pinhole", params=that camera's focal lengths and principal point, device="cpu")
-    ├── calls CameraExtrinsics(extrinsics=the identity 4x4, convention="opencv", device="cpu")
+    ├── calls build_camera_intrinsics(model="pinhole", params=that camera's focal lengths, principal point and its own h and w, intr_convention="standard", device="cpu")
+    ├── calls CameraExtrinsics(extrinsics=the identity 4x4, extr_convention="opencv", device="cpu")
     ├── calls Cameras(intrinsics=[camera_intrinsics], extrinsics=[camera_extrinsics], device="cpu")
     └── return the built camera  # one identity-extrinsic Cameras
 ```
@@ -196,8 +196,8 @@ test_vertex_visibility.py
 │   └── return
 └── def _build_one_camera() -> Cameras
     ├── # Build one identity OpenCV CUDA camera for the focused vertex-visibility tests.
-    ├── calls build_camera_intrinsics(model="pinhole", params=that camera's focal lengths and principal point, device="cuda")
-    ├── calls CameraExtrinsics(extrinsics=the identity 4x4, convention="opencv", device="cuda")
+    ├── calls build_camera_intrinsics(model="pinhole", params=that camera's focal lengths, principal point and its own h and w, intr_convention="standard", device="cuda")
+    ├── calls CameraExtrinsics(extrinsics=the identity 4x4, extr_convention="opencv", device="cuda")
     ├── calls Cameras(intrinsics=[camera_intrinsics], extrinsics=[camera_extrinsics], device="cuda")
     └── return the built camera  # one identity-extrinsic Cameras
 ```

@@ -5,6 +5,8 @@ from typing import List, Tuple
 import torch
 import torch.nn.functional as F
 
+from data.structures.three_d.camera.intrinsics.camera_intrinsics import CameraIntrinsics
+
 TARGET_MULTI_FACE_PIXEL_SPLIT_LINE_BUDGET = 2**18
 
 
@@ -608,7 +610,7 @@ def build_visible_face_pixel_polygons(
     clipped_polygon_vertex_counts: torch.Tensor,
     clipped_pixel_indices: torch.Tensor,
     clipped_face_indices: torch.Tensor,
-    face_inverse_depth_coefficients: torch.Tensor,
+    face_depth_ordering_coefficients: torch.Tensor,
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """Build exact visible face-pixel polygons in batched tensor form.
 
@@ -617,7 +619,7 @@ def build_visible_face_pixel_polygons(
         clipped_polygon_vertex_counts: Valid polygon vertex counts [P].
         clipped_pixel_indices: Pixel indices [P, 2] in `(y, x)` order.
         clipped_face_indices: Local face indices [P].
-        face_inverse_depth_coefficients: Inverse-depth coefficients [F, 3].
+        face_depth_ordering_coefficients: Inverse-depth coefficients [F, 3].
 
     Returns:
         Tuple of:
@@ -643,9 +645,9 @@ def build_visible_face_pixel_polygons(
             "Expected `clipped_face_indices` to be a tensor. "
             f"Got {type(clipped_face_indices)=}."
         )
-        assert isinstance(face_inverse_depth_coefficients, torch.Tensor), (
-            "Expected `face_inverse_depth_coefficients` to be a tensor. "
-            f"Got {type(face_inverse_depth_coefficients)=}."
+        assert isinstance(face_depth_ordering_coefficients, torch.Tensor), (
+            "Expected `face_depth_ordering_coefficients` to be a tensor. "
+            f"Got {type(face_depth_ordering_coefficients)=}."
         )
         assert clipped_polygon_verts.ndim == 3, (
             "Expected `clipped_polygon_verts` to have shape `[P, Vmax, 2]`. "
@@ -673,13 +675,13 @@ def build_visible_face_pixel_polygons(
             "Expected `clipped_face_indices` to have shape `[P]`. "
             f"Got {clipped_face_indices.shape=} {clipped_polygon_verts.shape=}."
         )
-        assert face_inverse_depth_coefficients.ndim == 2, (
-            "Expected `face_inverse_depth_coefficients` to have shape `[F, 3]`. "
-            f"Got {face_inverse_depth_coefficients.shape=}."
+        assert face_depth_ordering_coefficients.ndim == 2, (
+            "Expected `face_depth_ordering_coefficients` to have shape `[F, 3]`. "
+            f"Got {face_depth_ordering_coefficients.shape=}."
         )
-        assert face_inverse_depth_coefficients.shape[1] == 3, (
-            "Expected `face_inverse_depth_coefficients` to have shape `[F, 3]`. "
-            f"Got {face_inverse_depth_coefficients.shape=}."
+        assert face_depth_ordering_coefficients.shape[1] == 3, (
+            "Expected `face_depth_ordering_coefficients` to have shape `[F, 3]`. "
+            f"Got {face_depth_ordering_coefficients.shape=}."
         )
 
     _validate_inputs()
@@ -709,13 +711,13 @@ def build_visible_face_pixel_polygons(
         pixel_polygon_vertex_counts,
         pixel_face_indices,
         pixel_face_valid_mask,
-        pixel_inverse_depth_coefficients,
+        pixel_depth_ordering_coefficients,
     ) = _pack_face_pixel_polygons_by_pixel(
         clipped_polygon_verts=clipped_polygon_verts,
         clipped_polygon_vertex_counts=clipped_polygon_vertex_counts,
         clipped_pixel_indices=clipped_pixel_indices,
         clipped_face_indices=clipped_face_indices,
-        face_inverse_depth_coefficients=face_inverse_depth_coefficients,
+        face_depth_ordering_coefficients=face_depth_ordering_coefficients,
     )
     face_count_per_pixel = pixel_face_valid_mask.sum(dim=1)
     single_face_pixel_mask = face_count_per_pixel == 1
@@ -761,7 +763,7 @@ def build_visible_face_pixel_polygons(
         pixel_polygon_vertex_counts=pixel_polygon_vertex_counts[multi_face_pixel_mask],
         pixel_face_indices=pixel_face_indices[multi_face_pixel_mask],
         pixel_face_valid_mask=pixel_face_valid_mask[multi_face_pixel_mask],
-        pixel_inverse_depth_coefficients=pixel_inverse_depth_coefficients[
+        pixel_depth_ordering_coefficients=pixel_depth_ordering_coefficients[
             multi_face_pixel_mask
         ],
     )
@@ -802,7 +804,7 @@ def _build_visible_multi_face_pixel_polygons(
     pixel_polygon_vertex_counts: torch.Tensor,
     pixel_face_indices: torch.Tensor,
     pixel_face_valid_mask: torch.Tensor,
-    pixel_inverse_depth_coefficients: torch.Tensor,
+    pixel_depth_ordering_coefficients: torch.Tensor,
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """Resolve visible polygons for the multi-face pixels in memory-bounded batches.
 
@@ -812,7 +814,7 @@ def _build_visible_multi_face_pixel_polygons(
         pixel_polygon_vertex_counts: Pixel-major vertex counts [Np, M].
         pixel_face_indices: Pixel-major local face indices [Np, M].
         pixel_face_valid_mask: Pixel-major face validity mask [Np, M].
-        pixel_inverse_depth_coefficients: Pixel-major inverse-depth coefficients [Np, M, 3].
+        pixel_depth_ordering_coefficients: Pixel-major inverse-depth coefficients [Np, M, 3].
 
     Returns:
         Tuple of:
@@ -841,9 +843,9 @@ def _build_visible_multi_face_pixel_polygons(
             "Expected `pixel_face_valid_mask` to be a tensor. "
             f"Got {type(pixel_face_valid_mask)=}."
         )
-        assert isinstance(pixel_inverse_depth_coefficients, torch.Tensor), (
-            "Expected `pixel_inverse_depth_coefficients` to be a tensor. "
-            f"Got {type(pixel_inverse_depth_coefficients)=}."
+        assert isinstance(pixel_depth_ordering_coefficients, torch.Tensor), (
+            "Expected `pixel_depth_ordering_coefficients` to be a tensor. "
+            f"Got {type(pixel_depth_ordering_coefficients)=}."
         )
         assert pixel_indices.ndim == 2, (
             "Expected `pixel_indices` to have shape `[Np, 2]`. "
@@ -877,13 +879,13 @@ def _build_visible_multi_face_pixel_polygons(
             "of `pixel_polygon_verts`. "
             f"Got {pixel_face_valid_mask.shape=} {pixel_polygon_verts.shape=}."
         )
-        assert pixel_inverse_depth_coefficients.shape == (
+        assert pixel_depth_ordering_coefficients.shape == (
             pixel_polygon_verts.shape[0],
             pixel_polygon_verts.shape[1],
             3,
         ), (
-            "Expected `pixel_inverse_depth_coefficients` to have shape `[Np, M, 3]`. "
-            f"Got {pixel_inverse_depth_coefficients.shape=} "
+            "Expected `pixel_depth_ordering_coefficients` to have shape `[Np, M, 3]`. "
+            f"Got {pixel_depth_ordering_coefficients.shape=} "
             f"{pixel_polygon_verts.shape=}."
         )
 
@@ -916,7 +918,7 @@ def _build_visible_multi_face_pixel_polygons(
     pixel_polygon_vertex_counts = pixel_polygon_vertex_counts[sorted_pixel_indices]
     pixel_face_indices = pixel_face_indices[sorted_pixel_indices]
     pixel_face_valid_mask = pixel_face_valid_mask[sorted_pixel_indices]
-    pixel_inverse_depth_coefficients = pixel_inverse_depth_coefficients[
+    pixel_depth_ordering_coefficients = pixel_depth_ordering_coefficients[
         sorted_pixel_indices
     ]
 
@@ -960,7 +962,7 @@ def _build_visible_multi_face_pixel_polygons(
     pixel_polygon_vertex_counts = pixel_polygon_vertex_counts[second_bucket_mask]
     pixel_face_indices = pixel_face_indices[second_bucket_mask]
     pixel_face_valid_mask = pixel_face_valid_mask[second_bucket_mask]
-    pixel_inverse_depth_coefficients = pixel_inverse_depth_coefficients[
+    pixel_depth_ordering_coefficients = pixel_depth_ordering_coefficients[
         second_bucket_mask
     ]
     max_verts_per_polygon = pixel_polygon_verts.shape[2]
@@ -1008,7 +1010,7 @@ def _build_visible_multi_face_pixel_polygons(
             ],
             pixel_face_indices=pixel_face_indices[chunk_start:chunk_end],
             pixel_face_valid_mask=pixel_face_valid_mask[chunk_start:chunk_end],
-            pixel_inverse_depth_coefficients=pixel_inverse_depth_coefficients[
+            pixel_depth_ordering_coefficients=pixel_depth_ordering_coefficients[
                 chunk_start:chunk_end
             ],
         )
@@ -1611,7 +1613,7 @@ def _assign_visible_faces_to_cells(
     pixel_polygon_vertex_counts: torch.Tensor,
     pixel_face_indices: torch.Tensor,
     pixel_face_valid_mask: torch.Tensor,
-    pixel_inverse_depth_coefficients: torch.Tensor,
+    pixel_depth_ordering_coefficients: torch.Tensor,
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """Assign each batched arrangement cell to its frontmost covering face.
 
@@ -1623,7 +1625,7 @@ def _assign_visible_faces_to_cells(
         pixel_polygon_vertex_counts: Pixel-major face vertex counts [Np, M].
         pixel_face_indices: Pixel-major local face indices [Np, M].
         pixel_face_valid_mask: Pixel-major face validity mask [Np, M].
-        pixel_inverse_depth_coefficients: Pixel-major inverse-depth coefficients [Np, M, 3].
+        pixel_depth_ordering_coefficients: Pixel-major inverse-depth coefficients [Np, M, 3].
 
     Returns:
         Tuple of:
@@ -1676,7 +1678,7 @@ def _assign_visible_faces_to_cells(
     candidate_polygon_verts = pixel_polygon_verts[cell_pixel_indices]
     candidate_polygon_vertex_counts = pixel_polygon_vertex_counts[cell_pixel_indices]
     candidate_face_valid_mask = pixel_face_valid_mask[cell_pixel_indices]
-    candidate_inverse_depth_coefficients = pixel_inverse_depth_coefficients[
+    candidate_inverse_depth_coefficients = pixel_depth_ordering_coefficients[
         cell_pixel_indices
     ]
     flattened_containing_face_mask = _compute_points_in_convex_polygons(
@@ -1742,7 +1744,7 @@ def _pack_face_pixel_polygons_by_pixel(
     clipped_polygon_vertex_counts: torch.Tensor,
     clipped_pixel_indices: torch.Tensor,
     clipped_face_indices: torch.Tensor,
-    face_inverse_depth_coefficients: torch.Tensor,
+    face_depth_ordering_coefficients: torch.Tensor,
 ) -> Tuple[
     torch.Tensor,
     torch.Tensor,
@@ -1758,7 +1760,7 @@ def _pack_face_pixel_polygons_by_pixel(
         clipped_polygon_vertex_counts: Valid polygon vertex counts [P].
         clipped_pixel_indices: Pixel indices [P, 2] in `(y, x)` order.
         clipped_face_indices: Local face indices [P].
-        face_inverse_depth_coefficients: Inverse-depth coefficients [F, 3].
+        face_depth_ordering_coefficients: Inverse-depth coefficients [F, 3].
 
     Returns:
         Tuple of:
@@ -1785,8 +1787,8 @@ def _pack_face_pixel_polygons_by_pixel(
             clipped_face_indices, torch.Tensor
         ), f"{type(clipped_face_indices)=}"
         assert isinstance(
-            face_inverse_depth_coefficients, torch.Tensor
-        ), f"{type(face_inverse_depth_coefficients)=}"
+            face_depth_ordering_coefficients, torch.Tensor
+        ), f"{type(face_depth_ordering_coefficients)=}"
         assert (
             clipped_polygon_verts.shape[0] == clipped_pixel_indices.shape[0]
         ), f"{clipped_polygon_verts.shape=} {clipped_pixel_indices.shape=}"
@@ -1854,13 +1856,13 @@ def _pack_face_pixel_polygons_by_pixel(
     )
     pixel_face_indices[group_indices, within_group_indices] = sorted_face_indices
     pixel_face_valid_mask = pixel_face_indices >= 0
-    pixel_inverse_depth_coefficients = torch.zeros(
+    pixel_depth_ordering_coefficients = torch.zeros(
         (pixel_count, max_faces_per_pixel, 3),
         device=clipped_polygon_verts.device,
         dtype=torch.float32,
     )
-    pixel_inverse_depth_coefficients[group_indices, within_group_indices] = (
-        face_inverse_depth_coefficients[sorted_face_indices]
+    pixel_depth_ordering_coefficients[group_indices, within_group_indices] = (
+        face_depth_ordering_coefficients[sorted_face_indices]
     )
     return (
         pixel_indices.contiguous(),
@@ -1868,22 +1870,29 @@ def _pack_face_pixel_polygons_by_pixel(
         pixel_polygon_vertex_counts.contiguous(),
         pixel_face_indices.contiguous(),
         pixel_face_valid_mask.contiguous(),
-        pixel_inverse_depth_coefficients.contiguous(),
+        pixel_depth_ordering_coefficients.contiguous(),
     )
 
 
-def compute_face_inverse_depth_coefficients(
+def compute_face_depth_ordering_coefficients(
     face_screen_verts: torch.Tensor,
     face_vertex_depth: torch.Tensor,
+    intrinsics: CameraIntrinsics,
 ) -> torch.Tensor:
-    """Compute affine inverse-depth coefficients over projected face triangles.
+    """Compute the affine screen-space plane the occlusion test compares faces on.
+
+    ``1 / z`` under a perspective model; ``z`` itself under an orthographic one,
+    whose screen-to-surface map is affine and whose depth is therefore already
+    linear in ``(x, y)``.
 
     Args:
         face_screen_verts: Projected triangle verts [F, 3, 2].
         face_vertex_depth: Camera-space vertex depths [F, 3].
+        intrinsics: The view's CameraIntrinsics, whose model decides the depth plane.
 
     Returns:
-        Affine inverse-depth coefficients [F, 3] for `a*x + b*y + c = 1 / z`.
+        Affine depth-ordering coefficients [F, 3], on which a larger value is the
+        nearer face.
     """
 
     def _validate_inputs() -> None:
@@ -1903,10 +1912,12 @@ def compute_face_inverse_depth_coefficients(
             face_screen_verts.shape[0],
             3,
         ), f"{face_vertex_depth.shape=} {face_screen_verts.shape=}"
-        assert torch.all(face_vertex_depth > 0.0), (
-            "Expected positive camera depths for inverse-depth interpolation. "
-            f"{face_vertex_depth.min()=}"
-        )
+        assert isinstance(intrinsics, CameraIntrinsics), f"{type(intrinsics)=}"
+        if intrinsics.model in {"simple_pinhole", "pinhole"}:
+            assert torch.all(face_vertex_depth > 0.0), (
+                "Expected positive camera depths for inverse-depth interpolation. "
+                f"{face_vertex_depth.min()=}"
+            )
 
     _validate_inputs()
 
@@ -1923,17 +1934,29 @@ def compute_face_inverse_depth_coefficients(
     )
     determinant = torch.linalg.det(solve_matrix)
     assert torch.all(torch.abs(determinant) > 1.0e-12), (
-        "Expected non-degenerate projected triangles for inverse-depth solving. "
+        "Expected non-degenerate projected triangles for depth-ordering solving. "
         f"{determinant.min()=}"
     )
-    return (
-        torch.linalg.solve(
-            solve_matrix,
-            (1.0 / face_vertex_depth).unsqueeze(-1),
+    if intrinsics.model in {"simple_pinhole", "pinhole"}:
+        return (
+            torch.linalg.solve(
+                solve_matrix,
+                (1.0 / face_vertex_depth).unsqueeze(-1),
+            )
+            .squeeze(-1)
+            .contiguous()
         )
-        .squeeze(-1)
-        .contiguous()
-    )
+    if intrinsics.model == "ortho":
+        # z is already affine in screen space here, negated so the frontmost face still scores highest.
+        return (
+            torch.linalg.solve(
+                solve_matrix,
+                (-face_vertex_depth).unsqueeze(-1),
+            )
+            .squeeze(-1)
+            .contiguous()
+        )
+    assert 0, "Should not reach here. " f"{intrinsics.model=}"
 
 
 def _compute_points_in_convex_polygons(
@@ -2255,13 +2278,13 @@ def _compute_convex_polygon_areas(
 
 def camera_verts_to_pixel(
     verts_camera: torch.Tensor,
-    intrinsics: torch.Tensor,
+    intrinsics: CameraIntrinsics,
 ) -> torch.Tensor:
-    """Project camera-space verts into image pixel coordinates.
+    """Project camera-space verts into image pixel coordinates through the intrinsics' own model.
 
     Args:
         verts_camera: Camera-space verts [V, 3].
-        intrinsics: Camera intrinsics [3, 3].
+        intrinsics: The view's CameraIntrinsics, whose own model owns the projection.
 
     Returns:
         Pixel coordinates [V, 2] in top-first image convention.
@@ -2270,27 +2293,13 @@ def camera_verts_to_pixel(
     def _validate_inputs() -> None:
         # Input validations
         assert isinstance(verts_camera, torch.Tensor), f"{type(verts_camera)=}"
-        assert isinstance(intrinsics, torch.Tensor), f"{type(intrinsics)=}"
+        assert isinstance(intrinsics, CameraIntrinsics), f"{type(intrinsics)=}"
         assert verts_camera.ndim == 2, f"{verts_camera.shape=}"
         assert verts_camera.shape[1] == 3, f"{verts_camera.shape=}"
-        assert intrinsics.shape == (3, 3), f"{intrinsics.shape=}"
-        assert verts_camera.device == intrinsics.device, (
-            "Expected `verts_camera` and `intrinsics` to share a device. "
-            f"Got {verts_camera.device=} {intrinsics.device=}."
-        )
 
     _validate_inputs()
 
-    vertex_x_camera = verts_camera[:, 0]
-    vertex_y_camera = verts_camera[:, 1]
-    vertex_z_camera = verts_camera[:, 2]
-    fx = intrinsics[0, 0]
-    fy = intrinsics[1, 1]
-    cx = intrinsics[0, 2]
-    cy = intrinsics[1, 2]
-    vertex_x_pixel = fx * (vertex_x_camera / vertex_z_camera) + cx
-    vertex_y_pixel = fy * (vertex_y_camera / vertex_z_camera) + cy
-    return torch.stack([vertex_x_pixel, vertex_y_pixel], dim=1).contiguous()
+    return intrinsics.project(points_camera=verts_camera, inplace=False).contiguous()
 
 
 def clip_convex_polygons_to_pixel_squares(
@@ -2769,14 +2778,20 @@ def project_screen_polygons_to_face_uv(
     face_screen_verts: torch.Tensor,
     face_vertex_depth: torch.Tensor,
     face_verts_uvs: torch.Tensor,
+    intrinsics: CameraIntrinsics,
 ) -> torch.Tensor:
-    """Map image-space polygon verts to UV using exact perspective interpolation.
+    """Map image-space polygon verts to UV through the camera model's own barycentrics.
+
+    Perspective-correct ``1/z``-weighted barycentrics under a perspective model,
+    plain screen-space barycentrics under an orthographic one, whose affine
+    screen-to-surface map carries them across unchanged.
 
     Args:
         polygon_verts: Image-space polygons [N, Vmax, 2].
         face_screen_verts: Projected triangle verts [N, 3, 2].
         face_vertex_depth: Camera-space triangle depths [N, 3].
         face_verts_uvs: Seam-safe triangle UV coordinates [N, 3, 2].
+        intrinsics: The view's CameraIntrinsics, whose model decides the barycentrics.
 
     Returns:
         UV-space polygons [N, Vmax, 2].
@@ -2808,6 +2823,7 @@ def project_screen_polygons_to_face_uv(
             3,
             2,
         ), f"{face_verts_uvs.shape=} {polygon_verts.shape=}"
+        assert isinstance(intrinsics, CameraIntrinsics), f"{type(intrinsics)=}"
 
     _validate_inputs()
 
@@ -2839,16 +2855,21 @@ def project_screen_polygons_to_face_uv(
         [barycentric_0, barycentric_1, barycentric_2],
         dim=2,
     )
-    inverse_depth = 1.0 / face_vertex_depth
-    perspective_weight = barycentric * inverse_depth.unsqueeze(1)
-    perspective_weight = perspective_weight / perspective_weight.sum(
-        dim=2,
-        keepdim=True,
-    )
-    return torch.sum(
-        perspective_weight.unsqueeze(-1) * face_verts_uvs.unsqueeze(1),
-        dim=2,
-    ).contiguous()
+    if intrinsics.model in {"simple_pinhole", "pinhole"}:
+        inverse_depth = 1.0 / face_vertex_depth
+        surface_weight = barycentric * inverse_depth.unsqueeze(1)
+        surface_weight = surface_weight / surface_weight.sum(dim=2, keepdim=True)
+        return torch.sum(
+            surface_weight.unsqueeze(-1) * face_verts_uvs.unsqueeze(1),
+            dim=2,
+        ).contiguous()
+    if intrinsics.model == "ortho":
+        # The affine screen-to-surface map carries the screen barycentrics across as the surface ones.
+        return torch.sum(
+            barycentric.unsqueeze(-1) * face_verts_uvs.unsqueeze(1),
+            dim=2,
+        ).contiguous()
+    assert 0, "Should not reach here. " f"{intrinsics.model=}"
 
 
 def _cross_2d(

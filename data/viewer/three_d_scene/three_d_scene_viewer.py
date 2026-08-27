@@ -286,7 +286,7 @@ class ThreeDSceneViewer:
         assert camera_name, f"Empty camera name parsed from '{file_path}'"
         camera = transforms_data.cameras[camera_name]
         c2w_standard = camera.to(
-            device=self.device, convention="standard"
+            device=self.device, extr_convention="standard"
         ).extrinsics.extrinsics
         self.position = c2w_standard[:3, 3].clone()
         rotation_matrix = c2w_standard[:3, :3]
@@ -412,7 +412,7 @@ class ThreeDSceneViewer:
             ), f"File '{camera_name}' missing split assignment"
             candidate_pose = (
                 transforms_data.cameras[camera_name]
-                .to(device=self.device, convention="standard")
+                .to(device=self.device, extr_convention="standard")
                 .extrinsics.extrinsics
             )
             if torch.allclose(candidate_pose, current_pose, atol=1e-4, rtol=1e-4):
@@ -582,12 +582,15 @@ class ThreeDSceneViewer:
                 "fy": float(intrinsics_matrix[1, 1]),
                 "cx": float(intrinsics_matrix[0, 2]),
                 "cy": float(intrinsics_matrix[1, 2]),
+                "h": int(transforms_data.resolution[0]),
+                "w": int(transforms_data.resolution[1]),
             },
+            intr_convention="standard",
             device=self.device,
         )
         extrinsics = CameraExtrinsics(
             extrinsics=c2w,
-            convention="standard",
+            extr_convention="standard",
             device=self.device,
         )
         return Camera(
@@ -678,7 +681,9 @@ class ThreeDSceneViewer:
         ), f"transforms_data must be NerfStudio_Data, got {type(transforms_data)}"
         display_cameras: List[Camera] = []
         for camera in transforms_data.cameras:
-            display_cameras.append(camera.to(device=self.device, convention="standard"))
+            display_cameras.append(
+                camera.to(device=self.device, extr_convention="standard")
+            )
 
         if not display_cameras:
             return None

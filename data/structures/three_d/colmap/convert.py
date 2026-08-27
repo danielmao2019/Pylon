@@ -1,7 +1,7 @@
 import os
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Union
 
 import numpy as np
 import torch
@@ -113,11 +113,13 @@ def _extract_cameras_from_colmap(
     assert isinstance(intrinsic_params, dict), f"{type(intrinsic_params)=}"
     assert colmap_images, "No images available in COLMAP model"
 
-    intrinsics_params: Dict[str, float] = {
+    intrinsics_params: Dict[str, Union[int, float]] = {
         "fx": intrinsic_params["fl_x"],
         "fy": intrinsic_params["fl_y"],
         "cx": intrinsic_params["cx"],
         "cy": intrinsic_params["cy"],
+        "h": int(intrinsic_params["h"]),
+        "w": int(intrinsic_params["w"]),
     }
     intrinsics_list: List[CameraIntrinsics] = []
     extrinsics_list: List[CameraExtrinsics] = []
@@ -136,13 +138,14 @@ def _extract_cameras_from_colmap(
             build_camera_intrinsics(
                 model="pinhole",
                 params=intrinsics_params,
+                intr_convention="standard",
                 device=extrinsics_opencv.device,
             )
         )
         extrinsics_list.append(
             CameraExtrinsics(
                 extrinsics=extrinsics_opencv,
-                convention="opencv",
+                extr_convention="opencv",
                 device=extrinsics_opencv.device,
             )
         )
@@ -156,7 +159,7 @@ def _extract_cameras_from_colmap(
         ids=camera_ids,
         device=extrinsics_list[0].device,
     )
-    return cameras.to(convention="opengl")
+    return cameras.to(extr_convention="opengl")
 
 
 def _determine_modalities(cameras: Cameras, output_dir: Path) -> List[str]:

@@ -2,6 +2,8 @@
 
 ## 1. Inheritance / type trees
 
+### Backend schemas
+
 `./data/viewer/utils/displays/utils/ts/backend/schemas/display_response.py`
 
 ```text
@@ -35,6 +37,8 @@ class BaseModel
     ├── class PlaceholderDisplayResponse
     └── class LayeredDisplayResponse
 ```
+
+### Frontend
 
 `./data/viewer/utils/displays/utils/ts/frontend/types/display_response.ts`
 
@@ -92,6 +96,8 @@ heatmap_colors.py
     └── return torch.Tensor of shape (*scalars.shape, 3)
 ```
 
+### Backend schemas
+
 `./data/viewer/utils/displays/utils/ts/backend/schemas/display_response.py`
 
 ```text
@@ -105,6 +111,8 @@ display_response.py
     └── meta_info     # common field
 ```
 
+### Frontend
+
 `./data/viewer/utils/displays/utils/ts/frontend/types/display_response.ts`
 
 ```text
@@ -116,6 +124,8 @@ display_response.ts
     ├── url           # common field
     └── meta_info     # common field
 ```
+
+### Backend schemas
 
 `./data/viewer/utils/displays/utils/ts/backend/schemas/layered_display_response.py`
 
@@ -153,6 +163,8 @@ layered_display_response.py
         └── else
             └── raise ValueError  # text, table, and other non-layerable kinds
 ```
+
+### Frontend
 
 `./data/viewer/utils/displays/utils/ts/frontend/types/layered_display_response.ts`
 
@@ -401,6 +413,8 @@ core_points_display.py
     └── return
 ```
 
+### Backend schemas
+
 `./data/viewer/utils/displays/points/ts/backend/schemas/display_response.py`
 
 ```text
@@ -425,6 +439,8 @@ display_response.py
     ├── url        # common field
     └── meta_info  # common field
 ```
+
+### Backend
 
 `./data/viewer/utils/displays/points/ts/backend/apis.py`
 
@@ -468,6 +484,8 @@ core_points_display.py
     ├── impls copies caller-provided meta_info into response metadata
     └── return
 ```
+
+### Frontend
 
 `./data/viewer/utils/displays/points/ts/frontend/types/display_response.ts`
 
@@ -631,6 +649,8 @@ core_pixels_display.py
     └── return
 ```
 
+### Backend schemas
+
 `./data/viewer/utils/displays/pixels/ts/backend/schemas/display_response.py`
 
 ```text
@@ -679,6 +699,8 @@ display_response.py
     ├── url        # common field
     └── meta_info  # common field
 ```
+
+### Backend
 
 `./data/viewer/utils/displays/pixels/ts/backend/apis.py`
 
@@ -752,6 +774,8 @@ core_pixels_display.py
     ├── impls copies caller-provided meta_info into response metadata
     └── return
 ```
+
+### Frontend
 
 `./data/viewer/utils/displays/pixels/ts/frontend/types/display_response.ts`
 
@@ -862,6 +886,8 @@ placeholder_display.py
     └── # Builds the Dash missing-result placeholder display from a message.
 ```
 
+### Backend schemas
+
 `./data/viewer/utils/displays/placeholders/ts/backend/schemas/display_response.py`
 
 ```text
@@ -876,6 +902,8 @@ display_response.py
     └── message    # additional field
 ```
 
+### Backend
+
 `./data/viewer/utils/displays/placeholders/ts/backend/placeholder_display.py`
 
 ```text
@@ -885,6 +913,8 @@ placeholder_display.py
     ├── impls builds missing-result placeholder response from message
     └── return
 ```
+
+### Frontend
 
 `./data/viewer/utils/displays/placeholders/ts/frontend/types/display_response.ts`
 
@@ -920,6 +950,8 @@ video_display.py
     └── # Builds the Dash video display from a video path.
 ```
 
+### Backend schemas
+
 `./data/viewer/utils/displays/videos/ts/backend/schemas/display_response.py`
 
 ```text
@@ -933,6 +965,8 @@ display_response.py
     └── meta_info  # common field
 ```
 
+### Backend
+
 `./data/viewer/utils/displays/videos/ts/backend/video_display.py`
 
 ```text
@@ -943,6 +977,8 @@ video_display.py
     ├── impls sets meta_info to empty video metadata
     └── return
 ```
+
+### Frontend
 
 `./data/viewer/utils/displays/videos/ts/frontend/types/display_response.ts`
 
@@ -977,6 +1013,8 @@ text_display.py
     └── # Builds the Dash text display from a text string.
 ```
 
+### Backend schemas
+
 `./data/viewer/utils/displays/texts/ts/backend/schemas/display_response.py`
 
 ```text
@@ -991,6 +1029,8 @@ display_response.py
     └── text       # additional field
 ```
 
+### Backend
+
 `./data/viewer/utils/displays/texts/ts/backend/text_display.py`
 
 ```text
@@ -1001,6 +1041,8 @@ text_display.py
     ├── impls sets meta_info to empty text metadata
     └── return
 ```
+
+### Frontend
 
 `./data/viewer/utils/displays/texts/ts/frontend/types/display_response.ts`
 
@@ -1036,6 +1078,8 @@ table_display.py
     └── # Builds the Dash table display from tabular data.
 ```
 
+### Backend schemas
+
 `./data/viewer/utils/displays/tables/ts/backend/schemas/display_response.py`
 
 ```text
@@ -1049,6 +1093,8 @@ display_response.py
     └── meta_info  # common field
 ```
 
+### Backend
+
 `./data/viewer/utils/displays/tables/ts/backend/table_display.py`
 
 ```text
@@ -1059,6 +1105,8 @@ table_display.py
     ├── impls sets meta_info to empty table metadata
     └── return
 ```
+
+### Frontend
 
 `./data/viewer/utils/displays/tables/ts/frontend/types/display_response.ts`
 
@@ -1093,6 +1141,8 @@ scene_graph_display.py
     └── # Builds the Dash scene-graph display from a method-agnostic graph payload.
 ```
 
+### Backend schemas
+
 `./data/viewer/utils/displays/scene_graphs/ts/backend/schemas/display_response.py`
 
 ```text
@@ -1105,6 +1155,8 @@ display_response.py
     ├── url        # common field; serves the scene-graph payload (no leaked encoding)
     └── meta_info  # common field
 ```
+
+### Backend
 
 `./data/viewer/utils/displays/scene_graphs/ts/backend/scene_graph_display.py`
 
@@ -1142,6 +1194,8 @@ scene_graph_display.py
     ├── # Samples each graph edge into a densely-sampled line from source.position to target.position, colored by edge color.
     └── return
 ```
+
+### Frontend
 
 `./data/viewer/utils/displays/scene_graphs/ts/frontend/types/display_response.ts`
 
@@ -1313,6 +1367,8 @@ core_mesh_display.py
     └── return
 ```
 
+### Backend schemas
+
 `./data/viewer/utils/displays/mesh/ts/backend/schemas/display_response.py`
 
 ```text
@@ -1349,6 +1405,8 @@ display_response.py
     ├── url        # common field — the sparse heatmap wire resource: a shared-geometry reference plus the sparse (indices, values) delta
     └── meta_info  # common field
 ```
+
+### Backend
 
 `./data/viewer/utils/displays/mesh/ts/backend/apis.py`
 
@@ -1440,6 +1498,8 @@ core_mesh_display.py
 └── def _create_uv_texture_map_mesh_display_response
     └── # Builds the mesh display response for a UV-texture-mapped mesh.
 ```
+
+### Frontend
 
 `./data/viewer/utils/displays/mesh/ts/frontend/types/display_response.ts`
 
@@ -1615,6 +1675,8 @@ core_gaussians_display.py
     └── return
 ```
 
+### Backend schemas
+
 `./data/viewer/utils/displays/gaussians/ts/backend/schemas/display_response.py`
 
 ```text
@@ -1639,6 +1701,8 @@ display_response.py
     ├── url        # common field
     └── meta_info  # common field
 ```
+
+### Backend
 
 `./data/viewer/utils/displays/gaussians/ts/backend/apis.py`
 
@@ -1677,6 +1741,8 @@ core_gaussians_display.py
     ├── impls copies caller-provided meta_info into response metadata
     └── return
 ```
+
+### Frontend
 
 `./data/viewer/utils/displays/gaussians/ts/frontend/types/display_response.ts`
 
@@ -1744,6 +1810,8 @@ camera_display.py
     └── # Builds the Dash camera-trajectory display from a loaded camera artifact.
 ```
 
+### Backend schemas
+
 `./data/viewer/utils/displays/cameras/ts/backend/schemas/display_response.py`
 
 ```text
@@ -1756,6 +1824,8 @@ display_response.py
     ├── url        # common field; camera-vis JSON payload URL
     └── meta_info  # common field; empty object for camera display
 ```
+
+### Backend
 
 `./data/viewer/utils/displays/cameras/ts/backend/apis.py`
 
@@ -1802,6 +1872,8 @@ core_camera_display.py
     ├── impls copies caller-provided meta_info into response metadata (empty object for camera display)
     └── return
 ```
+
+### Frontend
 
 `./data/viewer/utils/displays/cameras/ts/frontend/types/display_response.ts`
 
@@ -1862,10 +1934,13 @@ camera_state.py
 └── class CameraState
     ├── intrinsics
     ├── extrinsics
-    ├── convention
+    ├── intr_convention
+    ├── extr_convention
     ├── name
     └── id
 ```
+
+### Backend schemas
 
 `./data/viewer/utils/controls/camera/camera_state/ts/backend/schemas/camera_state.py`
 
@@ -1874,10 +1949,13 @@ camera_state.py
 └── class CameraState
     ├── intrinsics
     ├── extrinsics
-    ├── convention
+    ├── intr_convention
+    ├── extr_convention
     ├── name
     └── id
 ```
+
+### Backend
 
 `./data/viewer/utils/controls/camera/camera_state/ts/backend/camera_state.py`
 
@@ -1886,10 +1964,12 @@ camera_state.py
 ├── from data.structures.three_d.camera import Camera
 ├── from data.viewer.utils.controls.camera.camera_state.ts.backend.schemas.camera_state import CameraState
 └── def create_camera_state_from_camera
-    ├── # preserves Camera intrinsics, extrinsics, convention, name, and id
+    ├── # preserves Camera intrinsics, extrinsics, intr_convention, extr_convention, name, and id
     ├── impls converts Camera to TS backend CameraState schema
     └── return
 ```
+
+### Frontend
 
 `./data/viewer/utils/controls/camera/camera_state/ts/frontend/types.ts`
 
@@ -1898,7 +1978,8 @@ types.ts
 └── interface CameraState
     ├── intrinsics
     ├── extrinsics
-    ├── convention
+    ├── intr_convention
+    ├── extr_convention
     ├── name
     └── id
 ```
@@ -2092,6 +2173,8 @@ camera_sync.ts
 └── const cameraSyncRegistry = new CameraSyncRegistry()  # the single document-global registry instance shared by every spatial display in the document; consumers import this instance and call its methods
 ```
 
+### Backend schemas
+
 `./data/viewer/utils/controls/selectors/ts/backend/schemas/selector_response.py`
 
 ```text
@@ -2117,6 +2200,8 @@ selector_response.py
     ├── label: str
     └── children: List[SelectionNode]
 ```
+
+### Frontend
 
 `./data/viewer/utils/controls/selectors/ts/frontend/types/selector_response.ts`
 
@@ -2195,6 +2280,8 @@ selector_cascade.py
     └── return  # the completed root-leaf path
 ```
 
+### Backend schemas
+
 `./data/viewer/utils/displays/aabbs/threed/ts/backend/schemas/display_response.py`
 
 ```text
@@ -2208,6 +2295,8 @@ display_response.py
     └── scores: Optional[List[float]]
 ```
 
+### Backend
+
 `./data/viewer/utils/displays/aabbs/threed/ts/backend/apis.py`
 
 ```text
@@ -2219,6 +2308,8 @@ apis.py
     ├── calls Aabb3dDisplayResponse
     └── return
 ```
+
+### Frontend
 
 `./data/viewer/utils/displays/aabbs/threed/ts/frontend/types/display_response.ts`
 
@@ -2267,6 +2358,8 @@ apis.ts
 └── impls registerSpatialLayerRenderer({ displayKind: "aabb_3d", layerRenderer: createAabb3dObject })  # module-load self-registration of the spatial aabb-3d layer renderer
 ```
 
+### Backend schemas
+
 `./data/viewer/utils/displays/aabbs/twod/ts/backend/schemas/display_response.py`
 
 ```text
@@ -2280,6 +2373,8 @@ display_response.py
     └── scores: Optional[List[float]]
 ```
 
+### Backend
+
 `./data/viewer/utils/displays/aabbs/twod/ts/backend/apis.py`
 
 ```text
@@ -2291,6 +2386,8 @@ apis.py
     ├── calls Aabb2dDisplayResponse
     └── return
 ```
+
+### Frontend
 
 `./data/viewer/utils/displays/aabbs/twod/ts/frontend/types/display_response.ts`
 

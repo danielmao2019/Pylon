@@ -266,7 +266,7 @@ def _prepare_letsgo_camera(
         round(2 * camera.intrinsics.cy)
     ), f"Height must equal 2*cy; height={height}, cy={camera.intrinsics.cy}"
 
-    camera = camera.to(device=device, convention="opencv")
+    camera = camera.to(device=device, extr_convention="opencv")
     w2c = camera.extrinsics.w2c.cpu().numpy()
     R = np.transpose(w2c[:3, :3])
     T = w2c[:3, 3]

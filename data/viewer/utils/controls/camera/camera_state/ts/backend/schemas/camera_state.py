@@ -17,6 +17,7 @@ class CameraState(BaseModel):
 
     intrinsics: Dict[str, Any]
     extrinsics: Dict[str, Any]
-    convention: str
+    intr_convention: str
+    extr_convention: str
     name: Optional[str] = None
     id: Optional[str] = None

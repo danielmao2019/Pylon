@@ -32,7 +32,7 @@ def render_camera(
         frustum_size=frustum_size,
     )
 
-    render_at_camera = render_at_camera.to(device=device, convention='opencv')
+    render_at_camera = render_at_camera.to(device=device, extr_convention='opencv')
     render_intrinsics = render_at_camera.intrinsics
     render_extrinsics = render_at_camera.extrinsics
 

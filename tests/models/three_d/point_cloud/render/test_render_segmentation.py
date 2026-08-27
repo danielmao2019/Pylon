@@ -33,12 +33,15 @@ def _build_camera(focal: float, principal_point: float) -> Camera:
                 "fy": focal,
                 "cx": principal_point,
                 "cy": principal_point,
+                "h": int(round(2.0 * principal_point)),
+                "w": int(round(2.0 * principal_point)),
             },
+            intr_convention="standard",
             device=torch.device("cpu"),
         ),
         extrinsics=CameraExtrinsics(
             extrinsics=torch.eye(4, dtype=torch.float32),
-            convention="opengl",
+            extr_convention="opengl",
             device=torch.device("cpu"),
         ),
         device=torch.device("cpu"),
@@ -221,7 +224,7 @@ def test_render_segmentation_invalid_inputs() -> None:
             intrinsics=torch.eye(4, dtype=torch.float32),
             extrinsics=CameraExtrinsics(
                 extrinsics=torch.eye(4, dtype=torch.float32),
-                convention="opengl",
+                extr_convention="opengl",
                 device=torch.device("cpu"),
             ),
             device=torch.device("cpu"),
@@ -231,7 +234,7 @@ def test_render_segmentation_invalid_inputs() -> None:
     with pytest.raises(AssertionError):
         CameraExtrinsics(
             extrinsics=torch.eye(3, dtype=torch.float32),
-            convention="opengl",
+            extr_convention="opengl",
             device=torch.device("cpu"),
         )
 

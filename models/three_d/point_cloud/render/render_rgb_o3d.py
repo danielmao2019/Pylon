@@ -50,7 +50,7 @@ def render_rgb_from_pointcloud_o3d(
         isinstance(x, int) and x > 0 for x in resolution
     ), f"resolution must be positive integers, got {resolution}"
 
-    camera = camera.to(device=points.device, convention="opengl")
+    camera = camera.to(device=points.device, extr_convention="opengl")
     render_height, render_width = resolution
 
     # Step 2: Device and dtype conversions

@@ -6,15 +6,18 @@ import nvdiffrast.torch as dr
 import torch
 
 from data.structures.three_d.camera.cameras import Cameras
+from data.structures.three_d.camera.intrinsics.camera_intrinsics import CameraIntrinsics
 from models.three_d.point_cloud.ops.world_to_camera_transform import (
     world_to_camera_transform,
 )
+
+PERSPECTIVE_DEPTH_FLOOR = 1e-8
 
 
 def render_camera_face_index_buffer(
     verts_camera: torch.Tensor,
     faces: torch.Tensor,
-    intrinsics: torch.Tensor,
+    intrinsics: CameraIntrinsics,
     image_height: int,
     image_width: int,
 ) -> torch.Tensor:
@@ -23,7 +26,7 @@ def render_camera_face_index_buffer(
     Args:
         verts_camera: Camera-space verts [V, 3].
         faces: Mesh faces [F, 3].
-        intrinsics: Camera intrinsics [3, 3].
+        intrinsics: The view's CameraIntrinsics, whose own model owns the projection.
         image_height: Render height in pixels.
         image_width: Render width in pixels.
 
@@ -43,14 +46,13 @@ def render_camera_face_index_buffer(
         # Input validations
         assert isinstance(verts_camera, torch.Tensor), f"{type(verts_camera)=}"
         assert isinstance(faces, torch.Tensor), f"{type(faces)=}"
-        assert isinstance(intrinsics, torch.Tensor), f"{type(intrinsics)=}"
+        assert isinstance(intrinsics, CameraIntrinsics), f"{type(intrinsics)=}"
         assert isinstance(image_height, int), f"{type(image_height)=}"
         assert isinstance(image_width, int), f"{type(image_width)=}"
         assert verts_camera.ndim == 2, f"{verts_camera.shape=}"
         assert verts_camera.shape[1] == 3, f"{verts_camera.shape=}"
         assert faces.ndim == 2, f"{faces.shape=}"
         assert faces.shape[1] == 3, f"{faces.shape=}"
-        assert intrinsics.shape == (3, 3), f"{intrinsics.shape=}"
         assert image_height > 0, f"{image_height=}"
         assert image_width > 0, f"{image_width=}"
 
@@ -81,7 +83,7 @@ def render_camera_face_index_buffer(
 def render_camera_depth_buffer(
     verts_camera: torch.Tensor,
     faces: torch.Tensor,
-    intrinsics: torch.Tensor,
+    intrinsics: CameraIntrinsics,
     image_height: int,
     image_width: int,
 ) -> torch.Tensor:
@@ -90,7 +92,7 @@ def render_camera_depth_buffer(
     Args:
         verts_camera: Camera-space verts [V, 3].
         faces: Mesh faces [F, 3].
-        intrinsics: Camera intrinsics [3, 3].
+        intrinsics: The view's CameraIntrinsics, whose own model owns the projection.
         image_height: Render height in pixels.
         image_width: Render width in pixels.
 
@@ -110,14 +112,13 @@ def render_camera_depth_buffer(
         # Input validations
         assert isinstance(verts_camera, torch.Tensor), f"{type(verts_camera)=}"
         assert isinstance(faces, torch.Tensor), f"{type(faces)=}"
-        assert isinstance(intrinsics, torch.Tensor), f"{type(intrinsics)=}"
+        assert isinstance(intrinsics, CameraIntrinsics), f"{type(intrinsics)=}"
         assert isinstance(image_height, int), f"{type(image_height)=}"
         assert isinstance(image_width, int), f"{type(image_width)=}"
         assert verts_camera.ndim == 2, f"{verts_camera.shape=}"
         assert verts_camera.shape[1] == 3, f"{verts_camera.shape=}"
         assert faces.ndim == 2, f"{faces.shape=}"
         assert faces.shape[1] == 3, f"{faces.shape=}"
-        assert intrinsics.shape == (3, 3), f"{intrinsics.shape=}"
         assert image_height > 0, f"{image_height=}"
         assert image_width > 0, f"{image_width=}"
 
@@ -183,7 +184,7 @@ def _verts_world_to_camera(
 
     _validate_inputs()
 
-    camera_single = camera[0].to(device=verts.device, convention="opencv")
+    camera_single = camera[0].to(device=verts.device, extr_convention="opencv")
     verts_camera = world_to_camera_transform(
         points=verts,
         extrinsics=camera_single.extrinsics.extrinsics,
@@ -238,35 +239,102 @@ def project_verts_to_image(
 
     _validate_inputs()
 
-    camera_single = camera[0].to(device=verts.device, convention="opencv")
-    intrinsics = camera_single.intrinsics
+    camera_single = camera[0].to(device=verts.device, extr_convention="opencv")
     verts_camera = _verts_world_to_camera(
         verts=verts,
         camera=camera,
     )
     depth = verts_camera[:, 2]
 
-    fx = intrinsics.fx
-    fy = intrinsics.fy
-    cx = intrinsics.cx
-    cy = intrinsics.cy
-    x = fx * (verts_camera[:, 0] / depth) + cx
-    y = fy * (verts_camera[:, 1] / depth) + cy
-
-    valid = (
-        (depth > 1e-8)
-        & (x >= 0.0)
-        & (x <= float(image_width - 1))
-        & (y >= 0.0)
-        & (y <= float(image_height - 1))
+    xy = camera_single.intrinsics.project(points_camera=verts_camera, inplace=False)
+    in_front = compute_points_in_front_of_camera(
+        points_camera=verts_camera,
+        intrinsics=camera_single.intrinsics,
     )
-    xy = torch.stack([x, y], dim=1)
+    valid = (
+        in_front
+        & (xy[:, 0] >= 0.0)
+        & (xy[:, 0] <= float(image_width - 1))
+        & (xy[:, 1] >= 0.0)
+        & (xy[:, 1] <= float(image_height - 1))
+    )
     return xy, depth, verts_camera, valid
+
+
+def compute_points_in_front_of_camera(
+    points_camera: torch.Tensor,
+    intrinsics: CameraIntrinsics,
+) -> torch.Tensor:
+    """Mark which camera-space points the camera's own model can see.
+
+    Args:
+        points_camera: Camera-space points [N, 3].
+        intrinsics: The view's CameraIntrinsics, whose model decides what "in front" means.
+
+    Returns:
+        Bool mask [N] over `points_camera`'s rows.
+    """
+
+    def _validate_inputs() -> None:
+        # Input validations
+        assert isinstance(points_camera, torch.Tensor), f"{type(points_camera)=}"
+        assert isinstance(intrinsics, CameraIntrinsics), f"{type(intrinsics)=}"
+        assert points_camera.ndim == 2, f"{points_camera.shape=}"
+        assert points_camera.shape[1] == 3, f"{points_camera.shape=}"
+
+    _validate_inputs()
+
+    if intrinsics.model in {"simple_pinhole", "pinhole"}:
+        # The half-space a perspective divide is defined on.
+        return points_camera[:, 2] > PERSPECTIVE_DEPTH_FLOOR
+    if intrinsics.model == "ortho":
+        # Parallel rays reach the whole depth axis, leaving an ortho camera no behind.
+        return torch.ones(
+            (points_camera.shape[0],),
+            device=points_camera.device,
+            dtype=torch.bool,
+        )
+    assert 0, "Should not reach here. " f"{intrinsics.model=}"
+
+
+def compute_camera_view_directions(
+    points_camera: torch.Tensor,
+    intrinsics: CameraIntrinsics,
+) -> torch.Tensor:
+    """Compute each camera-space point's unit direction back toward the camera.
+
+    Args:
+        points_camera: Camera-space points [N, 3].
+        intrinsics: The view's CameraIntrinsics, whose model decides how the rays run.
+
+    Returns:
+        Unit view directions [N, 3], each running from its point back toward the
+        camera.
+    """
+
+    def _validate_inputs() -> None:
+        # Input validations
+        assert isinstance(points_camera, torch.Tensor), f"{type(points_camera)=}"
+        assert isinstance(intrinsics, CameraIntrinsics), f"{type(intrinsics)=}"
+        assert points_camera.ndim == 2, f"{points_camera.shape=}"
+        assert points_camera.shape[1] == 3, f"{points_camera.shape=}"
+
+    _validate_inputs()
+
+    if intrinsics.model in {"simple_pinhole", "pinhole"}:
+        # Each pinhole ray runs back to the camera's own centre.
+        return torch.nn.functional.normalize(-points_camera, dim=1)
+    if intrinsics.model == "ortho":
+        # The rays run parallel, so one axis stands for every one of them.
+        view_direction = torch.zeros_like(points_camera)
+        view_direction[:, 2] = -1.0
+        return view_direction
+    assert 0, "Should not reach here. " f"{intrinsics.model=}"
 
 
 def _camera_verts_to_clip(
     verts_camera: torch.Tensor,
-    intrinsics: torch.Tensor,
+    intrinsics: CameraIntrinsics,
     image_height: int,
     image_width: int,
 ) -> torch.Tensor:
@@ -274,7 +342,7 @@ def _camera_verts_to_clip(
 
     Args:
         verts_camera: Camera-space verts [V, 3].
-        intrinsics: Camera intrinsics [3, 3].
+        intrinsics: The view's CameraIntrinsics, whose own model owns the projection.
         image_height: Render height in pixels.
         image_width: Render width in pixels.
 
@@ -293,35 +361,38 @@ def _camera_verts_to_clip(
         """
         # Input validations
         assert isinstance(verts_camera, torch.Tensor), f"{type(verts_camera)=}"
-        assert isinstance(intrinsics, torch.Tensor), f"{type(intrinsics)=}"
+        assert isinstance(intrinsics, CameraIntrinsics), f"{type(intrinsics)=}"
         assert isinstance(image_height, int), f"{type(image_height)=}"
         assert isinstance(image_width, int), f"{type(image_width)=}"
         assert verts_camera.ndim == 2, f"{verts_camera.shape=}"
         assert verts_camera.shape[1] == 3, f"{verts_camera.shape=}"
-        assert intrinsics.shape == (3, 3), f"{intrinsics.shape=}"
         assert image_height > 0, f"{image_height=}"
         assert image_width > 0, f"{image_width=}"
 
     _validate_inputs()
 
-    x_camera = verts_camera[:, 0]
-    y_camera = verts_camera[:, 1]
-    z_camera = verts_camera[:, 2].clamp(min=1e-6)
+    z_camera = verts_camera[:, 2]
+    if intrinsics.model in {"simple_pinhole", "pinhole"}:
+        # The w a perspective divide would otherwise take to zero.
+        z_camera = z_camera.clamp(min=PERSPECTIVE_DEPTH_FLOOR)
+        w = z_camera
+    elif intrinsics.model == "ortho":
+        # An ortho projection divides by no depth, so the homogeneous coordinate is unit.
+        w = torch.ones_like(z_camera)
+    else:
+        assert 0, "Should not reach here. " f"{intrinsics.model=}"
 
-    fx = intrinsics[0, 0]
-    fy = intrinsics[1, 1]
-    cx = intrinsics[0, 2]
-    cy = intrinsics[1, 2]
-
-    x_pixel = fx * (x_camera / z_camera) + cx
-    y_pixel = fy * (y_camera / z_camera) + cy
-    x_ndc = (x_pixel / float(max(image_width - 1, 1))) * 2.0 - 1.0
-    y_ndc = 1.0 - (y_pixel / float(max(image_height - 1, 1))) * 2.0
+    verts_camera_floored = torch.stack(
+        [verts_camera[:, 0], verts_camera[:, 1], z_camera],
+        dim=1,
+    )
+    pixels = intrinsics.project(points_camera=verts_camera_floored, inplace=False)
+    x_ndc = (pixels[:, 0] / float(max(image_width - 1, 1))) * 2.0 - 1.0
+    y_ndc = 1.0 - (pixels[:, 1] / float(max(image_height - 1, 1))) * 2.0
 
     z_min = torch.min(z_camera)
     z_max = torch.max(z_camera)
     z_ndc = ((z_camera - z_min) / (z_max - z_min + 1e-6)) * 2.0 - 1.0
-    w = z_camera
     return torch.stack(
         [x_ndc * w, y_ndc * w, z_ndc * w, w],
         dim=1,

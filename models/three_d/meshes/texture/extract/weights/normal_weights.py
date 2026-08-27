@@ -3,13 +3,13 @@
 from typing import Any, Dict
 
 import torch
-import torch.nn.functional as F
 
 from data.structures.three_d.camera.cameras import Cameras
 from data.structures.three_d.mesh.mesh import Mesh
 from models.three_d.meshes.ops.normals import compute_vertex_normals
 from models.three_d.meshes.texture.extract.camera_geometry import (
     _verts_world_to_camera,
+    compute_camera_view_directions,
 )
 from models.three_d.meshes.texture.extract.weights.weights_cfg import (
     normalize_weights_cfg,
@@ -85,7 +85,10 @@ def compute_v_normals_weights(
         float(normals_camera_norm_error) <= 1.0e-5
     ), f"{float(normals_camera_norm_error)=}"
 
-    view_direction = F.normalize(-verts_camera, p=2, dim=1)
+    view_direction = compute_camera_view_directions(
+        points_camera=verts_camera,
+        intrinsics=camera[0].intrinsics,
+    )
     alignment = (normals_camera * view_direction).sum(dim=1).clamp(0.0, 1.0)
     assert torch.all(alignment >= 0.0), f"{float(alignment.min())=}"
     assert torch.all(alignment <= 1.0), f"{float(alignment.max())=}"
@@ -172,7 +175,10 @@ def compute_f_normals_weights(
     face_normals_camera = face_normals_camera / face_normals_camera_norm
 
     face_centers_camera = (v0_camera + v1_camera + v2_camera) / 3.0
-    face_view_direction = F.normalize(-face_centers_camera, p=2, dim=1)
+    face_view_direction = compute_camera_view_directions(
+        points_camera=face_centers_camera,
+        intrinsics=camera[0].intrinsics,
+    )
     alignment = (face_normals_camera * face_view_direction).sum(dim=1).clamp(0.0, 1.0)
     assert torch.all(alignment >= 0.0), f"{float(alignment.min())=}"
     assert torch.all(alignment <= 1.0), f"{float(alignment.max())=}"

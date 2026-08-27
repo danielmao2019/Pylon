@@ -156,7 +156,8 @@ function buildThreeTrackballCameraState({
       target: vectorToRecord(controls.target),
       up: vectorToRecord(camera.up),
     },
-    convention: "three_trackball",
+    intr_convention: "three_trackball",
+    extr_convention: "three_trackball",
     name: null,
     id: null,
   };
@@ -171,7 +172,7 @@ function applyThreeTrackballCameraState({
   controls: ThreeTrackballControlsImpl;
   cameraState: CameraState | null;
 }): void {
-  if (cameraState === null || cameraState.convention !== "three_trackball") {
+  if (cameraState === null || cameraState.extr_convention !== "three_trackball") {
     return;
   }
   const position = cameraState.extrinsics.position;
@@ -545,7 +546,8 @@ function isCameraState(value: unknown): value is CameraState {
     isRecord(value) &&
     isRecord(value.intrinsics) &&
     isRecord(value.extrinsics) &&
-    typeof value.convention === "string" &&
+    typeof value.intr_convention === "string" &&
+    typeof value.extr_convention === "string" &&
     (value.name === null || typeof value.name === "string") &&
     (value.id === null || typeof value.id === "string")
   );

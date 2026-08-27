@@ -32,14 +32,22 @@ def _build_one_camera() -> Cameras:
         intrinsics=[
             build_camera_intrinsics(
                 model="pinhole",
-                params={"fx": 1.0, "fy": 1.0, "cx": 0.0, "cy": 0.0},
+                params={
+                    "fx": 1.0,
+                    "fy": 1.0,
+                    "cx": 0.0,
+                    "cy": 0.0,
+                    "h": 2,
+                    "w": 2,
+                },
+                intr_convention="standard",
                 device="cuda",
             )
         ],
         extrinsics=[
             CameraExtrinsics(
                 extrinsics=torch.eye(4, dtype=torch.float32, device="cuda"),
-                convention="opencv",
+                extr_convention="opencv",
                 device="cuda",
             )
         ],

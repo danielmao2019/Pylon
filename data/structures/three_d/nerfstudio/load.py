@@ -63,11 +63,14 @@ def load_intrinsics(
     )
     validate_camera_intrinsics_params(
         model="pinhole",
+        intr_convention="standard",
         params={
             "fx": float(data["fl_x"]),
             "fy": float(data["fl_y"]),
             "cx": float(data["cx"]),
             "cy": float(data["cy"]),
+            "h": int(data["h"]),
+            "w": int(data["w"]),
         },
     )
     return intrinsics
@@ -90,11 +93,14 @@ def load_cameras(
         "fy": float(data["fl_y"]),
         "cx": float(data["cx"]),
         "cy": float(data["cy"]),
+        "h": int(data["h"]),
+        "w": int(data["w"]),
     }
     intrinsics: List[CameraIntrinsics] = [
         build_camera_intrinsics(
             model="pinhole",
             params=intrinsics_params,
+            intr_convention="standard",
             device=device,
         )
         for _ in frames
@@ -106,7 +112,7 @@ def load_cameras(
                 dtype=torch.float32,
                 device=device,
             ),
-            convention="opengl",
+            extr_convention="opengl",
             device=device,
         )
         for frame in frames

@@ -126,7 +126,7 @@ def render_normal_from_rendering_points_3d(
     # Transform normals from world to camera coordinates
 
     # Convert camera extrinsics to OpenCV convention
-    camera = camera.to(device=rendering_points.device, convention="opencv")
+    camera = camera.to(device=rendering_points.device, extr_convention="opencv")
     rotation_matrix = camera.extrinsics.w2c[:3, :3]
 
     # Transform normals to camera coordinates (rotation only)

@@ -5,6 +5,8 @@ MODELS.THREE_D.MESHES.TEXTURE.EXTRACT API
 from models.three_d.meshes.texture.extract.camera_geometry import (
     _camera_verts_to_clip,
     _verts_world_to_camera,
+    compute_camera_view_directions,
+    compute_points_in_front_of_camera,
     render_camera_depth_buffer,
     render_camera_face_index_buffer,
 )
@@ -27,9 +29,11 @@ __all__ = (
     "_extract_uv_texture_map_from_single_image",
     "_extract_vertex_color_from_single_image",
     "_verts_world_to_camera",
+    "compute_camera_view_directions",
     "compute_f_normals_weights",
     "compute_f_visibility_mask",
     "compute_f_visibility_mask_v2",
+    "compute_points_in_front_of_camera",
     "compute_v_visibility_mask",
     "extract_texture_from_images",
     "render_camera_depth_buffer",

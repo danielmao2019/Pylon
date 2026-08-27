@@ -30,7 +30,7 @@ def render_rgb_from_splatfacto(
     assert isinstance(camera, Camera), f"{type(camera)=}"
 
     device = model.model.device
-    camera = camera.to(device=device, convention="opengl")
+    camera = camera.to(device=device, extr_convention="opengl")
 
     base_cx = camera.intrinsics.cx
     base_cy = camera.intrinsics.cy

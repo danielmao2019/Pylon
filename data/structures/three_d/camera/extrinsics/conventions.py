@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 import torch
 
 from data.structures.three_d.camera.extrinsics.validation import (
-    validate_camera_convention,
+    validate_extr_convention,
 )
 from utils.ops.materialize_tensor import materialize_tensor
 
@@ -20,9 +20,9 @@ if TYPE_CHECKING:
     )
 
 
-def transform_convention(
+def transform_extr_convention(
     camera_extrinsics: "CameraExtrinsics",
-    target_convention: str = "standard",
+    target_extr_convention: str = "standard",
 ) -> torch.Tensor:
     """Transform camera extrinsics between different coordinate system conventions.
 
@@ -36,49 +36,49 @@ def transform_convention(
     Args:
         camera_extrinsics: CameraExtrinsics carrying the source 4x4 cam2world matrix
             and its source convention.
-        target_convention: Target coordinate convention ("standard", "opengl",
+        target_extr_convention: Target coordinate convention ("standard", "opengl",
             "opencv", "pytorch3d", "arkit").
 
     Returns:
         Transformed 4x4 camera-to-world extrinsics matrix in the target convention.
     """
     # Input validations
-    validate_camera_convention(camera_extrinsics.convention)
-    validate_camera_convention(target_convention)
+    validate_extr_convention(camera_extrinsics.extr_convention)
+    validate_extr_convention(target_extr_convention)
 
-    source_convention = camera_extrinsics.convention
+    source_extr_convention = camera_extrinsics.extr_convention
     extrinsics = camera_extrinsics.extrinsics
 
-    if source_convention == target_convention:
+    if source_extr_convention == target_extr_convention:
         return extrinsics
 
     source_to_standard = torch.eye(4, dtype=torch.float32)
-    if source_convention == "opengl":
+    if source_extr_convention == "opengl":
         source_to_standard = _opengl_to_standard()
-    elif source_convention == "opencv":
+    elif source_extr_convention == "opencv":
         source_to_standard = _opencv_to_standard()
-    elif source_convention == "pytorch3d":
+    elif source_extr_convention == "pytorch3d":
         source_to_standard = _pytorch3d_to_standard()
-    elif source_convention == "arkit":
+    elif source_extr_convention == "arkit":
         source_to_standard = _arkit_to_standard()
     else:
         assert (
-            source_convention == "standard"
-        ), f"Unsupported convention: {source_convention}"
+            source_extr_convention == "standard"
+        ), f"Unsupported convention: {source_extr_convention}"
 
     standard_to_target = torch.eye(4, dtype=torch.float32)
-    if target_convention == "opengl":
+    if target_extr_convention == "opengl":
         standard_to_target = _standard_to_opengl()
-    elif target_convention == "opencv":
+    elif target_extr_convention == "opencv":
         standard_to_target = _standard_to_opencv()
-    elif target_convention == "pytorch3d":
+    elif target_extr_convention == "pytorch3d":
         standard_to_target = _standard_to_pytorch3d()
-    elif target_convention == "arkit":
+    elif target_extr_convention == "arkit":
         standard_to_target = _standard_to_arkit()
     else:
         assert (
-            target_convention == "standard"
-        ), f"Unsupported convention: {target_convention}"
+            target_extr_convention == "standard"
+        ), f"Unsupported convention: {target_extr_convention}"
 
     # Compose conversion strictly through standard:
     # source -> standard -> target.

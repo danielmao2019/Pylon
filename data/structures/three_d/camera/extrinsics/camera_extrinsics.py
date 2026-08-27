@@ -3,10 +3,12 @@ from typing import Optional, Union
 import numpy as np
 import torch
 
-from data.structures.three_d.camera.extrinsics.conventions import transform_convention
+from data.structures.three_d.camera.extrinsics.conventions import (
+    transform_extr_convention,
+)
 from data.structures.three_d.camera.extrinsics.validation import (
-    validate_camera_convention,
     validate_camera_extrinsics_attributes,
+    validate_extr_convention,
     validate_rotation_matrix,
 )
 
@@ -14,19 +16,19 @@ _ORTHOGONALITY_REPAIR_ATOL = 1.0e-05
 
 
 class CameraExtrinsics:
-    """A camera's pose: a 4x4 cam2world matrix plus its coordinate-frame convention."""
+    """A camera's pose: a 4x4 cam2world matrix plus the pose frame it is expressed in."""
 
     def __init__(
         self,
         extrinsics: torch.Tensor,
-        convention: str,
+        extr_convention: str,
         device: Union[str, torch.device] = torch.device("cuda"),
     ) -> None:
-        """Construct a CameraExtrinsics from a 4x4 cam2world matrix and a convention.
+        """Construct a CameraExtrinsics from a 4x4 cam2world matrix and its pose frame.
 
         Args:
             extrinsics: 4x4 camera-to-world extrinsics matrix as a torch.Tensor.
-            convention: Coordinate-frame convention string.
+            extr_convention: Coordinate-frame convention string.
             device: Device the extrinsics live on, a string or torch.device.
 
         Returns:
@@ -34,13 +36,13 @@ class CameraExtrinsics:
         """
         validate_camera_extrinsics_attributes(
             extrinsics=extrinsics,
-            convention=convention,
+            extr_convention=extr_convention,
             device=device,
         )
         device = torch.device(device)
         extrinsics = extrinsics.to(device=device)
         self._extrinsics: torch.Tensor = extrinsics
-        self._convention: str = convention
+        self._extr_convention: str = extr_convention
         self._device: torch.device = device
 
     @property
@@ -56,16 +58,16 @@ class CameraExtrinsics:
         return self._extrinsics
 
     @property
-    def convention(self) -> str:
-        """The coordinate-frame convention.
+    def extr_convention(self) -> str:
+        """The pose frame this cam2world matrix is expressed in.
 
         Args:
             None.
 
         Returns:
-            The convention string (standard / opengl / opencv / pytorch3d / arkit).
+            The pose-frame convention string (standard / opengl / opencv / pytorch3d / arkit).
         """
-        return self._convention
+        return self._extr_convention
 
     @property
     def device(self) -> torch.device:
@@ -107,7 +109,7 @@ class CameraExtrinsics:
 
     @property
     def right(self) -> torch.Tensor:
-        """The convention-dispatched physical right axis.
+        """The extr_convention-dispatched physical right axis.
 
         Args:
             None.
@@ -115,18 +117,18 @@ class CameraExtrinsics:
         Returns:
             The unit right-axis length-3 torch.Tensor.
         """
-        if self._convention == "standard":
+        if self._extr_convention == "standard":
             vec = self._extrinsics[:3, 0]
-        elif self._convention == "opengl":
+        elif self._extr_convention == "opengl":
             vec = self._extrinsics[:3, 0]
-        elif self._convention == "opencv":
+        elif self._extr_convention == "opencv":
             vec = self._extrinsics[:3, 0]
-        elif self._convention == "pytorch3d":
+        elif self._extr_convention == "pytorch3d":
             vec = -self._extrinsics[:3, 0]
-        elif self._convention == "arkit":
+        elif self._extr_convention == "arkit":
             vec = -self._extrinsics[:3, 1]
         else:
-            assert False, f"Unsupported convention: {self._convention}"
+            assert False, f"Unsupported extr_convention: {self._extr_convention}"
         norm = torch.norm(vec)
         assert torch.isclose(
             norm,
@@ -138,7 +140,7 @@ class CameraExtrinsics:
 
     @property
     def forward(self) -> torch.Tensor:
-        """The convention-dispatched physical forward axis.
+        """The extr_convention-dispatched physical forward axis.
 
         Args:
             None.
@@ -146,18 +148,18 @@ class CameraExtrinsics:
         Returns:
             The unit forward-axis length-3 torch.Tensor.
         """
-        if self._convention == "standard":
+        if self._extr_convention == "standard":
             vec = self._extrinsics[:3, 1]
-        elif self._convention == "opengl":
+        elif self._extr_convention == "opengl":
             vec = -self._extrinsics[:3, 2]
-        elif self._convention == "opencv":
+        elif self._extr_convention == "opencv":
             vec = self._extrinsics[:3, 2]
-        elif self._convention == "pytorch3d":
+        elif self._extr_convention == "pytorch3d":
             vec = self._extrinsics[:3, 2]
-        elif self._convention == "arkit":
+        elif self._extr_convention == "arkit":
             vec = self._extrinsics[:3, 2]
         else:
-            assert False, f"Unsupported convention: {self._convention}"
+            assert False, f"Unsupported extr_convention: {self._extr_convention}"
         norm = torch.norm(vec)
         assert torch.isclose(
             norm,
@@ -169,7 +171,7 @@ class CameraExtrinsics:
 
     @property
     def up(self) -> torch.Tensor:
-        """The convention-dispatched physical up axis.
+        """The extr_convention-dispatched physical up axis.
 
         Args:
             None.
@@ -177,18 +179,18 @@ class CameraExtrinsics:
         Returns:
             The unit up-axis length-3 torch.Tensor.
         """
-        if self._convention == "standard":
+        if self._extr_convention == "standard":
             vec = self._extrinsics[:3, 2]
-        elif self._convention == "opengl":
+        elif self._extr_convention == "opengl":
             vec = self._extrinsics[:3, 1]
-        elif self._convention == "opencv":
+        elif self._extr_convention == "opencv":
             vec = -self._extrinsics[:3, 1]
-        elif self._convention == "pytorch3d":
+        elif self._extr_convention == "pytorch3d":
             vec = self._extrinsics[:3, 1]
-        elif self._convention == "arkit":
+        elif self._extr_convention == "arkit":
             vec = -self._extrinsics[:3, 0]
         else:
-            assert False, f"Unsupported convention: {self._convention}"
+            assert False, f"Unsupported extr_convention: {self._extr_convention}"
         norm = torch.norm(vec)
         assert torch.isclose(
             norm,
@@ -201,50 +203,59 @@ class CameraExtrinsics:
     def to(
         self,
         device: Optional[Union[str, torch.device]] = None,
-        convention: Optional[str] = None,
+        extr_convention: Optional[str] = None,
     ) -> "CameraExtrinsics":
-        """Return this CameraExtrinsics on a target device / convention.
+        """Return this CameraExtrinsics on a target device / pose frame.
 
         Args:
             device: Target device; ``None`` keeps the current device.
-            convention: Target convention; ``None`` keeps the current convention.
+            extr_convention: Target pose frame; ``None`` keeps the current one.
 
         Returns:
             This CameraExtrinsics when unchanged, else a new one.
         """
-        # Input validations
-        assert device is None or isinstance(device, (str, torch.device)), (
-            "Expected target device to be None, a string, or torch.device. "
-            f"{device=}"
-        )
-        assert convention is None or isinstance(convention, str), (
-            "Expected target convention to be None or a string. " f"{convention=}"
-        )
-        if convention is not None:
-            validate_camera_convention(convention)
+
+        def _validate_inputs() -> None:
+            assert device is None or isinstance(device, (str, torch.device)), (
+                "Expected target device to be None, a string, or torch.device. "
+                f"{device=}"
+            )
+            assert extr_convention is None or isinstance(extr_convention, str), (
+                "Expected target pose frame to be None or a string. "
+                f"{extr_convention=}"
+            )
+            if extr_convention is not None:
+                validate_extr_convention(extr_convention)
+
+        _validate_inputs()
 
         # Input normalizations
         target_device = torch.device(device) if device is not None else self._device
-        target_convention = convention if convention is not None else self._convention
+        target_extr_convention = (
+            extr_convention if extr_convention is not None else self._extr_convention
+        )
 
-        if target_device == self._device and target_convention == self._convention:
+        if (
+            target_device == self._device
+            and target_extr_convention == self._extr_convention
+        ):
             return self
 
-        if target_convention != self._convention:
-            extrinsics = transform_convention(
+        if extr_convention is not None and extr_convention != self._extr_convention:
+            extrinsics = transform_extr_convention(
                 camera_extrinsics=self,
-                target_convention=target_convention,
+                target_extr_convention=target_extr_convention,
             )
         else:
             extrinsics = self._extrinsics
 
         return CameraExtrinsics(
             extrinsics=extrinsics.to(device=target_device),
-            convention=target_convention,
+            extr_convention=target_extr_convention,
             device=target_device,
         )
 
-    def transform(
+    def transform_extrinsics(
         self,
         scale: float,
         rotation: np.ndarray,
@@ -315,7 +326,7 @@ class CameraExtrinsics:
 
         return CameraExtrinsics(
             extrinsics=extrinsics_new,
-            convention=self._convention,
+            extr_convention=self._extr_convention,
             device=self._device,
         )
 

@@ -54,7 +54,7 @@ def transform_nerfstudio_cameras(
     assert translation.dtype == np.float32, f"{translation.dtype=}"
 
     validate_rotation_matrix(rotation)
-    return cameras.transform(
+    return cameras.transform_extrinsics(
         scale=scale,
         rotation=rotation,
         translation=translation,

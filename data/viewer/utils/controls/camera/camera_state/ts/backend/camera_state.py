@@ -10,10 +10,10 @@ def create_camera_state_from_camera(camera: Camera) -> CameraState:
     """Create a frontend camera-state schema from a Camera.
 
     Args:
-        camera: Camera object whose tensors use the camera's declared convention.
+        camera: Camera object whose tensors use the camera's declared image-plane and pose frames.
 
     Returns:
-        Serialized camera state preserving intrinsics, extrinsics, convention, name, and id.
+        Serialized camera state preserving intrinsics, extrinsics, intr_convention, extr_convention, name, and id.
     """
     assert isinstance(camera, Camera), "Camera must be a Camera. camera=%r" % camera
     intrinsics = camera.intrinsics
@@ -26,7 +26,8 @@ def create_camera_state_from_camera(camera: Camera) -> CameraState:
             ]
         },
         extrinsics={"matrix": camera.extrinsics.extrinsics.detach().cpu().tolist()},
-        convention=camera.extrinsics.convention,
+        intr_convention=camera.intrinsics.intr_convention,
+        extr_convention=camera.extrinsics.extr_convention,
         name=camera.name,
         id=None if camera.id is None else str(camera.id),
     )

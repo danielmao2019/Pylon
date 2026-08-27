@@ -481,7 +481,7 @@ def render_rgb_from_octree_gs(
         )
         return background_image
 
-    camera = camera.to(device=device, convention="opencv")
+    camera = camera.to(device=device, extr_convention="opencv")
     w2c = camera.extrinsics.w2c.detach().cpu().numpy()
     rotation = np.transpose(w2c[:3, :3])
     translation = w2c[:3, 3]
