@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -24,7 +24,8 @@ class Camera:
         extrinsics: CameraExtrinsics,
         name: Optional[str] = None,
         id: Optional[int] = None,
-        device: Union[str, torch.device] = torch.device("cuda"),
+        device: Optional[Union[str, torch.device]] = None,
+        dtype: Optional[torch.dtype] = None,
     ) -> None:
         """Construct a Camera from a CameraIntrinsics and a CameraExtrinsics.
 
@@ -33,7 +34,8 @@ class Camera:
             extrinsics: The camera's CameraExtrinsics ("where the camera is").
             name: Optional camera name.
             id: Optional camera id.
-            device: Device the camera tensors live on, a string or torch.device.
+            device: Optional target device for the camera tensors.
+            dtype: Optional target floating dtype for the camera tensors.
 
         Returns:
             None.
@@ -44,15 +46,25 @@ class Camera:
             name=name,
             id=id,
             device=device,
+            dtype=dtype,
         )
-        device = torch.device(device)
-        intrinsics = intrinsics.to(device=device)
-        extrinsics = extrinsics.to(device=device)
+        if device is not None or dtype is not None:
+            intrinsics = intrinsics.to(device=device, dtype=dtype)
+            extrinsics = extrinsics.to(device=device, dtype=dtype)
+        assert intrinsics.device == extrinsics.device, (
+            "Expected Camera components to share device. "
+            f"{intrinsics.device=} {extrinsics.device=}"
+        )
+        assert intrinsics.dtype == extrinsics.dtype, (
+            "Expected Camera components to share dtype. "
+            f"{intrinsics.dtype=} {extrinsics.dtype=}"
+        )
         self._intrinsics: CameraIntrinsics = intrinsics
         self._extrinsics: CameraExtrinsics = extrinsics
         self._name: Optional[str] = name
         self._id: Optional[int] = id
-        self._device: torch.device = device
+        self._device: torch.device = intrinsics.device
+        self._dtype: torch.dtype = intrinsics.dtype
 
     @property
     def intrinsics(self) -> CameraIntrinsics:
@@ -114,30 +126,58 @@ class Camera:
         """
         return self._device
 
+    @property
+    def dtype(self) -> torch.dtype:
+        """The dtype shared by the camera tensors.
+
+        Args:
+            None.
+
+        Returns:
+            The torch dtype shared by intrinsics and extrinsics.
+        """
+        return self._dtype
+
     def to(
         self,
         device: Optional[Union[str, torch.device]] = None,
+        dtype: Optional[torch.dtype] = None,
+        non_blocking: bool = False,
+        copy: bool = False,
         intr_convention: Optional[str] = None,
         extr_convention: Optional[str] = None,
     ) -> "Camera":
-        """Return this Camera on a target device / image-plane frame / pose frame.
+        """Return this Camera with tensor placement and convention changes.
 
         Each half is named for the half it converts, because neither is the one a
         bare convention would mean.
 
         Args:
             device: Target device; ``None`` keeps the current device.
+            dtype: Target floating dtype; ``None`` keeps the current dtype.
+            non_blocking: Whether tensor moves may be asynchronous.
+            copy: Whether tensor moves must allocate new storage even when unchanged.
             intr_convention: Target image-plane frame; ``None`` keeps the current one.
             extr_convention: Target pose frame; ``None`` keeps the current one.
 
         Returns:
             This Camera when unchanged, else a new one.
         """
-        # Input validations
         assert device is None or isinstance(device, (str, torch.device)), (
             "Expected target device to be None, a string, or torch.device. "
             f"{device=}"
         )
+        assert dtype is None or isinstance(dtype, torch.dtype), (
+            "Expected target dtype to be None or a torch dtype. " f"{dtype=}"
+        )
+        if dtype is not None:
+            assert torch.empty((), dtype=dtype).is_floating_point(), (
+                "Expected target dtype to be floating. " f"{dtype=}"
+            )
+        assert isinstance(non_blocking, bool), (
+            "Expected non_blocking to be a bool. " f"{type(non_blocking)=}"
+        )
+        assert isinstance(copy, bool), "Expected copy to be a bool. " f"{type(copy)=}"
         assert intr_convention is None or isinstance(intr_convention, str), (
             "Expected target image-plane frame to be None or a string. "
             f"{intr_convention=}"
@@ -146,10 +186,11 @@ class Camera:
             "Expected target pose frame to be None or a string. " f"{extr_convention=}"
         )
 
-        # Input normalizations
         target_device = torch.device(device) if device is not None else self._device
+        target_dtype = dtype if dtype is not None else self._dtype
         if (
             target_device == self._device
+            and target_dtype == self._dtype
             and (
                 intr_convention is None
                 or intr_convention == self._intrinsics.intr_convention
@@ -158,15 +199,22 @@ class Camera:
                 extr_convention is None
                 or extr_convention == self._extrinsics.extr_convention
             )
+            and copy is False
         ):
             return self
 
         intrinsics = self._intrinsics.to(
             device=target_device,
+            dtype=target_dtype,
+            non_blocking=non_blocking,
+            copy=copy,
             intr_convention=intr_convention,
         )
         extrinsics = self._extrinsics.to(
             device=target_device,
+            dtype=target_dtype,
+            non_blocking=non_blocking,
+            copy=copy,
             extr_convention=extr_convention,
         )
         return Camera(
@@ -175,6 +223,7 @@ class Camera:
             name=self._name,
             id=self._id,
             device=target_device,
+            dtype=target_dtype,
         )
 
     def transform_intrinsics(
@@ -204,20 +253,33 @@ class Camera:
             name=self._name,
             id=self._id,
             device=self._device,
+            dtype=self._dtype,
         )
 
     def scale_intrinsics(
         self,
-        resolution: Optional[Tuple[int, int]] = None,
+        resolution: Optional[
+            Union[int, Tuple[int, int], List[int], np.ndarray, torch.Tensor]
+        ] = None,
         scale: Optional[
-            Union[Union[int, float], Tuple[Union[int, float], Union[int, float]]]
+            Union[
+                int,
+                float,
+                Tuple[
+                    Union[int, float, torch.Tensor],
+                    Union[int, float, torch.Tensor],
+                ],
+                List[Union[int, float, torch.Tensor]],
+                np.ndarray,
+                torch.Tensor,
+            ]
         ] = None,
     ) -> "Camera":
         """Return this Camera with its CameraIntrinsics scaled.
 
         Args:
-            resolution: Optional target image resolution as ``(height, width)``.
-            scale: Optional uniform scale, or a per-axis ``(sx, sy)`` tuple.
+            resolution: Optional target image resolution as one integer side or ``(height, width)``.
+            scale: Optional uniform scale, or a per-axis ``(sx, sy)`` pair.
 
         Returns:
             A new Camera with scaled CameraIntrinsics.
@@ -232,20 +294,26 @@ class Camera:
             name=self._name,
             id=self._id,
             device=self._device,
+            dtype=self._dtype,
         )
 
     def transform_extrinsics(
         self,
-        scale: float,
-        rotation: np.ndarray,
-        translation: np.ndarray,
+        scale: Union[int, float, np.ndarray, torch.Tensor],
+        rotation: Union[np.ndarray, torch.Tensor, List[List[Union[int, float]]]],
+        translation: Union[
+            np.ndarray,
+            torch.Tensor,
+            Tuple[Union[int, float], Union[int, float], Union[int, float]],
+            List[Union[int, float]],
+        ],
     ) -> "Camera":
         """Return this Camera under a similarity transform of its CameraExtrinsics.
 
         Args:
-            scale: Similarity scale factor.
-            rotation: 3x3 rotation matrix as a float32 numpy array.
-            translation: Length-3 translation as a float32 numpy array.
+            scale: Scalar similarity scale factor as a number, numpy array, or torch.Tensor.
+            rotation: 3x3 rotation matrix as a numpy array, torch.Tensor, or nested numeric list.
+            translation: Length-3 translation as a numpy array, torch.Tensor, tuple, or list.
 
         Returns:
             A new Camera with the transformed CameraExtrinsics pose.
@@ -261,6 +329,7 @@ class Camera:
             name=self._name,
             id=self._id,
             device=self._device,
+            dtype=self._dtype,
         )
 
     def serialize(self, format: str = "json") -> Dict[str, Any]:

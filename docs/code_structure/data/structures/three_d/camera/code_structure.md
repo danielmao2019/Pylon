@@ -16,13 +16,15 @@ class ABC
 
 ```text
 validation.py
-├── from typing import Any, Dict, Union
-├── def validate_camera_intrinsics_attributes(model: str, intr_convention: Any, params: Any, device: Any) -> None
-│   ├── # Single-entry validation for CameraIntrinsics.__init__: validate the camera model, the image-plane convention, the named params, and the device.
+├── from typing import Any, Dict, Optional, Union
+├── import torch
+├── def validate_camera_intrinsics_attributes(model: str, intr_convention: Any, params: Any, device: Any, dtype: Any) -> None
+│   ├── # Single-entry validation for CameraIntrinsics.__init__: validate the camera model, image-plane convention, tensor named params, and optional placement request.
 │   ├── calls validate_camera_model(model=model)
 │   ├── calls validate_intr_convention(intr_convention=intr_convention)
 │   ├── calls validate_camera_intrinsics_params(model=model, intr_convention=intr_convention, params=params)  # the frame goes in ahead of the params, what they mean together depending on it
-│   ├── impls asserts device is a valid torch device spec (str or torch.device)
+│   ├── impls asserts device is None or a valid torch device spec (str or torch.device)
+│   ├── impls asserts dtype is None or a floating torch dtype
 │   └── return
 ├── def validate_camera_model(model: Any) -> str
 │   ├── # Validate a camera-model string against the supported set.
@@ -32,10 +34,10 @@ validation.py
 │   ├── # Validate an image-plane convention string against the supported set, standard being the pixel raster frame the other three convert through.
 │   ├── impls asserts intr_convention is a str in {standard, opengl, pytorch3d, vulkan}
 │   └── return intr_convention
-├── def validate_camera_intrinsics_params(model: str, intr_convention: str, params: Any) -> Dict[str, Union[int, float]]
-│   ├── # Validate the named intrinsics params: the resolution keys every model carries, the projection keys that model's own dispatch owns, and the invariants holding only across those keys together.
-│   ├── impls assert params carries h and w, both positive ints  # impls-node-one-step:skip; the resolution, named the way every resolution in this repo is ordered: h first
-│   ├── def _validate_projection_params() -> Dict[str, Union[int, float]] [local]
+├── def validate_camera_intrinsics_params(model: str, intr_convention: str, params: Any) -> Dict[str, torch.Tensor]
+│   ├── # Validate the named tensor intrinsics params: the resolution keys every model carries, the projection keys that model's own dispatch owns, and the invariants holding only across those keys together.
+│   ├── impls assert params carries h and w, both positive scalar tensors  # impls-node-one-step:skip; the resolution, named the way every resolution in this repo is ordered: h first
+│   ├── def _validate_projection_params() -> Dict[str, torch.Tensor] [local]
 │   │   ├── # Dispatches the projection keys onto the model that owns them, every model being a structurally equivalent sibling here.
 │   │   ├── if model == "simple_pinhole"
 │   │   │   ├── calls _validate_camera_intrinsics_params_simple_pinhole(params=params)
@@ -50,27 +52,30 @@ validation.py
 │   ├── calls _validate_projection_params
 │   ├── calls validate_camera_intrinsics_invariants(model=model, intr_convention=intr_convention, params=params)
 │   └── return params
-├── def _validate_camera_intrinsics_params_simple_pinhole(params: Any) -> Dict[str, Union[int, float]]
+├── def _validate_camera_intrinsics_params_simple_pinhole(params: Any) -> Dict[str, torch.Tensor]
 │   ├── # Validate simple_pinhole params: a single shared focal length f plus the principal point cx / cy.
-│   ├── impls asserts params is a Dict[str, Union[int, float]] with exactly keys {f, cx, cy, h, w}
+│   ├── impls asserts every param is a scalar torch.Tensor
+│   ├── impls asserts params is a Dict[str, torch.Tensor] with exactly keys {f, cx, cy, h, w}
 │   ├── impls asserts f > 0 and cx and cy are finite  # impls-node-one-step:skip; where on the image the principal point may fall is the frame's to say
 │   └── return params
-├── def _validate_camera_intrinsics_params_pinhole(params: Any) -> Dict[str, Union[int, float]]
+├── def _validate_camera_intrinsics_params_pinhole(params: Any) -> Dict[str, torch.Tensor]
 │   ├── # Validate pinhole params: independent focal lengths fx / fy plus the principal point cx / cy.
-│   ├── impls asserts params is a Dict[str, Union[int, float]] with exactly keys {fx, fy, cx, cy, h, w}
+│   ├── impls asserts every param is a scalar torch.Tensor
+│   ├── impls asserts params is a Dict[str, torch.Tensor] with exactly keys {fx, fy, cx, cy, h, w}
 │   ├── impls asserts fx > 0 and fy > 0 and cx and cy are finite  # impls-node-one-step:skip
 │   └── return params
-├── def _validate_camera_intrinsics_params_ortho(params: Any) -> Dict[str, Union[int, float]]
+├── def _validate_camera_intrinsics_params_ortho(params: Any) -> Dict[str, torch.Tensor]
 │   ├── # Validate ortho (weak-perspective) params: focal scales fx / fy plus the principal-point offset cx / cy.
-│   ├── impls asserts params is a Dict[str, Union[int, float]] with exactly keys {fx, fy, cx, cy, h, w}
+│   ├── impls asserts every param is a scalar torch.Tensor
+│   ├── impls asserts params is a Dict[str, torch.Tensor] with exactly keys {fx, fy, cx, cy, h, w}
 │   ├── impls asserts fx > 0 and fy > 0 and cx and cy are finite  # impls-node-one-step:skip
 │   └── return params
-├── def validate_camera_intrinsics_invariants(model: str, intr_convention: str, params: Dict[str, Union[int, float]]) -> None
+├── def validate_camera_intrinsics_invariants(model: str, intr_convention: str, params: Dict[str, torch.Tensor]) -> None
 │   ├── # Validate what the params state only together, the resolution having joined the dict the principal point and the focal already live in and formed a pair with each.
 │   ├── calls _validate_principal_point_within_image(model=model, intr_convention=intr_convention, params=params)
 │   ├── calls _validate_model_is_representable_in_frame(model=model, intr_convention=intr_convention, params=params)
 │   └── return
-├── def _validate_principal_point_within_image(model: str, intr_convention: str, params: Dict[str, Union[int, float]]) -> None
+├── def _validate_principal_point_within_image(model: str, intr_convention: str, params: Dict[str, torch.Tensor]) -> None
 │   ├── # Bounds a perspective camera's principal point the way the frame it is stated in measures it.
 │   ├── if model == "ortho"
 │   │   └── return  # a weak-perspective cx / cy is where the world origin lands rather than where an axis pierces, and a fit drives that off the frame while the camera stays valid
@@ -84,7 +89,7 @@ validation.py
 │   │   ├── impls assert abs(cx) <= w / min(h, w) and abs(cy) <= h / min(h, w)  # impls-node-one-step:skip; the shorter side alone reaches 1, so the longer axis's bound is the larger
 │   │   └── return
 │   └── assert 0, "Should not reach here."
-└── def _validate_model_is_representable_in_frame(model: str, intr_convention: str, params: Dict[str, Union[int, float]]) -> None
+└── def _validate_model_is_representable_in_frame(model: str, intr_convention: str, params: Dict[str, torch.Tensor]) -> None
     ├── # A model states as many focal params as it has axes to scale independently, so a frame that scales the two axes differently can hold only the models carrying two of them.
     ├── if model == "simple_pinhole" and intr_convention in {"opengl", "vulkan"}
     │   └── impls assert h == w  # these frames normalize each axis by its own side, and one shared f cannot carry two different units, so a non-square image has no simple_pinhole in them
@@ -95,48 +100,62 @@ validation.py
 
 ```text
 validation.py
-├── from typing import Any, Union
+├── from typing import Any, List, Union
 ├── import numpy as np
 ├── import torch
 ├── from utils.ops.materialize_tensor import materialize_tensor
 ├── _ROTATION_MATRIX_RESIDUAL_FLOOR_ULPS = 32  # orthogonality/determinant residual floor of the float SVD-projection, in machine-epsilon units; the eps-scaling is derived, the O(1) prefactor is the empirical LAPACK SVD/det floor (measured worst <= 11 over the reference poses + 53k synthetic rotations; set to 32 for margin, still orders of magnitude below any genuinely non-orthogonal rotation)
-├── def validate_camera_extrinsics_attributes(extrinsics: Any, extr_convention: Any, device: Any) -> None
-│   ├── # Single-entry validation for CameraExtrinsics.__init__: validate the 4x4 cam2world matrix, the pose frame, and the device.
-│   ├── calls validate_extr_convention
+├── def validate_camera_extrinsics_attributes(extrinsics: Any, extr_convention: Any, device: Any, dtype: Any) -> None
+│   ├── # Single-entry validation for CameraExtrinsics.__init__: validate the cam2world input, pose frame, device target, and dtype target.
 │   ├── calls validate_camera_extrinsics
-│   ├── impls asserts device is a valid torch device spec (str or torch.device)
+│   ├── calls validate_extr_convention
+│   ├── impls asserts device is a str or torch.device
+│   ├── impls asserts dtype is a floating torch dtype
 │   └── return
 ├── def validate_extr_convention(extr_convention: Any) -> str
 │   ├── # Validate a camera-pose convention string against the supported set.
 │   ├── impls asserts extr_convention is a str in {standard, opengl, opencv, pytorch3d, arkit}
 │   └── return extr_convention
-├── def validate_camera_extrinsics(obj: Any) -> Union[np.ndarray, torch.Tensor]
-│   ├── # Dispatch camera-extrinsics validation on the array backend.
+├── def validate_camera_extrinsics(obj: Any) -> Union[np.ndarray, torch.Tensor, List[List[Union[int, float]]]]
+│   ├── # Dispatch camera-extrinsics validation on the input representation.
 │   ├── if isinstance(obj, np.ndarray)
 │   │   └── calls _validate_camera_extrinsics_numpy
 │   ├── if isinstance(obj, torch.Tensor)
 │   │   └── calls _validate_camera_extrinsics_torch
-│   └── raise TypeError  # obj is neither a numpy array nor a torch tensor
-├── def _validate_camera_extrinsics_numpy(obj: Any) -> np.ndarray
+│   ├── if isinstance(obj, list)
+│   │   └── calls _validate_camera_extrinsics_list
+│   └── raise TypeError  # obj is neither a numpy array, torch tensor, nor nested numeric list
+├── def _validate_camera_extrinsics_numpy(obj: np.ndarray) -> np.ndarray
 │   ├── # Validate a (..., 4, 4) numpy camera-extrinsics (cam2world) matrix.
 │   ├── impls asserts ndarray, ndim >= 2, last two dims (4, 4), dtype in {np.float32, np.float64}
 │   ├── impls asserts last row exactly [0, 0, 0, 1] (atol=0, rtol=0)
-│   ├── calls _validate_rotation_matrix_numpy(obj[..., :3, :3])  # the tolerance is dispatched on that block's dtype
+│   ├── impls rotation = obj[..., :3, :3]
+│   ├── calls _validate_rotation_matrix_numpy(rotation)  # tolerance is selected from rotation.dtype
 │   └── return obj
-├── def _validate_camera_extrinsics_torch(obj: Any) -> torch.Tensor
+├── def _validate_camera_extrinsics_torch(obj: torch.Tensor) -> torch.Tensor
 │   ├── # Validate a (..., 4, 4) torch camera-extrinsics (cam2world) matrix.
 │   ├── impls asserts Tensor, ndim >= 2, last two dims (4, 4), dtype in {torch.float32, torch.float64}
 │   ├── impls asserts last row exactly [0, 0, 0, 1] (atol=0, rtol=0)
-│   ├── calls _validate_rotation_matrix_torch(obj[..., :3, :3])  # the tolerance is dispatched on that block's dtype
+│   ├── impls rotation = obj[..., :3, :3]
+│   ├── calls _validate_rotation_matrix_torch(rotation)  # tolerance is selected from rotation.dtype
 │   └── return obj
-├── def validate_rotation_matrix(obj: Any) -> Union[np.ndarray, torch.Tensor]
-│   ├── # Dispatch rotation-matrix validation on the array backend.
+├── def _validate_camera_extrinsics_list(obj: List[List[Union[int, float]]]) -> List[List[Union[int, float]]]
+│   ├── # Validate a (4, 4) nested-list camera-extrinsics (cam2world) matrix.
+│   ├── impls asserts obj is a length-4 list of length-4 numeric rows
+│   ├── impls asserts last row exactly [0, 0, 0, 1]
+│   ├── impls rotation = [row[:3] for row in obj[:3]]
+│   ├── calls _validate_rotation_matrix_list(rotation)
+│   └── return obj
+├── def validate_rotation_matrix(obj: Any) -> Union[np.ndarray, torch.Tensor, List[List[Union[int, float]]]]
+│   ├── # Dispatch rotation-matrix validation on the input representation.
 │   ├── if isinstance(obj, np.ndarray)
 │   │   └── calls _validate_rotation_matrix_numpy
 │   ├── if isinstance(obj, torch.Tensor)
 │   │   └── calls _validate_rotation_matrix_torch
-│   └── raise TypeError  # obj is neither a numpy array nor a torch tensor
-├── def _validate_rotation_matrix_numpy(obj: Any) -> np.ndarray
+│   ├── if isinstance(obj, list)
+│   │   └── calls _validate_rotation_matrix_list
+│   └── raise TypeError  # obj is neither a numpy array, torch tensor, nor nested numeric list
+├── def _validate_rotation_matrix_numpy(obj: np.ndarray) -> np.ndarray
 │   ├── # Validate a (..., 3, 3) numpy rotation matrix; dispatch the tolerance on dtype.
 │   ├── impls asserts ndarray, ndim >= 2, last two dims (3, 3), dtype in {np.float32, np.float64}
 │   ├── impls atol_float32 = _ROTATION_MATRIX_RESIDUAL_FLOOR_ULPS * float(np.finfo(np.float32).eps)
@@ -146,7 +165,7 @@ validation.py
 │   ├── if obj.dtype == np.float64
 │   │   └── return _validate_rotation_matrix_numpy_against_threshold(obj, threshold=atol_float64)
 │   └── assert 0, "should not reach here."
-├── def _validate_rotation_matrix_torch(obj: Any) -> torch.Tensor
+├── def _validate_rotation_matrix_torch(obj: torch.Tensor) -> torch.Tensor
 │   ├── # Validate a (..., 3, 3) torch rotation matrix; dispatch the tolerance on dtype.
 │   ├── impls asserts Tensor, ndim >= 2, last two dims (3, 3), dtype in {torch.float32, torch.float64}
 │   ├── impls atol_float32 = _ROTATION_MATRIX_RESIDUAL_FLOOR_ULPS * float(torch.finfo(torch.float32).eps)
@@ -156,6 +175,13 @@ validation.py
 │   ├── if obj.dtype == torch.float64
 │   │   └── return _validate_rotation_matrix_torch_against_threshold(obj, threshold=atol_float64)
 │   └── assert 0, "should not reach here."
+├── def _validate_rotation_matrix_list(obj: List[List[Union[int, float]]]) -> List[List[Union[int, float]]]
+│   ├── # Validate a (3, 3) nested-list rotation matrix using the float64 residual threshold.
+│   ├── impls asserts obj is a length-3 list of length-3 numeric rows
+│   ├── impls computes RR^T residual from the numeric entries
+│   ├── impls computes |det(R) - 1| residual from the numeric entries
+│   ├── impls asserts both residuals are within _ROTATION_MATRIX_RESIDUAL_FLOOR_ULPS * float(np.finfo(np.float64).eps)
+│   └── return obj
 ├── def _validate_rotation_matrix_numpy_against_threshold(obj: np.ndarray, threshold: float) -> np.ndarray
 │   ├── # Core numpy rotation check: orthogonality and determinant within the given atol.
 │   ├── impls asserts RR^T close to I at atol=threshold, rtol=0
@@ -178,22 +204,24 @@ validation.py
 ├── if TYPE_CHECKING  # annotation-only imports; the runtime type checks import the two classes inline (no cycle, but the top-level refs stay annotation-only)
 │   ├── from data.structures.three_d.camera.intrinsics.camera_intrinsics import CameraIntrinsics
 │   └── from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
-├── def validate_cameras_attributes(intrinsics: List["CameraIntrinsics"], extrinsics: List["CameraExtrinsics"], names: List[Optional[str]], ids: List[Optional[int]], device: Union[str, torch.device]) -> None
-│   ├── # Single-entry validation for Cameras.__init__: validate the parallel per-camera lists, names / ids, and device, plus the inter-relationship that all four per-camera lists are equal length.
+├── def validate_cameras_attributes(intrinsics: List["CameraIntrinsics"], extrinsics: List["CameraExtrinsics"], names: List[Optional[str]], ids: List[Optional[int]], device: Optional[Union[str, torch.device]], dtype: Optional[torch.dtype]) -> None
+│   ├── # Single-entry validation for Cameras.__init__: validate the parallel per-camera lists, metadata, and optional tensor placement request.
 │   ├── impls asserts len(intrinsics) == len(extrinsics) == len(names) == len(ids)
 │   ├── for each index-aligned (intrinsic, extrinsic, name, id)
 │   │   └── calls validate_camera_attributes
-│   ├── impls asserts device is a valid torch device spec
+│   ├── impls asserts device is None or a valid torch device spec
+│   ├── impls asserts dtype is None or a floating torch dtype
 │   └── return
-└── def validate_camera_attributes(intrinsics: "CameraIntrinsics", extrinsics: "CameraExtrinsics", name: Optional[str], id: Optional[int], device: Union[str, torch.device]) -> None
-    ├── # Single-entry validation for Camera.__init__: assert the parts are a CameraIntrinsics / CameraExtrinsics and validate the name / id / device attributes, relying on each part's own validation for its internals.
+└── def validate_camera_attributes(intrinsics: "CameraIntrinsics", extrinsics: "CameraExtrinsics", name: Optional[str], id: Optional[int], device: Optional[Union[str, torch.device]], dtype: Optional[torch.dtype]) -> None
+    ├── # Single-entry validation for Camera.__init__: validate component objects, metadata, and optional tensor placement request.
     ├── from data.structures.three_d.camera.intrinsics.camera_intrinsics import CameraIntrinsics             # inline runtime import; the top-level import is TYPE_CHECKING-only
     ├── from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics             # inline runtime import; the top-level import is TYPE_CHECKING-only
     ├── impls asserts isinstance(intrinsics, CameraIntrinsics)
     ├── impls asserts isinstance(extrinsics, CameraExtrinsics)
     ├── impls asserts name is None or a str
     ├── impls asserts id is None or an int
-    ├── impls asserts device is a valid torch device spec
+    ├── impls asserts device is None or a valid torch device spec
+    ├── impls asserts dtype is None or a floating torch dtype
     └── return
 ```
 
@@ -201,7 +229,9 @@ validation.py
 
 ```text
 scaling.py
-├── from typing import Dict, Optional, Tuple, Union
+├── from typing import Dict, List, Optional, Tuple, Union
+├── import numpy as np
+├── import torch
 ├── def rescale_intr_params(params: Dict[str, Union[int, float]], model: str, unit_x: float, unit_y: float) -> Dict[str, Union[int, float]]
 │   ├── # Restates params measured in the image-plane unit; cx / cy are coordinates for perspective models and weak-perspective offsets for ortho.
 │   ├── impls params = a copy of params
@@ -219,22 +249,29 @@ scaling.py
 │   │   └── raise NotImplementedError  # a camera model whose focal params no rescale here has a rule for yet
 │   ├── calls _rescale_focal
 │   └── return  # params, in the target unit, h and w as they came in
-└── def resolve_target_resolution(params: Dict[str, Union[int, float]], resolution: Optional[Tuple[int, int]] = None, scale: Optional[Union[Union[int, float], Tuple[Union[int, float], Union[int, float]]]] = None) -> Tuple[int, int]
+└── def resolve_target_resolution(params: Dict[str, Union[int, float]], resolution: Optional[Union[int, Tuple[int, int], List[int], np.ndarray, torch.Tensor]] = None, scale: Optional[Union[int, float, Tuple[Union[int, float], Union[int, float]], List[Union[int, float]], np.ndarray, torch.Tensor]] = None) -> Tuple[int, int]
     ├── # Resolves the two ways a caller names a target resolution — the size itself, or a factor on the size the params already carry — into the single form a rescale reads.
     ├── def _validate_inputs [local]
     │   ├── impls assert exactly one of resolution and scale is given  # impls-node-one-step:skip; a target resolution and a factor are two ways to name the same thing, and giving both leaves unstated which one wins
     │   ├── if resolution is not None
-    │   │   └── impls assert resolution is an (h, w) pair of positive ints
+    │   │   └── impls assert resolution is a positive int or a length-2 array-like of positive integer-valued entries
     │   └── if scale is not None
-    │       └── impls assert scale is a positive number, or a pair of two positive numbers
+    │       └── impls assert scale is a positive number, or a length-2 array-like pair of positive numbers
     ├── calls _validate_inputs
     ├── def _normalize_inputs [local]
-    │   ├── if scale is a single number
-    │   │   └── return scale, scale  # one factor names the same one on both axes, in the (sx, sy) form the pair case already arrives in
-    │   ├── if scale is None or an (sx, sy) pair
-    │   │   └── return scale
-    │   └── assert 0, "Should not reach here."
+    │   ├── if resolution is not None
+    │   │   ├── if resolution is a single int
+    │   │   │   └── impls resolution = (resolution, resolution)
+    │   │   └── if resolution is a length-2 array-like
+    │   │       └── impls resolution = (int(resolution[0]), int(resolution[1]))
+    │   ├── if scale is not None
+    │   │   ├── if scale is a single number
+    │   │   │   └── impls scale = (scale, scale)  # one factor names the same one on both axes, in the (sx, sy) form the pair case already arrives in
+    │   │   └── if scale is a length-2 array-like pair
+    │   │       └── impls scale = (scale[0], scale[1])
+    │   └── return resolution, scale
     ├── calls _normalize_inputs
+    ├── impls resolution, scale = the returned values from _normalize_inputs
     ├── if resolution is not None
     │   └── return resolution
     ├── if scale is not None
@@ -345,26 +382,35 @@ conventions.py
 ```text
 camera_intrinsics.py
 ├── from abc import ABC
-├── from typing import ClassVar, Dict, Optional, Tuple, Union
+├── from typing import ClassVar, Dict, List, Optional, Tuple, Union
+├── import numpy as np
 ├── import torch
 ├── from data.structures.three_d.camera.intrinsics.conventions import transform_intr_convention
 ├── from data.structures.three_d.camera.intrinsics.scaling import resolve_target_resolution
 ├── from data.structures.three_d.camera.intrinsics.validation import validate_camera_intrinsics_attributes, validate_intr_convention
 ├── class CameraIntrinsics(ABC)   [abstract]
-│   ├── # Abstract base for a camera's intrinsics: owns the named params, the image-plane frame they are stated in, and the device, with each concrete subclass being exactly one camera model.
+│   ├── # Abstract base for a camera's intrinsics: owns tensor named params, image-plane frame, device, and dtype, with each subclass being one camera model.
 │   ├── MODEL: ClassVar[str]  # each concrete subclass sets its camera-model identifier (simple_pinhole / pinhole / ortho)
-│   ├── def __init__(self, params: Dict[str, Union[int, float]], intr_convention: str, device: Union[str, torch.device] = torch.device("cuda")) -> None
-│   │   ├── # Construct a CameraIntrinsics from its model's named params, the image-plane frame those params are stated in, and a device, validating every attribute.
-│   │   ├── calls validate_camera_intrinsics_attributes(model=type(self).MODEL, intr_convention=intr_convention, params=params, device=device)
+│   ├── def __init__(self, params: Dict[str, Union[int, float, np.ndarray, torch.Tensor]], intr_convention: str, device: Optional[Union[str, torch.device]] = None, dtype: Optional[torch.dtype] = None) -> None
+│   │   ├── # Construct a CameraIntrinsics from tensor-compatible named scalar params and the image-plane frame they are stated in.
+│   │   ├── calls validate_camera_intrinsics_attributes(model=type(self).MODEL, intr_convention=intr_convention, params=params, device=device, dtype=dtype)
+│   │   ├── def _normalize_inputs [local]
+│   │   │   ├── impls params = each value materialized as a scalar torch.Tensor without applying the placement request
+│   │   │   ├── impls asserts every normalized param is a scalar torch.Tensor sharing one device and dtype
+│   │   │   └── return params
+│   │   ├── calls _normalize_inputs(params=params)
 │   │   ├── impls self._params = params
 │   │   ├── impls self._intr_convention = intr_convention
-│   │   └── impls self._device = device
+│   │   ├── impls self._device = the common device of self._params values
+│   │   ├── impls self._dtype = the common dtype of self._params values
+│   │   └── if device is not None or dtype is not None
+│   │       ├── calls self.to(device=device, dtype=dtype)
+│   │       └── impls replace this object's params / intr_convention / device / dtype with the returned object's state
 │   ├── def model(self) -> str  # @property
 │   │   ├── # The camera-model identifier type(self).MODEL.
-│   │   ├── impls model = type(self).MODEL
-│   │   └── return model
-│   ├── def params(self) -> Dict[str, Union[int, float]]  # @property
-│   │   ├── # The model's named intrinsics parameters.
+│   │   └── return type(self).MODEL
+│   ├── def params(self) -> Dict[str, torch.Tensor]  # @property
+│   │   ├── # The model's named scalar tensor parameters.
 │   │   └── return self._params
 │   ├── def intr_convention(self) -> str  # @property
 │   │   ├── # The image-plane frame these params are stated in (standard / opengl / pytorch3d / vulkan), without which a principal point names no location.
@@ -372,23 +418,26 @@ camera_intrinsics.py
 │   ├── def device(self) -> torch.device  # @property
 │   │   ├── # The device the intrinsics live on.
 │   │   └── return self._device
-│   ├── def cx(self) -> float  # @property
+│   ├── def dtype(self) -> torch.dtype  # @property
+│   │   ├── # The dtype shared by the intrinsics params.
+│   │   └── return self._dtype
+│   ├── def cx(self) -> torch.Tensor  # @property
 │   │   ├── # The horizontal principal-point coordinate params["cx"].
 │   │   └── return self._params["cx"]
-│   ├── def cy(self) -> float  # @property
+│   ├── def cy(self) -> torch.Tensor  # @property
 │   │   ├── # The vertical principal-point coordinate params["cy"].
 │   │   └── return self._params["cy"]
-│   ├── def resolution(self) -> Tuple[int, int]  # @property
-│   │   ├── # The resolution these params are stated against, read off the two params that carry it, since a principal point in pixels names a location only against them.
+│   ├── def resolution(self) -> Tuple[torch.Tensor, torch.Tensor]  # @property
+│   │   ├── # The resolution tensor pair these params are stated against, read off h and w because a principal point in pixels names a location only against them.
 │   │   └── return self._params["h"], self._params["w"]
-│   ├── def fx(self) -> float  # @property [abstract]
+│   ├── def fx(self) -> torch.Tensor  # @property [abstract]
 │   │   └── # Abstract: the horizontal focal length / scale, whose params key differs per model.
-│   ├── def fy(self) -> float  # @property [abstract]
+│   ├── def fy(self) -> torch.Tensor  # @property [abstract]
 │   │   └── # Abstract: the vertical focal length / scale, whose params key differs per model.
 │   ├── def project(self, points_camera: torch.Tensor, inplace: bool = False) -> torch.Tensor   [abstract]
 │   │   └── # Abstract: map camera-space 3D points [..., 3] to 2D image points [..., 2] under this model.
-│   ├── def to(self, device: Optional[Union[str, torch.device]] = None, intr_convention: Optional[str] = None) -> "CameraIntrinsics"
-│   │   ├── # Return this CameraIntrinsics on a target device / image-plane frame as a fresh instance, the intrinsics half of the frame change its extrinsics counterpart performs on the pose.
+│   ├── def to(self, device: Optional[Union[str, torch.device]] = None, dtype: Optional[torch.dtype] = None, non_blocking: bool = False, copy: bool = False, intr_convention: Optional[str] = None) -> "CameraIntrinsics"
+│   │   ├── # Return this CameraIntrinsics with Tensor.to-style placement / copy semantics plus optional image-plane frame conversion.
 │   │   ├── def _validate_inputs [local]
 │   │   │   └── if intr_convention is not None
 │   │   │       └── calls validate_intr_convention
@@ -396,7 +445,10 @@ camera_intrinsics.py
 │   │   ├── impls params = self._params
 │   │   ├── if intr_convention is not None and intr_convention != self._intr_convention
 │   │   │   └── calls transform_intr_convention(params=params, model=type(self).MODEL, source_intr_convention=self._intr_convention, target_intr_convention=intr_convention)  # -> params, restated on the target frame; the size that change is measured against is two of those params
-│   │   ├── impls intrinsics = type(self)(params=params, intr_convention=intr_convention or self._intr_convention, device=device or self._device)
+│   │   ├── impls params = each param moved with torch.Tensor.to(device=device, dtype=dtype, non_blocking=non_blocking, copy=copy)  # impls-node-one-step:skip
+│   │   ├── if device and dtype match self, intr_convention is unchanged, and copy is False
+│   │   │   └── return self
+│   │   ├── impls intrinsics = type(self)(params=params, intr_convention=intr_convention or self._intr_convention)
 │   │   └── return intrinsics
 │   ├── def transform_intrinsics(self, transform: torch.Tensor, resolution: Tuple[int, int]) -> "CameraIntrinsics"
 │   │   ├── # Return this CameraIntrinsics restated onto another image by a pixel-frame affine, the raster that image is named alongside it because a 3x3 carries no size of its own.
@@ -410,9 +462,9 @@ camera_intrinsics.py
 │   │   │   └── impls assert K[0][0] == K[1][1]  # one shared f holds one ratio, so an affine scaling the axes apart leaves this model nothing to state the second in
 │   │   ├── impls params = this model's own focal and cx / cy params read back off K, with h, w = resolution  # impls-node-one-step:skip
 │   │   ├── calls transform_intr_convention(params=params, model=type(self).MODEL, source_intr_convention="standard", target_intr_convention=self._intr_convention)  # -> params, back on the frame this intrinsics states them in
-│   │   ├── impls intrinsics = type(self)(params=params, intr_convention=self._intr_convention, device=self._device)
+│   │   ├── impls intrinsics = type(self)(params=params, intr_convention=self._intr_convention)
 │   │   └── return intrinsics
-│   └── def scale_intrinsics(self, resolution: Optional[Tuple[int, int]] = None, scale: Optional[Union[Union[int, float], Tuple[Union[int, float], Union[int, float]]]] = None) -> "CameraIntrinsics"
+│   └── def scale_intrinsics(self, resolution: Optional[Union[int, Tuple[int, int], List[int], np.ndarray, torch.Tensor]] = None, scale: Optional[Union[int, float, Tuple[Union[int, float], Union[int, float]], List[Union[int, float]], np.ndarray, torch.Tensor]] = None) -> "CameraIntrinsics"
 │       ├── # Return this CameraIntrinsics restated against a different resolution — the diagonal case of an intrinsics transform, so this builds that transform and the one owner applies it.
 │       ├── def _validate_inputs [local]
 │       │   └── impls assert exactly one of resolution and scale is given  # impls-node-one-step:skip; a target resolution and a factor are two ways to name the same thing, and giving both leaves unstated which one wins
@@ -427,10 +479,10 @@ camera_intrinsics.py
 ├── class CameraIntrinsicsSimplePinhole(CameraIntrinsics)
 │   ├── # Simple-pinhole intrinsics: a single shared focal length f under a perspective projection.
 │   ├── MODEL: ClassVar[str] = "simple_pinhole"
-│   ├── def fx(self) -> float  # @property [override]
+│   ├── def fx(self) -> torch.Tensor  # @property [override]
 │   │   ├── # The shared focal length params["f"].
 │   │   └── return self._params["f"]
-│   ├── def fy(self) -> float  # @property [override]
+│   ├── def fy(self) -> torch.Tensor  # @property [override]
 │   │   ├── # The shared focal length params["f"].
 │   │   └── return self._params["f"]
 │   ├── def project(self, points_camera: torch.Tensor, inplace: bool = False) -> torch.Tensor   [override]
@@ -440,16 +492,16 @@ camera_intrinsics.py
 │   │   ├── impls in place: out[..., 0] = f * out[..., 0] / z + cx  (div_ / mul_ / add_)  # impls-node-one-step:skip
 │   │   ├── impls in place: out[..., 1] = f * out[..., 1] / z + cy  (div_ / mul_ / add_)  # impls-node-one-step:skip
 │   │   └── return  # out, the [..., 2] image points (a view into points_camera when inplace)
-│   └── def fov(self) -> Tuple[float, float]  # @property
+│   └── def fov(self) -> Tuple[torch.Tensor, torch.Tensor]  # @property
 │       ├── # The horizontal / vertical field of view in degrees (perspective model only).
-│       └── impls computes (horizontal, vertical) fov in degrees from f, cx, cy
+│       └── impls computes horizontal and vertical fov tensors in degrees from f, cx, and cy
 ├── class CameraIntrinsicsPinhole(CameraIntrinsics)
 │   ├── # Pinhole intrinsics: independent focal lengths fx / fy under a perspective projection.
 │   ├── MODEL: ClassVar[str] = "pinhole"
-│   ├── def fx(self) -> float  # @property [override]
+│   ├── def fx(self) -> torch.Tensor  # @property [override]
 │   │   ├── # The horizontal focal length params["fx"].
 │   │   └── return self._params["fx"]
-│   ├── def fy(self) -> float  # @property [override]
+│   ├── def fy(self) -> torch.Tensor  # @property [override]
 │   │   ├── # The vertical focal length params["fy"].
 │   │   └── return self._params["fy"]
 │   ├── def project(self, points_camera: torch.Tensor, inplace: bool = False) -> torch.Tensor   [override]
@@ -459,16 +511,16 @@ camera_intrinsics.py
 │   │   ├── impls in place: out[..., 0] = fx * out[..., 0] / z + cx  (div_ / mul_ / add_)  # impls-node-one-step:skip
 │   │   ├── impls in place: out[..., 1] = fy * out[..., 1] / z + cy  (div_ / mul_ / add_)  # impls-node-one-step:skip
 │   │   └── return  # out, the [..., 2] image points (a view into points_camera when inplace)
-│   └── def fov(self) -> Tuple[float, float]  # @property
+│   └── def fov(self) -> Tuple[torch.Tensor, torch.Tensor]  # @property
 │       ├── # The horizontal / vertical field of view in degrees (perspective model only).
-│       └── impls computes (horizontal, vertical) fov in degrees from fx, fy, cx, cy
+│       └── impls computes horizontal and vertical fov tensors in degrees from fx, fy, cx, and cy
 ├── class CameraIntrinsicsOrtho(CameraIntrinsics)
 │   ├── # Ortho (weak-perspective) intrinsics: independent focal scales fx / fy with no perspective divide.
 │   ├── MODEL: ClassVar[str] = "ortho"
-│   ├── def fx(self) -> float  # @property [override]
+│   ├── def fx(self) -> torch.Tensor  # @property [override]
 │   │   ├── # The horizontal focal scale params["fx"].
 │   │   └── return self._params["fx"]
-│   ├── def fy(self) -> float  # @property [override]
+│   ├── def fy(self) -> torch.Tensor  # @property [override]
 │   │   ├── # The vertical focal scale params["fy"].
 │   │   └── return self._params["fy"]
 │   └── def project(self, points_camera: torch.Tensor, inplace: bool = False) -> torch.Tensor   [override]
@@ -477,16 +529,16 @@ camera_intrinsics.py
 │       ├── impls in place: out[..., 0] = fx * out[..., 0] + cx  (mul_ / add_)                                      # impls-node-one-step:skip
 │       ├── impls in place: out[..., 1] = fy * out[..., 1] + cy  (mul_ / add_)                                      # impls-node-one-step:skip
 │       └── return  # out, the [..., 2] image points (a view into points_camera when inplace)
-└── def build_camera_intrinsics(model: str, params: Dict[str, Union[int, float]], intr_convention: str, device: Union[str, torch.device] = torch.device("cuda")) -> CameraIntrinsics
+└── def build_camera_intrinsics(model: str, params: Dict[str, Union[int, float, np.ndarray, torch.Tensor]], intr_convention: str, device: Optional[Union[str, torch.device]] = None, dtype: Optional[torch.dtype] = None) -> CameraIntrinsics
     ├── # Build the CameraIntrinsics subclass for a camera-model string (the serialization-boundary factory) by dispatching on the model.
     ├── if model == "simple_pinhole"
-    │   ├── calls CameraIntrinsicsSimplePinhole(params=params, intr_convention=intr_convention, device=device)
+    │   ├── calls CameraIntrinsicsSimplePinhole(params=params, intr_convention=intr_convention, device=device, dtype=dtype)
     │   └── return
     ├── if model == "pinhole"
-    │   ├── calls CameraIntrinsicsPinhole(params=params, intr_convention=intr_convention, device=device)
+    │   ├── calls CameraIntrinsicsPinhole(params=params, intr_convention=intr_convention, device=device, dtype=dtype)
     │   └── return
     ├── if model == "ortho"
-    │   ├── calls CameraIntrinsicsOrtho(params=params, intr_convention=intr_convention, device=device)
+    │   ├── calls CameraIntrinsicsOrtho(params=params, intr_convention=intr_convention, device=device, dtype=dtype)
     │   └── return
     └── assert 0, "Should not reach here."
 ```
@@ -495,22 +547,28 @@ camera_intrinsics.py
 
 ```text
 camera_extrinsics.py
-├── from typing import Optional, Union
+├── from typing import List, Optional, Tuple, Union
 ├── import numpy as np
 ├── import torch
 ├── from data.structures.three_d.camera.extrinsics.conventions import transform_extr_convention
 ├── from data.structures.three_d.camera.extrinsics.validation import validate_camera_extrinsics_attributes, validate_extr_convention, validate_rotation_matrix
 ├── _ORTHOGONALITY_REPAIR_ATOL = 1.0e-05  # dtype-independent input-quality guard: max RR^T-vs-I / determinant residual a raw rotation may carry and still be trusted as SVD-repairable
 ├── class CameraExtrinsics
-│   ├── def __init__(self, extrinsics: torch.Tensor, extr_convention: str, device: Union[str, torch.device] = torch.device("cuda")) -> None
-│   │   ├── # Construct a CameraExtrinsics from a 4x4 cam2world matrix and the pose frame it is expressed in, validating both.
-│   │   ├── calls validate_camera_extrinsics_attributes(extrinsics=extrinsics, extr_convention=extr_convention, device=device)
-│   │   ├── impls move the extrinsics to device
+│   ├── def __init__(self, extrinsics: Union[np.ndarray, torch.Tensor, List[List[Union[int, float]]]], extr_convention: str, device: Union[str, torch.device] = "cpu", dtype: torch.dtype = torch.float32) -> None
+│   │   ├── # Construct a CameraExtrinsics from an array-like 4x4 cam2world matrix and the pose frame it is expressed in.
+│   │   ├── calls validate_camera_extrinsics_attributes(extrinsics=extrinsics, extr_convention=extr_convention, device=device, dtype=dtype)
+│   │   ├── def _normalize_inputs(extrinsics: Union[np.ndarray, torch.Tensor, List[List[Union[int, float]]]], device: Union[str, torch.device], dtype: torch.dtype) -> Tuple[torch.Tensor, torch.device] [local]
+│   │   │   ├── impls extrinsics = torch.as_tensor(extrinsics, device=device, dtype=dtype)
+│   │   │   ├── impls device = torch.device(device)
+│   │   │   └── return extrinsics, device
+│   │   ├── calls _normalize_inputs(extrinsics=extrinsics, device=device, dtype=dtype)
+│   │   ├── impls extrinsics, device = the returned values from _normalize_inputs
 │   │   ├── impls self._extrinsics = extrinsics
 │   │   ├── impls self._extr_convention = extr_convention
-│   │   └── impls self._device = device
+│   │   ├── impls self._device = device
+│   │   └── impls self._dtype = dtype
 │   ├── def extrinsics(self) -> torch.Tensor  # @property
-│   │   ├── # The 4x4 camera-to-world extrinsics matrix.
+│   │   ├── # The 4x4 camera-to-world extrinsics tensor.
 │   │   └── return self._extrinsics
 │   ├── def extr_convention(self) -> str  # @property
 │   │   ├── # The pose frame this cam2world matrix is expressed in (standard / opengl / opencv / pytorch3d / arkit).
@@ -518,6 +576,9 @@ camera_extrinsics.py
 │   ├── def device(self) -> torch.device  # @property
 │   │   ├── # The device the extrinsics live on.
 │   │   └── return self._device
+│   ├── def dtype(self) -> torch.dtype  # @property
+│   │   ├── # The dtype of the extrinsics tensor.
+│   │   └── return self._dtype
 │   ├── def w2c(self) -> torch.Tensor  # @property
 │   │   ├── # The world-to-camera matrix (inverse of extrinsics).
 │   │   └── return the matrix inverse of self._extrinsics
@@ -536,8 +597,9 @@ camera_extrinsics.py
 │   │   ├── # The extr_convention-dispatched physical up axis.
 │   │   ├── impls select the up axis per extr_convention
 │   │   └── impls assert the selected axis has unit norm
-│   ├── def to(self, device: Optional[Union[str, torch.device]] = None, extr_convention: Optional[str] = None) -> "CameraExtrinsics"
-│   │   ├── # Return this CameraExtrinsics on a target device / pose frame as a fresh instance.
+│   ├── def to(self, device: Optional[Union[str, torch.device]] = None, dtype: Optional[torch.dtype] = None, non_blocking: bool = False, copy: bool = False, extr_convention: Optional[str] = None) -> "CameraExtrinsics"
+│   │   ├── # Return this CameraExtrinsics with Tensor.to-style placement / copy semantics plus optional pose-frame conversion.
+│   │   ├── impls target_extrinsics = self._extrinsics.to(device=device, dtype=dtype, non_blocking=non_blocking, copy=copy)
 │   │   ├── def _validate_inputs [local]
 │   │   │   └── if extr_convention is not None
 │   │   │       └── calls validate_extr_convention
@@ -546,8 +608,28 @@ camera_extrinsics.py
 │   │   │   └── calls transform_extr_convention
 │   │   ├── calls CameraExtrinsics(...)
 │   │   └── return
-│   └── def transform_extrinsics(self, scale: float, rotation: np.ndarray, translation: np.ndarray) -> "CameraExtrinsics"
-│       ├── # Return this CameraExtrinsics under a similarity transform (scale, rotation, translation) of its cam2world pose.
+│   └── def transform_extrinsics(self, scale: Union[int, float, np.ndarray, torch.Tensor], rotation: Union[np.ndarray, torch.Tensor, List[List[Union[int, float]]]], translation: Union[np.ndarray, torch.Tensor, Tuple[Union[int, float], Union[int, float], Union[int, float]], List[Union[int, float]]]) -> "CameraExtrinsics"
+│       ├── # Return this CameraExtrinsics under array-like scale, rotation, and translation inputs of its cam2world pose.
+│       ├── def _validate_inputs [local]
+│       │   ├── calls validate_rotation_matrix(rotation)
+│       │   └── impls assert translation is a length-3 numeric array-like or a torch Tensor with shape (3,)
+│       ├── calls _validate_inputs
+│       ├── def _normalize_inputs [local]
+│       │   ├── impls scale = torch.as_tensor(scale, device=self.device, dtype=self.dtype)
+│       │   ├── impls asserts scale.shape == ()
+│       │   ├── impls asserts scale.device == self.device
+│       │   ├── impls asserts scale.dtype == self.dtype
+│       │   ├── impls rotation = torch.as_tensor(rotation, device=self.device, dtype=self.dtype)
+│       │   ├── impls asserts rotation.shape == (3, 3)
+│       │   ├── impls asserts rotation.device == self.device
+│       │   ├── impls asserts rotation.dtype == self.dtype
+│       │   ├── impls translation = torch.as_tensor(translation, device=self.device, dtype=self.dtype)
+│       │   ├── impls asserts translation.shape == (3,)
+│       │   ├── impls asserts translation.device == self.device
+│       │   ├── impls asserts translation.dtype == self.dtype
+│       │   └── return scale, rotation, translation
+│       ├── calls _normalize_inputs
+│       ├── impls scale, rotation, translation = the returned values from _normalize_inputs
 │       ├── impls composes the new cam2world rotation/translation from scale, rotation, translation
 │       ├── calls _stabilize_rotation_matrix
 │       ├── calls CameraExtrinsics(...)  # re-validates via validate_camera_extrinsics_attributes
@@ -571,7 +653,7 @@ camera_extrinsics.py
 ```text
 camera.py
 ├── from pathlib import Path
-├── from typing import Any, Dict, Optional, Tuple, Union
+├── from typing import Any, Dict, List, Optional, Tuple, Union
 ├── import numpy as np
 ├── import torch
 ├── from data.structures.three_d.camera.intrinsics.camera_intrinsics import CameraIntrinsics
@@ -579,15 +661,18 @@ camera.py
 ├── from data.structures.three_d.camera.io import deserialize_cameras, load_cameras, save_cameras, serialize_cameras
 ├── from data.structures.three_d.camera.validation import validate_camera_attributes
 └── class Camera
-    ├── def __init__(self, intrinsics: CameraIntrinsics, extrinsics: CameraExtrinsics, name: Optional[str] = None, id: Optional[int] = None, device: Union[str, torch.device] = torch.device("cuda")) -> None
-    │   ├── # Construct a Camera from a CameraIntrinsics and a CameraExtrinsics, keeping name / id / device.
-    │   ├── calls validate_camera_attributes(intrinsics=intrinsics, extrinsics=extrinsics, name=name, id=id, device=device)
-    │   ├── impls move the intrinsics / extrinsics to device
+    ├── def __init__(self, intrinsics: CameraIntrinsics, extrinsics: CameraExtrinsics, name: Optional[str] = None, id: Optional[int] = None, device: Optional[Union[str, torch.device]] = None, dtype: Optional[torch.dtype] = None) -> None
+    │   ├── # Construct a Camera from tensor-backed CameraIntrinsics and CameraExtrinsics components.
+    │   ├── calls validate_camera_attributes(intrinsics=intrinsics, extrinsics=extrinsics, name=name, id=id, device=device, dtype=dtype)
+    │   ├── if device is not None or dtype is not None
+    │   │   ├── calls intrinsics.to(device=device, dtype=dtype)  # -> intrinsics
+    │   │   └── calls extrinsics.to(device=device, dtype=dtype)  # -> extrinsics
     │   ├── impls self._intrinsics = intrinsics
     │   ├── impls self._extrinsics = extrinsics
     │   ├── impls self._name = name
     │   ├── impls self._id = id
-    │   └── impls self._device = device
+    │   ├── impls self._device = the common component device
+    │   └── impls self._dtype = the common component dtype
     ├── def intrinsics(self) -> CameraIntrinsics  # @property
     │   ├── # The camera's CameraIntrinsics ("what the camera is").
     │   └── return self._intrinsics
@@ -603,10 +688,13 @@ camera.py
     ├── def device(self) -> torch.device  # @property
     │   ├── # The device the camera tensors live on.
     │   └── return self._device
-    ├── def to(self, device: Optional[Union[str, torch.device]] = None, intr_convention: Optional[str] = None, extr_convention: Optional[str] = None) -> "Camera"
-    │   ├── # Return this Camera on a target device / image-plane frame / pose frame as a fresh instance, each half named for the half it converts because neither is the one a bare convention would mean.
-    │   ├── calls self._intrinsics.to(device=device, intr_convention=intr_convention)
-    │   ├── calls self._extrinsics.to(device=device, extr_convention=extr_convention)
+    ├── def dtype(self) -> torch.dtype  # @property
+    │   ├── # The dtype shared by the camera tensors.
+    │   └── return self._dtype
+    ├── def to(self, device: Optional[Union[str, torch.device]] = None, dtype: Optional[torch.dtype] = None, non_blocking: bool = False, copy: bool = False, intr_convention: Optional[str] = None, extr_convention: Optional[str] = None) -> "Camera"
+    │   ├── # Return this Camera with Tensor.to-style placement / copy semantics plus optional image-plane and pose-frame conversions.
+    │   ├── calls self._intrinsics.to(device=device, dtype=dtype, non_blocking=non_blocking, copy=copy, intr_convention=intr_convention)
+    │   ├── calls self._extrinsics.to(device=device, dtype=dtype, non_blocking=non_blocking, copy=copy, extr_convention=extr_convention)
     │   ├── calls Camera(...)
     │   └── return
     ├── def transform_intrinsics(self, transform: torch.Tensor, resolution: Tuple[int, int]) -> "Camera"
@@ -614,13 +702,13 @@ camera.py
     │   ├── calls self._intrinsics.transform_intrinsics(transform=transform, resolution=resolution)
     │   ├── calls Camera(...)
     │   └── return
-    ├── def scale_intrinsics(self, resolution: Optional[Tuple[int, int]] = None, scale: Optional[Union[Union[int, float], Tuple[Union[int, float], Union[int, float]]]] = None) -> "Camera"
-    │   ├── # Return this Camera with its CameraIntrinsics scaled to a resolution or by a factor.
+    ├── def scale_intrinsics(self, resolution: Optional[Union[int, Tuple[int, int], List[int], np.ndarray, torch.Tensor]] = None, scale: Optional[Union[int, float, Tuple[Union[int, float], Union[int, float]], List[Union[int, float]], np.ndarray, torch.Tensor]] = None) -> "Camera"
+    │   ├── # Return this Camera with its CameraIntrinsics scaled to an integer or array-like resolution, or by a factor.
     │   ├── calls self._intrinsics.scale_intrinsics(resolution=resolution, scale=scale)
     │   ├── calls Camera(...)
     │   └── return
-    ├── def transform_extrinsics(self, scale: float, rotation: np.ndarray, translation: np.ndarray) -> "Camera"
-    │   ├── # Return this Camera under a similarity transform of its CameraExtrinsics pose.
+    ├── def transform_extrinsics(self, scale: Union[int, float, np.ndarray, torch.Tensor], rotation: Union[np.ndarray, torch.Tensor, List[List[Union[int, float]]]], translation: Union[np.ndarray, torch.Tensor, Tuple[Union[int, float], Union[int, float], Union[int, float]], List[Union[int, float]]]) -> "Camera"
+    │   ├── # Return this Camera under array-like scale, rotation, and translation inputs of its CameraExtrinsics pose.
     │   ├── calls self._extrinsics.transform_extrinsics(scale=scale, rotation=rotation, translation=translation)
     │   ├── calls Camera(...)
     │   └── return
@@ -650,15 +738,18 @@ cameras.py
 ├── from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
 ├── from data.structures.three_d.camera.validation import validate_cameras_attributes
 └── class Cameras
-    ├── def __init__(self, intrinsics: List[CameraIntrinsics], extrinsics: List[CameraExtrinsics], names: Optional[List[Optional[str]]] = None, ids: Optional[List[Optional[int]]] = None, device: Union[str, torch.device] = torch.device("cuda")) -> None
-    │   ├── # Construct a Cameras from parallel lists of CameraIntrinsics and CameraExtrinsics, keeping per-camera names / ids.
-    │   ├── calls validate_cameras_attributes(intrinsics=intrinsics, extrinsics=extrinsics, names=names, ids=ids, device=device)
-    │   ├── impls move each CameraIntrinsics / CameraExtrinsics to device
+    ├── def __init__(self, intrinsics: List[CameraIntrinsics], extrinsics: List[CameraExtrinsics], names: Optional[List[Optional[str]]] = None, ids: Optional[List[Optional[int]]] = None, device: Optional[Union[str, torch.device]] = None, dtype: Optional[torch.dtype] = None) -> None
+    │   ├── # Construct a Cameras from parallel tensor-backed CameraIntrinsics and CameraExtrinsics lists.
+    │   ├── calls validate_cameras_attributes(intrinsics=intrinsics, extrinsics=extrinsics, names=names, ids=ids, device=device, dtype=dtype)
+    │   ├── if device is not None or dtype is not None
+    │   │   ├── impls replace intrinsics with the list of CameraIntrinsics.to results
+    │   │   └── impls replace extrinsics with the list of CameraExtrinsics.to results
     │   ├── impls self._intrinsics = intrinsics
     │   ├── impls self._extrinsics = extrinsics
     │   ├── impls self._names = names
     │   ├── impls self._ids = ids
-    │   ├── impls self._device = device
+    │   ├── impls self._device = the common component device
+    │   ├── impls self._dtype = the common component dtype
     │   └── impls self._name_to_index = the name → index map
     ├── def __len__(self) -> int
     │   ├── # The number of cameras in the collection.
@@ -681,14 +772,14 @@ cameras.py
     │   ├── # Iterate the collection one Camera at a time.
     │   └── for each index in range(len(self))
     │       └── yield  # self[index]
-    ├── def to(self, device: Optional[Union[str, torch.device]] = None, intr_convention: Optional[str] = None, extr_convention: Optional[str] = None) -> "Cameras"
-    │   ├── # Return this Cameras on a target device / image-plane frame / pose frame as a fresh instance, naming each half exactly as the Camera it batches does.
+    ├── def to(self, device: Optional[Union[str, torch.device]] = None, dtype: Optional[torch.dtype] = None, non_blocking: bool = False, copy: bool = False, intr_convention: Optional[str] = None, extr_convention: Optional[str] = None) -> "Cameras"
+    │   ├── # Return this Cameras with Tensor.to-style placement / copy semantics plus optional image-plane and pose-frame conversions.
     │   ├── for each camera in self
-    │   │   └── calls camera.to(device=device, intr_convention=intr_convention, extr_convention=extr_convention)
+    │   │   └── calls camera.to(device=device, dtype=dtype, non_blocking=non_blocking, copy=copy, intr_convention=intr_convention, extr_convention=extr_convention)
     │   ├── calls Cameras(...)
     │   └── return
-    ├── def transform_extrinsics(self, scale: float, rotation: np.ndarray, translation: np.ndarray) -> "Cameras"
-    │   ├── # Return this Cameras under a similarity transform applied to each camera's CameraExtrinsics pose.
+    ├── def transform_extrinsics(self, scale: Union[int, float, np.ndarray, torch.Tensor], rotation: Union[np.ndarray, torch.Tensor, List[List[Union[int, float]]]], translation: Union[np.ndarray, torch.Tensor, Tuple[Union[int, float], Union[int, float], Union[int, float]], List[Union[int, float]]]) -> "Cameras"
+    │   ├── # Return this Cameras under array-like scale, rotation, and translation inputs applied to each CameraExtrinsics pose.
     │   ├── for each camera in self
     │   │   └── calls camera.transform_extrinsics(scale=scale, rotation=rotation, translation=translation)
     │   ├── calls Cameras(...)
@@ -708,6 +799,9 @@ cameras.py
     ├── def device(self) -> torch.device  # @property
     │   ├── # The device the cameras live on.
     │   └── return self._device
+    ├── def dtype(self) -> torch.dtype  # @property
+    │   ├── # The dtype shared by the cameras' tensor state.
+    │   └── return self._dtype
     ├── def center(self) -> torch.Tensor  # @property
     │   ├── # The [N, 3] stack of per-camera centers.
     │   └── impls stacks each CameraExtrinsics center into [N, 3]
@@ -859,7 +953,8 @@ io.py
 │   ├── # Map a Cameras to the plural json payload: one dict per camera.
 │   ├── impls per_camera_dicts — an empty accumulator the loop appends to
 │   ├── for each camera in cameras
-│   │   └── impls builds that camera's json dict from intrinsics.model, intrinsics.params, intrinsics.intr_convention, extrinsics.extrinsics, extrinsics.extr_convention, name, and id  # impls-node-one-step:skip; each frame is keyed for the half it came off, and the resolution rides inside params
+│   │   ├── calls _serialize_intrinsics_params(params=camera.intrinsics.params)
+│   │   └── impls builds that camera's json dict from intrinsics.model, serialized_params, intrinsics.intr_convention, extrinsics.extrinsics, extrinsics.extr_convention, name, and id  # impls-node-one-step:skip; each frame is keyed for the half it came off, and the resolution rides inside serialized_params
 │   └── return
 ├── def _deserialize_cameras_json(per_camera_dicts: List[Dict[str, Any]], device: torch.device) -> "Cameras"
 │   ├── # Map the plural json per-camera dicts to a Cameras.
@@ -877,8 +972,10 @@ io.py
 │   ├── calls _validate_inputs
 │   ├── impls intrinsics_list, extrinsics_list, names, ids — four empty accumulators the loop appends to
 │   ├── for each per-camera dict
+│   │   ├── impls decodes serialized params to scalar tensors on device
 │   │   ├── impls decodes extrinsics to a tensor on device
-│   │   ├── calls build_camera_intrinsics(model=per_camera_dict["model"], params=per_camera_dict["params"], intr_convention=per_camera_dict["intr_convention"], device=device)  # validates the model, its params and the image-plane frame those params name; the resolution rides inside params
+│   │   ├── calls _deserialize_intrinsics_params(params=per_camera_dict["params"], device=device)
+│   │   ├── calls build_camera_intrinsics(model=per_camera_dict["model"], params=tensor_params, intr_convention=per_camera_dict["intr_convention"], device=device)  # validates the model, its params and the image-plane frame those params name; the resolution rides inside tensor_params
 │   │   ├── calls CameraExtrinsics(extrinsics=extrinsics, extr_convention=per_camera_dict["extr_convention"], device=device)  # validates extrinsics + extr_convention
 │   │   └── impls appends per_camera_dict["name"] and per_camera_dict["id"] unchanged                                         # impls-node-one-step:skip; json stores both directly, where npz needs has_name / has_id flags
 │   ├── calls Cameras(intrinsics=intrinsics_list, extrinsics=extrinsics_list, names=names, ids=ids, device=device)  # field-validates the batch
@@ -887,7 +984,8 @@ io.py
 │   ├── # Map a Cameras to the plural batched-array npz payload.
 │   ├── impls models, params, intr_conventions, extrinsics_list, extr_conventions, names, has_names, ids, has_ids — nine empty accumulators the loop appends to
 │   ├── for each camera in cameras
-│   │   └── impls appends that camera's model, params (json-encoded, its h and w among them), intr_convention, extrinsics, extr_convention, name ("" when absent), and id (-1 when absent) to the batch, each with its has_name / has_id flag  # impls-node-one-step:skip
+│   │   ├── calls _serialize_intrinsics_params(params=camera.intrinsics.params)
+│   │   └── impls appends that camera's model, serialized_params (json-encoded, its h and w among them), intr_convention, extrinsics, extr_convention, name ("" when absent), and id (-1 when absent) to the batch, each with its has_name / has_id flag  # impls-node-one-step:skip
 │   ├── impls stacks each accumulator into its npz array, extrinsics along a new leading axis  # impls-node-one-step:skip
 │   └── return
 ├── def _deserialize_cameras_npz(payload: Dict[str, Any], device: torch.device) -> "Cameras"
@@ -905,11 +1003,24 @@ io.py
 │   ├── impls model_array, params_array, intr_convention_array, extr_convention_array, name_array, has_name_array, id_array, has_id_array — the eight per-camera arrays read from payload
 │   ├── impls intrinsics_list, extrinsics_list, names, ids — four empty accumulators the loop appends to
 │   ├── for each batch index
-│   │   ├── impls decodes that index's model, params, extrinsics, two frames, name, and id on device, each name and id taken only when its has_name / has_id flag is set  # impls-node-one-step:skip
-│   │   ├── calls build_camera_intrinsics(model=model, params=params, intr_convention=str(intr_convention_array[index].item()), device=device)                            # validates the model, its params and the image-plane frame those params name; the resolution rides inside params
+│   │   ├── impls decodes that index's model, serialized params, extrinsics, two frames, name, and id on device, each name and id taken only when its has_name / has_id flag is set  # impls-node-one-step:skip
+│   │   ├── calls _deserialize_intrinsics_params(params=serialized_params, device=device)
+│   │   ├── calls build_camera_intrinsics(model=model, params=tensor_params, intr_convention=str(intr_convention_array[index].item()), device=device)                            # validates the model, its params and the image-plane frame those params name; the resolution rides inside tensor_params
 │   │   └── calls CameraExtrinsics(extrinsics=torch.as_tensor(extrinsics[index], dtype=torch.float32, device=device), extr_convention=str(extr_convention_array[index].item()), device=device)  # validates extr_convention
 │   ├── calls Cameras(intrinsics=intrinsics_list, extrinsics=extrinsics_list, names=names, ids=ids, device=device)  # field-validates the batch
 │   └── return
+├── def _serialize_intrinsics_params(params: Dict[str, torch.Tensor]) -> Dict[str, Union[int, float]]
+│   ├── # Map scalar tensor intrinsics params to numeric scalar values at the camera I/O boundary.
+│   ├── impls serialized_params = an empty dict
+│   ├── for each param key/value
+│   │   └── impls materialize the scalar tensor value as its Python numeric scalar
+│   └── return serialized_params
+├── def _deserialize_intrinsics_params(params: Dict[str, Union[int, float]], device: torch.device, dtype: torch.dtype = torch.float32) -> Dict[str, torch.Tensor]
+│   ├── # Map serialized numeric scalar intrinsics params back to scalar tensors at the camera I/O boundary.
+│   ├── impls tensor_params = an empty dict
+│   ├── for each param key/value
+│   │   └── impls convert the numeric scalar to a torch scalar tensor with the requested device and dtype
+│   └── return tensor_params
 ├── def _normalize_payload_to_plural(payload: Union[Dict[str, Any], List[Dict[str, Any]]], format: str) -> Tuple[Union[Dict[str, Any], List[Dict[str, Any]]], bool]
 │   ├── # Restore a payload to its format's plural form, reporting whether it arrived carrying one camera.
 │   ├── if format == "json"

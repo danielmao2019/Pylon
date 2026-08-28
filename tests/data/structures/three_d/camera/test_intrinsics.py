@@ -4,6 +4,7 @@ import warnings
 from pathlib import Path
 from typing import Dict, List, Set, Tuple, Union
 
+import numpy as np
 import pytest
 import torch
 
@@ -20,6 +21,26 @@ from data.structures.three_d.camera.intrinsics.validation import (
     validate_camera_intrinsics_params,
     validate_camera_model,
 )
+
+
+def _tensor_params(
+    params: Dict[str, Union[int, float]], requires_grad: bool = False
+) -> Dict[str, torch.Tensor]:
+    """Build scalar tensor intrinsics params from numeric values.
+
+    Args:
+        params: Numeric intrinsics params keyed by model field name.
+        requires_grad: Whether floating projection params should require gradients.
+
+    Returns:
+        A dict with every param represented as a scalar float32 tensor.
+    """
+    return {
+        key: torch.tensor(
+            float(value), dtype=torch.float32, requires_grad=requires_grad
+        )
+        for key, value in params.items()
+    }
 
 
 def test_validate_camera_model_accepts_all_supported() -> None:
@@ -57,15 +78,19 @@ def test_validate_intrinsics_params_dispatches_per_model_keys() -> None:
     Returns:
         None.
     """
-    simple_params = {"f": 400.0, "cx": 160.0, "cy": 120.0, "h": 240, "w": 320}
-    pinhole_params = {
-        "fx": 400.0,
-        "fy": 410.0,
-        "cx": 160.0,
-        "cy": 120.0,
-        "h": 240,
-        "w": 320,
-    }
+    simple_params = _tensor_params(
+        params={"f": 400.0, "cx": 160.0, "cy": 120.0, "h": 240, "w": 320}
+    )
+    pinhole_params = _tensor_params(
+        params={
+            "fx": 400.0,
+            "fy": 410.0,
+            "cx": 160.0,
+            "cy": 120.0,
+            "h": 240,
+            "w": 320,
+        }
+    )
     assert (
         validate_camera_intrinsics_params(
             model="simple_pinhole", intr_convention="standard", params=simple_params
@@ -120,7 +145,7 @@ def test_validate_intrinsics_params_rejects_a_params_dict_missing_the_resolution
             validate_camera_intrinsics_params(
                 model=model,
                 intr_convention="standard",
-                params=params,
+                params=_tensor_params(params=params),
             )
 
 
@@ -134,8 +159,19 @@ def test_the_principal_point_must_lie_on_the_image_in_its_own_frames_extent() ->
         None.
     """
 
-    def pinhole(cx: float, cy: float) -> Dict[str, Union[int, float]]:
-        return {"fx": 400.0, "fy": 410.0, "cx": cx, "cy": cy, "h": 240, "w": 320}
+    def pinhole(cx: float, cy: float) -> Dict[str, torch.Tensor]:
+        """Build tensor pinhole params with the requested principal point.
+
+        Args:
+            cx: Horizontal principal-point coordinate.
+            cy: Vertical principal-point coordinate.
+
+        Returns:
+            Tensor pinhole params in the standard pixel frame.
+        """
+        return _tensor_params(
+            params={"fx": 400.0, "fy": 410.0, "cx": cx, "cy": cy, "h": 240, "w": 320}
+        )
 
     # standard: the pixel frame running corner to corner.
     validate_camera_intrinsics_invariants(
@@ -172,7 +208,16 @@ def test_the_principal_point_must_lie_on_the_image_in_its_own_frames_extent() ->
         validate_camera_intrinsics_invariants(
             model="ortho",
             intr_convention=frame,
-            params={"fx": 1.0, "fy": 1.0, "cx": -37.5, "cy": 512.0, "h": 240, "w": 240},
+            params=_tensor_params(
+                params={
+                    "fx": 1.0,
+                    "fy": 1.0,
+                    "cx": -37.5,
+                    "cy": 512.0,
+                    "h": 240,
+                    "w": 240,
+                }
+            ),
         )
 
 
@@ -185,10 +230,16 @@ def test_a_centred_principal_point_survives_its_models_own_key_dispatch() -> Non
     Returns:
         None.
     """
-    centred: Dict[str, Dict[str, Union[int, float]]] = {
-        "simple_pinhole": {"f": 2.0, "cx": -0.5, "cy": -0.5, "h": 240, "w": 240},
-        "pinhole": {"fx": 2.0, "fy": 2.5, "cx": -0.5, "cy": -0.5, "h": 240, "w": 240},
-        "ortho": {"fx": 2.0, "fy": 2.5, "cx": -0.5, "cy": -0.5, "h": 240, "w": 240},
+    centred: Dict[str, Dict[str, torch.Tensor]] = {
+        "simple_pinhole": _tensor_params(
+            params={"f": 2.0, "cx": -0.5, "cy": -0.5, "h": 240, "w": 240}
+        ),
+        "pinhole": _tensor_params(
+            params={"fx": 2.0, "fy": 2.5, "cx": -0.5, "cy": -0.5, "h": 240, "w": 240}
+        ),
+        "ortho": _tensor_params(
+            params={"fx": 2.0, "fy": 2.5, "cx": -0.5, "cy": -0.5, "h": 240, "w": 240}
+        ),
     }
     for model, params in centred.items():
         assert (
@@ -209,10 +260,24 @@ def test_a_frame_that_scales_the_axes_apart_cannot_hold_a_shared_focal() -> None
         None.
     """
 
-    def params_for(model: str, height: int, width: int) -> Dict[str, Union[int, float]]:
+    def params_for(model: str, height: int, width: int) -> Dict[str, torch.Tensor]:
+        """Build tensor params for a supported camera model and resolution.
+
+        Args:
+            model: Camera-model identifier.
+            height: Image height.
+            width: Image width.
+
+        Returns:
+            Tensor params for the requested model.
+        """
         if model == "simple_pinhole":
-            return {"f": 2.0, "cx": 0.0, "cy": 0.0, "h": height, "w": width}
-        return {"fx": 2.0, "fy": 2.5, "cx": 0.0, "cy": 0.0, "h": height, "w": width}
+            return _tensor_params(
+                params={"f": 2.0, "cx": 0.0, "cy": 0.0, "h": height, "w": width}
+            )
+        return _tensor_params(
+            params={"fx": 2.0, "fy": 2.5, "cx": 0.0, "cy": 0.0, "h": height, "w": width}
+        )
 
     for frame in ("opengl", "vulkan"):
         validate_camera_intrinsics_invariants(
@@ -241,10 +306,10 @@ def test_a_frame_that_scales_the_axes_apart_cannot_hold_a_shared_focal() -> None
                 )
 
 
-def test_validate_intrinsics_attributes_checks_model_intr_convention_params_device() -> (
+def test_validate_intrinsics_attributes_checks_model_intr_convention_params_device_dtype() -> (
     None
 ):
-    """validate_camera_intrinsics_attributes validates model, image-plane frame, params, and device.
+    """validate_camera_intrinsics_attributes validates model, image-plane frame, params, device, and dtype.
 
     Args:
         None.
@@ -252,9 +317,15 @@ def test_validate_intrinsics_attributes_checks_model_intr_convention_params_devi
     Returns:
         None.
     """
-    params = {"fx": 400.0, "fy": 410.0, "cx": 160.0, "cy": 120.0, "h": 240, "w": 320}
+    params = _tensor_params(
+        params={"fx": 400.0, "fy": 410.0, "cx": 160.0, "cy": 120.0, "h": 240, "w": 320}
+    )
     validate_camera_intrinsics_attributes(
-        model="pinhole", params=params, intr_convention="standard", device="cpu"
+        model="pinhole",
+        params=params,
+        intr_convention="standard",
+        device="cpu",
+        dtype=torch.float32,
     )
     with pytest.raises(AssertionError):
         validate_camera_intrinsics_attributes(
@@ -262,13 +333,17 @@ def test_validate_intrinsics_attributes_checks_model_intr_convention_params_devi
             intr_convention="standard",
             params=params,
             device="cpu",
+            dtype=torch.float32,
         )
     with pytest.raises(AssertionError):
         validate_camera_intrinsics_attributes(
             model="pinhole",
-            params={"f": 400.0, "cx": 160.0, "cy": 120.0, "h": 240, "w": 320},
+            params=_tensor_params(
+                params={"f": 400.0, "cx": 160.0, "cy": 120.0, "h": 240, "w": 320}
+            ),
             intr_convention="standard",
             device="cpu",
+            dtype=torch.float32,
         )
     with pytest.raises(AssertionError):
         validate_camera_intrinsics_attributes(
@@ -276,6 +351,7 @@ def test_validate_intrinsics_attributes_checks_model_intr_convention_params_devi
             intr_convention="ndc",
             params=params,
             device="cpu",
+            dtype=torch.float32,
         )
     with pytest.raises(AssertionError):
         validate_camera_intrinsics_attributes(
@@ -283,6 +359,123 @@ def test_validate_intrinsics_attributes_checks_model_intr_convention_params_devi
             intr_convention="standard",
             params=params,
             device=0,
+            dtype=torch.float32,
+        )
+    with pytest.raises(AssertionError):
+        validate_camera_intrinsics_attributes(
+            model="pinhole",
+            intr_convention="standard",
+            params=params,
+            device="cpu",
+            dtype=torch.int64,
+        )
+
+
+def test_validate_intrinsics_params_rejects_python_scalars() -> None:
+    """validate_camera_intrinsics_params rejects Python scalar live-state params.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    for model, params in {
+        "simple_pinhole": {"f": 400.0, "cx": 160.0, "cy": 120.0, "h": 240, "w": 320},
+        "pinhole": {
+            "fx": 400.0,
+            "fy": 410.0,
+            "cx": 160.0,
+            "cy": 120.0,
+            "h": 240,
+            "w": 320,
+        },
+        "ortho": {
+            "fx": 400.0,
+            "fy": 410.0,
+            "cx": 160.0,
+            "cy": 120.0,
+            "h": 240,
+            "w": 320,
+        },
+    }.items():
+        with pytest.raises(AssertionError):
+            validate_camera_intrinsics_params(
+                model=model,
+                intr_convention="standard",
+                params=params,
+            )
+
+
+def test_intrinsics_constructor_normalizes_scalar_compatible_params_to_tensors() -> (
+    None
+):
+    """CameraIntrinsics accepts numeric, numpy, and tensor scalars as constructor input.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    fx = torch.tensor(400.0, dtype=torch.float64, requires_grad=True)
+    intrinsics = build_camera_intrinsics(
+        model="pinhole",
+        params={
+            "fx": fx,
+            "fy": np.array(410.0, dtype=np.float64),
+            "cx": 160.0,
+            "cy": np.array([120.0], dtype=np.float64),
+            "h": 240,
+            "w": 320,
+        },
+        intr_convention="standard",
+        device="cpu",
+        dtype=torch.float64,
+    )
+    assert intrinsics.dtype == torch.float64, f"{intrinsics.dtype=}"
+    assert intrinsics.device == torch.device("cpu"), f"{intrinsics.device=}"
+    for key, value in intrinsics.params.items():
+        assert isinstance(value, torch.Tensor), f"{key=} {type(value)=}"
+        assert value.shape == (), f"{key=} {value.shape=}"
+        assert value.dtype == torch.float64, f"{key=} {value.dtype=}"
+    loss = intrinsics.project(
+        points_camera=torch.tensor([[1.0, 2.0, 4.0]], dtype=torch.float64)
+    ).sum()
+    loss.backward()
+    assert fx.grad is not None, "Expected the source tensor param to receive grad."
+
+
+def test_intrinsics_to_applies_dtype_and_copy_to_every_param() -> None:
+    """CameraIntrinsics.to applies Tensor.to-style dtype and copy semantics.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    intrinsics = build_camera_intrinsics(
+        model="pinhole",
+        params=_tensor_params(
+            params={
+                "fx": 400.0,
+                "fy": 410.0,
+                "cx": 160.0,
+                "cy": 120.0,
+                "h": 240,
+                "w": 320,
+            }
+        ),
+        intr_convention="standard",
+    )
+    moved = intrinsics.to(device="cpu", dtype=torch.float64, copy=True)
+    assert moved.dtype == torch.float64, f"{moved.dtype=}"
+    for key, value in moved.params.items():
+        assert value.dtype == torch.float64, f"{key=} {value.dtype=}"
+        assert value.data_ptr() != intrinsics.params[key].data_ptr(), (
+            "Expected copy=True to allocate distinct param storage. "
+            f"{key=} {value.data_ptr()=} {intrinsics.params[key].data_ptr()=}"
         )
 
 
@@ -778,6 +971,75 @@ def test_project_rejects_invalid_inputs(
         )
 
 
+def test_tensor_intrinsics_params_stay_on_the_projection_autograd_path() -> None:
+    """Tensor focal and principal-point params receive gradients through project.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    params = _tensor_params(
+        params={
+            "fx": 400.0,
+            "fy": 410.0,
+            "cx": 160.0,
+            "cy": 120.0,
+            "h": 240,
+            "w": 320,
+        },
+        requires_grad=True,
+    )
+    intrinsics = build_camera_intrinsics(
+        model="pinhole",
+        params=params,
+        intr_convention="standard",
+        device="cpu",
+    )
+    image = intrinsics.project(
+        points_camera=torch.tensor([[1.0, 2.0, 4.0]], dtype=torch.float32)
+    )
+    image.sum().backward()
+    for key in ("fx", "fy", "cx", "cy"):
+        assert params[key].grad is not None, f"{key=} {params[key].grad=}"
+
+
+def test_scale_intrinsics_keeps_tensor_scale_factors_on_the_autograd_path() -> None:
+    """Tensor scale factors receive gradients through scale_intrinsics.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    params = _tensor_params(
+        params={
+            "fx": 400.0,
+            "fy": 410.0,
+            "cx": 160.0,
+            "cy": 120.0,
+            "h": 240,
+            "w": 320,
+        },
+        requires_grad=True,
+    )
+    scale = torch.tensor([2.0, 0.5], dtype=torch.float32, requires_grad=True)
+    intrinsics = build_camera_intrinsics(
+        model="pinhole",
+        params=params,
+        intr_convention="standard",
+        device="cpu",
+    )
+    scaled = intrinsics.scale_intrinsics(scale=scale)
+    loss = scaled.fx + scaled.fy + scaled.cx + scaled.cy
+    loss.backward()
+    for key in ("fx", "fy", "cx", "cy"):
+        assert params[key].grad is not None, f"{key=} {params[key].grad=}"
+    assert scale.grad is not None, f"{scale.grad=}"
+
+
 def test_fx_fy_cx_cy_derived_from_params() -> None:
     """The fx / fy accessors and the cx / cy accessors are derived from params.
 
@@ -838,20 +1100,24 @@ def test_fov_defined_for_perspective_subclasses_only() -> None:
     )
     assert isinstance(simple.fov, tuple) and len(simple.fov) == 2, f"{simple.fov=}"
     assert isinstance(pinhole.fov, tuple) and len(pinhole.fov) == 2, f"{pinhole.fov=}"
-    assert all(isinstance(value, float) for value in simple.fov), f"{simple.fov=}"
-    assert all(isinstance(value, float) for value in pinhole.fov), f"{pinhole.fov=}"
+    assert all(
+        isinstance(value, torch.Tensor) for value in simple.fov
+    ), f"{simple.fov=}"
+    assert all(
+        isinstance(value, torch.Tensor) for value in pinhole.fov
+    ), f"{pinhole.fov=}"
     for intrinsics in (simple, pinhole):
         expected_horizontal = (
-            2.0 * math.atan(intrinsics.cx / intrinsics.fx) * 180.0 / math.pi
+            2.0 * torch.atan(intrinsics.cx / intrinsics.fx) * 180.0 / math.pi
         )
         expected_vertical = (
-            2.0 * math.atan(intrinsics.cy / intrinsics.fy) * 180.0 / math.pi
+            2.0 * torch.atan(intrinsics.cy / intrinsics.fy) * 180.0 / math.pi
         )
-        assert math.isclose(
-            intrinsics.fov[0], expected_horizontal, rel_tol=1.0e-09
+        assert torch.isclose(
+            intrinsics.fov[0], expected_horizontal, rtol=1.0e-09
         ), f"{intrinsics.fov=} {expected_horizontal=}"
-        assert math.isclose(
-            intrinsics.fov[1], expected_vertical, rel_tol=1.0e-09
+        assert torch.isclose(
+            intrinsics.fov[1], expected_vertical, rtol=1.0e-09
         ), f"{intrinsics.fov=} {expected_vertical=}"
     assert hasattr(ortho, "fov") is False, "Ortho intrinsics must not expose fov."
 

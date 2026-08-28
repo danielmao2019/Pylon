@@ -1,4 +1,4 @@
-from typing import Iterator, List, Optional, Sequence, Union
+from typing import Iterator, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import torch
@@ -22,7 +22,8 @@ class Cameras:
         extrinsics: List[CameraExtrinsics],
         names: Optional[List[Optional[str]]] = None,
         ids: Optional[List[Optional[int]]] = None,
-        device: Union[str, torch.device] = torch.device("cuda"),
+        device: Optional[Union[str, torch.device]] = None,
+        dtype: Optional[torch.dtype] = None,
     ) -> None:
         """Construct a Cameras from parallel lists of CameraIntrinsics / CameraExtrinsics.
 
@@ -31,7 +32,8 @@ class Cameras:
             extrinsics: Per-camera list of CameraExtrinsics.
             names: Optional per-camera list of optional names.
             ids: Optional per-camera list of optional ids.
-            device: Device the cameras live on, a string or torch.device.
+            device: Optional target device for the cameras' tensors.
+            dtype: Optional target floating dtype for the cameras' tensors.
 
         Returns:
             None.
@@ -46,16 +48,47 @@ class Cameras:
             names=names,
             ids=ids,
             device=device,
+            dtype=dtype,
         )
 
-        device = torch.device(device)
-        intrinsics = [intrinsic.to(device=device) for intrinsic in intrinsics]
-        extrinsics = [extrinsic.to(device=device) for extrinsic in extrinsics]
+        if device is not None or dtype is not None:
+            intrinsics = [
+                intrinsic.to(device=device, dtype=dtype) for intrinsic in intrinsics
+            ]
+            extrinsics = [
+                extrinsic.to(device=device, dtype=dtype) for extrinsic in extrinsics
+            ]
+        component_device = (
+            intrinsics[0].device
+            if intrinsics
+            else torch.device(device) if device is not None else torch.device("cpu")
+        )
+        component_dtype = (
+            intrinsics[0].dtype if intrinsics else dtype or torch.get_default_dtype()
+        )
+        for intrinsic, extrinsic in zip(intrinsics, extrinsics):
+            assert intrinsic.device == component_device, (
+                "Expected all CameraIntrinsics entries to share device. "
+                f"{intrinsic.device=} {component_device=}"
+            )
+            assert extrinsic.device == component_device, (
+                "Expected all CameraExtrinsics entries to share device. "
+                f"{extrinsic.device=} {component_device=}"
+            )
+            assert intrinsic.dtype == component_dtype, (
+                "Expected all CameraIntrinsics entries to share dtype. "
+                f"{intrinsic.dtype=} {component_dtype=}"
+            )
+            assert extrinsic.dtype == component_dtype, (
+                "Expected all CameraExtrinsics entries to share dtype. "
+                f"{extrinsic.dtype=} {component_dtype=}"
+            )
         self._intrinsics: List[CameraIntrinsics] = intrinsics
         self._extrinsics: List[CameraExtrinsics] = extrinsics
         self._names: List[Optional[str]] = names
         self._ids: List[Optional[int]] = ids
-        self._device: torch.device = device
+        self._device: torch.device = component_device
+        self._dtype: torch.dtype = component_dtype
         self._name_to_index = {name: index for index, name in enumerate(self._names)}
 
     def __len__(self) -> int:
@@ -91,6 +124,7 @@ class Cameras:
                 name=self._names[camera_index],
                 id=self._ids[camera_index],
                 device=self._device,
+                dtype=self._dtype,
             )
         if isinstance(index, (slice, list)):
             if isinstance(index, slice):
@@ -111,6 +145,7 @@ class Cameras:
                 names=names,
                 ids=ids,
                 device=self._device,
+                dtype=self._dtype,
             )
         if isinstance(index, int):
             return Camera(
@@ -119,6 +154,7 @@ class Cameras:
                 name=self._names[index],
                 id=self._ids[index],
                 device=self._device,
+                dtype=self._dtype,
             )
         assert 0, "Should not reach here. " f"{type(index)=} {index=}"
 
@@ -137,26 +173,42 @@ class Cameras:
     def to(
         self,
         device: Optional[Union[str, torch.device]] = None,
+        dtype: Optional[torch.dtype] = None,
+        non_blocking: bool = False,
+        copy: bool = False,
         intr_convention: Optional[str] = None,
         extr_convention: Optional[str] = None,
     ) -> "Cameras":
-        """Return this Cameras on a target device / image-plane frame / pose frame.
+        """Return this Cameras with tensor placement and convention changes.
 
         Each half is named exactly as the Camera it batches names it.
 
         Args:
             device: Target device; ``None`` keeps the current device.
+            dtype: Target floating dtype; ``None`` keeps the current dtype.
+            non_blocking: Whether tensor moves may be asynchronous.
+            copy: Whether tensor moves must allocate new storage even when unchanged.
             intr_convention: Target image-plane frame; ``None`` keeps each camera's own.
             extr_convention: Target pose frame; ``None`` keeps each camera's own.
 
         Returns:
             This Cameras when unchanged, else a new one.
         """
-        # Input validations
         assert device is None or isinstance(device, (str, torch.device)), (
             "Expected target device to be None, a string, or torch.device. "
             f"{device=}"
         )
+        assert dtype is None or isinstance(dtype, torch.dtype), (
+            "Expected target dtype to be None or a torch dtype. " f"{dtype=}"
+        )
+        if dtype is not None:
+            assert torch.empty((), dtype=dtype).is_floating_point(), (
+                "Expected target dtype to be floating. " f"{dtype=}"
+            )
+        assert isinstance(non_blocking, bool), (
+            "Expected non_blocking to be a bool. " f"{type(non_blocking)=}"
+        )
+        assert isinstance(copy, bool), "Expected copy to be a bool. " f"{type(copy)=}"
         assert intr_convention is None or isinstance(intr_convention, str), (
             "Expected target image-plane frame to be None or a string. "
             f"{intr_convention=}"
@@ -165,10 +217,11 @@ class Cameras:
             "Expected target pose frame to be None or a string. " f"{extr_convention=}"
         )
 
-        # Input normalizations
         target_device = torch.device(device) if device is not None else self._device
+        target_dtype = dtype if dtype is not None else self._dtype
         if (
             target_device == self._device
+            and target_dtype == self._dtype
             and (
                 intr_convention is None
                 or all(
@@ -183,6 +236,7 @@ class Cameras:
                     for extrinsic in self._extrinsics
                 )
             )
+            and copy is False
         ):
             return self
 
@@ -193,6 +247,9 @@ class Cameras:
         for camera in self:
             moved = camera.to(
                 device=target_device,
+                dtype=target_dtype,
+                non_blocking=non_blocking,
+                copy=copy,
                 intr_convention=intr_convention,
                 extr_convention=extr_convention,
             )
@@ -206,20 +263,26 @@ class Cameras:
             names=names,
             ids=ids,
             device=target_device,
+            dtype=target_dtype,
         )
 
     def transform_extrinsics(
         self,
-        scale: float,
-        rotation: np.ndarray,
-        translation: np.ndarray,
+        scale: Union[int, float, np.ndarray, torch.Tensor],
+        rotation: Union[np.ndarray, torch.Tensor, List[List[Union[int, float]]]],
+        translation: Union[
+            np.ndarray,
+            torch.Tensor,
+            Tuple[Union[int, float], Union[int, float], Union[int, float]],
+            List[Union[int, float]],
+        ],
     ) -> "Cameras":
         """Return this Cameras under a similarity transform of each camera's pose.
 
         Args:
-            scale: Similarity scale factor.
-            rotation: 3x3 rotation matrix as a float32 numpy array.
-            translation: Length-3 translation as a float32 numpy array.
+            scale: Scalar similarity scale factor as a number, numpy array, or torch.Tensor.
+            rotation: 3x3 rotation matrix as a numpy array, torch.Tensor, or nested numeric list.
+            translation: Length-3 translation as a numpy array, torch.Tensor, tuple, or list.
 
         Returns:
             A new Cameras with each camera's CameraExtrinsics pose transformed.
@@ -244,6 +307,7 @@ class Cameras:
             names=names,
             ids=ids,
             device=self._device,
+            dtype=self._dtype,
         )
 
     @property
@@ -305,6 +369,18 @@ class Cameras:
             The device.
         """
         return self._device
+
+    @property
+    def dtype(self) -> torch.dtype:
+        """The dtype shared by the cameras' tensor state.
+
+        Args:
+            None.
+
+        Returns:
+            The torch dtype shared by every camera component.
+        """
+        return self._dtype
 
     @property
     def center(self) -> torch.Tensor:

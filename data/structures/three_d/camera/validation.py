@@ -16,9 +16,10 @@ def validate_cameras_attributes(
     extrinsics: List["CameraExtrinsics"],
     names: List[Optional[str]],
     ids: List[Optional[int]],
-    device: Union[str, torch.device],
+    device: Optional[Union[str, torch.device]],
+    dtype: Optional[torch.dtype] = None,
 ) -> None:
-    """Validate the parallel per-camera lists, names / ids, and device for Cameras.
+    """Validate the parallel per-camera lists, names / ids, device, and dtype for Cameras.
 
     Single-entry validation for ``Cameras.__init__``; also validates the
     inter-relationship that all four per-camera lists are equal length.
@@ -28,7 +29,8 @@ def validate_cameras_attributes(
         extrinsics: Per-camera list of CameraExtrinsics.
         names: Per-camera list of optional names.
         ids: Per-camera list of optional ids.
-        device: Device the cameras live on, a string or torch.device.
+        device: Optional device target for the cameras, a string or torch.device.
+        dtype: Optional floating dtype target for the cameras.
 
     Returns:
         None.
@@ -44,10 +46,19 @@ def validate_cameras_attributes(
             name=name,
             id=id,
             device=device,
+            dtype=dtype,
         )
-    assert isinstance(device, (str, torch.device)), (
-        "Expected Cameras device to be a string or torch.device. " f"{type(device)=}"
+    assert device is None or isinstance(device, (str, torch.device)), (
+        "Expected Cameras device to be None, a string, or torch.device. "
+        f"{type(device)=}"
     )
+    assert dtype is None or isinstance(dtype, torch.dtype), (
+        "Expected Cameras dtype to be None or a torch dtype. " f"{type(dtype)=}"
+    )
+    if dtype is not None:
+        assert torch.empty((), dtype=dtype).is_floating_point(), (
+            "Expected Cameras dtype to be floating. " f"{dtype=}"
+        )
 
 
 def validate_camera_attributes(
@@ -55,9 +66,10 @@ def validate_camera_attributes(
     extrinsics: "CameraExtrinsics",
     name: Optional[str],
     id: Optional[int],
-    device: Union[str, torch.device],
+    device: Optional[Union[str, torch.device]],
+    dtype: Optional[torch.dtype] = None,
 ) -> None:
-    """Validate the parts and the name / id / device for a Camera.
+    """Validate the parts and the name / id / device / dtype for a Camera.
 
     Single-entry validation for ``Camera.__init__``; asserts the parts are a
     CameraIntrinsics / CameraExtrinsics and validates the name / id / device,
@@ -68,7 +80,8 @@ def validate_camera_attributes(
         extrinsics: Candidate CameraExtrinsics.
         name: Candidate camera name, None or a string.
         id: Candidate camera id, None or an integer.
-        device: Device the camera lives on, a string or torch.device.
+        device: Optional device target for the camera, a string or torch.device.
+        dtype: Optional floating dtype target for the camera.
 
     Returns:
         None.
@@ -92,6 +105,14 @@ def validate_camera_attributes(
     assert id is None or isinstance(id, int), (
         "Expected Camera id to be None or an integer. " f"{type(id)=}"
     )
-    assert isinstance(device, (str, torch.device)), (
-        "Expected Camera device to be a string or torch.device. " f"{type(device)=}"
+    assert device is None or isinstance(device, (str, torch.device)), (
+        "Expected Camera device to be None, a string, or torch.device. "
+        f"{type(device)=}"
     )
+    assert dtype is None or isinstance(dtype, torch.dtype), (
+        "Expected Camera dtype to be None or a torch dtype. " f"{type(dtype)=}"
+    )
+    if dtype is not None:
+        assert torch.empty((), dtype=dtype).is_floating_point(), (
+            "Expected Camera dtype to be floating. " f"{dtype=}"
+        )

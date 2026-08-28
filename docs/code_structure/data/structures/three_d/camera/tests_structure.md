@@ -13,7 +13,7 @@ test_intrinsics.py
 ├── from pathlib import Path
 ├── from typing import Dict, Set, Tuple
 ├── from data.structures.three_d.camera.intrinsics.camera_intrinsics import CameraIntrinsicsOrtho, CameraIntrinsicsPinhole, CameraIntrinsicsSimplePinhole, build_camera_intrinsics
-├── from data.structures.three_d.camera.intrinsics.validation import validate_camera_intrinsics_attributes, validate_camera_intrinsics_invariants, validate_camera_intrinsics_params, validate_camera_model
+├── from data.structures.three_d.camera.intrinsics.validation import validate_camera_intrinsics_attributes, validate_camera_intrinsics_invariants, validate_camera_intrinsics_params, validate_camera_model, validate_intr_convention
 ├── def test_validate_camera_model_accepts_all_supported
 │   ├── # validate_camera_model accepts simple_pinhole, pinhole, and ortho.
 │   ├── for each model in {simple_pinhole, pinhole, ortho}
@@ -25,8 +25,8 @@ test_intrinsics.py
 │   ├── with pytest.raises(AssertionError)
 │   │   └── calls validate_camera_model(model=a string outside the supported set)
 │   └── return
-├── def test_validate_intrinsics_params_dispatches_per_model_keys
-│   ├── # validate_camera_intrinsics_params enforces each model's named parameter keys (simple_pinhole: f / cx / cy; pinhole / ortho: fx / fy / cx / cy) beside the h and w every model carries, and rejects a mismatched params dict.
+├── def test_validate_intrinsics_params_dispatches_per_model_tensor_keys
+│   ├── # validate_camera_intrinsics_params enforces each model's named scalar tensor keys beside the h and w every model carries.
 │   ├── for each (model, its named parameter keys)
 │   │   ├── calls validate_camera_intrinsics_params(model=this model, intr_convention="standard", params=its own key set)
 │   │   ├── impls assert the returned params dict equals the accepted one
@@ -61,12 +61,18 @@ test_intrinsics.py
 │   ├── impls assert it passes under pytorch3d at any h and w, that frame normalizing both axes by the shorter side   # impls-node-one-step:skip
 │   ├── impls assert pinhole and ortho pass under every frame at any h and w, each carrying its own two focal params  # impls-node-one-step:skip
 │   └── return
-├── def test_validate_intrinsics_attributes_checks_model_intr_convention_params_device
-│   ├── # validate_camera_intrinsics_attributes validates the camera model, the image-plane frame, the params stated in that frame, and the device together as the single CameraIntrinsics.__init__ entry.
-│   ├── calls validate_camera_intrinsics_attributes(model=a supported model, intr_convention="standard", params=its matching params, device=a valid device)
-│   ├── for each attribute broken in turn (the model, the intr_convention, the params, the device)
+├── def test_validate_intrinsics_attributes_checks_model_intr_convention_params_device_dtype
+│   ├── # validate_camera_intrinsics_attributes validates the camera model, image-plane frame, tensor params, device, and dtype together.
+│   ├── calls validate_camera_intrinsics_attributes(model=a supported model, intr_convention="standard", params=its matching tensor params, device=a valid device, dtype=a floating torch dtype)
+│   ├── for each attribute broken in turn (the model, the intr_convention, the params, the device, the dtype)
 │   │   └── with pytest.raises(AssertionError)
 │   │       └── calls validate_camera_intrinsics_attributes
+│   └── return
+├── def test_validate_intrinsics_params_rejects_python_scalars
+│   ├── # validate_camera_intrinsics_params rejects Python numeric params because live camera state is tensor-only.
+│   ├── for each supported model
+│   │   └── with pytest.raises(AssertionError)
+│   │       └── calls validate_camera_intrinsics_params(model=model, intr_convention="standard", params=matching Python scalar params)
 │   └── return
 ├── def test_build_camera_intrinsics_dispatches_to_model_subclass
 │   ├── # build_camera_intrinsics returns the CameraIntrinsicsSimplePinhole / CameraIntrinsicsPinhole / CameraIntrinsicsOrtho instance for its model string.
@@ -74,6 +80,19 @@ test_intrinsics.py
 │   │   ├── calls build_camera_intrinsics
 │   │   ├── impls assert the built instance's type is that subclass
 │   │   └── impls assert the built instance's model property equals the model string
+│   └── return
+├── def test_intrinsics_constructor_applies_requested_device_dtype_through_to
+│   ├── # CameraIntrinsics.__init__ delegates requested device / dtype movement to the object's to method.
+│   ├── calls build_camera_intrinsics(model=a supported model, params=tensor scalar params, device=a valid device, dtype=a floating torch dtype)
+│   ├── impls assert every param tensor has the requested device and dtype
+│   ├── impls assert intrinsics.device and intrinsics.dtype match the returned param tensors
+│   └── return
+├── def test_intrinsics_to_follows_tensor_to_semantics
+│   ├── # CameraIntrinsics.to applies Tensor.to-style device / dtype / copy semantics to every scalar param tensor.
+│   ├── calls build_camera_intrinsics(model=a supported model, params=tensor scalar params)
+│   ├── calls intrinsics.to(device=a valid device, dtype=a floating torch dtype, copy=True)
+│   ├── impls assert every returned param tensor has the requested device and dtype
+│   ├── impls assert copy=True returns tensors with distinct storage from the source params
 │   └── return
 ├── def test_simple_pinhole_project_applies_perspective_divide
 │   ├── # CameraIntrinsicsSimplePinhole.project applies the perspective divide with a single shared focal length.
@@ -241,13 +260,32 @@ test_intrinsics.py
 │   │   ├── impls assert every param but h and w comes back equal to the one it was given  # impls-node-one-step:skip
 │   │   └── impls assert its h and w params are the target ones                            # impls-node-one-step:skip
 │   └── return
-└── def test_the_pytorch3d_frames_params_move_when_the_aspect_ratio_does
-    ├── # pytorch3d normalizes both axes by the shorter side alone, so its params hold under a resize that keeps the aspect ratio and are restated by one that does not — the case a frame-blind resize would silently leave wrong.
-    ├── calls build_camera_intrinsics(model="pinhole", params=its own key set, intr_convention="pytorch3d")
-    ├── calls intrinsics.scale_intrinsics(scale=a single factor)
-    ├── impls assert every param but h and w comes back equal to the one it was given  # impls-node-one-step:skip
-    ├── calls intrinsics.scale_intrinsics(resolution=a target resolution of a different aspect ratio)
-    ├── impls assert its principal point comes back restated, equal to the same params carried into pixels, resized there, and carried back  # impls-node-one-step:skip
+├── def test_the_pytorch3d_frames_params_move_when_the_aspect_ratio_does
+│   ├── # pytorch3d normalizes both axes by the shorter side alone, so its params hold under a resize that keeps the aspect ratio and are restated by one that does not.
+│   ├── calls build_camera_intrinsics(model="pinhole", params=its own tensor key set, intr_convention="pytorch3d")
+│   ├── calls intrinsics.scale_intrinsics(scale=a single tensor factor)
+│   ├── impls assert every param but h and w comes back equal to the one it was given  # impls-node-one-step:skip
+│   ├── calls intrinsics.scale_intrinsics(resolution=a target tensor resolution of a different aspect ratio)
+│   ├── impls assert its principal point comes back restated, equal to the same params carried into pixels, resized there, and carried back  # impls-node-one-step:skip
+│   └── return
+├── def test_intrinsics_tensor_state_stays_differentiable_through_project
+│   ├── # Tensor intrinsics state stays on the autograd path through projection.
+│   ├── for each of the three camera models
+│   │   ├── calls build_camera_intrinsics(model=model, params=tensor scalar params with requires_grad, intr_convention="standard")
+│   │   ├── calls intrinsics.project(points_camera=valid camera-space points)
+│   │   ├── impls loss = image_points.sum()
+│   │   ├── calls loss.backward
+│   │   └── impls assert every source tensor param receives a gradient
+│   └── return
+└── def test_scale_intrinsics_keeps_tensor_state_differentiable
+    ├── # CameraIntrinsics.scale_intrinsics keeps tensor state and tensor scale factors on the autograd path.
+    ├── for each of the three camera models
+    │   ├── calls build_camera_intrinsics(model=model, params=tensor scalar params with requires_grad, intr_convention="standard")
+    │   ├── calls intrinsics.scale_intrinsics(scale=tensor scalar scale factors with requires_grad)
+    │   ├── calls scaled_intrinsics.project(points_camera=valid camera-space points)
+    │   ├── impls loss = image_points.sum()
+    │   ├── calls loss.backward
+    │   └── impls assert source tensor params and scale factors receive gradients
     └── return
 ```
 
@@ -321,6 +359,18 @@ test_conventions.py
 │   ├── calls Cameras
 │   ├── calls cameras.transform_extrinsics(scale=that same factor, rotation=that same rotation, translation=that same offset)
 │   ├── impls assert every camera in the batch carries that same result
+│   └── return
+├── def test_transform_extrinsics_normalizes_rotation_input
+│   ├── # CameraExtrinsics.transform_extrinsics accepts each validated rotation representation and normalizes it to the pose tensor's placement.
+│   ├── for each rotation in {a (3, 3) numpy array, a (3, 3) torch tensor, a length-3 nested numeric list}
+│   │   ├── calls extrinsics.transform_extrinsics(scale=a known factor, rotation=rotation, translation=a known tensor offset)
+│   │   └── impls assert the returned extrinsics match the tensor-rotation result
+│   └── return
+├── def test_transform_extrinsics_normalizes_translation_input
+│   ├── # CameraExtrinsics.transform_extrinsics accepts each valid translation representation and normalizes it to the pose tensor's placement.
+│   ├── for each translation in {a length-3 numpy array, a length-3 torch tensor, a length-3 numeric tuple, a length-3 numeric list}
+│   │   ├── calls extrinsics.transform_extrinsics(scale=a known factor, rotation=a known tensor rotation, translation=translation)
+│   │   └── impls assert the returned extrinsics match the tensor-translation result
 │   └── return
 ├── def test_cameras_conversion_preserves_physical_axes_and_center
 │   ├── # Converting a Cameras collection between extr_conventions preserves each camera's physical axes and center.
@@ -421,13 +471,46 @@ test_conventions.py
 │   ├── with pytest.raises(AssertionError)
 │   │   └── calls build_camera_intrinsics
 │   └── return
-└── def test_a_camera_names_the_frame_of_each_half_separately
-    ├── # A pose frame and an image-plane frame are different kinds of thing, so a camera carries one name for each and converting one leaves the other where it was.
+├── def test_a_camera_names_the_frame_of_each_half_separately
+│   ├── # A pose frame and an image-plane frame are different kinds of thing, so a camera carries one name for each and converting one leaves the other where it was.
+│   ├── calls Camera
+│   ├── calls camera.to
+│   ├── impls assert the returned camera's extr_convention is the camera-space frame that was named
+│   ├── impls assert its intr_convention is the image-plane frame that was named
+│   ├── impls assert naming only one of the two leaves the other half's frame unchanged
+│   └── return
+├── def test_extrinsics_tensor_matrix_stays_differentiable_through_pose_accessors
+│   ├── # Tensor-valued extrinsics stay on the autograd path through pose accessors.
+│   ├── calls CameraExtrinsics(extrinsics=a valid cam2world tensor with tensor-valued translation, extr_convention="standard")
+│   ├── calls extrinsics.w2c
+│   ├── calls extrinsics.center
+│   ├── impls loss = w2c.sum() + center.sum()
+│   ├── calls loss.backward
+│   └── impls assert the source extrinsics tensor receives a gradient
+├── def test_extrinsics_constructor_applies_requested_device_dtype_through_to
+│   ├── # CameraExtrinsics.__init__ delegates requested device / dtype movement to the object's to method.
+│   ├── calls CameraExtrinsics(extrinsics=a valid cam2world tensor, extr_convention="standard", device=a valid device, dtype=a floating torch dtype)
+│   ├── impls assert extrinsics.extrinsics has the requested device and dtype
+│   ├── impls assert extrinsics.device and extrinsics.dtype match its tensor state
+│   └── return
+├── def test_extrinsics_to_follows_tensor_to_semantics
+│   ├── # CameraExtrinsics.to applies Tensor.to-style device / dtype / copy semantics to the cam2world tensor.
+│   ├── calls CameraExtrinsics(extrinsics=a valid cam2world tensor, extr_convention="standard")
+│   ├── calls extrinsics.to(device=a valid device, dtype=a floating torch dtype, copy=True)
+│   ├── impls assert the returned cam2world tensor has the requested device and dtype
+│   ├── impls assert copy=True returns a tensor with distinct storage from the source extrinsics
+│   └── return
+└── def test_camera_and_cameras_to_preserve_tensor_parameter_graphs
+    ├── # Camera.to and Cameras.to keep tensor-valued intrinsics and extrinsics on their autograd paths.
+    ├── calls build_camera_intrinsics(model="ortho", params=tensor scalar params with requires_grad, intr_convention="standard")
+    ├── calls CameraExtrinsics(extrinsics=a valid cam2world tensor with tensor-valued translation, extr_convention="standard")
     ├── calls Camera
-    ├── calls camera.to
-    ├── impls assert the returned camera's extr_convention is the camera-space frame that was named
-    ├── impls assert its intr_convention is the image-plane frame that was named
-    ├── impls assert naming only one of the two leaves the other half's frame unchanged
+    ├── calls camera.to(device=the current device, dtype=a floating torch dtype, extr_convention="pytorch3d")
+    ├── calls Cameras(intrinsics=[intrinsics], extrinsics=[extrinsics])
+    ├── calls cameras.to(device=the current device, dtype=a floating torch dtype, extr_convention="pytorch3d")
+    ├── impls loss = moved_camera.intrinsics.project(points).sum() + moved_cameras.center.sum()
+    ├── calls loss.backward
+    ├── impls assert source intrinsics params and source extrinsics receive gradients
     └── return
 ```
 
@@ -435,6 +518,7 @@ test_conventions.py
 
 ```text
 test_io.py
+├── import torch
 ├── from data.structures.three_d.camera.camera import Camera
 ├── from data.structures.three_d.camera.cameras import Cameras
 ├── from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
@@ -501,6 +585,16 @@ test_io.py
 │   │       ├── calls Camera.load
 │   │       ├── impls assert the loaded intrinsics model equals the saved model string
 │   │       └── impls assert the loaded params dict equals the saved params dict
+│   └── return
+├── def test_tensor_intrinsics_params_round_trip_as_serialized_values
+│   ├── # Tensor-valued intrinsics params round-trip through camera I/O as serialized numeric values.
+│   ├── for each format in {json, npz}
+│   │   ├── calls build_camera_intrinsics(model="ortho", params=tensor scalar params, intr_convention="standard")
+│   │   ├── calls CameraExtrinsics
+│   │   ├── calls Camera
+│   │   ├── calls camera.save(camera_path=a tmp_path file with that format's suffix)
+│   │   ├── calls Camera.load
+│   │   └── impls assert the loaded params equal the source tensor values materialized as numeric scalars
 │   └── return
 └── def test_extrinsics_and_extr_convention_survive_round_trip
     ├── # A Camera's extrinsics matrix and extr_convention survive a save then load round trip through both the json and npz formats.

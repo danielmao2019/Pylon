@@ -377,6 +377,124 @@ def test_transform_extrinsics_applies_the_similarity_and_restabilizes() -> None:
         ), f"{one_camera.extrinsics.extrinsics=}"
 
 
+def test_extrinsics_constructor_and_to_apply_dtype_and_copy() -> None:
+    """CameraExtrinsics constructor and to apply dtype and copy semantics.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    extrinsics = CameraExtrinsics(
+        extrinsics=_build_extrinsics_matrix(),
+        extr_convention="standard",
+        device="cpu",
+        dtype=torch.float64,
+    )
+    assert extrinsics.dtype == torch.float64, f"{extrinsics.dtype=}"
+    assert extrinsics.extrinsics.dtype == torch.float64, f"{extrinsics.extrinsics=}"
+
+    copied = extrinsics.to(device="cpu", dtype=torch.float64, copy=True)
+    assert copied.extrinsics.data_ptr() != extrinsics.extrinsics.data_ptr(), (
+        "Expected copy=True to allocate distinct extrinsics storage. "
+        f"{copied.extrinsics.data_ptr()=} {extrinsics.extrinsics.data_ptr()=}"
+    )
+    moved = extrinsics.to(dtype=torch.float32)
+    assert moved.dtype == torch.float32, f"{moved.dtype=}"
+    assert moved.extrinsics.dtype == torch.float32, f"{moved.extrinsics.dtype=}"
+
+
+def test_transform_extrinsics_accepts_array_like_inputs_and_keeps_gradients() -> None:
+    """Array-like similarity inputs normalize to tensors without leaving autograd.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    matrix = _build_extrinsics_matrix().to(dtype=torch.float64)
+    matrix.requires_grad_()
+    scale = torch.tensor(2.0, dtype=torch.float64, requires_grad=True)
+    rotation = torch.eye(3, dtype=torch.float64, requires_grad=True)
+    translation = torch.tensor([1.0, 2.0, 3.0], dtype=torch.float64, requires_grad=True)
+    extrinsics = CameraExtrinsics(
+        extrinsics=matrix,
+        extr_convention="standard",
+        device="cpu",
+        dtype=torch.float64,
+    )
+
+    transformed = extrinsics.transform_extrinsics(
+        scale=scale,
+        rotation=rotation,
+        translation=translation,
+    )
+    loss = transformed.center.sum()
+    loss.backward()
+
+    assert transformed.dtype == torch.float64, f"{transformed.dtype=}"
+    assert matrix.grad is not None, f"{matrix.grad=}"
+    assert scale.grad is not None, f"{scale.grad=}"
+    assert rotation.grad is not None, f"{rotation.grad=}"
+    assert translation.grad is not None, f"{translation.grad=}"
+
+    list_transformed = extrinsics.transform_extrinsics(
+        scale=np.array(2.0, dtype=np.float64),
+        rotation=[[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+        translation=(1.0, 2.0, 3.0),
+    )
+    assert list_transformed.dtype == torch.float64, f"{list_transformed.dtype=}"
+
+
+def test_camera_and_cameras_to_keep_tensor_state_on_the_autograd_path() -> None:
+    """Camera.to and Cameras.to preserve tensor intrinsics and extrinsics gradients.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    params = {
+        "fx": torch.tensor(400.0, dtype=torch.float32, requires_grad=True),
+        "fy": torch.tensor(410.0, dtype=torch.float32, requires_grad=True),
+        "cx": torch.tensor(160.0, dtype=torch.float32, requires_grad=True),
+        "cy": torch.tensor(120.0, dtype=torch.float32, requires_grad=True),
+        "h": torch.tensor(240.0, dtype=torch.float32),
+        "w": torch.tensor(320.0, dtype=torch.float32),
+    }
+    matrix = _build_extrinsics_matrix()
+    matrix.requires_grad_()
+    intrinsics = build_camera_intrinsics(
+        model="pinhole",
+        params=params,
+        intr_convention="standard",
+        device="cpu",
+    )
+    extrinsics = CameraExtrinsics(
+        extrinsics=matrix,
+        extr_convention="standard",
+        device="cpu",
+    )
+    camera = Camera(intrinsics=intrinsics, extrinsics=extrinsics, device="cpu")
+    moved_camera = camera.to(dtype=torch.float64, extr_convention="pytorch3d")
+    camera_loss = moved_camera.intrinsics.fx + moved_camera.extrinsics.center.sum()
+    camera_loss.backward(retain_graph=True)
+    assert params["fx"].grad is not None, f"{params['fx'].grad=}"
+    assert matrix.grad is not None, f"{matrix.grad=}"
+
+    cameras = Cameras(intrinsics=[intrinsics], extrinsics=[extrinsics], device="cpu")
+    moved_cameras = cameras.to(dtype=torch.float64, extr_convention="pytorch3d")
+    cameras_loss = (
+        moved_cameras.intrinsics[0].fx + moved_cameras.extrinsics[0].center.sum()
+    )
+    cameras_loss.backward()
+    assert params["fx"].grad is not None, f"{params['fx'].grad=}"
+    assert matrix.grad is not None, f"{matrix.grad=}"
+
+
 @pytest.mark.parametrize(
     "source_extr_convention,target_extr_convention",
     list(product(EXTR_CONVENTIONS, EXTR_CONVENTIONS)),

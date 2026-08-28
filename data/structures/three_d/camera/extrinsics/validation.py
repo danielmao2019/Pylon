@@ -1,4 +1,4 @@
-from typing import Any, Union
+from typing import Any, List, Union
 
 import numpy as np
 import torch
@@ -9,26 +9,35 @@ _ROTATION_MATRIX_RESIDUAL_FLOOR_ULPS = 32
 
 
 def validate_camera_extrinsics_attributes(
-    extrinsics: Any, extr_convention: Any, device: Any
+    extrinsics: Any, extr_convention: Any, device: Any, dtype: Any = None
 ) -> None:
-    """Validate the 4x4 cam2world matrix, the pose frame, and the device.
+    """Validate the 4x4 cam2world matrix, pose frame, device, and dtype.
 
     Single-entry validation for ``CameraExtrinsics.__init__``.
 
     Args:
         extrinsics: Candidate 4x4 cam2world extrinsics matrix.
         extr_convention: Candidate pose-frame convention string.
-        device: Candidate device, expected to be a torch device spec.
+        device: Candidate device, expected to be None or a torch device spec.
+        dtype: Candidate dtype, expected to be None or a floating torch dtype.
 
     Returns:
         None.
     """
     validate_extr_convention(extr_convention)
     validate_camera_extrinsics(extrinsics)
-    assert isinstance(device, (str, torch.device)), (
-        "Expected CameraExtrinsics device to be a string or torch.device. "
+    assert device is None or isinstance(device, (str, torch.device)), (
+        "Expected CameraExtrinsics device to be None, a string, or torch.device. "
         f"{type(device)=}"
     )
+    assert dtype is None or isinstance(dtype, torch.dtype), (
+        "Expected CameraExtrinsics dtype to be None or a torch dtype. "
+        f"{type(dtype)=}"
+    )
+    if dtype is not None:
+        assert torch.empty((), dtype=dtype).is_floating_point(), (
+            "Expected CameraExtrinsics dtype to be floating. " f"{dtype=}"
+        )
 
 
 def validate_extr_convention(extr_convention: Any) -> str:
@@ -51,11 +60,13 @@ def validate_extr_convention(extr_convention: Any) -> str:
     return extr_convention
 
 
-def validate_camera_extrinsics(obj: Any) -> Union[np.ndarray, torch.Tensor]:
-    """Dispatch camera-extrinsics validation on the array backend.
+def validate_camera_extrinsics(
+    obj: Any,
+) -> Union[np.ndarray, torch.Tensor, List[List[Union[int, float]]]]:
+    """Dispatch camera-extrinsics validation on the input representation.
 
     Args:
-        obj: Candidate camera-extrinsics array, a numpy array or torch tensor.
+        obj: Candidate camera-extrinsics input, a numpy array, torch tensor, or nested numeric list.
 
     Returns:
         The validated camera-extrinsics array.
@@ -64,8 +75,11 @@ def validate_camera_extrinsics(obj: Any) -> Union[np.ndarray, torch.Tensor]:
         return _validate_camera_extrinsics_numpy(obj)
     if isinstance(obj, torch.Tensor):
         return _validate_camera_extrinsics_torch(obj)
+    if isinstance(obj, list):
+        return _validate_camera_extrinsics_list(obj)
     raise TypeError(
-        f"Camera extrinsics must be a numpy array or a torch tensor, got {type(obj)}"
+        "Camera extrinsics must be a numpy array, torch tensor, or nested numeric "
+        f"list, got {type(obj)}"
     )
 
 
@@ -127,11 +141,44 @@ def _validate_camera_extrinsics_torch(obj: Any) -> torch.Tensor:
     return obj
 
 
-def validate_rotation_matrix(obj: Any) -> Union[np.ndarray, torch.Tensor]:
-    """Dispatch rotation-matrix validation on the array backend.
+def _validate_camera_extrinsics_list(
+    obj: List[List[Union[int, float]]],
+) -> List[List[Union[int, float]]]:
+    """Validate a (4, 4) nested-list camera-extrinsics matrix.
 
     Args:
-        obj: Candidate rotation-matrix array, a numpy array or torch tensor.
+        obj: Candidate nested-list camera-to-world matrix.
+
+    Returns:
+        The validated nested-list camera-to-world matrix.
+    """
+    assert isinstance(obj, list), f"{type(obj)=}"
+    assert len(obj) == 4, f"{len(obj)=}"
+    for row in obj:
+        assert isinstance(row, list), (
+            "Expected each camera extrinsics row to be a list. " f"{type(row)=}"
+        )
+        assert len(row) == 4, (
+            "Expected each camera extrinsics row to have length 4. " f"{len(row)=}"
+        )
+        assert all(isinstance(value, (int, float)) for value in row), (
+            "Expected each camera extrinsics row to contain numbers. " f"{row=}"
+        )
+    assert obj[3] == [0, 0, 0, 1], (
+        "Camera extrinsics must have [0, 0, 0, 1] in the last row. " f"{obj[3]=}"
+    )
+    rotation = [row[:3] for row in obj[:3]]
+    _validate_rotation_matrix_list(rotation)
+    return obj
+
+
+def validate_rotation_matrix(
+    obj: Any,
+) -> Union[np.ndarray, torch.Tensor, List[List[Union[int, float]]]]:
+    """Dispatch rotation-matrix validation on the input representation.
+
+    Args:
+        obj: Candidate rotation-matrix input, a numpy array, torch tensor, or nested numeric list.
 
     Returns:
         The validated rotation-matrix array.
@@ -140,8 +187,11 @@ def validate_rotation_matrix(obj: Any) -> Union[np.ndarray, torch.Tensor]:
         return _validate_rotation_matrix_numpy(obj)
     if isinstance(obj, torch.Tensor):
         return _validate_rotation_matrix_torch(obj)
+    if isinstance(obj, list):
+        return _validate_rotation_matrix_list(obj)
     raise TypeError(
-        f"Rotation matrix must be a numpy array or a torch tensor, got {type(obj)}"
+        "Rotation matrix must be a numpy array, torch tensor, or nested numeric "
+        f"list, got {type(obj)}"
     )
 
 
@@ -207,6 +257,35 @@ def _validate_rotation_matrix_torch(obj: Any) -> torch.Tensor:
             obj, threshold=atol_float64
         )
     assert 0, "should not reach here."
+
+
+def _validate_rotation_matrix_list(
+    obj: List[List[Union[int, float]]],
+) -> List[List[Union[int, float]]]:
+    """Validate a (3, 3) nested-list rotation matrix using float64 tolerance.
+
+    Args:
+        obj: Candidate nested-list rotation matrix.
+
+    Returns:
+        The validated nested-list rotation matrix.
+    """
+    assert isinstance(obj, list), f"{type(obj)=}"
+    assert len(obj) == 3, f"{len(obj)=}"
+    for row in obj:
+        assert isinstance(row, list), (
+            "Expected each rotation matrix row to be a list. " f"{type(row)=}"
+        )
+        assert len(row) == 3, (
+            "Expected each rotation matrix row to have length 3. " f"{len(row)=}"
+        )
+        assert all(isinstance(value, (int, float)) for value in row), (
+            "Expected each rotation matrix row to contain numbers. " f"{row=}"
+        )
+    array = np.asarray(obj, dtype=np.float64)
+    threshold = _ROTATION_MATRIX_RESIDUAL_FLOOR_ULPS * float(np.finfo(np.float64).eps)
+    _validate_rotation_matrix_numpy_against_threshold(obj=array, threshold=threshold)
+    return obj
 
 
 def _validate_rotation_matrix_numpy_against_threshold(

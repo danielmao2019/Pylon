@@ -338,7 +338,7 @@ def _serialize_cameras_json(cameras: "Cameras") -> List[Dict[str, Any]]:
         per_camera_dicts.append(
             {
                 "model": camera.intrinsics.model,
-                "params": dict(camera.intrinsics.params),
+                "params": _serialize_intrinsics_params(params=camera.intrinsics.params),
                 "intr_convention": camera.intrinsics.intr_convention,
                 "extrinsics": camera.extrinsics.extrinsics.detach().cpu().tolist(),
                 "extr_convention": camera.extrinsics.extr_convention,
@@ -422,6 +422,10 @@ def _deserialize_cameras_json(
     names: List[Optional[str]] = []
     ids: List[Optional[int]] = []
     for per_camera_dict in per_camera_dicts:
+        params = _deserialize_intrinsics_params(
+            params=per_camera_dict["params"],
+            device=device,
+        )
         extrinsics = torch.as_tensor(
             per_camera_dict["extrinsics"],
             dtype=torch.float32,
@@ -430,7 +434,7 @@ def _deserialize_cameras_json(
         intrinsics_list.append(
             build_camera_intrinsics(
                 model=per_camera_dict["model"],
-                params=per_camera_dict["params"],
+                params=params,
                 intr_convention=per_camera_dict["intr_convention"],
                 device=device,
             )
@@ -477,7 +481,9 @@ def _serialize_cameras_npz(cameras: "Cameras") -> Dict[str, Any]:
     has_ids: List[bool] = []
     for camera in cameras:
         models.append(camera.intrinsics.model)
-        params.append(json.dumps(camera.intrinsics.params))
+        params.append(
+            json.dumps(_serialize_intrinsics_params(params=camera.intrinsics.params))
+        )
         intr_conventions.append(camera.intrinsics.intr_convention)
         extrinsics_list.append(
             np.asarray(
@@ -585,6 +591,7 @@ def _deserialize_cameras_npz(
     for index in range(batch_size):
         model = str(model_array[index].item())
         params = json.loads(str(params_array[index].item()))
+        params = _deserialize_intrinsics_params(params=params, device=device)
         intrinsics_list.append(
             build_camera_intrinsics(
                 model=model,
@@ -620,6 +627,60 @@ def _deserialize_cameras_npz(
         ids=ids,
         device=device,
     )
+
+
+def _serialize_intrinsics_params(
+    params: Dict[str, torch.Tensor],
+) -> Dict[str, Union[int, float]]:
+    """Map scalar tensor intrinsics params to numeric scalar values.
+
+    Args:
+        params: Named scalar tensor intrinsics params.
+
+    Returns:
+        A numeric params dict suitable for JSON and NPZ payloads.
+    """
+    serialized_params: Dict[str, Union[int, float]] = {}
+    for key, value in params.items():
+        assert isinstance(value, torch.Tensor), (
+            "Expected serialized intrinsics params to be tensor-valued. "
+            f"{key=} {type(value)=}"
+        )
+        assert value.shape == (), (
+            "Expected serialized intrinsics params to be scalar tensors. "
+            f"{key=} {value.shape=}"
+        )
+        scalar = value.detach().cpu().item()
+        if key in {"h", "w"}:
+            assert float(scalar).is_integer(), (
+                "Expected serialized resolution params to be integer-valued. "
+                f"{key=} {scalar=}"
+            )
+            serialized_params[key] = int(scalar)
+        else:
+            serialized_params[key] = float(scalar)
+    return serialized_params
+
+
+def _deserialize_intrinsics_params(
+    params: Dict[str, Union[int, float]],
+    device: torch.device,
+    dtype: torch.dtype = torch.float32,
+) -> Dict[str, torch.Tensor]:
+    """Map serialized numeric scalar intrinsics params back to scalar tensors.
+
+    Args:
+        params: Serialized numeric scalar intrinsics params.
+        device: Target device for the scalar tensors.
+        dtype: Target floating dtype for the scalar tensors.
+
+    Returns:
+        A tensor-valued params dict on the requested device and dtype.
+    """
+    tensor_params: Dict[str, torch.Tensor] = {}
+    for key, value in params.items():
+        tensor_params[key] = torch.as_tensor(value, device=device, dtype=dtype)
+    return tensor_params
 
 
 def _normalize_payload_to_plural(

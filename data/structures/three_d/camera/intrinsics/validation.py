@@ -1,5 +1,4 @@
-import math
-from typing import Any, Dict, Union
+from typing import Any, Dict, Optional, Union
 
 import torch
 
@@ -9,18 +8,20 @@ def validate_camera_intrinsics_attributes(
     intr_convention: Any,
     params: Any,
     device: Any,
+    dtype: Any = None,
 ) -> None:
-    """Validate the model, image-plane frame, params, and device for a CameraIntrinsics.
+    """Validate the model, image-plane frame, params, device, and dtype for a CameraIntrinsics.
 
     Single-entry validation for ``CameraIntrinsics.__init__``: validate the camera
     model string, the image-plane convention its params are stated in, those named
-    params, and the device together.
+    tensor params, and the optional placement request together.
 
     Args:
         model: Camera-model identifier string.
         intr_convention: Candidate image-plane convention the params are stated in.
-        params: Candidate named intrinsics params for the model.
-        device: Candidate device, expected to be a torch device spec.
+        params: Candidate named scalar tensor intrinsics params for the model.
+        device: Candidate device, expected to be None or a torch device spec.
+        dtype: Candidate dtype, expected to be None or a floating torch dtype.
 
     Returns:
         None.
@@ -32,10 +33,18 @@ def validate_camera_intrinsics_attributes(
         intr_convention=intr_convention,
         params=params,
     )
-    assert isinstance(device, (str, torch.device)), (
-        "Expected CameraIntrinsics device to be a string or torch.device. "
+    assert device is None or isinstance(device, (str, torch.device)), (
+        "Expected CameraIntrinsics device to be None, a string, or torch.device. "
         f"{type(device)=}"
     )
+    assert dtype is None or isinstance(dtype, torch.dtype), (
+        "Expected CameraIntrinsics dtype to be None or a torch dtype. "
+        f"{type(dtype)=}"
+    )
+    if dtype is not None:
+        assert torch.empty((), dtype=dtype).is_floating_point(), (
+            "Expected CameraIntrinsics dtype to be floating. " f"{dtype=}"
+        )
 
 
 def validate_camera_model(model: Any) -> str:
@@ -84,17 +93,17 @@ def validate_camera_intrinsics_params(
     model: str,
     intr_convention: str,
     params: Any,
-) -> Dict[str, Union[int, float]]:
-    """Validate the named intrinsics params for a camera model.
+) -> Dict[str, torch.Tensor]:
+    """Validate the named scalar tensor intrinsics params for a camera model.
 
-    Validates the resolution keys every model carries, the value type every param
+    Validates the resolution keys every model carries, the tensor state every param
     is stated as, the projection keys that model's own dispatch owns, and the
     invariants that hold only across those keys together.
 
     Args:
         model: Validated camera-model identifier string.
         intr_convention: Validated image-plane convention the params are stated in.
-        params: Candidate named intrinsics params for the model.
+        params: Candidate named scalar tensor intrinsics params for the model.
 
     Returns:
         The validated named intrinsics params.
@@ -103,24 +112,28 @@ def validate_camera_intrinsics_params(
         "Expected intrinsics params to be a dict. " f"{type(params)=}"
     )
     for key, value in params.items():
-        assert isinstance(value, (int, float)), (
-            "Expected every intrinsics param value to be an int or a float. "
+        assert isinstance(value, torch.Tensor), (
+            "Expected every intrinsics param value to be a torch.Tensor. "
             f"{key=} {type(value)=}"
+        )
+        assert value.shape == (), (
+            "Expected every intrinsics param value to be a scalar tensor. "
+            f"{key=} {value.shape=}"
+        )
+        assert value.is_floating_point(), (
+            "Expected every intrinsics param value to be a floating tensor. "
+            f"{key=} {value.dtype=}"
         )
     assert {"h", "w"}.issubset(params.keys()), (
         "Expected intrinsics params to carry the resolution keys h and w. "
         f"{sorted(params.keys())=}"
-    )
-    assert isinstance(params["h"], int) and isinstance(params["w"], int), (
-        "Expected intrinsics params h and w to be ints. "
-        f"{type(params['h'])=} {type(params['w'])=}"
     )
     assert params["h"] > 0 and params["w"] > 0, (
         "Expected intrinsics params h and w to be positive. "
         f"{params['h']=} {params['w']=}"
     )
 
-    def _validate_projection_params() -> Dict[str, Union[int, float]]:
+    def _validate_projection_params() -> Dict[str, torch.Tensor]:
         if model == "simple_pinhole":
             return _validate_camera_intrinsics_params_simple_pinhole(params=params)
         if model == "pinhole":
@@ -140,11 +153,11 @@ def validate_camera_intrinsics_params(
 
 def _validate_camera_intrinsics_params_simple_pinhole(
     params: Any,
-) -> Dict[str, Union[int, float]]:
+) -> Dict[str, torch.Tensor]:
     """Validate simple_pinhole params: shared focal length f plus principal point.
 
     Args:
-        params: Candidate simple_pinhole params.
+        params: Candidate simple_pinhole scalar tensor params.
 
     Returns:
         The validated simple_pinhole params.
@@ -156,7 +169,7 @@ def _validate_camera_intrinsics_params_simple_pinhole(
     assert params["f"] > 0, (
         "Expected simple_pinhole focal length f to be positive. " f"{params['f']=}"
     )
-    assert math.isfinite(float(params["cx"])) and math.isfinite(float(params["cy"])), (
+    assert torch.isfinite(params["cx"]) and torch.isfinite(params["cy"]), (
         "Expected simple_pinhole principal point cx / cy to be finite. "
         f"{params['cx']=} {params['cy']=}"
     )
@@ -165,11 +178,11 @@ def _validate_camera_intrinsics_params_simple_pinhole(
 
 def _validate_camera_intrinsics_params_pinhole(
     params: Any,
-) -> Dict[str, Union[int, float]]:
+) -> Dict[str, torch.Tensor]:
     """Validate pinhole params: independent focal lengths fx / fy plus principal point.
 
     Args:
-        params: Candidate pinhole params.
+        params: Candidate pinhole scalar tensor params.
 
     Returns:
         The validated pinhole params.
@@ -182,7 +195,7 @@ def _validate_camera_intrinsics_params_pinhole(
         "Expected pinhole focal lengths fx / fy to be positive. "
         f"{params['fx']=} {params['fy']=}"
     )
-    assert math.isfinite(float(params["cx"])) and math.isfinite(float(params["cy"])), (
+    assert torch.isfinite(params["cx"]) and torch.isfinite(params["cy"]), (
         "Expected pinhole principal point cx / cy to be finite. "
         f"{params['cx']=} {params['cy']=}"
     )
@@ -191,11 +204,11 @@ def _validate_camera_intrinsics_params_pinhole(
 
 def _validate_camera_intrinsics_params_ortho(
     params: Any,
-) -> Dict[str, Union[int, float]]:
+) -> Dict[str, torch.Tensor]:
     """Validate ortho (weak-perspective) params: focal scales fx / fy plus offset.
 
     Args:
-        params: Candidate ortho params.
+        params: Candidate ortho scalar tensor params.
 
     Returns:
         The validated ortho params.
@@ -208,7 +221,7 @@ def _validate_camera_intrinsics_params_ortho(
         "Expected ortho focal scales fx / fy to be positive. "
         f"{params['fx']=} {params['fy']=}"
     )
-    assert math.isfinite(float(params["cx"])) and math.isfinite(float(params["cy"])), (
+    assert torch.isfinite(params["cx"]) and torch.isfinite(params["cy"]), (
         "Expected ortho principal-point offset cx / cy to be finite. "
         f"{params['cx']=} {params['cy']=}"
     )
@@ -218,7 +231,7 @@ def _validate_camera_intrinsics_params_ortho(
 def validate_camera_intrinsics_invariants(
     model: str,
     intr_convention: str,
-    params: Dict[str, Union[int, float]],
+    params: Dict[str, torch.Tensor],
 ) -> None:
     """Validate what the intrinsics params state only together.
 
@@ -248,7 +261,7 @@ def validate_camera_intrinsics_invariants(
 def _validate_principal_point_within_image(
     model: str,
     intr_convention: str,
-    params: Dict[str, Union[int, float]],
+    params: Dict[str, torch.Tensor],
 ) -> None:
     """Bound a perspective camera's principal point the way its own frame measures it.
 
@@ -263,12 +276,12 @@ def _validate_principal_point_within_image(
     if model == "ortho":
         # A weak-perspective cx / cy is where the world origin lands rather than where an axis pierces, and a fit drives that off the frame while the camera stays valid.
         return
-    cx = float(params["cx"])
-    cy = float(params["cy"])
+    cx = params["cx"]
+    cy = params["cy"]
     height = params["h"]
     width = params["w"]
     if intr_convention == "standard":
-        assert 0.0 <= cx <= float(width) and 0.0 <= cy <= float(height), (
+        assert 0.0 <= cx <= width and 0.0 <= cy <= height, (
             "Expected the principal point to fall within the pixel raster running "
             "corner to corner. "
             f"{cx=} {cy=} {height=} {width=}"
@@ -282,10 +295,10 @@ def _validate_principal_point_within_image(
         )
         return
     if intr_convention == "pytorch3d":
-        shorter_side = float(min(height, width))
+        shorter_side = torch.minimum(height, width)
         assert (
-            abs(cx) <= float(width) / shorter_side
-            and abs(cy) <= float(height) / shorter_side
+            torch.abs(cx) <= width / shorter_side
+            and torch.abs(cy) <= height / shorter_side
         ), (
             "Expected the principal point to fall within the pytorch3d device "
             "frame, whose shorter side alone reaches 1. "
@@ -298,7 +311,7 @@ def _validate_principal_point_within_image(
 def _validate_model_is_representable_in_frame(
     model: str,
     intr_convention: str,
-    params: Dict[str, Union[int, float]],
+    params: Dict[str, torch.Tensor],
 ) -> None:
     """Reject a model that states fewer focal params than its frame scales axes.
 
@@ -315,7 +328,7 @@ def _validate_model_is_representable_in_frame(
         None.
     """
     if model == "simple_pinhole" and intr_convention in {"opengl", "vulkan"}:
-        assert params["h"] == params["w"], (
+        assert torch.equal(params["h"], params["w"]), (
             "Expected a square image for a simple_pinhole stated on a device "
             "frame that normalizes each axis by its own side, one shared f "
             "carrying only one unit. "
