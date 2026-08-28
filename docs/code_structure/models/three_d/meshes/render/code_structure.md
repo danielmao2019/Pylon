@@ -8,7 +8,21 @@
 __init__.py
 ├── from models.three_d.meshes.render.core import render_rgb_from_mesh
 ├── from models.three_d.meshes.render.display import render_display
+├── from models.three_d.meshes.render.shading import compute_sh_shading
 └── from models.three_d.meshes.render.uv_texture import render_uv_texture_aligned
+```
+
+`models/three_d/meshes/render/shading.py`
+
+```text
+shading.py
+├── import torch
+└── def compute_sh_shading(normals: torch.Tensor, sh_coefficients: torch.Tensor) -> torch.Tensor
+    ├── # Evaluates spherical-harmonic shading over surface normals, at whatever band count sh_coefficients carries.
+    ├── impls assert sh_coefficients' band count is a perfect square, the spherical-harmonic order it implies
+    ├── impls evaluate the spherical-harmonic basis over the normals up to that order  # impls-node-one-step:skip
+    ├── impls contract the basis against sh_coefficients over the bands
+    └── return  # the per-normal RGB shading the caller multiplies its albedo by
 ```
 
 `models/three_d/meshes/render/core.py`
