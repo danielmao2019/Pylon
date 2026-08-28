@@ -35,9 +35,13 @@ apply_transform.py
 ├── def _normalize_points(points: Union[np.ndarray, torch.Tensor]) -> Tuple[Union[np.ndarray, torch.Tensor], bool]
 │   ├── # Normalizes points to unbatched (N, 3) while preserving type, reporting whether the input was batched.
 │   ├── if points.ndim == 2
-│   │   └── return  # (points, False)
+│   │   ├── impls normalized_points = points
+│   │   ├── impls was_batched = False
+│   │   └── return normalized_points, was_batched
 │   ├── elif points.ndim == 3
-│   │   └── return  # (points.squeeze(0), True)
+│   │   ├── impls normalized_points = points squeezed on batch axis
+│   │   ├── impls was_batched = True
+│   │   └── return normalized_points, was_batched
 │   └── else
 │       └── raise ValueError
 ├── def _normalize_transform(transform: Union[list, np.ndarray, torch.Tensor], target_type: type, target_dtype: Union[torch.dtype, np.dtype], target_device: Optional[Union[str, torch.device]]) -> Union[np.ndarray, torch.Tensor]
@@ -51,10 +55,20 @@ apply_transform.py
 │   └── return  # the squeezed [4, 4] transform
 ├── def _normalize_transform_numpy(transform: Union[list, np.ndarray, torch.Tensor], target_dtype: np.dtype) -> np.ndarray
 │   ├── # Converts a list or tensor transform into a numpy array of the target dtype.
-│   └── return  # the numpy transform
+│   ├── if transform is a list
+│   │   └── impls transform = an array of transform, of target_dtype
+│   ├── if transform is a torch.Tensor
+│   │   └── impls transform = that tensor on the cpu, as an array
+│   ├── impls transform = transform cast to target_dtype
+│   └── return transform  # the numpy transform
 └── def _normalize_transform_torch(transform: Union[list, np.ndarray, torch.Tensor], target_dtype: torch.dtype, target_device: torch.device) -> torch.Tensor
     ├── # Converts a list or ndarray transform into a torch tensor on the target dtype and device.
-    └── return  # the torch transform
+    ├── if transform is a list
+    │   └── impls transform = a tensor of transform, of target_dtype on target_device
+    ├── if transform is an np.ndarray
+    │   └── impls transform = that array as a tensor
+    ├── impls transform = transform cast to target_dtype on target_device
+    └── return transform  # the torch transform
 ```
 
 `models/three_d/point_cloud/ops/world_to_camera_transform.py`
