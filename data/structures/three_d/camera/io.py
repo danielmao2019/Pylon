@@ -774,7 +774,7 @@ def _normalize_format(format: str) -> str:
     """
     format = format.strip()
     assert format != "", (
-        "Expected Cameras serialization format to be non-empty after stripping. "
+        "Expected the stripped Cameras serialization format to be non-empty. "
         f"{format=}"
     )
     if format.startswith("."):

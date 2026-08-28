@@ -290,36 +290,50 @@ class CameraExtrinsics:
 
         _validate_inputs()
 
-        target_device = torch.device(device) if device is not None else self._device
-        target_dtype = dtype if dtype is not None else self._dtype
-        target_extr_convention = (
-            extr_convention if extr_convention is not None else self._extr_convention
+        def _normalize_inputs(
+            device: Optional[Union[str, torch.device]],
+            dtype: Optional[torch.dtype],
+            extr_convention: Optional[str],
+        ) -> Tuple[torch.device, torch.dtype, str]:
+            device = torch.device(device) if device is not None else self._device
+            dtype = dtype if dtype is not None else self._dtype
+            extr_convention = (
+                extr_convention
+                if extr_convention is not None
+                else self._extr_convention
+            )
+            return device, dtype, extr_convention
+
+        device, dtype, extr_convention = _normalize_inputs(
+            device=device,
+            dtype=dtype,
+            extr_convention=extr_convention,
         )
 
         if (
-            target_device == self._device
-            and target_dtype == self._dtype
-            and target_extr_convention == self._extr_convention
+            device == self._device
+            and dtype == self._dtype
+            and extr_convention == self._extr_convention
             and copy is False
         ):
             return self
 
-        if extr_convention is not None and extr_convention != self._extr_convention:
+        if extr_convention != self._extr_convention:
             extrinsics = transform_extr_convention(
                 camera_extrinsics=self,
-                target_extr_convention=target_extr_convention,
+                target_extr_convention=extr_convention,
             )
         else:
             extrinsics = self._extrinsics
 
         return CameraExtrinsics(
             extrinsics=extrinsics.to(
-                device=target_device,
-                dtype=target_dtype,
+                device=device,
+                dtype=dtype,
                 non_blocking=non_blocking,
                 copy=copy,
             ),
-            extr_convention=target_extr_convention,
+            extr_convention=extr_convention,
         )
 
     def transform_extrinsics(

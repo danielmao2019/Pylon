@@ -13,7 +13,7 @@ test_intrinsics.py
 ├── from pathlib import Path
 ├── from typing import Dict, Set, Tuple
 ├── from data.structures.three_d.camera.intrinsics.camera_intrinsics import CameraIntrinsicsOrtho, CameraIntrinsicsPinhole, CameraIntrinsicsSimplePinhole, build_camera_intrinsics
-├── from data.structures.three_d.camera.intrinsics.validation import validate_camera_intrinsics_attributes, validate_camera_intrinsics_invariants, validate_camera_intrinsics_params, validate_camera_model, validate_intr_convention
+├── from data.structures.three_d.camera.intrinsics.validation import validate_camera_intrinsics_attributes, validate_camera_intrinsics_invariants, validate_camera_intrinsics_params, validate_camera_model
 ├── def test_validate_camera_model_accepts_all_supported
 │   ├── # validate_camera_model accepts simple_pinhole, pinhole, and ortho.
 │   ├── for each model in {simple_pinhole, pinhole, ortho}
@@ -84,14 +84,17 @@ test_intrinsics.py
 ├── def test_intrinsics_constructor_applies_requested_device_dtype_through_to
 │   ├── # CameraIntrinsics.__init__ delegates requested device / dtype movement to the object's to method.
 │   ├── calls build_camera_intrinsics(model=a supported model, params=tensor scalar params, device=a valid device, dtype=a floating torch dtype)
-│   ├── impls assert every param tensor has the requested device and dtype
-│   ├── impls assert intrinsics.device and intrinsics.dtype match the returned param tensors
+│   ├── impls assert every param tensor has the requested device
+│   ├── impls assert every param tensor has the requested dtype
+│   ├── impls assert intrinsics.device matches the returned param tensors
+│   ├── impls assert intrinsics.dtype matches the returned param tensors
 │   └── return
 ├── def test_intrinsics_to_follows_tensor_to_semantics
 │   ├── # CameraIntrinsics.to applies Tensor.to-style device / dtype / copy semantics to every scalar param tensor.
 │   ├── calls build_camera_intrinsics(model=a supported model, params=tensor scalar params)
 │   ├── calls intrinsics.to(device=a valid device, dtype=a floating torch dtype, copy=True)
-│   ├── impls assert every returned param tensor has the requested device and dtype
+│   ├── impls assert every returned param tensor has the requested device
+│   ├── impls assert every returned param tensor has the requested dtype
 │   ├── impls assert copy=True returns tensors with distinct storage from the source params
 │   └── return
 ├── def test_simple_pinhole_project_applies_perspective_divide
@@ -230,7 +233,7 @@ test_intrinsics.py
 │   │   ├── calls build_camera_intrinsics
 │   │   ├── calls intrinsics.scale_intrinsics(resolution=a target resolution at this intrinsics' own aspect ratio)
 │   │   ├── impls assert the focal and cx / cy params scaled by the target over the intrinsics' own h and w params, per axis  # impls-node-one-step:skip
-│   │   ├── impls assert the returned intrinsics' h and w params are the target ones  # impls-node-one-step:skip
+│   │   ├── impls assert the returned intrinsics' h and w params are the target ones                                          # impls-node-one-step:skip
 │   │   ├── calls intrinsics.scale_intrinsics(scale=a single factor)
 │   │   └── impls assert the focal and cx / cy params scaled by that factor  # impls-node-one-step:skip
 │   └── return
@@ -285,7 +288,8 @@ test_intrinsics.py
     │   ├── calls scaled_intrinsics.project(points_camera=valid camera-space points)
     │   ├── impls loss = image_points.sum()
     │   ├── calls loss.backward
-    │   └── impls assert source tensor params and scale factors receive gradients
+    │   ├── impls assert source tensor params receive gradients
+    │   └── impls assert scale factors receive gradients
     └── return
 ```
 
@@ -303,7 +307,7 @@ test_conventions.py
 ├── from data.structures.three_d.camera.intrinsics.camera_intrinsics import build_camera_intrinsics
 ├── from data.structures.three_d.camera.intrinsics.conventions import transform_intr_convention
 ├── from data.structures.three_d.camera.intrinsics.scaling import rescale_intr_params
-├── from data.structures.three_d.camera.intrinsics.validation import validate_intr_convention
+├── from data.structures.three_d.camera.intrinsics.validation import validate_camera_intrinsics_invariants, validate_intr_convention
 ├── def test_validate_extr_convention_accepts_all_supported
 │   ├── # validate_extr_convention accepts every supported convention string.
 │   ├── for each extr_convention in {standard, opengl, opencv, pytorch3d, arkit}
@@ -311,7 +315,7 @@ test_conventions.py
 │   │   └── impls assert the returned string is the extr_convention that was passed in
 │   └── return
 ├── def test_extr_convention_module_has_one_main_api_and_eight_helpers
-│   ├── # The relocated extrinsics/conventions module exposes exactly one main API plus eight helpers.
+│   ├── # The extrinsics conventions module exposes exactly one main API plus eight helpers.
 │   ├── impls collect the function names the conventions module defines
 │   ├── impls assert transform_extr_convention is its only public function
 │   ├── impls assert the eight helpers are the to-standard and from-standard converters for opengl, opencv, pytorch3d, and arkit  # impls-node-one-step:skip
@@ -459,6 +463,13 @@ test_conventions.py
 │   ├── calls intrinsics.to
 │   ├── impls assert the round-tripped params equal the original's under every frame
 │   └── return
+├── def test_a_converted_intrinsics_still_satisfies_its_own_invariants
+│   ├── # A frame change restates a camera, so converted params must keep satisfying their own model and image-frame invariants.
+│   ├── for each model in {pinhole, ortho}
+│   │   └── for each target intr_convention
+│   │       ├── calls transform_intr_convention
+│   │       └── calls validate_camera_intrinsics_invariants
+│   └── return
 ├── def test_a_frame_change_is_measured_against_the_intrinsics_own_resolution
 │   ├── # The resolution is what fixes where a centred origin sits and what a normalized unit is worth, so the conversion reads the h and w the params already carry rather than a resolution the caller supplies and could get wrong.
 │   ├── calls build_camera_intrinsics
@@ -490,14 +501,17 @@ test_conventions.py
 ├── def test_extrinsics_constructor_applies_requested_device_dtype_through_to
 │   ├── # CameraExtrinsics.__init__ delegates requested device / dtype movement to the object's to method.
 │   ├── calls CameraExtrinsics(extrinsics=a valid cam2world tensor, extr_convention="standard", device=a valid device, dtype=a floating torch dtype)
-│   ├── impls assert extrinsics.extrinsics has the requested device and dtype
-│   ├── impls assert extrinsics.device and extrinsics.dtype match its tensor state
+│   ├── impls assert extrinsics.extrinsics has the requested device
+│   ├── impls assert extrinsics.extrinsics has the requested dtype
+│   ├── impls assert extrinsics.device matches its tensor state
+│   ├── impls assert extrinsics.dtype matches its tensor state
 │   └── return
 ├── def test_extrinsics_to_follows_tensor_to_semantics
 │   ├── # CameraExtrinsics.to applies Tensor.to-style device / dtype / copy semantics to the cam2world tensor.
 │   ├── calls CameraExtrinsics(extrinsics=a valid cam2world tensor, extr_convention="standard")
 │   ├── calls extrinsics.to(device=a valid device, dtype=a floating torch dtype, copy=True)
-│   ├── impls assert the returned cam2world tensor has the requested device and dtype
+│   ├── impls assert the returned cam2world tensor has the requested device
+│   ├── impls assert the returned cam2world tensor has the requested dtype
 │   ├── impls assert copy=True returns a tensor with distinct storage from the source extrinsics
 │   └── return
 └── def test_camera_and_cameras_to_preserve_tensor_parameter_graphs
@@ -510,7 +524,8 @@ test_conventions.py
     ├── calls cameras.to(device=the current device, dtype=a floating torch dtype, extr_convention="pytorch3d")
     ├── impls loss = moved_camera.intrinsics.project(points).sum() + moved_cameras.center.sum()
     ├── calls loss.backward
-    ├── impls assert source intrinsics params and source extrinsics receive gradients
+    ├── impls assert source intrinsics params receive gradients
+    ├── impls assert source extrinsics receive gradients
     └── return
 ```
 

@@ -5,7 +5,13 @@ import torch
 
 from data.structures.three_d.camera.camera import Camera
 from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
+from data.structures.three_d.camera.extrinsics.validation import (
+    validate_extr_convention,
+)
 from data.structures.three_d.camera.intrinsics.camera_intrinsics import CameraIntrinsics
+from data.structures.three_d.camera.intrinsics.validation import (
+    validate_intr_convention,
+)
 from data.structures.three_d.camera.validation import validate_cameras_attributes
 
 
@@ -194,34 +200,56 @@ class Cameras:
         Returns:
             This Cameras when unchanged, else a new one.
         """
-        assert device is None or isinstance(device, (str, torch.device)), (
-            "Expected target device to be None, a string, or torch.device. "
-            f"{device=}"
-        )
-        assert dtype is None or isinstance(dtype, torch.dtype), (
-            "Expected target dtype to be None or a torch dtype. " f"{dtype=}"
-        )
-        if dtype is not None:
-            assert torch.empty((), dtype=dtype).is_floating_point(), (
-                "Expected target dtype to be floating. " f"{dtype=}"
+
+        def _validate_inputs() -> None:
+            assert device is None or isinstance(device, (str, torch.device)), (
+                "Expected target device to be None, a string, or torch.device. "
+                f"{device=}"
             )
-        assert isinstance(non_blocking, bool), (
-            "Expected non_blocking to be a bool. " f"{type(non_blocking)=}"
-        )
-        assert isinstance(copy, bool), "Expected copy to be a bool. " f"{type(copy)=}"
-        assert intr_convention is None or isinstance(intr_convention, str), (
-            "Expected target image-plane frame to be None or a string. "
-            f"{intr_convention=}"
-        )
-        assert extr_convention is None or isinstance(extr_convention, str), (
-            "Expected target pose frame to be None or a string. " f"{extr_convention=}"
+            assert dtype is None or isinstance(dtype, torch.dtype), (
+                "Expected target dtype to be None or a torch dtype. " f"{dtype=}"
+            )
+            if dtype is not None:
+                assert torch.empty((), dtype=dtype).is_floating_point(), (
+                    "Expected target dtype to be floating. " f"{dtype=}"
+                )
+            assert isinstance(non_blocking, bool), (
+                "Expected non_blocking to be a bool. " f"{type(non_blocking)=}"
+            )
+            assert isinstance(copy, bool), (
+                "Expected copy to be a bool. " f"{type(copy)=}"
+            )
+            assert intr_convention is None or isinstance(intr_convention, str), (
+                "Expected target image-plane frame to be None or a string. "
+                f"{intr_convention=}"
+            )
+            if intr_convention is not None:
+                validate_intr_convention(intr_convention=intr_convention)
+            assert extr_convention is None or isinstance(extr_convention, str), (
+                "Expected target pose frame to be None or a string. "
+                f"{extr_convention=}"
+            )
+            if extr_convention is not None:
+                validate_extr_convention(extr_convention=extr_convention)
+
+        _validate_inputs()
+
+        def _normalize_inputs(
+            device: Optional[Union[str, torch.device]],
+            dtype: Optional[torch.dtype],
+        ) -> Tuple[torch.device, torch.dtype]:
+            device = torch.device(device) if device is not None else self._device
+            dtype = dtype if dtype is not None else self._dtype
+            return device, dtype
+
+        device, dtype = _normalize_inputs(
+            device=device,
+            dtype=dtype,
         )
 
-        target_device = torch.device(device) if device is not None else self._device
-        target_dtype = dtype if dtype is not None else self._dtype
         if (
-            target_device == self._device
-            and target_dtype == self._dtype
+            device == self._device
+            and dtype == self._dtype
             and (
                 intr_convention is None
                 or all(
@@ -246,8 +274,8 @@ class Cameras:
         ids: List[Optional[int]] = []
         for camera in self:
             moved = camera.to(
-                device=target_device,
-                dtype=target_dtype,
+                device=device,
+                dtype=dtype,
                 non_blocking=non_blocking,
                 copy=copy,
                 intr_convention=intr_convention,
@@ -262,8 +290,8 @@ class Cameras:
             extrinsics=extrinsics,
             names=names,
             ids=ids,
-            device=target_device,
-            dtype=target_dtype,
+            device=device,
+            dtype=dtype,
         )
 
     def transform_extrinsics(

@@ -23,6 +23,7 @@ from data.structures.three_d.camera.intrinsics.conventions import (
 )
 from data.structures.three_d.camera.intrinsics.scaling import rescale_intr_params
 from data.structures.three_d.camera.intrinsics.validation import (
+    validate_camera_intrinsics_invariants,
     validate_intr_convention,
 )
 
@@ -937,6 +938,38 @@ def test_an_intr_convention_round_trip_returns_the_original_params() -> None:
             assert round_tripped.params[key] == pytest.approx(
                 value
             ), f"{frame=} {key=} {round_tripped.params=}"
+
+
+def test_a_converted_intrinsics_still_satisfies_its_own_invariants() -> None:
+    """Converted params remain valid for their target frame.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    frames = ("standard", "opengl", "pytorch3d", "vulkan")
+    for model in ("pinhole", "ortho"):
+        params = {
+            key: torch.tensor(value, dtype=torch.float32)
+            for key, value in _build_pinhole_params().items()
+        }
+        for target_intr_convention in frames:
+            transformed_params = transform_intr_convention(
+                params=params,
+                model=model,
+                source_intr_convention="standard",
+                target_intr_convention=target_intr_convention,
+            )
+            tensor_params = {
+                key: torch.as_tensor(value) for key, value in transformed_params.items()
+            }
+            validate_camera_intrinsics_invariants(
+                model=model,
+                intr_convention=target_intr_convention,
+                params=tensor_params,
+            )
 
 
 def test_a_frame_change_is_measured_against_the_intrinsics_own_resolution() -> None:
