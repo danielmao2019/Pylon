@@ -53,3 +53,49 @@ image.py
 └── def encode_image_bytes(image: torch.Tensor, image_format: str) -> bytes
     └── # Encodes an HWC image tensor into encoded image bytes (PNG / JPEG / ...) — in-memory counterpart of the file-based save_image.
 ```
+
+## chumpy pickle I/O
+
+`utils/io/chumpy.py`
+
+```text
+chumpy.py
+├── import pickle
+├── import numpy as np
+├── _CHUMPY_ROOT_MODULE  # str / "chumpy", the package whose classes the stream names and this project does not install
+├── def load_chumpy(filepath: str) -> Dict[str, Any]
+│   ├── # Loads a chumpy-pickled file as plain numpy arrays, chumpy being an abandoned Python-2-era package that neither builds nor imports against a modern numpy.
+│   ├── def _validate_inputs [local]
+│   │   └── impls assert the filepath's extension is .pkl  # the one form this loader reads, which is what leaves the dispatch below no unhandled case
+│   ├── calls _validate_inputs
+│   ├── if the filepath's extension is .pkl
+│   │   ├── calls _load_chumpy_from_pkl
+│   │   └── return  # the mapping, each of the file's chumpy arrays now a numpy one
+│   └── assert 0, "Should not reach here."
+├── def _load_chumpy_from_pkl(filepath: str) -> Dict[str, Any]
+│   ├── # Reads the pickle with every chumpy class the stream names resolved to _ChumpyArray, then resolves those stand-ins to the arrays they carry.
+│   ├── with filepath opened for binary reading
+│   │   ├── calls _ChumpyUnpickler(file=the opened file, encoding="latin1")  # the file is a Python-2 pickle
+│   │   └── calls unpickler.load
+│   ├── for each name and value in the unpickled mapping
+│   │   └── impls replace a _ChumpyArray value by the array it carries, leaving every other value as the stream produced it  # a scipy sparse entry stays sparse
+│   └── return  # the mapping, carrying no stand-in beyond this function
+├── class _ChumpyUnpickler(pickle.Unpickler)
+│   ├── # Unpickler resolving chumpy's own classes to _ChumpyArray, confining the substitution to this load rather than to global state.
+│   └── def find_class(self, module: str, name: str) -> Any   [override]
+│       ├── # Resolves one class reference the stream names, substituting the stand-in for chumpy's own.
+│       ├── if module is _CHUMPY_ROOT_MODULE or one of its submodules
+│       │   └── return _ChumpyArray
+│       └── return  # whatever the base unpickler resolves the reference to
+└── class _ChumpyArray
+    ├── # Stand-in for one chumpy array while unpickling: it takes the pickled state and yields the numpy array already inside it.
+    ├── def __setstate__(self, state: Any) -> None
+    │   ├── # Restores the pickled chumpy state onto the stand-in.
+    │   └── impls update self.__dict__ from state, or from {"_state": state} when the payload is not a dict
+    └── def __array__(self, dtype: Optional[np.dtype] = None) -> np.ndarray
+        ├── # Yields the stored numpy array, the hook that makes the stand-in coercible.
+        ├── for each value in self.__dict__.values()
+        │   └── if the value is an np.ndarray
+        │       └── return  # the value, cast to dtype when one is given
+        └── raise TypeError  # the state carries no array
+```

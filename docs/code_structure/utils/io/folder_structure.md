@@ -6,6 +6,7 @@
 ./utils/io/
 ├── __init__.py  # io package API surface
 ├── config.py    # config-file I/O
+├── chumpy.py    # chumpy-pickled file I/O with stream-class substitution to plain numpy arrays
 ├── glb.py       # generic glTF/GLB I/O — the chunked file, the typed accessor arrays it encodes, and the embedded raw image bytes
 ├── image.py     # image read / write (files) + in-memory bytes codec (decode_image_bytes / encode_image_bytes)
 ├── json.py      # JSON read / write
@@ -18,6 +19,8 @@
 
 ```text
 ./tests/utils/io/
+├── chumpy/
+│   └── test_chumpy_loading.py
 ├── config/
 │   └── test_config_loading.py
 ├── image/
