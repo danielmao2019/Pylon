@@ -95,7 +95,7 @@ def test_base_meshes_scene_model_loads_through_data_mesh_boundary(
                 dtype=torch.float32,
             ),
             faces_uvs=torch.tensor([[0, 1, 2]], dtype=torch.int64),
-            convention="obj",
+            uv_convention="obj",
         ),
     )
     textured_mesh.save(path=mesh_root / "mesh.obj")
@@ -161,7 +161,7 @@ def test_base_meshes_scene_model_to_moves_repo_mesh(
                 dtype=torch.float32,
             ),
             faces_uvs=torch.tensor([[0, 1, 2]], dtype=torch.int64),
-            convention="obj",
+            uv_convention="obj",
         ),
     ).save(path=mesh_root / "mesh.obj")
 

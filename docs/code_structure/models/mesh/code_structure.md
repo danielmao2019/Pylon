@@ -79,7 +79,7 @@ extract.py
 │   ├── if not extract_uv_texture_map
 │   │   └── calls _extract_vertex_color_from_images(meshes=meshes, images_nchw=images_nchw, cameras=cameras, weights_cfg=weights_cfg, default_color=default_color)
 │   ├── for each view_mesh in meshes
-│   │   └── calls view_mesh.to(convention='obj')  # normalize the input UV origin to convention='obj' (v=0 at bottom), the projector's expected UV convention
+│   │   └── calls view_mesh.to(uv_convention='obj')  # normalize the input UV origin to uv_convention='obj' (v=0 at bottom), the projector's expected UV convention
 │   └── calls _extract_uv_texture_map_from_images(meshes=meshes, images_nchw=images_nchw, cameras=cameras, weights_cfg=weights_cfg, texture_size=texture_size, default_color=default_color, texel_visibility_method=texel_visibility_method, polygon_rast_method=polygon_rast_method)
 ├── def _extract_vertex_color_from_images(meshes: List[Mesh], images_nchw: torch.Tensor, cameras: Cameras, weights_cfg: Dict[str, Any], default_color: float) -> Dict[str, torch.Tensor]
 │   ├── # Fuse per-view projected vertex colors into one vertex-color tensor.
@@ -120,7 +120,7 @@ extract.py
 │   ├── calls _validate_rgb_image(obj=uv_texture_map)
 │   └── calls _validate_rgb_image(obj=uv_texture_map)
 ├── def _extract_uv_texture_map_from_single_image(mesh: Mesh, image: torch.Tensor, camera: Cameras, weights_cfg: Dict[str, Any], texel_face_map: Dict[str, torch.Tensor], texel_visibility_method: str='v1', polygon_rast_method: str='v2') -> Dict[str, torch.Tensor]
-│   ├── # Extract one-view UV texture observation and UV weight map, both keyed by the mesh's convention='obj' UV layout.
+│   ├── # Extract one-view UV texture observation and UV weight map, both keyed by the mesh's uv_convention='obj' UV layout.
 │   ├── if texel_visibility_method == 'v1'
 │   │   └── calls compute_f_visibility_mask(verts=mesh.verts, faces=mesh.faces, face_verts_uvs=mesh.texture.verts_uvs[mesh.texture.faces_uvs], camera=camera, image_height=int(image.shape[1]), image_width=int(image.shape[2]), texel_face_map=texel_face_map, polygon_rast_method=polygon_rast_method)
 │   ├── else
@@ -434,7 +434,8 @@ texel_visibility_geometry.py
 │   ├── impls first_projection_min, first_projection_max = the first polygon's valid verts projected onto each candidate axis
 │   ├── impls second_projection_min, second_projection_max = the second polygon's valid verts projected onto each candidate axis
 │   ├── impls separating_axis_mask = the valid candidate axes whose two projected intervals stay apart within 1.0e-12
-│   └── return the bbox-overlapping pairs carrying no separating axis, contiguous  # one bool per pair
+│   ├── impls overlap_mask = the bbox-overlapping pairs carrying no separating axis, made contiguous
+│   └── return overlap_mask  # one bool per pair
 ├── def _build_padded_pixel_split_line_coefficients(pixel_indices: torch.Tensor, pixel_polygon_verts: torch.Tensor, pixel_polygon_vertex_counts: torch.Tensor, pixel_face_valid_mask: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]
 │   ├── # Build padded polygon-edge split-line tensors for all pixels.
 │   └── calls _deduplicate_padded_pixel_split_lines(pixel_split_line_coefficients=edge_line_coefficients, pixel_split_line_valid_mask=edge_valid_mask)
@@ -585,7 +586,10 @@ texel_visibility_geometry.py
 │   │   └── impls append the valid polygons' (first, fan index, fan index + 1) corner triples to uv_triangle_chunks
 │   ├── if uv_triangle_chunks is empty
 │   │   └── return an empty (0, 3, 2) float32 tensor
-│   └── return uv_triangle_chunks concatenated, as float32, contiguous
+│   ├── impls uv_triangles = uv_triangle_chunks concatenated
+│   ├── impls uv_triangles = uv_triangles converted to float32
+│   ├── impls uv_triangles = uv_triangles made contiguous
+│   └── return uv_triangles
 ├── def build_uv_triangle_texel_intersections_v2(uv_triangles: torch.Tensor, texture_size: int) -> torch.Tensor
 │   ├── # Build approximate step-2 `v2` UV-triangle to texel-cell intersections.
 │   ├── def _compute_triangle_edge_function_coefficients(triangle_verts: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor] [local]
@@ -597,7 +601,9 @@ texel_visibility_geometry.py
 │   │   ├── impls triangle_orientation = plus one where each triangle's double area is non-negative, minus one elsewhere
 │   │   ├── impls orient edge_a, edge_b and edge_c by triangle_orientation               # impls-node-one-step:skip  # so a point inside scores non-negative on every edge
 │   │   ├── impls edge_thresholds = half the summed absolute oriented edge_a and edge_b  # impls-node-one-step:skip  # the half-texel margin each edge admits
-│   │   └── return the stacked oriented coefficients with edge_thresholds, each contiguous
+│   │   ├── impls edge_function_coefficients = the oriented edge_a, edge_b, and edge_c stacked  # impls-node-one-step:skip
+│   │   ├── impls edge_function_coefficients = edge_function_coefficients made contiguous
+│   │   └── return edge_function_coefficients, edge_thresholds
 │   ├── calls _compute_triangle_edge_function_coefficients(triangle_verts=triangle_texel_verts)
 │   └── if torch.any(boundary_candidate_mask)
 │       └── while boundary_chunk_start < boundary_candidate_indices.shape[0]
@@ -732,7 +738,8 @@ texel_visibility_v2.py
     ├── impls log_gap_median = the median of log_positive_relative_depth_gaps
     ├── impls log_gap_mad = the median absolute deviation about log_gap_median
     ├── impls log_gap_threshold = log_gap_median plus FRONT_DEPTH_GAP_LOG_MAD_MULTIPLIER times log_gap_mad
-    └── return ten raised to log_gap_threshold, as a float  # a wider relative gap closes the front cluster
+    ├── impls front_depth_gap_threshold = ten raised to log_gap_threshold, as a Python float
+    └── return front_depth_gap_threshold  # a wider relative gap closes the front cluster
 ```
 
 `models/three_d/meshes/texture/extract/visibility/vertex_visibility.py`

@@ -58,13 +58,16 @@ class Mesh:
 
         _validate_inputs()
 
-        def _normalize_inputs() -> Tuple[torch.Tensor, torch.Tensor]:
+        def _normalize_inputs(
+            verts: torch.Tensor,
+            faces: torch.Tensor,
+        ) -> Tuple[torch.Tensor, torch.Tensor]:
             return (
                 verts.contiguous(),
                 faces.to(dtype=torch.int64).contiguous(),
             )
 
-        verts, faces = _normalize_inputs()
+        verts, faces = _normalize_inputs(verts=verts, faces=faces)
 
         self.verts = verts
         self.faces = faces
@@ -103,18 +106,18 @@ class Mesh:
     def to(
         self,
         device: Union[str, torch.device, None] = None,
-        convention: Optional[str] = None,
+        uv_convention: Optional[str] = None,
     ) -> "Mesh":
         """Return this mesh on a target device and/or texture UV-origin convention.
 
         Args:
             device: Optional target device.
-            convention: Optional target texture UV-origin convention,
+            uv_convention: Optional target texture UV-origin convention,
                 forwarded to the texture; valid only for a textured mesh.
 
         Returns:
-            This mesh when the device and convention already match, otherwise a
-            new mesh on the requested target.
+            This mesh when the device and UV convention already match,
+            otherwise a new mesh on the requested target.
         """
 
         def _validate_inputs() -> None:
@@ -122,31 +125,37 @@ class Mesh:
                 "Expected `device` to be `None`, a `str`, or a `torch.device`. "
                 f"{type(device)=}"
             )
-            assert convention is None or isinstance(convention, str), (
-                "Expected `convention` to be `None` or a string. "
-                f"{type(convention)=}"
+            assert uv_convention is None or isinstance(uv_convention, str), (
+                "Expected `uv_convention` to be `None` or a string. "
+                f"{type(uv_convention)=}"
             )
-            if convention is not None:
+            if uv_convention is not None:
                 assert self.texture is not None, (
                     "Expected only textured meshes to support explicit "
                     "UV-convention conversion. "
-                    f"{self.texture=} {convention=}"
+                    f"{self.texture=} {uv_convention=}"
                 )
 
         _validate_inputs()
 
-        target_device = self.device if device is None else torch.device(device)
-        if self.device == target_device and convention is None:
+        def _normalize_inputs(
+            device: Union[str, torch.device, None],
+        ) -> torch.device:
+            if device is None:
+                return self.device
+            return torch.device(device)
+
+        device = _normalize_inputs(device=device)
+
+        if self.device == device and uv_convention is None:
             return self
 
         target_texture = None
         if self.texture is not None:
-            target_texture = self.texture.to(
-                device=target_device, convention=convention
-            )
+            target_texture = self.texture.to(device=device, uv_convention=uv_convention)
 
         return Mesh(
-            verts=self.verts.to(device=target_device),
-            faces=self.faces.to(device=target_device),
+            verts=self.verts.to(device=device),
+            faces=self.faces.to(device=device),
             texture=target_texture,
         )

@@ -280,7 +280,7 @@ def _load_mesh_uv_texture_map(path: Union[str, Path]) -> Mesh:
             uv_texture_map=uv_texture_map.detach().cpu().contiguous(),
             verts_uvs=canonical_verts_uvs.detach().cpu().contiguous(),
             faces_uvs=canonical_faces_uvs.detach().cpu().contiguous(),
-            convention="obj",
+            uv_convention="obj",
         ),
     )
 

@@ -222,7 +222,7 @@ def _load_glb_uv_texture_map(
             uv_texture_map=uv_texture_map.contiguous(),
             verts_uvs=canonical_verts_uvs.contiguous(),
             faces_uvs=canonical_faces_uvs.contiguous(),
-            convention="top_left",
+            uv_convention="top_left",
         ),
     )
 

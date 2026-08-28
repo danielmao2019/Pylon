@@ -80,7 +80,7 @@ def _build_identity_uv_mesh() -> Mesh:
                 device=_CUDA_DEVICE,
             ),
             faces_uvs=torch.tensor([[0, 1, 2]], dtype=torch.int64, device=_CUDA_DEVICE),
-            convention="obj",
+            uv_convention="obj",
         ),
     )
 
@@ -140,6 +140,12 @@ def test_build_texel_face_map_maps_identity_face_to_top_row() -> None:
         "small-v-to-negative-clip-y mapping. "
         f"{texel_face_index[0]=}"
     )
+    face_rows = torch.nonzero(texel_face_index == 0, as_tuple=False)[:, 0]
+    assert bool((face_rows < texel_face_index.shape[0] // 2).all().item()), (
+        "Expected every texel assigned to face 0 (small-v corners, v <= 0.5) to "
+        "lie in the top texel rows. "
+        f"{face_rows=}"
+    )
 
 
 def test_build_texel_face_map_covers_both_sides_of_cylindrical_seam() -> None:
@@ -169,7 +175,7 @@ def test_build_texel_face_map_covers_both_sides_of_cylindrical_seam() -> None:
                 device=_CUDA_DEVICE,
             ),
             faces_uvs=torch.tensor([[0, 1, 2]], dtype=torch.int64, device=_CUDA_DEVICE),
-            convention="obj",
+            uv_convention="obj",
         ),
     )
 

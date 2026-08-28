@@ -117,13 +117,13 @@ def mesh_to_open3d(mesh: Mesh) -> o3d.geometry.TriangleMesh:
 
 def mesh_from_pytorch3d(
     mesh: Meshes,
-    convention: str = "obj",
+    uv_convention: str = "obj",
 ) -> Mesh:
     """Convert one single-mesh PyTorch3D Meshes into one Mesh.
 
     Args:
         mesh: Single-mesh PyTorch3D `Meshes` container.
-        convention: UV-origin convention to assign when UV textures
+        uv_convention: UV-origin convention to assign when UV textures
             are present.
 
     Returns:
@@ -138,8 +138,8 @@ def mesh_from_pytorch3d(
             "Expected `mesh_from_pytorch3d(...)` to receive exactly one mesh. "
             f"{len(mesh)=}"
         )
-        assert isinstance(convention, str), (
-            "Expected `convention` to be a string. " f"{type(convention)=}"
+        assert isinstance(uv_convention, str), (
+            "Expected `uv_convention` to be a string. " f"{type(uv_convention)=}"
         )
 
     _validate_inputs()
@@ -181,7 +181,7 @@ def mesh_from_pytorch3d(
             .contiguous(),
             verts_uvs=canonical_verts_uvs.contiguous(),
             faces_uvs=canonical_faces_uvs.contiguous(),
-            convention=convention,
+            uv_convention=uv_convention,
         ),
     )
 
@@ -216,11 +216,19 @@ def mesh_to_pytorch3d(
 
     _validate_inputs()
 
-    target_device = mesh.device if device is None else torch.device(device)
+    def _normalize_inputs(
+        device: Union[str, torch.device, None],
+    ) -> torch.device:
+        if device is None:
+            return mesh.device
+        return torch.device(device)
+
+    device = _normalize_inputs(device=device)
+
     target_mesh = (
-        mesh.to(device=target_device, convention="obj")
+        mesh.to(device=device, uv_convention="obj")
         if isinstance(mesh.texture, MeshTextureUVTextureMap)
-        else mesh.to(device=target_device)
+        else mesh.to(device=device)
     )
     verts = target_mesh.verts.to(dtype=dtype).contiguous()
     faces = target_mesh.faces.to(dtype=torch.int64).contiguous()
@@ -239,12 +247,8 @@ def mesh_to_pytorch3d(
         )
         textures = TexturesUV(
             maps=[target_mesh.texture.uv_texture_map.to(dtype=dtype).contiguous()],
-            faces_uvs=[
-                obj_faces_uvs.to(device=target_device, dtype=torch.int64).contiguous()
-            ],
-            verts_uvs=[
-                obj_verts_uvs.to(device=target_device, dtype=dtype).contiguous()
-            ],
+            faces_uvs=[obj_faces_uvs.to(device=device, dtype=torch.int64).contiguous()],
+            verts_uvs=[obj_verts_uvs.to(device=device, dtype=dtype).contiguous()],
         )
 
     return Meshes(verts=[verts], faces=[faces], textures=textures)
@@ -252,7 +256,7 @@ def mesh_to_pytorch3d(
 
 def mesh_from_trimesh(
     mesh: trimesh.Trimesh,
-    convention: Optional[str] = None,
+    uv_convention: Optional[str] = None,
 ) -> Mesh:
     """Convert one trimesh.Trimesh into one Mesh.
 
@@ -261,7 +265,7 @@ def mesh_from_trimesh(
 
     Args:
         mesh: Source `trimesh.Trimesh` instance.
-        convention: Required UV-origin convention when the trimesh
+        uv_convention: Required UV-origin convention when the trimesh
             carries UV data; `None` is accepted only for non-UV trimeshes.
 
     Returns:
@@ -272,16 +276,17 @@ def mesh_from_trimesh(
         assert isinstance(mesh, trimesh.Trimesh), (
             "Expected `mesh` to be a `trimesh.Trimesh`. " f"{type(mesh)=}"
         )
-        assert convention is None or isinstance(convention, str), (
-            "Expected `convention` to be `None` or a string. " f"{type(convention)=}"
+        assert uv_convention is None or isinstance(uv_convention, str), (
+            "Expected `uv_convention` to be `None` or a string. "
+            f"{type(uv_convention)=}"
         )
 
     _validate_inputs()
 
     if isinstance(mesh.visual, trimesh.visual.texture.TextureVisuals):
-        assert convention is not None, (
+        assert uv_convention is not None, (
             "Expected textured trimesh conversion to receive an explicit UV "
-            f"`convention`. {convention=}"
+            f"`uv_convention`. {uv_convention=}"
         )
         assert mesh.visual.uv is not None, (
             "Expected a textured trimesh to carry UV coordinates. " f"{mesh.visual.uv=}"
@@ -305,7 +310,7 @@ def mesh_from_trimesh(
                 uv_texture_map=torch.as_tensor(texture_image),
                 verts_uvs=canonical_verts_uvs,
                 faces_uvs=canonical_faces_uvs,
-                convention=convention,
+                uv_convention=uv_convention,
             ),
         )
 
@@ -350,9 +355,9 @@ def mesh_to_trimesh(mesh: Mesh) -> trimesh.Trimesh:
     _validate_inputs()
 
     if isinstance(mesh.texture, MeshTextureUVTextureMap):
-        obj_mesh = mesh.to(convention="obj")
+        obj_mesh = mesh.to(uv_convention="obj")
         assert isinstance(obj_mesh.texture, MeshTextureUVTextureMap), (
-            "Expected the OBJ-convention mesh to keep a UV-texture-map texture. "
+            "Expected the OBJ UV-convention mesh to keep a UV-texture-map texture. "
             f"{type(obj_mesh.texture)=}"
         )
         expanded_verts, expanded_faces, expanded_uv = _uv_mesh_to_trimesh(mesh=obj_mesh)
@@ -549,12 +554,12 @@ def _vertex_color_from_trimesh(vertex_colors: np.ndarray) -> np.ndarray:
 
 
 def _uv_mesh_to_trimesh(mesh: Mesh) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Expand one "obj"-convention UV mesh into trimesh's per-corner topology.
+    """Expand one "obj" UV-convention mesh into trimesh's per-corner topology.
 
     It is the inverse of `_uv_mesh_from_trimesh`.
 
     Args:
-        mesh: Repo UV mesh already normalized to the `"obj"` convention.
+        mesh: Repo UV mesh already normalized to the `"obj"` UV convention.
 
     Returns:
         Tuple of expanded verts `[3F, 3]`, expanded faces `[F, 3]`, and
@@ -569,9 +574,9 @@ def _uv_mesh_to_trimesh(mesh: Mesh) -> Tuple[np.ndarray, np.ndarray, np.ndarray]
             "Expected UV mesh expansion to receive a `MeshTextureUVTextureMap`. "
             f"{type(mesh.texture)=}"
         )
-        assert mesh.texture.convention == "obj", (
-            "Expected trimesh UV expansion to receive OBJ-convention UVs. "
-            f"{mesh.texture.convention=}"
+        assert mesh.texture.uv_convention == "obj", (
+            "Expected trimesh UV expansion to receive OBJ UV-convention UVs. "
+            f"{mesh.texture.uv_convention=}"
         )
 
     _validate_inputs()

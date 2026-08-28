@@ -159,10 +159,10 @@ def _merge_uv_textured_meshes(mesh_blocks: Sequence[Mesh]) -> Mesh:
 
     _validate_inputs()
 
-    def _normalize_inputs() -> List[Mesh]:
-        return [mesh.to(convention="obj") for mesh in mesh_blocks]
+    def _normalize_inputs(mesh_blocks: Sequence[Mesh]) -> List[Mesh]:
+        return [mesh.to(uv_convention="obj") for mesh in mesh_blocks]
 
-    mesh_blocks = _normalize_inputs()
+    mesh_blocks = _normalize_inputs(mesh_blocks=mesh_blocks)
 
     verts_list: List[torch.Tensor] = []
     faces_list: List[torch.Tensor] = []
@@ -203,7 +203,7 @@ def _merge_uv_textured_meshes(mesh_blocks: Sequence[Mesh]) -> Mesh:
             uv_texture_map=packed_texture_map,
             verts_uvs=merged_verts_uvs,
             faces_uvs=merged_faces_uvs,
-            convention="obj",
+            uv_convention="obj",
         ),
     )
 
@@ -305,7 +305,10 @@ def _pack_texture_maps(
 
     _validate_inputs()
 
-    def _normalize_inputs() -> List[torch.Tensor]:
+    def _normalize_inputs(
+        texture_maps: Sequence[torch.Tensor],
+        verts_uvs: torch.Tensor,
+    ) -> List[torch.Tensor]:
         target_device = verts_uvs.device
         target_dtype = texture_maps[0].dtype
         return [
@@ -313,7 +316,10 @@ def _pack_texture_maps(
             for texture_map in texture_maps
         ]
 
-    texture_maps = _normalize_inputs()
+    texture_maps = _normalize_inputs(
+        texture_maps=texture_maps,
+        verts_uvs=verts_uvs,
+    )
 
     atlas_height = sum(int(texture_map.shape[0]) for texture_map in texture_maps)
     atlas_width = max(int(texture_map.shape[1]) for texture_map in texture_maps)

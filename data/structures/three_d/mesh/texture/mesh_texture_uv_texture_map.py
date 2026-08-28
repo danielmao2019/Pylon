@@ -3,7 +3,7 @@ from typing import Optional, Tuple, Union
 import torch
 
 from data.structures.three_d.mesh.texture.conventions import (
-    transform_convention,
+    transform_uv_convention,
 )
 from data.structures.three_d.mesh.texture.mesh_texture import MeshTexture
 from data.structures.three_d.mesh.texture.validate_uv_texture_map import (
@@ -23,7 +23,7 @@ class MeshTextureUVTextureMap(MeshTexture):
             uint8 `[0, 255]` or float32 `[0, 1]` values.
         verts_uvs: UV-coordinate table `[U, 2]`.
         faces_uvs: Face-to-UV index tensor `[F, 3]`.
-        convention: UV-origin convention for `verts_uvs`. `obj` means
+        uv_convention: UV-origin convention for `verts_uvs`. `obj` means
             `v=0` is the bottom edge. `top_left` means `v=0` is the top edge.
 
     Returns:
@@ -33,14 +33,14 @@ class MeshTextureUVTextureMap(MeshTexture):
     uv_texture_map: torch.Tensor
     verts_uvs: torch.Tensor
     faces_uvs: torch.Tensor
-    convention: str
+    uv_convention: str
 
     def __init__(
         self,
         uv_texture_map: torch.Tensor,
         verts_uvs: torch.Tensor,
         faces_uvs: torch.Tensor,
-        convention: str,
+        uv_convention: str,
     ) -> None:
         """Initialize one UV-atlas texture.
 
@@ -49,7 +49,7 @@ class MeshTextureUVTextureMap(MeshTexture):
                 with uint8 `[0, 255]` or float32 `[0, 1]` values.
             verts_uvs: UV-coordinate table `[U, 2]`.
             faces_uvs: Face-to-UV index tensor `[F, 3]`.
-            convention: UV-origin convention for `verts_uvs`.
+            uv_convention: UV-origin convention for `verts_uvs`.
 
         Returns:
             None.
@@ -60,12 +60,16 @@ class MeshTextureUVTextureMap(MeshTexture):
                 uv_texture_map=uv_texture_map,
                 verts_uvs=verts_uvs,
                 faces_uvs=faces_uvs,
-                convention=convention,
+                uv_convention=uv_convention,
             )
 
         _validate_inputs()
 
-        def _normalize_inputs() -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        def _normalize_inputs(
+            uv_texture_map: torch.Tensor,
+            verts_uvs: torch.Tensor,
+            faces_uvs: torch.Tensor,
+        ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
             return (
                 MeshTextureUVTextureMap.normalize_uv_texture_map(
                     uv_texture_map=uv_texture_map
@@ -74,11 +78,15 @@ class MeshTextureUVTextureMap(MeshTexture):
                 faces_uvs.to(dtype=torch.int64).contiguous(),
             )
 
-        uv_texture_map, verts_uvs, faces_uvs = _normalize_inputs()
+        uv_texture_map, verts_uvs, faces_uvs = _normalize_inputs(
+            uv_texture_map=uv_texture_map,
+            verts_uvs=verts_uvs,
+            faces_uvs=faces_uvs,
+        )
 
         self.verts_uvs = verts_uvs
         self.faces_uvs = faces_uvs
-        self.convention = convention
+        self.uv_convention = uv_convention
         self.uv_texture_map = uv_texture_map
 
     @staticmethod
@@ -118,16 +126,16 @@ class MeshTextureUVTextureMap(MeshTexture):
     def to(
         self,
         device: Union[str, torch.device, None] = None,
-        convention: Optional[str] = None,
+        uv_convention: Optional[str] = None,
     ) -> "MeshTextureUVTextureMap":
         """Return this texture on a target device and/or UV-origin convention.
 
         Args:
             device: Optional target device.
-            convention: Optional target UV-origin convention.
+            uv_convention: Optional target UV-origin convention.
 
         Returns:
-            This texture when both the device and convention already match,
+            This texture when both the device and UV convention already match,
             otherwise a new `MeshTextureUVTextureMap` on the requested target.
         """
 
@@ -136,29 +144,44 @@ class MeshTextureUVTextureMap(MeshTexture):
                 "Expected `device` to be `None`, a `str`, or a `torch.device`. "
                 f"{type(device)=}"
             )
-            assert convention is None or isinstance(convention, str), (
-                "Expected `convention` to be `None` or a string. "
-                f"{type(convention)=}"
+            assert uv_convention is None or isinstance(uv_convention, str), (
+                "Expected `uv_convention` to be `None` or a string. "
+                f"{type(uv_convention)=}"
             )
 
         _validate_inputs()
 
-        target_device = self.device if device is None else torch.device(device)
-        target_convention = self.convention if convention is None else convention
-        if self.device == target_device and self.convention == target_convention:
+        def _normalize_inputs(
+            device: Union[str, torch.device, None],
+            uv_convention: Optional[str],
+        ) -> Tuple[torch.device, str]:
+            if device is None:
+                device = self.device
+            else:
+                device = torch.device(device)
+            if uv_convention is None:
+                uv_convention = self.uv_convention
+            return device, uv_convention
+
+        device, uv_convention = _normalize_inputs(
+            device=device,
+            uv_convention=uv_convention,
+        )
+
+        if self.device == device and self.uv_convention == uv_convention:
             return self
 
         target_verts_uvs = self.verts_uvs
-        if target_convention != self.convention:
-            target_verts_uvs = transform_convention(
+        if uv_convention != self.uv_convention:
+            target_verts_uvs = transform_uv_convention(
                 verts_uvs=self.verts_uvs,
-                source_convention=self.convention,
-                target_convention=target_convention,
+                source_uv_convention=self.uv_convention,
+                target_uv_convention=uv_convention,
             )
 
         return MeshTextureUVTextureMap(
-            uv_texture_map=self.uv_texture_map.to(device=target_device),
-            verts_uvs=target_verts_uvs.to(device=target_device),
-            faces_uvs=self.faces_uvs.to(device=target_device),
-            convention=target_convention,
+            uv_texture_map=self.uv_texture_map.to(device=device),
+            verts_uvs=target_verts_uvs.to(device=device),
+            faces_uvs=self.faces_uvs.to(device=device),
+            uv_convention=uv_convention,
         )

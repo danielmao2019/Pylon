@@ -41,11 +41,11 @@ def _build_uv_test_mesh() -> Mesh:
                 dtype=torch.uint8,
             ),
             verts_uvs=torch.tensor(
-                [[0.0, 1.0], [1.0, 1.0], [0.0, 0.0]],
+                [[0.0, 1.0], [0.5, 1.0], [0.0, 0.0]],
                 dtype=torch.float32,
             ),
             faces_uvs=torch.tensor([[0, 1, 2]], dtype=torch.int64),
-            convention="top_left",
+            uv_convention="top_left",
         ),
     )
 
@@ -280,9 +280,9 @@ def test_create_mesh_display_uv_texture_mesh() -> None:
     ), f"{display.srcDoc[:240]=}"
     assert 'pointerState.mode === "pan"' in display.srcDoc, f"{display.srcDoc[:480]=}"
     assert "texture.flipY = true;" in display.srcDoc, f"{display.srcDoc[:240]=}"
-    assert "[0.0, 0.0, 1.0, 0.0, 0.0, 1.0]" in display.srcDoc, (
+    assert "[0.0, 0.0, 0.5, 0.0, 0.0, 1.0]" in display.srcDoc, (
         "Expected the viewer payload to contain OBJ-style UV values after "
-        "conversion from the mesh convention. "
+        "conversion from the mesh uv_convention. "
         f"{display.srcDoc[:400]=}"
     )
     assert (

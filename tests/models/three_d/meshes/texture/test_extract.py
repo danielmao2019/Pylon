@@ -365,7 +365,7 @@ def test_compute_f_visibility_mask_recovers_standard_uv_face_near_v_zero() -> No
         None.
     """
 
-    device = torch.device("cuda")
+    device = torch.device("cuda:0")
     verts = torch.tensor(
         [
             [0.0, 0.0, 1.0],
@@ -417,7 +417,7 @@ def test_compute_f_visibility_mask_recovers_standard_uv_face_near_v_zero() -> No
             uv_texture_map=torch.zeros((1, 1, 3), dtype=torch.float32, device=device),
             verts_uvs=verts_uvs,
             faces_uvs=faces,
-            convention="obj",
+            uv_convention="obj",
         ),
     )
     texel_face_map = build_texel_face_map(mesh=mesh, texture_size=64)
@@ -951,7 +951,7 @@ def test_extract_uv_texture_map_from_single_image_returns_image_row_order(
                 dtype=torch.float32,
             ),
             faces_uvs=torch.tensor([[0, 1, 2]], dtype=torch.long),
-            convention="obj",
+            uv_convention="obj",
         ),
     )
     image = torch.zeros((3, 2, 2), dtype=torch.float32)
@@ -1112,7 +1112,7 @@ def test_extract_texture_from_images_keeps_uv_texture_row_order(
                 dtype=torch.float32,
             ),
             faces_uvs=torch.tensor([[0, 1, 2]], dtype=torch.long),
-            convention="obj",
+            uv_convention="obj",
         ),
     )
     images = torch.zeros((1, 3, 2, 2), dtype=torch.float32)

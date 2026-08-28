@@ -95,7 +95,7 @@ def test_rejects_out_of_range_float() -> None:
         )
 
 
-def test_to_rejects_non_none_convention() -> None:
+def test_to_rejects_non_none_uv_convention() -> None:
     """Raise when `to` is given a non-None convention.
 
     Args:
@@ -112,5 +112,5 @@ def test_to_rejects_non_none_convention() -> None:
         )
     )
 
-    with pytest.raises(AssertionError, match="convention"):
-        texture.to(convention="obj")
+    with pytest.raises(AssertionError, match="uv_convention"):
+        texture.to(uv_convention="obj")

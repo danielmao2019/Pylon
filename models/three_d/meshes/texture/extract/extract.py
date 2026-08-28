@@ -240,10 +240,12 @@ def extract_texture_from_images(
                         f"{mesh[0].texture.verts_uvs.shape=} "
                         f"{view_mesh.texture.verts_uvs.shape=}"
                     )
-                    assert mesh[0].texture.convention == view_mesh.texture.convention, (
+                    assert (
+                        mesh[0].texture.uv_convention == view_mesh.texture.uv_convention
+                    ), (
                         "Expected all per-view meshes to share one UV convention. "
-                        f"{mesh[0].texture.convention=} "
-                        f"{view_mesh.texture.convention=}"
+                        f"{mesh[0].texture.uv_convention=} "
+                        f"{view_mesh.texture.uv_convention=}"
                     )
                     assert torch.equal(
                         mesh[0].texture.verts_uvs.detach().cpu(),
@@ -280,14 +282,6 @@ def extract_texture_from_images(
     def _normalize_inputs(
         weights_cfg: Dict[str, Any],
     ) -> Tuple[torch.Tensor, List[Mesh], Dict[str, Any]]:
-        """Normalize input arguments.
-
-        Args:
-            weights_cfg: Per-view fusion weighting configuration dictionary.
-
-        Returns:
-            Normalized local variables for the enclosing function.
-        """
         if isinstance(images, list):
             image_stack = torch.stack(images, dim=0)
             image_count = len(images)
@@ -346,7 +340,7 @@ def extract_texture_from_images(
             return extracted_vertex_color["texture"]
         return extracted_vertex_color
 
-    meshes = [view_mesh.to(device=device, convention="obj") for view_mesh in meshes]
+    meshes = [view_mesh.to(device=device, uv_convention="obj") for view_mesh in meshes]
     extracted_uv_texture_map = _extract_uv_texture_map_from_images(
         meshes=meshes,
         images_nchw=images_nchw,
@@ -423,15 +417,6 @@ def _extract_vertex_color_from_images(
     _validate_inputs()
 
     def _normalize_inputs() -> Dict[str, Any]:
-        """Normalize vertex-color extraction inputs.
-
-        Args:
-            None.
-
-        Returns:
-            Normalized weights config.
-        """
-
         return normalize_weights_cfg(
             weights_cfg=weights_cfg,
             default_weights="visible",
@@ -537,15 +522,6 @@ def _fuse_vertex_color_observations(
     _validate_inputs()
 
     def _normalize_inputs() -> Dict[str, Any]:
-        """Normalize vertex-observation fusion inputs.
-
-        Args:
-            None.
-
-        Returns:
-            Normalized weights config.
-        """
-
         return normalize_weights_cfg(
             weights_cfg=weights_cfg,
             default_weights="visible",
@@ -681,15 +657,6 @@ def _extract_vertex_color_from_single_image(
     _validate_inputs()
 
     def _normalize_inputs() -> Dict[str, Any]:
-        """Normalize one-view vertex-color extraction inputs.
-
-        Args:
-            None.
-
-        Returns:
-            Normalized weights config.
-        """
-
         return normalize_weights_cfg(
             weights_cfg=weights_cfg,
             default_weights="visible",
@@ -865,15 +832,6 @@ def _extract_uv_texture_map_from_images(
     _validate_inputs()
 
     def _normalize_inputs() -> Dict[str, Any]:
-        """Normalize UV-texture extraction inputs.
-
-        Args:
-            None.
-
-        Returns:
-            Normalized weights config.
-        """
-
         return normalize_weights_cfg(
             weights_cfg=weights_cfg,
             default_weights="visible",
@@ -990,15 +948,6 @@ def _fuse_uv_texture_observations(
     _validate_inputs()
 
     def _normalize_inputs() -> Dict[str, Any]:
-        """Normalize UV-observation fusion inputs.
-
-        Args:
-            None.
-
-        Returns:
-            Normalized weights config.
-        """
-
         return normalize_weights_cfg(
             weights_cfg=weights_cfg,
             default_weights="visible",
@@ -1172,15 +1121,6 @@ def _extract_uv_texture_map_from_single_image(
     _validate_inputs()
 
     def _normalize_inputs() -> Dict[str, Any]:
-        """Normalize one-view UV-texture extraction inputs.
-
-        Args:
-            None.
-
-        Returns:
-            Normalized weights config.
-        """
-
         return normalize_weights_cfg(
             weights_cfg=weights_cfg,
             default_weights="visible",

@@ -204,7 +204,7 @@ uv_texture.py
 └── def render_uv_texture_aligned(renderer: Any, mesh: Mesh) -> Tuple[torch.Tensor, torch.Tensor]
     ├── # Renders a UV-textured mesh into the renderer's aligned image space via nvdiffrast, returning a mask and the RGB image.
     ├── impls read mesh.texture (a MeshTextureUVTextureMap) for verts_uvs and uv_texture_map  # impls-node-one-step:skip
-    ├── impls mesh = mesh.to(convention="top_left")
+    ├── impls mesh = mesh.to(uv_convention="top_left")
     └── if renderer.ctx is None
         ├── if renderer.use_opengl
         │   └── impls renderer.ctx = dr.RasterizeGLContext(device=device)

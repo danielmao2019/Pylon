@@ -7,6 +7,7 @@ class abc.ABC
 └── class MeshTexture  # from here down, its complete set of direct subclasses
     ├── class MeshTextureVertexColor
     └── class MeshTextureUVTextureMap
+class Mesh
 ```
 
 ## Mesh class
@@ -26,26 +27,39 @@ mesh.py
     ├── def __init__(self, verts: torch.Tensor, faces: torch.Tensor, texture: Optional[MeshTexture] = None) -> None
     │   ├── # Validates the geometry and the texture<->geometry linkage, then stores the attributes.
     │   ├── calls validate_mesh_attributes
+    │   ├── def _normalize_inputs [local]
+    │   │   ├── impls verts = verts made contiguous
+    │   │   ├── impls faces = faces converted to int64
+    │   │   ├── impls faces = faces made contiguous
+    │   │   └── return verts, faces
+    │   ├── calls _normalize_inputs(verts=verts, faces=faces)
+    │   ├── impls verts, faces = the returned values from _normalize_inputs
     │   ├── impls self.verts = verts
     │   ├── impls self.faces = faces
     │   ├── impls self.texture = texture
     │   └── impls self.device = self.verts.device
     ├── @classmethod def load(cls, path: Union[str, Path]) -> "Mesh"
     │   ├── # Loads one mesh from a GLB file or an OBJ source (a single OBJ file or a mesh-root directory of OBJs).
-    │   ├── from data.structures.three_d.mesh.load import load_mesh  # deferred: load.py imports mesh.py, so mesh.py must not import load.py at module level
+    │   ├── from data.structures.three_d.mesh.load import load_mesh  # deferred: load.py imports mesh.py, so this import is function-local
     │   ├── calls load_mesh
     │   └── return  # the Mesh returned by load_mesh
     ├── def save(self, path: Union[str, Path]) -> None
     │   ├── # Saves this mesh to an OBJ/PLY file or a directory.
-    │   ├── from data.structures.three_d.mesh.save import save_mesh  # deferred: save.py imports mesh.py, so mesh.py must not import save.py at module level
+    │   ├── from data.structures.three_d.mesh.save import save_mesh  # deferred: save.py imports mesh.py, so this import is function-local
     │   └── calls save_mesh
-    └── def to(self, device: Union[str, torch.device, None] = None, convention: Optional[str] = None) -> "Mesh"
+    └── def to(self, device: Union[str, torch.device, None] = None, uv_convention: Optional[str] = None) -> "Mesh"
         ├── # Returns this mesh on a target device and/or texture UV-origin convention (self when both already match).
-        ├── if device is not None
-        │   └── impls move verts + faces to the target device
+        ├── def _normalize_inputs [local]
+        │   ├── impls device = self.device if device is None else torch.device(device)
+        │   └── return device
+        ├── calls _normalize_inputs(device=device)
+        ├── impls device = the returned value from _normalize_inputs
+        ├── if self.device == device and uv_convention is None
+        │   └── return self
         ├── if self.texture is not None
-        │   └── calls MeshTexture.to(device, convention)  # a device move and/or a UV-origin conversion
-        └── return Mesh  # new Mesh: geometry + texture on the target device and convention
+        │   └── calls MeshTexture.to(device=device, uv_convention=uv_convention)
+        ├── impls target_mesh = Mesh with target geometry plus target texture
+        └── return target_mesh
 ```
 
 ## Geometry and linkage validation
@@ -105,7 +119,7 @@ mesh_texture.py
     ├── # Abstract base for a mesh's texture; concrete subclasses own the representation-specific tensors and validation.
     ├── @property @abc.abstractmethod def device(self) -> torch.device
     │   └── # The device the texture's tensors live on.
-    └── @abc.abstractmethod def to(self, device: Union[str, torch.device, None] = None, convention: Optional[str] = None) -> "MeshTexture"
+    └── @abc.abstractmethod def to(self, device: Union[str, torch.device, None] = None, uv_convention: Optional[str] = None) -> "MeshTexture"
         └── # Returns this texture on a target device and/or UV-origin convention.
 ```
 
@@ -123,15 +137,36 @@ mesh_texture_vertex_color.py
     ├── def __init__(self, vertex_color: torch.Tensor) -> None
     │   ├── # Validates and normalizes vertex_color, then stores it.
     │   ├── calls validate_vertex_color
-    │   ├── calls MeshTextureVertexColor.normalize_vertex_color
-    │   └── impls self.vertex_color = normalized vertex_color
+    │   ├── def _normalize_inputs [local]
+    │   │   ├── calls MeshTextureVertexColor.normalize_vertex_color(vertex_color=vertex_color)
+    │   │   ├── impls vertex_color = the returned value from normalize_vertex_color
+    │   │   └── return vertex_color
+    │   ├── calls _normalize_inputs(vertex_color=vertex_color)
+    │   ├── impls vertex_color = the returned value from _normalize_inputs
+    │   └── impls self.vertex_color = vertex_color
     ├── @staticmethod def normalize_vertex_color(vertex_color: torch.Tensor) -> torch.Tensor
-    │   └── # Normalizes vertex color to contiguous float32 [V,3] in [0,1] (drops a leading batch axis; uint8 -> /255).
+    │   ├── # Normalizes vertex color to contiguous float32 [V,3] in [0,1] (drops a leading batch axis; uint8 -> /255).
+    │   ├── if vertex_color.ndim == 3
+    │   │   └── impls vertex_color = vertex_color[0]
+    │   ├── if vertex_color.dtype == torch.uint8
+    │   │   ├── impls normalized_vertex_color = vertex_color converted to float32, scaled by 1/255, and made contiguous  # impls-node-one-step:skip
+    │   │   └── return normalized_vertex_color
+    │   ├── impls normalized_vertex_color = vertex_color made contiguous
+    │   └── return normalized_vertex_color
     ├── @property def device(self) -> torch.device
-    │   └── # The device vertex_color lives on.
-    └── def to(self, device: Union[str, torch.device, None] = None, convention: Optional[str] = None) -> "MeshTextureVertexColor"
-        ├── # Returns this texture on a target device; convention must be None (vertex color carries no UV-origin convention).
-        └── return MeshTextureVertexColor
+    │   ├── # The device vertex_color lives on.
+    │   └── return self.vertex_color.device
+    └── def to(self, device: Union[str, torch.device, None] = None, uv_convention: Optional[str] = None) -> "MeshTextureVertexColor"
+        ├── # Returns this texture on a target device; a provided UV-origin convention value is rejected.
+        ├── def _normalize_inputs [local]
+        │   ├── impls device = self.device if device is None else torch.device(device)
+        │   └── return device
+        ├── calls _normalize_inputs(device=device)
+        ├── impls device = the returned value from _normalize_inputs
+        ├── if self.device == device
+        │   └── return self
+        ├── impls target_texture = MeshTextureVertexColor on the target device
+        └── return target_texture
 ```
 
 ## Texture: uv-texture-map representation
@@ -140,7 +175,7 @@ mesh_texture_vertex_color.py
 
 ```text
 mesh_texture_uv_texture_map.py
-├── from data.structures.three_d.mesh.texture.conventions import transform_convention
+├── from data.structures.three_d.mesh.texture.conventions import transform_uv_convention
 ├── from data.structures.three_d.mesh.texture.mesh_texture import MeshTexture
 ├── from data.structures.three_d.mesh.texture.validate_uv_texture_map import validate_uv_texture_map
 └── class MeshTextureUVTextureMap(MeshTexture)
@@ -148,24 +183,54 @@ mesh_texture_uv_texture_map.py
     ├── uv_texture_map: torch.Tensor
     ├── verts_uvs: torch.Tensor
     ├── faces_uvs: torch.Tensor
-    ├── convention: str
-    ├── def __init__(self, uv_texture_map: torch.Tensor, verts_uvs: torch.Tensor, faces_uvs: torch.Tensor, convention: str) -> None
+    ├── uv_convention: str
+    ├── def __init__(self, uv_texture_map: torch.Tensor, verts_uvs: torch.Tensor, faces_uvs: torch.Tensor, uv_convention: str) -> None
     │   ├── # Validates the UV representation and normalizes the texture map, then stores the attributes.
     │   ├── calls validate_uv_texture_map  # representation-level validator (all fields + cross-field invariant)
-    │   ├── calls MeshTextureUVTextureMap.normalize_uv_texture_map
+    │   ├── def _normalize_inputs [local]
+    │   │   ├── calls MeshTextureUVTextureMap.normalize_uv_texture_map(uv_texture_map=uv_texture_map)
+    │   │   ├── impls uv_texture_map = the returned value from normalize_uv_texture_map
+    │   │   ├── impls verts_uvs = verts_uvs made contiguous
+    │   │   ├── impls faces_uvs = faces_uvs converted to int64
+    │   │   ├── impls faces_uvs = faces_uvs made contiguous
+    │   │   └── return uv_texture_map, verts_uvs, faces_uvs
+    │   ├── calls _normalize_inputs(uv_texture_map=uv_texture_map, verts_uvs=verts_uvs, faces_uvs=faces_uvs)
+    │   ├── impls uv_texture_map, verts_uvs, faces_uvs = the returned values from _normalize_inputs
     │   ├── impls self.verts_uvs = verts_uvs
     │   ├── impls self.faces_uvs = faces_uvs
-    │   ├── impls self.convention = convention
-    │   └── impls self.uv_texture_map = normalized uv_texture_map
+    │   ├── impls self.uv_convention = uv_convention
+    │   └── impls self.uv_texture_map = uv_texture_map
     ├── @staticmethod def normalize_uv_texture_map(uv_texture_map: torch.Tensor) -> torch.Tensor
-    │   └── # Normalizes the UV texture map to contiguous float32 HWC in [0,1] (drops a leading batch axis; CHW -> HWC; uint8 -> /255).
+    │   ├── # Normalizes the UV texture map to contiguous float32 HWC in [0,1] (drops a leading batch axis; CHW -> HWC; uint8 -> /255).
+    │   ├── if uv_texture_map.ndim == 4
+    │   │   └── impls uv_texture_map = uv_texture_map[0]
+    │   ├── if uv_texture_map.shape[0] == 3
+    │   │   └── impls uv_texture_map = uv_texture_map with CHW axes permuted to HWC
+    │   ├── if uv_texture_map.dtype == torch.uint8
+    │   │   ├── impls normalized_uv_texture_map = uv_texture_map converted to float32, scaled by 1/255, and made contiguous  # impls-node-one-step:skip
+    │   │   └── return normalized_uv_texture_map
+    │   ├── impls normalized_uv_texture_map = uv_texture_map made contiguous
+    │   └── return normalized_uv_texture_map
     ├── @property def device(self) -> torch.device
-    │   └── # The device the UV-texture tensors live on.
-    └── def to(self, device: Union[str, torch.device, None] = None, convention: Optional[str] = None) -> "MeshTextureUVTextureMap"
+    │   ├── # The device the UV-texture tensors live on.
+    │   └── return self.uv_texture_map.device
+    └── def to(self, device: Union[str, torch.device, None] = None, uv_convention: Optional[str] = None) -> "MeshTextureUVTextureMap"
         ├── # Returns this texture on a target device and/or UV-origin convention.
-        ├── if convention is not None and convention != self.convention
-        │   └── calls transform_convention
-        └── return MeshTextureUVTextureMap
+        ├── def _normalize_inputs [local]
+        │   ├── impls device = self.device if device is None else torch.device(device)
+        │   ├── impls uv_convention = self.uv_convention if uv_convention is None else uv_convention
+        │   └── return device, uv_convention
+        ├── calls _normalize_inputs(device=device, uv_convention=uv_convention)
+        ├── impls device, uv_convention = the returned values from _normalize_inputs
+        ├── if device == self.device and uv_convention == self.uv_convention
+        │   └── return self
+        ├── impls target_uv_texture_map = self.uv_texture_map.to(device=device)
+        ├── impls target_verts_uvs = self.verts_uvs.to(device=device)
+        ├── impls target_faces_uvs = self.faces_uvs.to(device=device)
+        ├── if uv_convention != self.uv_convention
+        │   └── calls transform_uv_convention(verts_uvs=target_verts_uvs, source_uv_convention=self.uv_convention, target_uv_convention=uv_convention)  # -> target_verts_uvs
+        ├── impls result = MeshTextureUVTextureMap(uv_texture_map=target_uv_texture_map, verts_uvs=target_verts_uvs, faces_uvs=target_faces_uvs, uv_convention=uv_convention)
+        └── return result
 ```
 
 ## Texture: UV-origin convention
@@ -174,9 +239,9 @@ mesh_texture_uv_texture_map.py
 
 ```text
 conventions.py
-└── def transform_convention(verts_uvs: torch.Tensor, source_convention: str, target_convention: str) -> torch.Tensor
+└── def transform_uv_convention(verts_uvs: torch.Tensor, source_uv_convention: str, target_uv_convention: str) -> torch.Tensor
     ├── # Transforms a UV table between origin conventions ("obj" = v from bottom, "top_left" = v from top).
-    ├── if source_convention == target_convention
+    ├── if source_uv_convention == target_uv_convention
     │   └── return verts_uvs
     └── else
         ├── impls flipped = a copy of verts_uvs with the V axis flipped (v -> 1 - v)
@@ -189,13 +254,23 @@ conventions.py
 
 ```text
 canonicalize.py
+├── from typing import Tuple
+├── import torch
 ├── def shift_seam_crossing_faces_to_seam_safe(verts_uvs: torch.Tensor, faces_uvs: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]
 │   ├── # Shifts seam-crossing UV faces into the seam-safe canonical chart (each face's corners made contiguous: its largest cyclic gap is the wraparound gap), forking any source vt row shared between a shifted and a non-shifted face.
-│   ├── impls for each face, sort its 3 corner-u's
-│   ├── impls find the largest cyclic gap among the two interior gaps and the wraparound gap (min_u + 1 - max_u)  # impls-node-one-step:skip
-│   ├── impls a face is seam-crossing iff its largest cyclic gap is an INTERIOR gap (not the wraparound gap); a wide but non-wrapping face has its largest gap at the wraparound position and needs no shift                                         # impls-node-one-step:skip
-│   ├── impls for each seam-crossing face, shift the corners lying below the largest-gap cut by +1 so the cut moves to the wraparound position and the corners become contiguous (number of shifted corners is per-face, not a fixed 0.5 threshold)  # impls-node-one-step:skip
-│   ├── impls fork a source vt row into two when one row must be shifted by a seam-crossing face but left in place by another face sharing it (the shifted copy receives +1, the in-place copy stays)
+│   ├── impls face_corner_u = every face's three corner u's, gathered through faces_uvs
+│   ├── impls sorted_u = face_corner_u sorted along its corner axis
+│   ├── impls interior_gaps, wraparound_gap = the two gaps between consecutive sorted_u, and min_u + 1 - max_u  # impls-node-one-step:skip
+│   ├── impls seam_face_mask = the faces whose largest interior gap exceeds their own wraparound gap            # a wide but non-wrapping face has its largest gap at the wraparound position already
+│   ├── if no face is seam-crossing
+│   │   └── return  # the source table and faces as the canonicalized result
+│   ├── impls cut_low_u = the sorted_u entry on the low side of each face's largest interior gap
+│   ├── impls corner_shift_mask = each seam-crossing face's corners lying at or below its own cut_low_u                                 # how many corners that is this face's own cut decides
+│   ├── impls row_wants_shift, row_wants_keep = whether any corner referencing a vt row is shifted, and whether any leaves it in place  # impls-node-one-step:skip
+│   ├── impls shift by +1 every vt row only shifted corners reference  # the cut moves to the wraparound position, so those faces' corners become contiguous
+│   ├── if any vt row is referenced both ways
+│   │   ├── impls fork that row into two, the appended copy carrying the +1 and the source row staying in place  # impls-node-one-step:skip
+│   │   └── impls repoint each shifting corner of a forked row onto that row's appended copy
 │   └── return  # (verts_uvs_canonical, faces_uvs_canonical) with U' >= U
 └── def collapse_seam_shifted_uv_rows(verts_uvs: torch.Tensor, faces_uvs: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]
     ├── # Collapses seam-shifted canonical UV rows back to the OBJ-style vt structure (inverse of shift_seam_crossing_faces_to_seam_safe).
@@ -222,7 +297,7 @@ validate_vertex_color.py
 │   ├── if obj.dtype == torch.float32
 │   │   ├── calls _validate_vertex_color_float32
 │   │   └── return
-│   └── assert 0, "should not reach here"
+│   └── assert 0, "Should not reach here."
 ├── def _validate_vertex_color_uint8(obj: Any) -> None
 │   ├── # Validates a uint8 vertex-color tensor.
 │   └── impls assert obj's dtype is torch.uint8
@@ -242,12 +317,12 @@ validate_vertex_color.py
 validate_uv_texture_map.py
 ├── from typing import Any
 ├── import torch
-├── def validate_uv_texture_map(uv_texture_map: torch.Tensor, verts_uvs: torch.Tensor, faces_uvs: torch.Tensor, convention: str) -> None
+├── def validate_uv_texture_map(uv_texture_map: torch.Tensor, verts_uvs: torch.Tensor, faces_uvs: torch.Tensor, uv_convention: str) -> None
 │   ├── # Validates the whole uv-texture-map representation: every single-field validator plus the cross-field invariants.
 │   ├── calls validate_uv_texture_map_image(uv_texture_map)                    # single-field
 │   ├── calls validate_verts_uvs(verts_uvs)                                    # single-field
 │   ├── calls validate_faces_uvs(faces_uvs)                                    # single-field
-│   ├── calls validate_convention(convention)                                  # single-field
+│   ├── calls validate_uv_convention(uv_convention)                            # single-field
 │   └── calls _validate_verts_uvs_faces_uvs_cross_field(verts_uvs, faces_uvs)  # cross-field
 ├── def validate_uv_texture_map_image(obj: Any) -> None
 │   ├── # Validates a UV texture image tensor (HWC/CHW/NHWC/NCHW, 3 channels; uint8 or float32).
@@ -257,7 +332,7 @@ validate_uv_texture_map.py
 │   ├── if obj.dtype == torch.float32
 │   │   ├── calls _validate_uv_texture_map_image_float32
 │   │   └── return
-│   └── assert 0, "should not reach here"
+│   └── assert 0, "Should not reach here."
 ├── def _validate_uv_texture_map_image_uint8(obj: Any) -> None
 │   ├── # Validates a uint8 UV texture image tensor.
 │   └── impls assert obj's dtype is torch.uint8
@@ -285,7 +360,7 @@ validate_uv_texture_map.py
 │   ├── impls assert obj's dtype is not floating
 │   ├── impls assert obj's dtype is not bool
 │   └── impls assert obj's smallest index is at least 0
-├── def validate_convention(obj: Any) -> str
+├── def validate_uv_convention(obj: Any) -> str
 │   ├── # Validates and returns a UV-origin convention string (one of "obj", "top_left").
 │   ├── impls assert obj is a str
 │   ├── impls assert obj is one of ("obj", "top_left")
@@ -320,9 +395,31 @@ texel_face_map.py
 │   └── calls _compute_texel_face_barycentric(rast_out=rast_out)
 ├── def _build_seam_safe_uv_triangle_soup(verts_uvs: torch.Tensor, faces: torch.Tensor, faces_uvs: torch.Tensor) -> Dict[str, torch.Tensor]
 │   ├── # Builds the per-face UV triangle soup, adding a u-shifted mirror copy for any face whose seam-safe corners extend outside [0, 1] so the T x T rasterizer covers both sides of the cylindrical wrap.
+│   ├── impls face_corner_uvs = verts_uvs at faces_uvs, as float32  # each soup triangle owns independent corner rows across seam copies
+│   ├── impls mirror_minus_one_mask = the faces whose largest corner u passes one
+│   ├── impls mirror_plus_one_mask = the faces whose smallest corner u falls below zero
+│   ├── impls needs_mirror_mask = either mirror mask
+│   ├── impls raster_uv_chunks = face_corner_uvs flattened to rows
+│   ├── impls raster_face_index_chunks = every face index
+│   ├── if any face needs a mirror
+│   │   ├── impls mirror_uvs = the mirrored faces' corners, copied
+│   │   ├── impls shift the u of the mirror_minus_one faces down by one
+│   │   ├── impls shift the u of the mirror_plus_one faces up by one
+│   │   ├── impls append mirror_uvs' rows to raster_uv_chunks
+│   │   └── impls append the mirrored face indices to raster_face_index_chunks
+│   ├── impls raster_verts_uvs = raster_uv_chunks concatenated
+│   ├── impls raster_face_indices = raster_face_index_chunks concatenated
+│   ├── impls tri_i32 = the int32 row indices of raster_verts_uvs, in consecutive triples  # every soup triangle owns its own three rows
+│   ├── impls assert tri_i32 carries one triangle per raster_face_indices entry
 │   └── return  # "raster_verts_uvs" [Vr, 2] / "tri_i32" [Fr, 3] int32 / "raster_face_indices" [Fr] (mesh-face id per soup triangle)
 ├── def _verts_uvs_to_clip(verts_uvs: torch.Tensor) -> torch.Tensor
-│   └── # Converts UV coordinates to clip-space positions [1, V, 4] for the UV rasterizer (u, v -> 2u - 1, 2v - 1, 0, 1).
+│   ├── # Converts UV coordinates to clip-space positions [1, V, 4] for the UV rasterizer (u, v -> 2u - 1, 2v - 1, 0, 1).
+│   ├── impls x = verts_uvs' u column * 2 - 1
+│   ├── impls y = verts_uvs' v column * 2 - 1
+│   ├── impls z = a zero column of x's shape
+│   ├── impls w = a one column of x's shape
+│   ├── impls clip_verts = (x, y, z, w) stacked into columns, under one leading batch axis
+│   └── return clip_verts
 ├── def _compute_texel_face_index(rast_out: torch.Tensor, raster_face_indices: torch.Tensor) -> torch.Tensor
 │   ├── # Maps the rasterizer's per-texel soup-triangle index back to the original mesh-face index.
 │   ├── impls soup_triangle_index = rast_out[..., 3].long() - 1  # nvdiffrast is 1-indexed; -1 marks unoccupied texels
@@ -343,12 +440,12 @@ texel_face_map.py
 ```text
 __init__.py
 ├── from data.structures.three_d.mesh.texture.canonicalize import collapse_seam_shifted_uv_rows, shift_seam_crossing_faces_to_seam_safe
-├── from data.structures.three_d.mesh.texture.conventions import transform_convention
+├── from data.structures.three_d.mesh.texture.conventions import transform_uv_convention
 ├── from data.structures.three_d.mesh.texture.mesh_texture import MeshTexture
 ├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
 ├── from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import MeshTextureVertexColor
 ├── from data.structures.three_d.mesh.texture.texel_face_map import build_texel_face_map
-├── from data.structures.three_d.mesh.texture.validate_uv_texture_map import validate_uv_texture_map, validate_uv_texture_map_image, validate_verts_uvs, validate_faces_uvs, validate_convention
+├── from data.structures.three_d.mesh.texture.validate_uv_texture_map import validate_uv_texture_map, validate_uv_texture_map_image, validate_verts_uvs, validate_faces_uvs, validate_uv_convention
 └── from data.structures.three_d.mesh.texture.validate_vertex_color import validate_vertex_color
 ```
 
@@ -375,7 +472,7 @@ load.py
     ├── if the path is an OBJ file or a mesh-root directory of OBJs
     │   ├── calls load_obj_mesh
     │   └── return
-    └── assert 0, "should not reach here"
+    └── assert 0, "Should not reach here."
 ```
 
 ## Loading: OBJ
@@ -410,7 +507,7 @@ load_obj.py
 │   ├── if has_uv_coords and has_uv_faces
 │   │   ├── calls _load_mesh_uv_texture_map
 │   │   └── return
-│   └── assert 0, "should not reach here"
+│   └── assert 0, "Should not reach here."
 ├── def _load_mesh_geometry_only(path: Union[str, Path]) -> Mesh
 │   ├── # Loads a geometry-only OBJ (parses v / f lines; texture None).
 │   └── calls _resolve_input_path
@@ -418,7 +515,7 @@ load_obj.py
 │   ├── # Loads a vertex-colored OBJ (parses v-with-RGB / f lines) into a MeshTextureVertexColor-textured mesh.
 │   └── calls _resolve_input_path
 ├── def _load_mesh_uv_texture_map(path: Union[str, Path]) -> Mesh
-│   ├── # Loads a UV-textured OBJ via PyTorch3D into a MeshTextureUVTextureMap-textured mesh on the geometry domain (convention "obj").
+│   ├── # Loads a UV-textured OBJ via PyTorch3D into a MeshTextureUVTextureMap-textured mesh on the geometry domain (uv_convention "obj").
 │   ├── calls _resolve_input_path
 │   ├── calls load_obj             # verts, faces, aux (verts_uvs, textures_idx, texture_images)
 │   ├── calls pack_texture_images  # multi-material -> single atlas
@@ -431,7 +528,8 @@ load_obj.py
 │   ├── impls candidate_path = path as a Path
 │   ├── if candidate_path is a file
 │   │   ├── impls assert its lowercased suffix is ".obj"
-│   │   └── return [candidate_path]
+│   │   ├── impls candidate_obj_paths = [candidate_path]
+│   │   └── return candidate_obj_paths
 │   ├── impls assert candidate_path is a directory
 │   ├── impls top_level_obj_paths = the sorted *.obj entries directly under it
 │   ├── impls nested_obj_paths = the sorted */*.obj entries one level below it
@@ -490,20 +588,23 @@ load_glb.py
 │   ├── if the primitive has TEXCOORD_0 and a base-color texture
 │   │   ├── calls _load_glb_uv_texture_map
 │   │   └── return
-│   └── assert 0, "should not reach here"
+│   └── assert 0, "Should not reach here."
 ├── def _load_glb_geometry_only(gltf: Dict[str, Any], binary_blob: bytes, mesh_index: int, primitive_index: int) -> Mesh
 │   ├── # Builds a geometry-only Mesh from a GLB primitive (POSITION -> verts; indices -> faces; texture None).
 │   ├── calls read_accessor(POSITION)  # -> verts
 │   ├── calls read_accessor(indices)   # -> faces
-│   └── return Mesh                    # texture None
+│   ├── calls Mesh(texture=None)       # -> mesh
+│   └── return mesh
 ├── def _load_glb_vertex_color(gltf: Dict[str, Any], binary_blob: bytes, mesh_index: int, primitive_index: int) -> Mesh
 │   ├── # Builds a vertex-colored Mesh from a GLB primitive (POSITION -> verts; indices -> faces; COLOR_0 -> vertex_color).
 │   ├── calls read_accessor(POSITION)  # -> verts
 │   ├── calls read_accessor(indices)   # -> faces
 │   ├── calls read_accessor(COLOR_0)   # -> vertex_color
-│   └── return Mesh                    # MeshTextureVertexColor
+│   ├── calls MeshTextureVertexColor(vertex_color=vertex_color)  # -> texture
+│   ├── calls Mesh(texture=texture)    # -> mesh
+│   └── return mesh
 ├── def _load_glb_uv_texture_map(gltf: Dict[str, Any], binary_blob: bytes, mesh_index: int, primitive_index: int) -> Mesh
-│   ├── # Builds a UV-textured Mesh from a GLB primitive (POSITION -> verts; the shared index buffer -> faces and the raw faces_uvs; TEXCOORD_0 -> verts_uvs; base-color image -> uv_texture_map) on convention "top_left".
+│   ├── # Builds a UV-textured Mesh from a GLB primitive (POSITION -> verts; the shared index buffer -> faces and the raw faces_uvs; TEXCOORD_0 -> verts_uvs; base-color image -> uv_texture_map) on uv_convention "top_left".
 │   ├── calls read_accessor(POSITION)    # -> verts
 │   ├── calls read_accessor(indices)     # -> faces
 │   ├── calls read_accessor(TEXCOORD_0)  # -> verts_uvs
@@ -512,9 +613,11 @@ load_glb.py
 │   ├── calls read_image_bytes
 │   ├── calls decode_image_bytes
 │   ├── calls shift_seam_crossing_faces_to_seam_safe  # raw glTF verts_uvs -> seam-safe canonical
-│   └── return Mesh  # MeshTextureUVTextureMap(convention="top_left")
+│   ├── calls MeshTextureUVTextureMap(uv_convention="top_left")
+│   ├── calls Mesh
+│   └── return
 ├── def _select_mesh_primitive(gltf: Dict[str, Any]) -> Tuple[int, int]
-│   ├── # Selects the (mesh_index, primitive_index) to load — the primitive whose material carries a base-color texture (for a GLB of many untextured marker meshes plus one textured face, this uniquely picks the face).
+│   ├── # Selects the (mesh_index, primitive_index) to load — the primitive whose material carries a base-color texture (for a GLB of many marker meshes plus one textured face, this uniquely picks the face).
 │   ├── impls assert the glTF declares at least one mesh
 │   ├── for each (mesh_index, primitive_index) over the glTF meshes and their primitives
 │   │   ├── impls is_textured = the primitive names a material that exists and carries a baseColorTexture  # impls-node-one-step:skip
@@ -530,7 +633,8 @@ load_glb.py
     ├── # Resolves a primitive's material base-color texture to its glTF image index (glTF-semantic material navigation).
     ├── impls base_color_texture = the primitive's material's pbrMetallicRoughness baseColorTexture
     ├── impls texture_index = that texture's index
-    └── return the source of the glTF texture at texture_index, as an int
+    ├── impls image_index = the source of the glTF texture at texture_index
+    └── return image_index
 ```
 
 ## Loading: block merging
@@ -557,7 +661,7 @@ merge.py
 │   ├── if any block carries MeshTextureUVTextureMap
 │   │   ├── calls _merge_uv_textured_meshes
 │   │   └── return
-│   └── assert 0, "should not reach here"
+│   └── assert 0, "Should not reach here."
 ├── def _merge_geometry_only_meshes(mesh_blocks: Sequence[Mesh]) -> Mesh
 │   ├── # Merges geometry-only mesh blocks, concatenating geometry with vertex offsets.
 │   ├── for each mesh block
@@ -578,12 +682,26 @@ merge.py
 │   └── return
 ├── def _merge_uv_textured_meshes(mesh_blocks: Sequence[Mesh]) -> Mesh
 │   ├── # Merges UV-textured mesh blocks, concatenating geometry and UV and packing per-block textures into one atlas.
+│   ├── def _normalize_inputs [local]
+│   │   ├── impls mesh_blocks = each mesh block converted to "obj" uv_convention
+│   │   └── return mesh_blocks
+│   ├── calls _normalize_inputs(mesh_blocks=mesh_blocks)
+│   ├── impls mesh_blocks = the returned value from _normalize_inputs
 │   └── calls _pack_texture_maps
 ├── def pack_texture_images(texture_images: Dict[str, torch.Tensor], verts_uvs: torch.Tensor, faces_uvs: torch.Tensor, materials_idx: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]
 │   ├── # Packs a material-name -> image mapping into one atlas plus remapped UVs.
 │   └── calls _pack_texture_maps
 ├── def _pack_texture_maps(texture_maps: Sequence[torch.Tensor], verts_uvs: torch.Tensor, faces_uvs: torch.Tensor, materials_idx: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]
 │   ├── # Stacks texture maps into one atlas and rebuilds the per-corner UV table.
+│   ├── def _normalize_inputs [local]
+│   │   ├── impls target_device = verts_uvs.device
+│   │   ├── impls target_dtype = texture_maps[0].dtype
+│   │   ├── impls texture_maps = each texture map sliced to its first three channels
+│   │   ├── impls texture_maps = each texture map moved to target_device
+│   │   ├── impls texture_maps = each texture map converted to target_dtype
+│   │   └── return texture_maps
+│   ├── calls _normalize_inputs(texture_maps=texture_maps, verts_uvs=verts_uvs)
+│   ├── impls texture_maps = the returned value from _normalize_inputs
 │   └── calls _remap_uvs
 └── def _remap_uvs(verts_uvs: torch.Tensor, faces_uvs: torch.Tensor, map_offsets: torch.Tensor, atlas_height: int, atlas_width: int, materials_idx: torch.Tensor) -> torch.Tensor
     ├── # Rescales and offsets each material's UVs into its packed atlas region.
@@ -627,7 +745,7 @@ save.py
     ├── if the output path is an .obj file or a directory
     │   ├── calls save_obj_mesh
     │   └── return
-    └── assert 0, "should not reach here"
+    └── assert 0, "Should not reach here."
 ```
 
 ## Saving: OBJ
@@ -642,7 +760,7 @@ save_obj.py
 ├── import torch
 ├── from data.structures.three_d.mesh.mesh import Mesh
 ├── from data.structures.three_d.mesh.texture.canonicalize import collapse_seam_shifted_uv_rows
-├── from data.structures.three_d.mesh.texture.conventions import transform_convention
+├── from data.structures.three_d.mesh.texture.conventions import transform_uv_convention
 ├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
 ├── from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import MeshTextureVertexColor
 ├── def save_obj_mesh(mesh: Mesh, output_path: Union[str, Path]) -> None
@@ -657,7 +775,7 @@ save_obj.py
 │   ├── if isinstance(mesh.texture, MeshTextureUVTextureMap)
 │   │   ├── calls _save_uv_texture_map_obj
 │   │   └── return
-│   └── assert 0, "should not reach here"
+│   └── assert 0, "Should not reach here."
 ├── def _save_geometry_only_obj(mesh: Mesh, obj_path: Path) -> None
 │   ├── # Writes the OBJ v / f lines.
 │   ├── impls write one "v x y z" line per verts row, each coordinate to six decimals
@@ -669,7 +787,7 @@ save_obj.py
 ├── def _save_uv_texture_map_obj(mesh: Mesh, obj_path: Path) -> None
 │   ├── # Writes the OBJ plus a sibling MTL and texture PNG.
 │   ├── calls _normalize_uv_texture_map_for_png
-│   ├── calls transform_convention(mesh.texture.verts_uvs, mesh.texture.convention, "obj")  # the convention the vt lines are written in
+│   ├── calls transform_uv_convention(verts_uvs=mesh.texture.verts_uvs.detach().cpu(), source_uv_convention=mesh.texture.uv_convention, target_uv_convention="obj")  # the convention the vt lines are written in
 │   └── calls collapse_seam_shifted_uv_rows  # seam-safe canonical -> OBJ vt structure
 ├── def _resolve_output_obj_path(output_path: Union[str, Path]) -> Path
 │   ├── # Resolves an output path to a concrete .obj file path (an ".obj" path, or "<dir>/mesh.obj").
@@ -681,14 +799,22 @@ save_obj.py
 ├── def _normalize_vertex_color_for_obj(vertex_color: torch.Tensor) -> torch.Tensor
 │   ├── # Normalizes vertex color to float32 [0,1] for OBJ export.
 │   ├── if vertex_color's dtype is torch.uint8
-│   │   └── return vertex_color as float32 divided by 255, contiguous
-│   └── return vertex_color, contiguous
+│   │   ├── impls vertex_color = vertex_color converted to float32
+│   │   ├── impls vertex_color = vertex_color divided by 255
+│   │   ├── impls vertex_color = vertex_color made contiguous
+│   │   └── return vertex_color
+│   ├── impls vertex_color = vertex_color made contiguous
+│   └── return vertex_color
 └── def _normalize_uv_texture_map_for_png(uv_texture_map: torch.Tensor) -> np.ndarray
     ├── # Normalizes a UV texture map to a uint8 HWC array for PNG export.
     ├── impls texture_cpu = uv_texture_map on the host
     ├── if texture_cpu's dtype is torch.uint8
-    │   └── return texture_cpu as an array
-    └── return texture_cpu scaled by 255, rounded, as a uint8 array
+    │   ├── impls texture_array = texture_cpu converted to a NumPy array
+    │   └── return texture_array
+    ├── impls texture_array = texture_cpu scaled by 255
+    ├── impls texture_array = texture_array rounded
+    ├── impls texture_array = texture_array converted to a uint8 NumPy array
+    └── return texture_array
 ```
 
 ## Saving: PLY
@@ -704,7 +830,7 @@ save_ply.py
 ├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
 ├── from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import MeshTextureVertexColor
 ├── def save_ply_mesh(mesh: Mesh, output_path: Union[str, Path]) -> None
-│   ├── # Writes a Mesh to PLY, dispatched to the texture-representation-specific writer (PLY carries geometry + optional per-vertex color; a UV-atlas texture has no PLY representation).
+│   ├── # Writes a Mesh to PLY, dispatched to the texture-representation-specific writer (PLY carries geometry plus optional per-vertex color; UV-atlas export routes to OBJ or GLB).
 │   ├── calls _resolve_output_ply_path
 │   ├── if mesh.texture is None
 │   │   ├── calls _save_geometry_only_ply
@@ -713,8 +839,8 @@ save_ply.py
 │   │   ├── calls _save_vertex_color_ply
 │   │   └── return
 │   ├── if isinstance(mesh.texture, MeshTextureUVTextureMap)
-│   │   └── raise ValueError  # a UV-atlas texture cannot be written to PLY; save to OBJ or GLB
-│   └── assert 0, "should not reach here"
+│   │   └── raise ValueError  # UV-atlas textures export through OBJ or GLB
+│   └── assert 0, "Should not reach here."
 ├── def _save_geometry_only_ply(mesh: Mesh, ply_path: Path) -> None
 │   ├── # Writes a geometry-only PLY.
 │   ├── impls write the ascii PLY header declaring V vertex elements with float x / y / z and F face elements with a uchar-int vertex_indices list  # impls-node-one-step:skip
@@ -734,8 +860,13 @@ save_ply.py
 └── def _normalize_vertex_color_for_ply(vertex_color: torch.Tensor) -> torch.Tensor
     ├── # Normalizes vertex color to uint8 [0,255] for PLY export.
     ├── if vertex_color's dtype is torch.uint8
-    │   └── return vertex_color, contiguous
-    └── return vertex_color scaled by 255, rounded, as uint8, contiguous
+    │   ├── impls vertex_color = vertex_color made contiguous
+    │   └── return vertex_color
+    ├── impls vertex_color = vertex_color scaled by 255
+    ├── impls vertex_color = vertex_color rounded
+    ├── impls vertex_color = vertex_color converted to uint8
+    ├── impls vertex_color = vertex_color made contiguous
+    └── return vertex_color
 ```
 
 ## Saving: GLB
@@ -766,7 +897,7 @@ save_glb.py
 │   ├── if isinstance(mesh.texture, MeshTextureUVTextureMap)
 │   │   ├── calls _save_uv_texture_map_glb
 │   │   └── return
-│   └── assert 0, "should not reach here"
+│   └── assert 0, "Should not reach here."
 ├── def _save_geometry_only_glb(mesh: Mesh, glb_path: Path) -> None
 │   ├── # Appends POSITION + indices accessors and writes the GLB.
 │   ├── calls append_accessor
@@ -802,38 +933,66 @@ convert.py
 ├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
 ├── from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import MeshTextureVertexColor
 ├── def mesh_from_open3d(mesh: o3d.geometry.TriangleMesh) -> Mesh
-│   └── # Converts an Open3D triangle mesh into a Mesh (geometry plus optional MeshTextureVertexColor; UV not supported).
+│   ├── # Converts an Open3D triangle mesh into a Mesh (geometry plus optional MeshTextureVertexColor, the only texture kind carried across).
+│   ├── impls verts_np = the mesh's vertices as an array
+│   ├── impls assert verts_np's dtype is float64
+│   ├── impls faces_np = the mesh's triangles as an array
+│   ├── impls assert faces_np's dtype is int32
+│   ├── if the mesh carries vertex colors
+│   │   ├── impls vertex_color_np = its vertex colors as an array
+│   │   ├── impls assert vertex_color_np's dtype is float64
+│   │   └── calls MeshTextureVertexColor(vertex_color=vertex_color_np as float32)
+│   ├── calls Mesh(verts=verts_np as float32, faces=faces_np as int64, texture=that texture or None)
+│   └── return
 ├── def mesh_to_open3d(mesh: Mesh) -> o3d.geometry.TriangleMesh
-│   ├── # Converts a Mesh into an Open3D triangle mesh (geometry plus optional vertex colors; UV not supported).
+│   ├── # Converts a Mesh into an Open3D triangle mesh (geometry plus optional vertex colors, the only texture kind carried across).
 │   └── calls _vertex_color_to_float_rgb
-├── def mesh_from_pytorch3d(mesh: Meshes, convention: str = "obj") -> Mesh
+├── def mesh_from_pytorch3d(mesh: Meshes, uv_convention: str = "obj") -> Mesh
 │   ├── # Converts a PyTorch3D Meshes into a Mesh.
 │   ├── if mesh.textures is None
-│   │   └── return Mesh  # texture None
+│   │   ├── calls Mesh(texture=None)
+│   │   └── return
 │   ├── elif isinstance(mesh.textures, TexturesVertex)
-│   │   └── return Mesh  # MeshTextureVertexColor
+│   │   ├── calls MeshTextureVertexColor
+│   │   ├── calls Mesh
+│   │   └── return
 │   └── else  # TexturesUV
 │       ├── calls shift_seam_crossing_faces_to_seam_safe  # raw TexturesUV verts_uvs -> seam-safe canonical
-│       └── return Mesh  # MeshTextureUVTextureMap
+│       ├── calls MeshTextureUVTextureMap
+│       ├── calls Mesh
+│       └── return
 ├── def mesh_to_pytorch3d(mesh: Mesh, device: Union[str, torch.device, None] = None, dtype: torch.dtype = torch.float32) -> Meshes
 │   ├── # Converts a Mesh into a PyTorch3D Meshes.
+│   ├── def _normalize_inputs [local]
+│   │   ├── impls device = mesh.device if device is None else torch.device(device)
+│   │   └── return device
+│   ├── calls _normalize_inputs(device=device)
+│   ├── impls device = the returned value from _normalize_inputs
 │   ├── if isinstance(mesh.texture, MeshTextureVertexColor)
-│   │   └── return Meshes  # TexturesVertex
+│   │   ├── impls result = PyTorch3D Meshes with TexturesVertex
+│   │   └── return result
 │   ├── elif isinstance(mesh.texture, MeshTextureUVTextureMap)
 │   │   ├── calls collapse_seam_shifted_uv_rows  # seam-safe canonical -> OBJ vt structure for TexturesUV
-│   │   └── return Meshes                        # TexturesUV, convention forced to "obj"
+│   │   ├── impls output_texture = TexturesUV from collapsed UV rows plus texture map in "obj" uv_convention
+│   │   ├── impls result = PyTorch3D Meshes with output_texture
+│   │   └── return result
 │   └── else
-│       └── return Meshes  # textures None
-├── def mesh_from_trimesh(mesh: trimesh.Trimesh, convention: Optional[str] = None) -> Mesh
+│       ├── impls result = PyTorch3D Meshes with textures None
+│       └── return result
+├── def mesh_from_trimesh(mesh: trimesh.Trimesh, uv_convention: Optional[str] = None) -> Mesh
 │   ├── # Converts a trimesh.Trimesh into a Mesh.
 │   ├── if mesh.visual carries uv
 │   │   ├── calls _uv_mesh_from_trimesh                   # welds per-corner duplicate verts into the geometry domain
 │   │   ├── calls shift_seam_crossing_faces_to_seam_safe  # raw trimesh verts_uvs -> seam-safe canonical
 │   │   ├── calls _texture_image_from_trimesh
-│   │   └── return Mesh  # MeshTextureUVTextureMap
+│   │   ├── calls MeshTextureUVTextureMap
+│   │   ├── calls Mesh
+│   │   └── return
 │   └── else
 │       ├── calls _vertex_color_from_trimesh
-│       └── return Mesh  # MeshTextureVertexColor
+│       ├── calls MeshTextureVertexColor
+│       ├── calls Mesh
+│       └── return
 ├── def mesh_to_trimesh(mesh: Mesh) -> trimesh.Trimesh
 │   ├── # Converts a Mesh into a trimesh.Trimesh.
 │   ├── if isinstance(mesh.texture, MeshTextureUVTextureMap)
@@ -844,21 +1003,53 @@ convert.py
 │   └── else
 │       └── return  # a geometry-only Trimesh
 ├── def _uv_mesh_from_trimesh(verts: np.ndarray, faces: np.ndarray, verts_uvs: np.ndarray) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
-│   └── # Welds trimesh's per-corner duplicate verts (exact-position equality) into the geometry domain, returning (verts, faces, verts_uvs, faces_uvs).
+│   ├── # Welds trimesh's per-corner duplicate verts (exact-position equality) into the geometry domain, returning (verts, faces, verts_uvs, faces_uvs).
+│   ├── impls unique_positions, inverse_indices = the distinct verts rows by exact position, and each input row's flat index into them  # impls-node-one-step:skip
+│   ├── impls welded_faces = faces mapped through inverse_indices
+│   ├── impls welded_outputs = unique_positions, welded_faces, verts_uvs, and faces converted to contiguous tensors  # impls-node-one-step:skip
+│   └── return welded_outputs
 ├── def _texture_image_from_trimesh(image: object) -> np.ndarray
-│   └── # Converts a trimesh material image to a uint8 HWC RGB array (drops uniform alpha).
+│   ├── # Converts a trimesh material image to a uint8 HWC RGB array (drops uniform alpha).
+│   ├── impls image_np = the PIL image as an array
+│   ├── impls assert image_np is rank 3 with 3 or 4 channels
+│   ├── impls assert image_np's dtype is uint8
+│   ├── if image_np carries 4 channels
+│   │   ├── impls assert its alpha channel is uniformly 255
+│   │   └── impls drop the alpha channel
+│   ├── impls texture_image = image_np made contiguous
+│   └── return texture_image
 ├── def _vertex_color_from_trimesh(vertex_colors: np.ndarray) -> np.ndarray
-│   └── # Converts trimesh vertex colors to a repo RGB array (drops opaque alpha).
+│   ├── # Converts trimesh vertex colors to a repo RGB array (drops opaque alpha).
+│   ├── if vertex_colors carries 4 columns
+│   │   ├── impls assert its alpha column is uniformly 255
+│   │   └── impls drop the alpha column
+│   ├── impls vertex_color = vertex_colors made contiguous
+│   └── return vertex_color
 ├── def _uv_mesh_to_trimesh(mesh: Mesh) -> Tuple[np.ndarray, np.ndarray, np.ndarray]
-│   ├── # Expands an "obj" convention UV mesh to trimesh's per-corner topology, returning (verts, faces, uv).
+│   ├── # Expands an "obj" UV-convention mesh to trimesh's per-corner topology, returning (verts, faces, uv).
 │   └── calls collapse_seam_shifted_uv_rows  # seam-safe canonical -> OBJ vt structure before per-corner expansion
 ├── def _texture_image_to_trimesh(uv_texture_map: torch.Tensor) -> np.ndarray
-│   └── # Converts a repo uv_texture_map tensor to a uint8 HWC RGB array.
+│   ├── # Converts a repo uv_texture_map tensor to a uint8 HWC RGB array.
+│   ├── impls texture_cpu = uv_texture_map on the host
+│   ├── if texture_cpu's dtype is torch.uint8
+│   │   ├── impls texture_image = texture_cpu as a contiguous array
+│   │   └── return texture_image
+│   ├── impls texture_image = texture_cpu scaled by 255
+│   ├── impls texture_image = texture_image rounded
+│   ├── impls texture_image = texture_image converted to uint8
+│   ├── impls texture_image = texture_image made contiguous
+│   └── return texture_image
 ├── def _vertex_color_to_trimesh(vertex_color: torch.Tensor) -> np.ndarray
 │   ├── # Converts a repo vertex_color tensor to a uint8 RGBA array for trimesh.
 │   └── calls _vertex_color_to_float_rgb
 └── def _vertex_color_to_float_rgb(vertex_color: torch.Tensor) -> np.ndarray
-    └── # Converts a repo vertex_color tensor to a float32 RGB [0,1] array; shared by mesh_to_open3d and _vertex_color_to_trimesh.
+    ├── # Converts a repo vertex_color tensor to a float32 RGB [0,1] array; shared by mesh_to_open3d and _vertex_color_to_trimesh.
+    ├── impls vertex_color_cpu = vertex_color on the host
+    ├── if vertex_color_cpu's dtype is torch.uint8
+    │   ├── impls vertex_color_rgb = vertex_color_cpu as float32 divided by 255, as an array
+    │   └── return vertex_color_rgb
+    ├── impls vertex_color_rgb = vertex_color_cpu as an array
+    └── return vertex_color_rgb
 ```
 
 ## Package API surface

@@ -38,7 +38,7 @@ _install_namespace_package(
 )
 
 from data.structures.three_d.mesh.texture.conventions import (
-    transform_convention,
+    transform_uv_convention,
 )
 
 
@@ -57,10 +57,10 @@ def test_identity_when_conventions_match() -> None:
         dtype=torch.float32,
     )
 
-    transformed = transform_convention(
+    transformed = transform_uv_convention(
         verts_uvs=verts_uvs,
-        source_convention="obj",
-        target_convention="obj",
+        source_uv_convention="obj",
+        target_uv_convention="obj",
     )
 
     assert transformed is verts_uvs, f"{transformed=} {verts_uvs=}"
@@ -81,10 +81,10 @@ def test_flips_v_axis_when_conventions_differ() -> None:
         dtype=torch.float32,
     )
 
-    transformed = transform_convention(
+    transformed = transform_uv_convention(
         verts_uvs=verts_uvs,
-        source_convention="obj",
-        target_convention="top_left",
+        source_uv_convention="obj",
+        target_uv_convention="top_left",
     )
 
     assert torch.allclose(

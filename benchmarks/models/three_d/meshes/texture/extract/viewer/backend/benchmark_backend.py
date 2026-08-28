@@ -75,15 +75,6 @@ def list_scene_names(
     """
 
     def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-
         assert isinstance(processed_gso_root, Path), (
             "Expected `processed_gso_root` to be a `Path`. "
             f"{type(processed_gso_root)=}."
@@ -128,15 +119,6 @@ def prepare_benchmark_results(
     """
 
     def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-
         assert isinstance(results_root, Path), (
             "Expected `results_root` to be a `Path`. " f"{type(results_root)=}."
         )
@@ -211,15 +193,6 @@ def load_results_index(
     """
 
     def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-
         assert isinstance(results_root, Path), (
             "Expected `results_root` to be a `Path`. " f"{type(results_root)=}."
         )
@@ -253,15 +226,6 @@ def load_scene_payload(
     """
 
     def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-
         assert isinstance(scene_name, str), (
             "Expected `scene_name` to be a string. " f"{type(scene_name)=}."
         )
@@ -301,15 +265,6 @@ def build_scene_timing_figure(
     """
 
     def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-
         assert isinstance(scene_payload, dict), (
             "Expected `scene_payload` to be a dict. " f"{type(scene_payload)=}."
         )
@@ -416,15 +371,6 @@ def _build_scene_payload_path(
     """
 
     def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-
         assert isinstance(results_root, Path), (
             "Expected `results_root` to be a `Path`. " f"{type(results_root)=}."
         )
@@ -454,15 +400,6 @@ def _build_scene_result(
     """
 
     def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-
         assert isinstance(scene_name, str), (
             "Expected `scene_name` to be a string. " f"{type(scene_name)=}."
         )
@@ -572,15 +509,6 @@ def _build_scene_context(
     """
 
     def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-
         assert isinstance(scene_name, str), (
             "Expected `scene_name` to be a string. " f"{type(scene_name)=}."
         )
@@ -681,15 +609,6 @@ def _resolve_reference_texture_path(
     """
 
     def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-
         assert isinstance(raw_scene_root, Path), (
             "Expected `raw_scene_root` to be a `Path`. " f"{type(raw_scene_root)=}."
         )
@@ -737,15 +656,6 @@ def _normalize_gso_mesh_verts_to_processed_frame(
     """
 
     def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-
         assert isinstance(mesh_verts, torch.Tensor), (
             "Expected `mesh_verts` to be a tensor. " f"{type(mesh_verts)=}."
         )
@@ -790,15 +700,6 @@ def _build_exploded_uv_geometry(
     """
 
     def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-
         assert isinstance(mesh_verts, torch.Tensor), (
             "Expected `mesh_verts` to be a tensor. " f"{type(mesh_verts)=}."
         )
@@ -855,15 +756,6 @@ def _build_cuda_extraction_inputs(
     """
 
     def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-
         assert isinstance(scene_context, dict), (
             "Expected `scene_context` to be a dict. " f"{type(scene_context)=}."
         )
@@ -903,7 +795,7 @@ def _build_cuda_extraction_inputs(
                 ),
                 verts_uvs=exploded_verts_uvs_cuda,
                 faces_uvs=exploded_faces_cuda,
-                convention="obj",
+                uv_convention="obj",
             ),
         ),
         texture_size=scene_context["texture_size"],
@@ -955,15 +847,6 @@ def _benchmark_texel_visibility_method(
     """
 
     def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-
         assert isinstance(scene_name, str), (
             "Expected `scene_name` to be a string. " f"{type(scene_name)=}."
         )
@@ -1031,15 +914,6 @@ def _run_single_texel_visibility_extraction(
     """
 
     def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-
         assert isinstance(cuda_inputs, dict), (
             "Expected `cuda_inputs` to be a dict. " f"{type(cuda_inputs)=}."
         )
@@ -1132,15 +1006,6 @@ def _benchmark_open3d_cpu_method(
     """
 
     def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-
         assert isinstance(scene_context, dict), (
             "Expected `scene_context` to be a dict. " f"{type(scene_context)=}."
         )
@@ -1253,15 +1118,6 @@ def _run_single_open3d_cpu_extraction(
     """
 
     def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-
         assert isinstance(raycasting_scene, o3d.t.geometry.RaycastingScene), (
             "Expected `raycasting_scene` to be an Open3D `RaycastingScene`. "
             f"{type(raycasting_scene)=}."
@@ -1390,15 +1246,6 @@ def _build_deterministic_invisible_texel_noise(
     """
 
     def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-
         assert isinstance(texture_size, int), (
             "Expected `texture_size` to be an int. " f"{type(texture_size)=}."
         )
@@ -1436,15 +1283,6 @@ def _apply_invisible_texel_noise(
     """
 
     def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-
         assert isinstance(uv_texture_map, torch.Tensor), (
             "Expected `uv_texture_map` to be a tensor. " f"{type(uv_texture_map)=}."
         )
@@ -1501,15 +1339,6 @@ def _normalize_texture_tensor_for_payload(
     """
 
     def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-
         assert isinstance(uv_texture_map, torch.Tensor), (
             "Expected `uv_texture_map` to be a tensor. " f"{type(uv_texture_map)=}."
         )
@@ -1553,15 +1382,6 @@ def _build_timing_summary(
     """
 
     def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-
         assert isinstance(visibility_timings_ms, list), (
             "Expected `visibility_timings_ms` to be a list. "
             f"{type(visibility_timings_ms)=}."
@@ -1616,15 +1436,6 @@ def _save_scene_summary(
     """
 
     def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-
         assert isinstance(scene_payload, dict), (
             "Expected `scene_payload` to be a dict. " f"{type(scene_payload)=}."
         )
@@ -1653,15 +1464,6 @@ def _build_scene_summary_dict(
     """
 
     def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-
         assert isinstance(scene_payload, dict), (
             "Expected `scene_payload` to be a dict. " f"{type(scene_payload)=}."
         )
@@ -1694,15 +1496,6 @@ def _build_aggregate_summary(
     """
 
     def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-
         assert isinstance(scene_summaries, dict), (
             "Expected `scene_summaries` to be a dict. " f"{type(scene_summaries)=}."
         )
@@ -1780,15 +1573,6 @@ def _save_aggregate_plot(
     """
 
     def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-
         assert isinstance(aggregate_summary, dict), (
             "Expected `aggregate_summary` to be a dict. " f"{type(aggregate_summary)=}."
         )
@@ -1891,15 +1675,6 @@ def _list_method_keys(
     """
 
     def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-
         assert isinstance(scene_payload, dict), (
             "Expected `scene_payload` to be a dict. " f"{type(scene_payload)=}."
         )
@@ -1932,15 +1707,6 @@ def _list_method_keys_from_summary(
     """
 
     def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-
         assert isinstance(scene_summary, dict), (
             "Expected `scene_summary` to be a dict. " f"{type(scene_summary)=}."
         )
@@ -1973,15 +1739,6 @@ def _list_method_keys_from_aggregate(
     """
 
     def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-
         assert isinstance(aggregate_summary, dict), (
             "Expected `aggregate_summary` to be a dict. " f"{type(aggregate_summary)=}."
         )
@@ -2014,15 +1771,6 @@ def _load_rgb_image(
     """
 
     def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-
         assert isinstance(image_path, Path), (
             "Expected `image_path` to be a `Path`. " f"{type(image_path)=}."
         )

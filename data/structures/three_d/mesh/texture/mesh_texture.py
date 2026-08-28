@@ -34,16 +34,16 @@ class MeshTexture(abc.ABC):
     def to(
         self,
         device: Union[str, torch.device, None] = None,
-        convention: Optional[str] = None,
+        uv_convention: Optional[str] = None,
     ) -> "MeshTexture":
         """Return this texture on a target device and/or UV-origin convention.
 
         Args:
             device: Optional target device.
-            convention: Optional target UV-origin convention.
+            uv_convention: Optional target UV-origin convention.
 
         Returns:
-            This texture on the requested device and/or convention.
+            This texture on the requested device and/or UV convention.
         """
 
         raise NotImplementedError

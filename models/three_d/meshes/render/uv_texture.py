@@ -27,7 +27,7 @@ def render_uv_texture_aligned(
             ``ctx``, and ``use_opengl``.
         mesh: Mesh providing camera-space ``verts`` ``[V, 3]``, ``faces``,
             and a ``MeshTextureUVTextureMap`` texture supplying ``verts_uvs``,
-            ``convention``, and ``uv_texture_map`` (HWC float32 ``[H, W, 3]``).
+            ``uv_convention``, and ``uv_texture_map`` (HWC float32 ``[H, W, 3]``).
 
     Returns:
         Tuple of (mask ``[1, 1, H, W]``, rendered RGB ``[1, 3, H, W]``).
@@ -63,7 +63,7 @@ def render_uv_texture_aligned(
     _validate_inputs()
 
     def _normalize_inputs() -> Mesh:
-        return mesh.to(convention="top_left")
+        return mesh.to(uv_convention="top_left")
 
     mesh = _normalize_inputs()
 

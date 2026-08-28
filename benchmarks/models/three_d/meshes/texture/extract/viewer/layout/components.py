@@ -54,15 +54,6 @@ def build_root_layout(
     """
 
     def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-
         assert isinstance(scene_names, list), (
             "Expected `scene_names` to be a list. " f"{type(scene_names)=}."
         )
@@ -138,15 +129,6 @@ def build_scene_panel_children(
     """
 
     def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-
         assert isinstance(scene_payload, dict), (
             "Expected `scene_payload` to be a dict. " f"{type(scene_payload)=}."
         )
@@ -202,15 +184,6 @@ def build_visual_tab(
     """
 
     def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-
         assert isinstance(scene_payload, dict), (
             "Expected `scene_payload` to be a dict. " f"{type(scene_payload)=}."
         )
@@ -288,15 +261,6 @@ def build_timing_tab(
     """
 
     def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-
         assert isinstance(scene_payload, dict), (
             "Expected `scene_payload` to be a dict. " f"{type(scene_payload)=}."
         )
@@ -339,15 +303,6 @@ def _build_image_card(
     """
 
     def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-
         assert isinstance(title, str), (
             "Expected `title` to be a string. " f"{type(title)=}."
         )
@@ -382,15 +337,6 @@ def _build_method_texture_card(
     """
 
     def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-
         assert isinstance(scene_payload, dict), (
             "Expected `scene_payload` to be a dict. " f"{type(scene_payload)=}."
         )
@@ -438,15 +384,6 @@ def _build_method_mesh_card(
     """
 
     def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-
         assert isinstance(scene_payload, dict), (
             "Expected `scene_payload` to be a dict. " f"{type(scene_payload)=}."
         )
@@ -468,7 +405,7 @@ def _build_method_mesh_card(
             uv_texture_map=method_payload["uv_texture_map"],
             verts_uvs=scene_payload["mesh_verts_uvs"],
             faces_uvs=scene_payload["mesh_faces_uvs"],
-            convention="obj",
+            uv_convention="obj",
         ),
     )
     mesh_component = create_mesh_display(
@@ -515,15 +452,6 @@ def _texture_map_to_chw_tensor(
     """
 
     def _validate_inputs() -> None:
-        """Validate input arguments.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
-
         assert isinstance(uv_texture_map, torch.Tensor), (
             "Expected `uv_texture_map` to be a tensor. " f"{type(uv_texture_map)=}."
         )

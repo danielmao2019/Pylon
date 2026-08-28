@@ -93,7 +93,7 @@ def test_rejects_faces_uvs_index_out_of_range() -> None:
             uv_texture_map=_build_uv_texture_map(),
             verts_uvs=_build_seam_safe_verts_uvs(),
             faces_uvs=torch.tensor([[0, 1, 3]], dtype=torch.int64),
-            convention="obj",
+            uv_convention="obj",
         )
 
 
@@ -117,7 +117,7 @@ def test_normalizes_uint8_texture_map() -> None:
         ),
         verts_uvs=_build_seam_safe_verts_uvs(),
         faces_uvs=torch.tensor([[0, 1, 2]], dtype=torch.int64),
-        convention="obj",
+        uv_convention="obj",
     )
 
     assert (
@@ -148,17 +148,21 @@ def test_accepts_seam_safe_verts_uvs_outside_unit_interval() -> None:
         None.
     """
 
+    seam_safe_verts_uvs = torch.tensor(
+        [[0.95, 0.20], [1.05, 0.25], [1.02, 0.80]],
+        dtype=torch.float32,
+    )
     texture = MeshTextureUVTextureMap(
         uv_texture_map=_build_uv_texture_map(),
-        verts_uvs=torch.tensor(
-            [[0.95, 0.20], [1.05, 0.25], [1.02, 0.80]],
-            dtype=torch.float32,
-        ),
+        verts_uvs=seam_safe_verts_uvs,
         faces_uvs=torch.tensor([[0, 1, 2]], dtype=torch.int64),
-        convention="obj",
+        uv_convention="obj",
     )
 
     assert float(texture.verts_uvs.max().item()) > 1.0, f"{texture.verts_uvs=}"
+    assert torch.equal(
+        texture.verts_uvs, seam_safe_verts_uvs
+    ), f"{texture.verts_uvs=} {seam_safe_verts_uvs=}"
 
 
 def test_accepts_wide_non_wrapping_face() -> None:
@@ -171,19 +175,23 @@ def test_accepts_wide_non_wrapping_face() -> None:
         None.
     """
 
+    wide_face_verts_uvs = torch.tensor(
+        [[0.293, 0.20], [0.735, 0.25], [0.801, 0.80]],
+        dtype=torch.float32,
+    )
     texture = MeshTextureUVTextureMap(
         uv_texture_map=_build_uv_texture_map(),
-        verts_uvs=torch.tensor(
-            [[0.293, 0.20], [0.735, 0.25], [0.801, 0.80]],
-            dtype=torch.float32,
-        ),
+        verts_uvs=wide_face_verts_uvs,
         faces_uvs=torch.tensor([[0, 1, 2]], dtype=torch.int64),
-        convention="obj",
+        uv_convention="obj",
     )
 
     face_u = texture.verts_uvs[texture.faces_uvs.to(dtype=torch.int64), 0]
     span = float((face_u.max(dim=1).values - face_u.min(dim=1).values).max().item())
     assert span > 0.5, f"test fixture must be a wide face, {span=}"
+    assert torch.equal(
+        texture.verts_uvs, wide_face_verts_uvs
+    ), f"{texture.verts_uvs=} {wide_face_verts_uvs=}"
 
 
 def test_rejects_wrapping_face() -> None:
@@ -200,11 +208,11 @@ def test_rejects_wrapping_face() -> None:
         MeshTextureUVTextureMap(
             uv_texture_map=_build_uv_texture_map(),
             verts_uvs=torch.tensor(
-                [[0.95, 0.20], [0.05, 0.25], [0.02, 0.80]],
+                [[0.97, 0.20], [0.05, 0.25], [0.02, 0.80]],
                 dtype=torch.float32,
             ),
             faces_uvs=torch.tensor([[0, 1, 2]], dtype=torch.int64),
-            convention="obj",
+            uv_convention="obj",
         )
 
 
@@ -222,12 +230,12 @@ def test_to_converts_uv_convention() -> None:
         uv_texture_map=_build_uv_texture_map(),
         verts_uvs=_build_seam_safe_verts_uvs(),
         faces_uvs=torch.tensor([[0, 1, 2]], dtype=torch.int64),
-        convention="obj",
+        uv_convention="obj",
     )
 
-    converted = texture.to(convention="top_left")
+    converted = texture.to(uv_convention="top_left")
 
-    assert converted.convention == "top_left", f"{converted.convention=}"
+    assert converted.uv_convention == "top_left", f"{converted.uv_convention=}"
     assert torch.allclose(
         converted.verts_uvs,
         torch.tensor(

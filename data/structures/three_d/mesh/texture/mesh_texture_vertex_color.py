@@ -39,12 +39,12 @@ class MeshTextureVertexColor(MeshTexture):
 
         _validate_inputs()
 
-        def _normalize_inputs() -> torch.Tensor:
+        def _normalize_inputs(vertex_color: torch.Tensor) -> torch.Tensor:
             return MeshTextureVertexColor.normalize_vertex_color(
                 vertex_color=vertex_color
             )
 
-        vertex_color = _normalize_inputs()
+        vertex_color = _normalize_inputs(vertex_color=vertex_color)
 
         self.vertex_color = vertex_color
 
@@ -83,13 +83,13 @@ class MeshTextureVertexColor(MeshTexture):
     def to(
         self,
         device: Union[str, torch.device, None] = None,
-        convention: Optional[str] = None,
+        uv_convention: Optional[str] = None,
     ) -> "MeshTextureVertexColor":
         """Return this texture on a target device.
 
         Args:
             device: Optional target device.
-            convention: Must be `None`; vertex color carries no UV
+            uv_convention: Must be `None`; vertex color carries no UV
                 convention.
 
         Returns:
@@ -102,17 +102,23 @@ class MeshTextureVertexColor(MeshTexture):
                 "Expected `device` to be `None`, a `str`, or a `torch.device`. "
                 f"{type(device)=}"
             )
-            assert convention is None, (
-                "Expected `convention` to be `None` for a vertex-color "
+            assert uv_convention is None, (
+                "Expected `uv_convention` to be `None` for a vertex-color "
                 "texture; vertex color carries no UV-origin convention. "
-                f"{convention=}"
+                f"{uv_convention=}"
             )
 
         _validate_inputs()
 
-        target_device = self.device if device is None else torch.device(device)
-        if self.device == target_device:
+        def _normalize_inputs(
+            device: Union[str, torch.device, None],
+        ) -> torch.device:
+            if device is None:
+                return self.device
+            return torch.device(device)
+
+        device = _normalize_inputs(device=device)
+
+        if self.device == device:
             return self
-        return MeshTextureVertexColor(
-            vertex_color=self.vertex_color.to(device=target_device)
-        )
+        return MeshTextureVertexColor(vertex_color=self.vertex_color.to(device=device))

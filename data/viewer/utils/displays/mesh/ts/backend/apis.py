@@ -265,7 +265,7 @@ def _map_segmentation_mesh_to_rgb(
             uv_texture_map=uv_texture_map,
             vertex_uv=mesh.vertex_uv,
             face_uvs=mesh.face_uvs,
-            convention=mesh.convention,
+            uv_convention=mesh.uv_convention,
         )
     else:
         raise ValueError(
@@ -328,7 +328,7 @@ def _map_heatmap_mesh_to_rgb(
             uv_texture_map=scalar_rgb,
             vertex_uv=mesh.vertex_uv,
             face_uvs=mesh.face_uvs,
-            convention=mesh.convention,
+            uv_convention=mesh.uv_convention,
         )
     else:
         raise ValueError(

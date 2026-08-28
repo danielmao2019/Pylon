@@ -94,15 +94,6 @@ def rasterize_vertex_features_to_uv_map(
     _validate_inputs()
 
     def _normalize_inputs() -> torch.Tensor:
-        """Normalize per-vertex features to a one-item batch.
-
-        Args:
-            None.
-
-        Returns:
-            Per-vertex feature tensor with shape ``[1, V, C]``.
-        """
-
         if vertex_feature.ndim == 2:
             return vertex_feature.unsqueeze(0)
         return vertex_feature
@@ -146,14 +137,14 @@ def bake_vertex_colors_to_uv_texture_map(
         vertex_colored_mesh: Mesh carrying a ``MeshTextureVertexColor`` texture
             and providing ``faces`` and ``device``.
         uv_layout: UV layout texture over the same ``verts`` / ``faces``,
-            supplying ``verts_uvs``, ``faces_uvs``, and ``convention``. Its
+            supplying ``verts_uvs``, ``faces_uvs``, and ``uv_convention``. Its
             ``uv_texture_map`` image is ignored; only the UV layout is used.
         texture_size: Output square texture resolution.
 
     Returns:
         Baked ``MeshTextureUVTextureMap`` whose ``uv_texture_map`` holds the
         rasterized per-vertex colors in HWC float32 ``[0, 1]`` and whose
-        ``verts_uvs`` / ``faces_uvs`` / ``convention`` match ``uv_layout``.
+        ``verts_uvs`` / ``faces_uvs`` / ``uv_convention`` match ``uv_layout``.
     """
 
     def _validate_inputs() -> None:
@@ -190,7 +181,7 @@ def bake_vertex_colors_to_uv_texture_map(
 
     def _normalize_inputs() -> MeshTextureUVTextureMap:
         device = vertex_colored_mesh.device
-        return uv_layout.to(device=device, convention="obj")
+        return uv_layout.to(device=device, uv_convention="obj")
 
     uv_layout = _normalize_inputs()
 
@@ -216,5 +207,5 @@ def bake_vertex_colors_to_uv_texture_map(
         uv_texture_map=uv_texture_map.contiguous(),
         verts_uvs=uv_layout.verts_uvs,
         faces_uvs=uv_layout.faces_uvs,
-        convention=uv_layout.convention,
+        uv_convention=uv_layout.uv_convention,
     )
