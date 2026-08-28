@@ -2,6 +2,8 @@
 Spherical-harmonic shading of surface normals.
 """
 
+import math
+
 import torch
 
 
@@ -66,19 +68,18 @@ def compute_sh_shading(
             "so its last dim must be divisible by 3. "
             f"{sh_coefficients.shape=}"
         )
-        num_bands = sh_coefficients.shape[-1] // 3
-        order = 0
-        while (order + 1) * (order + 1) <= num_bands:
-            order += 1
-        assert order * order == num_bands, (
-            "Expected sh_coefficients' band count to be a perfect square, naming "
-            "the spherical-harmonic order whose bands it carries. "
-            f"{num_bands=}, {order=}, {sh_coefficients.shape=}"
-        )
-        assert order >= 1, (
+        assert sh_coefficients.shape[-1] // 3 > 0, (
             "Expected sh_coefficients to carry at least one spherical-harmonic "
             "band. "
-            f"{order=}, {num_bands=}, {sh_coefficients.shape=}"
+            f"{sh_coefficients.shape=}"
+        )
+        assert (
+            math.isqrt(sh_coefficients.shape[-1] // 3) ** 2
+            == sh_coefficients.shape[-1] // 3
+        ), (
+            "Expected sh_coefficients' band count to be a perfect square, naming "
+            "the spherical-harmonic order whose bands it carries. "
+            f"{sh_coefficients.shape=}"
         )
         assert sh_coefficients.shape[:-1] == normals.shape[:-2], (
             "Expected sh_coefficients' batch dims to equal normals' batch dims. "
@@ -92,13 +93,11 @@ def compute_sh_shading(
     _validate_inputs()
 
     num_bands = sh_coefficients.shape[-1] // 3
-    order = 0
-    while (order + 1) * (order + 1) <= num_bands:
-        order += 1
+    order = math.isqrt(num_bands)
 
     # === Spherical-harmonic basis over the normals ===
-    pi = 3.141592653589793
-    sqrt_two = 2.0**0.5
+    pi = math.pi
+    sqrt_two = math.sqrt(2.0)
     x = normals[..., 0]
     y = normals[..., 1]
     z = normals[..., 2]
@@ -155,7 +154,7 @@ def compute_sh_shading(
         *sh_coefficients.shape[:-1], 3, num_bands
     ).transpose(-1, -2)
     # One matmul per channel, never a single [..., N, B] @ [..., B, 3]: on CUDA the fused form can pick a different reduction and shift results by small numeric roundoff relative to this channel-wise contraction.
-    return torch.cat(
+    shading = torch.cat(
         [
             basis @ coefficients[..., :1],
             basis @ coefficients[..., 1:2],
@@ -163,3 +162,4 @@ def compute_sh_shading(
         ],
         dim=-1,
     )
+    return shading

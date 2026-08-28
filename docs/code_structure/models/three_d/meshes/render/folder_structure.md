@@ -16,6 +16,6 @@ render/
 
 ```text
 tests/models/three_d/meshes/render/
-├── test_core.py     # _prepare_cameras: both camera frames reach PyTorch3D in its own frames.
-└── test_shading.py  # compute_sh_shading: band-count handling and the shading it evaluates over surface normals.
+├── test_core.py     # render_soft_mask_from_mesh and the camera it renders through: the coverage the silhouette carries a gradient through, and both camera models reaching PyTorch3D in PyTorch3D's own frames
+└── test_shading.py  # compute_sh_shading: band-count handling and the shading it evaluates over surface normals
 ```

@@ -1,6 +1,6 @@
 """Blender-based mesh rendering helpers parallel to the PyTorch3D stack."""
 
-from typing import Dict, Sequence, Tuple, Union
+from typing import Dict, Optional, Sequence, Tuple, Union
 
 import bpy
 import numpy as np
@@ -13,16 +13,116 @@ from data.structures.three_d.camera.camera import Camera
 def render_rgb_from_mesh_blender(
     mesh_collection_name: str,
     camera: Camera,
-    resolution: Tuple[int, int],
+    resolution: Optional[Tuple[int, int]] = None,
     background: Tuple[int, int, int] = (0, 0, 0),
     engine: str = 'CYCLES',
     device: str = 'GPU',
     view_layer_name: str = 'View Layer',
     return_mask: bool = False,
 ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
-    """Render RGB (and optional mask) using Blender's renderer."""
-    assert isinstance(resolution, tuple) and len(resolution) == 2
-    assert isinstance(camera, Camera), f"{type(camera)=}"
+    """Render RGB and optional mask from one Blender mesh collection.
+
+    Args:
+        mesh_collection_name: Blender collection name containing the mesh objects to render.
+        camera: Camera used to create the temporary Blender camera.
+        resolution: Optional render resolution `(height, width)`; `None` uses the camera's own resolution.
+        background: Background RGB color as integer tuple in `[0, 255]`.
+        engine: Blender render engine name.
+        device: Blender render device name.
+        view_layer_name: Blender view-layer name.
+        return_mask: If True, return the object-index mask with the RGB image.
+
+    Returns:
+        RGB tensor `[3, H, W]`, or `(rgb, mask)` when `return_mask` is True.
+    """
+
+    def _validate_inputs() -> None:
+        assert isinstance(mesh_collection_name, str), (
+            "Expected `mesh_collection_name` to be a string. "
+            f"{type(mesh_collection_name)=}"
+        )
+        assert isinstance(camera, Camera), (
+            "Expected `camera` to be a Camera instance. " f"{type(camera)=}"
+        )
+        assert resolution is None or (
+            isinstance(resolution, tuple) and len(resolution) == 2
+        ), f"Expected `resolution` to be None or a length-2 tuple. {resolution=}"
+        if resolution is not None:
+            for axis_name, value in zip(("height", "width"), resolution, strict=True):
+                assert isinstance(value, (int, torch.Tensor)) and not isinstance(
+                    value, bool
+                ), (
+                    "Expected each render resolution value to be an int or scalar tensor. "
+                    f"{axis_name=} {type(value)=} {resolution=}"
+                )
+                if isinstance(value, torch.Tensor):
+                    assert value.numel() == 1, (
+                        "Expected tensor render resolution values to contain one value. "
+                        f"{axis_name=} {value.shape=}"
+                    )
+                    assert value.dtype != torch.bool, (
+                        "Expected tensor render resolution values not to be bool. "
+                        f"{axis_name=} {value.dtype=} {resolution=}"
+                    )
+                    assert not value.detach().is_floating_point() or torch.equal(
+                        value.detach(), torch.round(value.detach())
+                    ), (
+                        "Expected tensor render resolution values to be integer-valued. "
+                        f"{axis_name=} {value=}"
+                    )
+                    assert bool((value.detach() > 0).cpu().item()), (
+                        "Expected tensor render resolution values to be positive. "
+                        f"{axis_name=} {value=}"
+                    )
+                else:
+                    assert value > 0, (
+                        "Expected render resolution values to be positive integers. "
+                        f"{axis_name=} {value=} {resolution=}"
+                    )
+        assert isinstance(background, tuple) and len(background) == 3, (
+            "Expected `background` to be an RGB tuple. " f"{background=}"
+        )
+        for channel_name, channel in zip(
+            ("red", "green", "blue"), background, strict=True
+        ):
+            assert isinstance(channel, int) and not isinstance(channel, bool), (
+                "Expected background channels to be integers. "
+                f"{channel_name=} {type(channel)=} {background=}"
+            )
+            assert 0 <= channel <= 255, (
+                "Expected background channels to be in [0, 255]. "
+                f"{channel_name=} {channel=} {background=}"
+            )
+        assert isinstance(engine, str), (
+            "Expected `engine` to be a string. " f"{type(engine)=}"
+        )
+        assert isinstance(device, str), (
+            "Expected `device` to be a string. " f"{type(device)=}"
+        )
+        assert isinstance(view_layer_name, str), (
+            "Expected `view_layer_name` to be a string. " f"{type(view_layer_name)=}"
+        )
+        assert isinstance(return_mask, bool), (
+            "Expected `return_mask` to be a bool. " f"{type(return_mask)=}"
+        )
+
+    _validate_inputs()
+
+    def _normalize_inputs(
+        resolution: Optional[Tuple[int, int]],
+    ) -> Tuple[int, int]:
+        if resolution is None:
+            resolution = camera.intrinsics.resolution
+        normalized = []
+        for value in resolution:
+            if isinstance(value, torch.Tensor):
+                normalized.append(int(value.detach().cpu().item()))
+            else:
+                normalized.append(value)
+        return normalized[0], normalized[1]
+
+    resolution = _normalize_inputs(resolution=resolution)
+
     context = _build_render_context_blender(
         mesh_collection_name=mesh_collection_name,
         camera=camera,
@@ -128,12 +228,49 @@ def _create_camera_from_parameters_blender(
     camera: Camera,
     resolution: Tuple[int, int],
 ) -> 'bpy.types.Object':
-    assert isinstance(camera, Camera), f"{type(camera)=}"
-    camera_for_resolution = camera.to(extr_convention='standard').scale_intrinsics(
-        resolution=resolution
-    )
-    intrinsics = camera_for_resolution.intrinsics
-    extrinsics = camera_for_resolution.extrinsics.extrinsics
+    """Create a Blender camera object from Pylon camera parameters.
+
+    Args:
+        camera: Pylon camera whose standard-convention intrinsics and extrinsics
+            define the Blender view.
+        resolution: Render output size as `(height, width)`.
+
+    Returns:
+        Blender camera object linked into the active scene collection.
+    """
+
+    def _validate_inputs() -> None:
+        assert isinstance(camera, Camera), (
+            "Expected `camera` to be a Camera instance. " f"{type(camera)=}"
+        )
+        assert isinstance(resolution, tuple) and len(resolution) == 2, (
+            "Expected `resolution` to be a length-2 tuple. " f"{resolution=}"
+        )
+        for axis_name, value in zip(("height", "width"), resolution, strict=True):
+            assert isinstance(value, int) and not isinstance(value, bool), (
+                "Expected each render resolution value to be an int. "
+                f"{axis_name=} {type(value)=} {resolution=}"
+            )
+            assert value > 0, (
+                "Expected render resolution values to be positive integers. "
+                f"{axis_name=} {value=} {resolution=}"
+            )
+
+    _validate_inputs()
+
+    def _normalize_inputs(camera: Camera) -> Camera:
+        camera = camera.to(
+            intr_convention='standard',
+            extr_convention='standard',
+        ).scale_intrinsics(
+            resolution=resolution,
+        )
+        return camera
+
+    camera = _normalize_inputs(camera=camera)
+
+    intrinsics = camera.intrinsics
+    extrinsics = camera.extrinsics.extrinsics
 
     camera_data = bpy.data.cameras.new(name='mesh_camera_blender')
     camera_obj = bpy.data.objects.new(camera_data.name, camera_data)
@@ -143,15 +280,17 @@ def _create_camera_from_parameters_blender(
     sensor_width = camera_data.sensor_width
     sensor_height = camera_data.sensor_height
 
-    camera_data.lens = camera.intrinsics.fx * sensor_width / float(image_width)
+    lens_x = intrinsics.fx * sensor_width / float(image_width)
+    lens_y = intrinsics.fy * sensor_height / float(image_height)
+    camera_data.lens = float(lens_x.detach().cpu().item())
 
-    sensor_aspect = (camera.intrinsics.fy * sensor_height / image_height) / (
-        camera.intrinsics.fx * sensor_width / image_width
-    )
+    sensor_aspect = float((lens_y / lens_x).detach().cpu().item())
     camera_data.sensor_fit = 'HORIZONTAL' if sensor_aspect <= 1.0 else 'VERTICAL'
 
-    camera_data.shift_x = (camera.intrinsics.cx - image_width / 2.0) / image_width
-    camera_data.shift_y = (image_height / 2.0 - camera.intrinsics.cy) / image_height
+    shift_x = (intrinsics.cx - image_width / 2.0) / image_width
+    shift_y = (image_height / 2.0 - intrinsics.cy) / image_height
+    camera_data.shift_x = float(shift_x.detach().cpu().item())
+    camera_data.shift_y = float(shift_y.detach().cpu().item())
 
     camera_obj.matrix_world = _torch_to_matrix_blender(extrinsics)
     return camera_obj
@@ -222,22 +361,42 @@ def _configure_render_engine_blender(
     engine: str,
     device: str,
 ) -> Tuple[str, str, str]:
-    engine_normalized = engine.upper()
-    if engine_normalized == 'EEVEE':
-        engine_normalized = 'BLENDER_EEVEE'
+    def _validate_inputs() -> None:
+        assert hasattr(scene, 'render'), (
+            "Expected `scene` to be a Blender scene with render settings. "
+            f"{type(scene)=}"
+        )
+        assert isinstance(engine, str), (
+            "Expected `engine` to be a string. " f"{type(engine)=}"
+        )
+        assert isinstance(device, str), (
+            "Expected `device` to be a string. " f"{type(device)=}"
+        )
+
+    _validate_inputs()
+
+    def _normalize_inputs(engine: str, device: str) -> Tuple[str, str]:
+        engine = engine.upper()
+        if engine == 'EEVEE':
+            engine = 'BLENDER_EEVEE'
+        device = device.upper()
+        return engine, device
+
+    engine, device = _normalize_inputs(engine=engine, device=device)
+
     previous_engine = scene.render.engine
-    scene.render.engine = engine_normalized
+    scene.render.engine = engine
 
     previous_device = ''
     previous_compute = ''
-    if engine_normalized == 'CYCLES':
+    if engine == 'CYCLES':
         previous_device = scene.cycles.device
-        scene.cycles.device = 'GPU' if device.upper() == 'GPU' else 'CPU'
+        scene.cycles.device = 'GPU' if device == 'GPU' else 'CPU'
         cycles_addon = bpy.context.preferences.addons.get('cycles')
         if cycles_addon:
             prefs = cycles_addon.preferences
             previous_compute = prefs.compute_device_type
-            if device.upper() == 'GPU':
+            if device == 'GPU':
                 for candidate in ('OPTIX', 'CUDA', 'HIP', 'METAL'):
                     if candidate in prefs.get_devices():
                         prefs.compute_device_type = candidate
