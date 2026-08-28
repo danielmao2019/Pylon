@@ -588,10 +588,13 @@ core_points_display.ts
 
 ```text
 apis.py
+├── from typing import Dict, Tuple
 ├── import torch
 ├── from dash import dcc
 ├── from data.viewer.utils.displays.pixels.dash.core_pixels_display import create_dash_pixels_display
 ├── from data.viewer.utils.displays.utils.class_colors import map_class_ids_to_rgb
+├── from data.viewer.utils.displays.utils.heatmap_colors import map_scalars_to_rgb
+├── from utils.io.image import load_image
 ├── DEFAULT_COLOR_IMAGE_INTERPOLATION = "linear"                # color images: linear interpolation smooths between RGB samples, appropriate for natural-image content
 ├── DEFAULT_DEPTH_IMAGE_INTERPOLATION = "nearest"               # depth images: nearest preserves exact metric depth samples; linear would invent midpoint depths that don't exist in the data
 ├── DEFAULT_EDGE_IMAGE_INTERPOLATION = "nearest"                # edge images: nearest preserves edge crispness; linear would smooth edges and defeat their purpose
@@ -625,17 +628,75 @@ apis.py
 │   ├── calls map_class_ids_to_rgb(class_ids=torch.unique(instance_surrogate_class_id_image))
 │   ├── calls _map_instance_surrogate_image_to_rgb(image_path=image_path, class_id_to_rgb=class_id_to_rgb)
 │   └── calls create_dash_pixels_display(image_interpolation=image_interpolation)
-├── def _map_depth_image_to_rgb
-│   └── # Maps the depth image to RGB through the continuous heatmap palette for Dash display.
-├── def _map_edge_image_to_rgb
-│   └── # Maps the edge image to RGB for Dash display.
-├── def _map_normal_image_to_rgb
-│   └── # Maps the normal vectors to RGB for Dash display.
-├── def _map_segmentation_image_to_rgb
-│   └── # Maps the segmentation image's per-pixel class ids to RGB via the class-to-RGB mapping for Dash display.
-└── def _map_instance_surrogate_image_to_rgb
-    ├── # Maps the instance-surrogate class-id image to RGB via the class-to-RGB mapping for Dash display.
-    └── return
+├── def _map_depth_image_to_rgb(depth_image_path: str) -> torch.Tensor
+│   ├── # Maps the depth image to RGB through the continuous heatmap palette for Dash display.
+│   ├── impls assert isinstance(depth_image_path, str)
+│   ├── calls load_image(filepath=depth_image_path, normalization=None)
+│   ├── if depth_image.ndim == 3
+│   │   └── impls depth_image = depth_image[0]
+│   ├── impls depth_scalars = depth_image.to(torch.float64)
+│   ├── impls depth_scalars = depth_scalars - float(depth_scalars.min().item())
+│   ├── calls map_scalars_to_rgb(scalars=depth_scalars)                                           → rgb_image
+│   └── return rgb_image
+├── def _map_edge_image_to_rgb(edge_image_path: str) -> torch.Tensor
+│   ├── # Maps the edge image to RGB for Dash display.
+│   ├── impls assert isinstance(edge_image_path, str)
+│   ├── calls load_image(filepath=edge_image_path, normalization=None)
+│   ├── if edge_image.ndim == 3
+│   │   └── impls edge_image = edge_image[0]
+│   ├── impls edge_float = edge_image.to(torch.float64)
+│   ├── impls edge_min = float(edge_float.min().item())
+│   ├── impls edge_max = float(edge_float.max().item())
+│   ├── impls normalized = (edge_float - edge_min) / max(edge_max - edge_min, 1e-12)
+│   ├── impls gray = (normalized * 255.0).round().clamp(min=0.0, max=255.0).to(torch.uint8)
+│   ├── impls gray_hwc = gray.unsqueeze(-1)
+│   ├── impls rgb_image = gray_hwc.repeat(1, 1, 3)
+│   └── return rgb_image
+├── def _map_normal_image_to_rgb(normal_image_path: str) -> torch.Tensor
+│   ├── # Maps the normal vectors to RGB for Dash display.
+│   ├── impls assert isinstance(normal_image_path, str)
+│   ├── calls load_image(filepath=normal_image_path, normalization=None)
+│   ├── impls normal_float = normal_image.to(torch.float64)
+│   ├── impls normal_float = normal_float / 127.5 - 1.0  # decodes the stored bytes back to normal components in [-1, 1]
+│   ├── impls normals_normalized = (normal_float + 1.0) / 2.0
+│   ├── impls normals_normalized = normals_normalized.clamp(min=0.0, max=1.0)
+│   ├── impls rgb = (normals_normalized * 255.0).round().clamp(min=0.0, max=255.0).to(torch.uint8)
+│   ├── impls rgb_image = rgb.permute(1, 2, 0)
+│   └── return rgb_image
+├── def _map_segmentation_image_to_rgb(segmentation_image_path: str, class_id_to_rgb: Dict[int, Tuple[int, int, int]]) -> torch.Tensor
+│   ├── # Maps the segmentation image's per-pixel class ids to RGB via the class-to-RGB mapping for Dash display.
+│   ├── impls assert isinstance(segmentation_image_path, str)
+│   ├── impls assert isinstance(class_id_to_rgb, dict)
+│   ├── calls load_image(filepath=segmentation_image_path, normalization=None)
+│   ├── impls segmentation_image = that loaded image cast to torch.int64
+│   ├── impls assert segmentation_image.ndim == 2
+│   ├── impls height, width = segmentation_image.shape
+│   ├── impls rgb_image = a uint8 zeros tensor of shape (height, width, 3)
+│   ├── for each class_id, color in class_id_to_rgb.items()
+│   │   └── impls rgb_image[segmentation_image == class_id] = color  # a class id with no mapping entry stays black
+│   └── return rgb_image  # an HWC uint8 RGB image
+└── def _map_instance_surrogate_image_to_rgb(image_path: str, class_id_to_rgb: Dict[int, Tuple[int, int, int]]) -> torch.Tensor
+    ├── # Maps the instance-surrogate offset image to RGB via the class-to-RGB mapping for Dash display.
+    ├── impls assert isinstance(image_path, str)
+    ├── impls assert isinstance(class_id_to_rgb, dict)
+    ├── calls load_image(filepath=image_path, normalization=None)
+    ├── impls assert instance_surrogate is a 3-D tensor whose first dimension is at least 2
+    ├── impls y_offset = instance_surrogate[0].to(torch.float64)
+    ├── impls x_offset = instance_surrogate[1].to(torch.float64)
+    ├── impls magnitude = torch.sqrt(y_offset**2 + x_offset**2)
+    ├── impls class_id_image = torch.zeros_like(magnitude, dtype=torch.int64)
+    ├── impls percentiles = torch.quantile(magnitude.reshape(-1), torch.linspace(0, 1, 20, dtype=torch.float64))
+    ├── for bin_index in range(len(percentiles) - 1)
+    │   ├── if bin_index == len(percentiles) - 2
+    │   │   └── impls mask = magnitude >= percentiles[bin_index]
+    │   ├── else
+    │   │   └── impls mask = (magnitude >= percentiles[bin_index]) & (magnitude < percentiles[bin_index + 1])
+    │   └── impls class_id_image[mask] = bin_index + 1
+    ├── impls height, width = class_id_image.shape
+    ├── impls rgb_image = a uint8 zeros tensor of shape (height, width, 3)
+    ├── for each class_id, color in class_id_to_rgb.items()
+    │   └── impls rgb_image[class_id_image == class_id] = color  # a class id with no mapping entry stays black
+    └── return rgb_image  # an HWC uint8 RGB image
 ```
 
 `./data/viewer/utils/displays/pixels/dash/core_pixels_display.py`
@@ -946,8 +1007,17 @@ placeholder_display.ts
 
 ```text
 video_display.py
-└── def create_video_display
-    └── # Builds the Dash video display from a video path.
+├── from dash import html
+└── def create_video_display(src: str | None, title: str) -> html.Div
+    ├── # Builds the Dash video display from an optional video source url and a title.
+    ├── impls assert src is None or isinstance(src, str)
+    ├── impls assert isinstance(title, str)
+    ├── if src is None
+    │   ├── impls placeholder = html.Div("Placeholder for missing video.", className="placeholder-surface")
+    │   └── return placeholder
+    ├── impls video = html.Video(src=src, controls=True, title=title)
+    ├── impls display = html.Div(video)
+    └── return display
 ```
 
 ### Backend schemas
@@ -1137,8 +1207,13 @@ table_display.ts
 
 ```text
 scene_graph_display.py
-└── def create_scene_graph_display
-    └── # Builds the Dash scene-graph display from a method-agnostic graph payload.
+├── from typing import Dict, List
+├── from dash import html
+└── def create_scene_graph_display(rows: List[Dict[str, str]]) -> html.Pre
+    ├── # Builds the Dash scene-graph display from the scene-graph preview rows.
+    ├── impls assert isinstance(rows, list)
+    ├── impls display = html.Pre(str(rows), className="json-preview")
+    └── return display
 ```
 
 ### Backend schemas
@@ -1482,6 +1557,10 @@ apis.py
 core_mesh_display.py
 ├── from pathlib import Path
 ├── from typing import Any, Dict
+├── from data.structures.three_d.mesh.mesh import Mesh
+├── from data.structures.three_d.mesh.save import save_mesh
+├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
+├── from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import MeshTextureVertexColor
 ├── from data.viewer.utils.displays.mesh.ts.backend.schemas.display_response import MeshDisplayResponse
 ├── def create_mesh_display_response_core(input_path: Path, output_path: Path, url: str, slot_id: str, title: str, meta_info: Dict[str, Any]) -> MeshDisplayResponse
 │   ├── # Writes the processed mesh resource to output_path and returns the mesh display response, dispatching on the mesh texture representation.
@@ -1493,10 +1572,18 @@ core_mesh_display.py
 │   │   └── raise unsupported mesh texture representation
 │   ├── impls writes the processed mesh resource bytes to output_path
 │   └── return MeshDisplayResponse with slot_id, title, url, meta_info from caller-provided args
-├── def _create_vertex_color_mesh_display_response
-│   └── # Builds the mesh display response for a per-vertex-colored mesh.
-└── def _create_uv_texture_map_mesh_display_response
-    └── # Builds the mesh display response for a UV-texture-mapped mesh.
+├── def _create_vertex_color_mesh_display_response(mesh: Mesh, output_path: Path) -> None
+│   ├── # Writes the per-vertex-colored mesh resource to output_path.
+│   ├── impls assert isinstance(mesh, Mesh)
+│   ├── impls assert isinstance(output_path, Path)
+│   ├── impls assert isinstance(mesh.texture, MeshTextureVertexColor)
+│   └── calls save_mesh(mesh=mesh, output_path=output_path)
+└── def _create_uv_texture_map_mesh_display_response(mesh: Mesh, output_path: Path) -> None
+    ├── # Writes the UV-texture-mapped mesh resource to output_path.
+    ├── impls assert isinstance(mesh, Mesh)
+    ├── impls assert isinstance(output_path, Path)
+    ├── impls assert isinstance(mesh.texture, MeshTextureUVTextureMap)
+    └── calls save_mesh(mesh=mesh, output_path=output_path)
 ```
 
 ### Frontend
