@@ -122,7 +122,7 @@ camera_extrinsics.py
 │   │   ├── calls validate_camera_extrinsics_attributes(extrinsics=extrinsics, extr_convention=extr_convention, device=device, dtype=dtype)
 │   │   ├── def _normalize_inputs(extrinsics: Union[np.ndarray, torch.Tensor, List[List[Union[int, float]]]], device: Union[str, torch.device], dtype: torch.dtype) -> Tuple[torch.Tensor, torch.device] [local]
 │   │   │   ├── impls extrinsics = torch.as_tensor(extrinsics, device=device, dtype=dtype)
-│   │   │   ├── impls device = torch.device(device)
+│   │   │   ├── impls device = the placed tensor's own device, so an index-free target resolves to the index the tensor actually landed on
 │   │   │   └── return extrinsics, device
 │   │   ├── calls _normalize_inputs(extrinsics=extrinsics, device=device, dtype=dtype)
 │   │   ├── impls extrinsics, device = the returned values from _normalize_inputs

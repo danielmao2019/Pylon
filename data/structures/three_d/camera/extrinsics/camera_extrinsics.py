@@ -63,7 +63,7 @@ class CameraExtrinsics:
             else:
                 dtype = torch.float32
             extrinsics = torch.as_tensor(extrinsics).to(device=device, dtype=dtype)
-            return extrinsics, device, dtype
+            return extrinsics, extrinsics.device, dtype
 
         extrinsics, device, dtype = _normalize_inputs(
             extrinsics=extrinsics,
