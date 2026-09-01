@@ -12,7 +12,7 @@ class ABC
 
 ## 2. Code structure trees
 
-`./data/structures/three_d/camera/intrinsics/validation.py`
+`data/structures/three_d/camera/intrinsics/validation.py`
 
 ```text
 validation.py
@@ -96,7 +96,7 @@ validation.py
     └── return
 ```
 
-`./data/structures/three_d/camera/extrinsics/validation.py`
+`data/structures/three_d/camera/extrinsics/validation.py`
 
 ```text
 validation.py
@@ -112,10 +112,6 @@ validation.py
 │   ├── impls asserts device is a str or torch.device
 │   ├── impls asserts dtype is a floating torch dtype
 │   └── return
-├── def validate_extr_convention(extr_convention: Any) -> str
-│   ├── # Validate a camera-pose convention string against the supported set.
-│   ├── impls asserts extr_convention is a str in {standard, opengl, opencv, pytorch3d, arkit}
-│   └── return extr_convention
 ├── def validate_camera_extrinsics(obj: Any) -> Union[np.ndarray, torch.Tensor, List[List[Union[int, float]]]]
 │   ├── # Dispatch camera-extrinsics validation on the input representation.
 │   ├── if isinstance(obj, np.ndarray)
@@ -125,6 +121,10 @@ validation.py
 │   ├── if isinstance(obj, list)
 │   │   └── calls _validate_camera_extrinsics_list
 │   └── raise TypeError  # obj is neither a numpy array, torch tensor, nor nested numeric list
+├── def validate_extr_convention(extr_convention: Any) -> str
+│   ├── # Validate a camera-pose convention string against the supported set.
+│   ├── impls asserts extr_convention is a str in {standard, opengl, opencv, pytorch3d, arkit}
+│   └── return extr_convention
 ├── def _validate_camera_extrinsics_numpy(obj: np.ndarray) -> np.ndarray
 │   ├── # Validate a (..., 4, 4) numpy camera-extrinsics (cam2world) matrix.
 │   ├── impls asserts ndarray, ndim >= 2, last two dims (4, 4), dtype in {np.float32, np.float64}
@@ -195,7 +195,7 @@ validation.py
     └── return obj
 ```
 
-`./data/structures/three_d/camera/validation.py`
+`data/structures/three_d/camera/validation.py`
 
 ```text
 validation.py
@@ -225,7 +225,7 @@ validation.py
     └── return
 ```
 
-`./data/structures/three_d/camera/intrinsics/scaling.py`
+`data/structures/three_d/camera/intrinsics/scaling.py`
 
 ```text
 scaling.py
@@ -281,7 +281,7 @@ scaling.py
     └── assert 0, "Should not reach here."
 ```
 
-`./data/structures/three_d/camera/intrinsics/conventions.py`
+`data/structures/three_d/camera/intrinsics/conventions.py`
 
 ```text
 conventions.py
@@ -322,13 +322,6 @@ conventions.py
 │   │   └── assert 0, "Should not reach here."
 │   ├── calls _from_standard
 │   └── return  # params, restated on target_intr_convention
-├── def _standard_to_opengl(params: Dict[str, Union[int, float]], model: str) -> Dict[str, Union[int, float]]
-│   ├── # Restates pixel params on OpenGL's device frame, whose origin is the image's centre, whose x runs with standard's toward the right edge and whose y runs against it toward the top, each axis spanning its own side.
-│   ├── impls unit_x, unit_y = 2 / w, 2 / h              # each axis spans [-1, 1] across its own side
-│   ├── calls _centre_principal_point(params=params)     # -> params, off the top-left corner onto the image's centre
-│   ├── calls _reverse_axes(params=params, axes=("y",))  # standard's y runs toward the bottom edge and OpenGL's toward the top
-│   ├── calls rescale_intr_params(params=params, model=model, unit_x=unit_x, unit_y=unit_y)
-│   └── return  # params, on the opengl frame
 ├── def _opengl_to_standard(params: Dict[str, Union[int, float]], model: str) -> Dict[str, Union[int, float]]
 │   ├── # The inbound half of the same frame, the three steps run in reverse so a round trip returns what it started as.
 │   ├── impls unit_x, unit_y = w / 2, h / 2
@@ -336,13 +329,6 @@ conventions.py
 │   ├── calls _reverse_axes(params=params, axes=("y",))
 │   ├── calls _uncentre_principal_point(params=params)
 │   └── return  # params, on the standard frame
-├── def _standard_to_pytorch3d(params: Dict[str, Union[int, float]], model: str) -> Dict[str, Union[int, float]]
-│   ├── # Restates pixel params on PyTorch3D's device frame, whose origin is the image's centre, whose x runs toward the left edge and y toward the top, and whose shorter side alone spans [-1, 1].
-│   ├── impls unit = 2 / min(h, w)  # the one frame here normalizing both axes by a single side, letting the longer one reach past $1$
-│   ├── calls _centre_principal_point(params=params)
-│   ├── calls _reverse_axes(params=params, axes=("x", "y"))  # standard runs x toward the right edge and y toward the bottom, PyTorch3D x toward the left and y toward the top
-│   ├── calls rescale_intr_params(params=params, model=model, unit_x=unit, unit_y=unit)
-│   └── return  # params, on the pytorch3d frame
 ├── def _pytorch3d_to_standard(params: Dict[str, Union[int, float]], model: str) -> Dict[str, Union[int, float]]
 │   ├── # The inbound half of the same frame, the three steps run in reverse.
 │   ├── impls unit = min(h, w) / 2
@@ -350,34 +336,48 @@ conventions.py
 │   ├── calls _reverse_axes(params=params, axes=("x", "y"))
 │   ├── calls _uncentre_principal_point(params=params)
 │   └── return  # params, on the standard frame
-├── def _standard_to_vulkan(params: Dict[str, Union[int, float]], model: str) -> Dict[str, Union[int, float]]
-│   ├── # Restates pixel params on Vulkan's device frame, which agrees with standard on both axis directions and differs from OpenGL's in exactly that.
-│   ├── impls unit_x, unit_y = 2 / w, 2 / h
-│   ├── calls _centre_principal_point(params=params)
-│   ├── calls rescale_intr_params(params=params, model=model, unit_x=unit_x, unit_y=unit_y)
-│   └── return  # params, on the vulkan frame
 ├── def _vulkan_to_standard(params: Dict[str, Union[int, float]], model: str) -> Dict[str, Union[int, float]]
 │   ├── # The inbound half of the same frame, the two steps run in reverse.
 │   ├── impls unit_x, unit_y = w / 2, h / 2
 │   ├── calls rescale_intr_params(params=params, model=model, unit_x=unit_x, unit_y=unit_y)
 │   ├── calls _uncentre_principal_point(params=params)
 │   └── return  # params, on the standard frame
+├── def _standard_to_opengl(params: Dict[str, Union[int, float]], model: str) -> Dict[str, Union[int, float]]
+│   ├── # Restates pixel params on OpenGL's device frame, whose origin is the image's centre, whose x runs with standard's toward the right edge and whose y runs against it toward the top, each axis spanning its own side.
+│   ├── impls unit_x, unit_y = 2 / w, 2 / h              # each axis spans [-1, 1] across its own side
+│   ├── calls _centre_principal_point(params=params)     # -> params, off the top-left corner onto the image's centre
+│   ├── calls _reverse_axes(params=params, axes=("y",))  # standard's y runs toward the bottom edge and OpenGL's toward the top
+│   ├── calls rescale_intr_params(params=params, model=model, unit_x=unit_x, unit_y=unit_y)
+│   └── return  # params, on the opengl frame
+├── def _standard_to_pytorch3d(params: Dict[str, Union[int, float]], model: str) -> Dict[str, Union[int, float]]
+│   ├── # Restates pixel params on PyTorch3D's device frame, whose origin is the image's centre, whose x runs toward the left edge and y toward the top, and whose shorter side alone spans [-1, 1].
+│   ├── impls unit = 2 / min(h, w)  # the one frame here normalizing both axes by a single side, letting the longer one reach past $1$
+│   ├── calls _centre_principal_point(params=params)
+│   ├── calls _reverse_axes(params=params, axes=("x", "y"))  # standard runs x toward the right edge and y toward the bottom, PyTorch3D x toward the left and y toward the top
+│   ├── calls rescale_intr_params(params=params, model=model, unit_x=unit, unit_y=unit)
+│   └── return  # params, on the pytorch3d frame
+├── def _standard_to_vulkan(params: Dict[str, Union[int, float]], model: str) -> Dict[str, Union[int, float]]
+│   ├── # Restates pixel params on Vulkan's device frame, which agrees with standard on both axis directions and differs from OpenGL's in exactly that.
+│   ├── impls unit_x, unit_y = 2 / w, 2 / h
+│   ├── calls _centre_principal_point(params=params)
+│   ├── calls rescale_intr_params(params=params, model=model, unit_x=unit_x, unit_y=unit_y)
+│   └── return  # params, on the vulkan frame
 ├── def _centre_principal_point(params: Dict[str, Union[int, float]]) -> Dict[str, Union[int, float]]
 │   ├── # Moves the principal point off the image's top-left corner onto its centre, the separation no axis reversal can carry and the largest of the three.
 │   ├── impls cx, cy = cx - w / 2, cy - h / 2 in a copy of params  # every model states its principal point and its size as the same four params
 │   └── return  # params, on a centred origin
-├── def _uncentre_principal_point(params: Dict[str, Union[int, float]]) -> Dict[str, Union[int, float]]
-│   ├── # Moves the principal point back off the image's centre onto its top-left corner.
-│   ├── impls cx, cy = cx + w / 2, cy + h / 2 in a copy of params
-│   └── return  # params, on a corner origin
-└── def _reverse_axes(params: Dict[str, Union[int, float]], axes: Tuple[str, ...]) -> Dict[str, Union[int, float]]
-    ├── # Reverses the named image axes, which reaches the principal point alone.
-    ├── for each named axis
-    │   └── impls negate that axis's principal-point param in a copy of params  # the offset is stated on the output side alone, so a reversal reaches it unopposed
-    └── return  # params, on the reversed axes
+├── def _reverse_axes(params: Dict[str, Union[int, float]], axes: Tuple[str, ...]) -> Dict[str, Union[int, float]]
+│   ├── # Reverses the named image axes, which reaches the principal point alone.
+│   ├── for each named axis
+│   │   └── impls negate that axis's principal-point param in a copy of params  # the offset is stated on the output side alone, so a reversal reaches it unopposed
+│   └── return  # params, on the reversed axes
+└── def _uncentre_principal_point(params: Dict[str, Union[int, float]]) -> Dict[str, Union[int, float]]
+    ├── # Moves the principal point back off the image's centre onto its top-left corner.
+    ├── impls cx, cy = cx + w / 2, cy + h / 2 in a copy of params
+    └── return  # params, on a corner origin
 ```
 
-`./data/structures/three_d/camera/intrinsics/camera_intrinsics.py`
+`data/structures/three_d/camera/intrinsics/camera_intrinsics.py`
 
 ```text
 camera_intrinsics.py
@@ -546,7 +546,7 @@ camera_intrinsics.py
     └── assert 0, "Should not reach here."
 ```
 
-`./data/structures/three_d/camera/extrinsics/camera_extrinsics.py`
+`data/structures/three_d/camera/extrinsics/camera_extrinsics.py`
 
 ```text
 camera_extrinsics.py
@@ -668,7 +668,7 @@ camera_extrinsics.py
     └── return rotation_fixed
 ```
 
-`./data/structures/three_d/camera/camera.py`
+`data/structures/three_d/camera/camera.py`
 
 ```text
 camera.py
@@ -771,7 +771,7 @@ camera.py
         └── calls load_cameras
 ```
 
-`./data/structures/three_d/camera/cameras.py`
+`data/structures/three_d/camera/cameras.py`
 
 ```text
 cameras.py
@@ -884,7 +884,7 @@ cameras.py
         └── impls stacks each CameraExtrinsics up axis into [N, 3]
 ```
 
-`./data/structures/three_d/camera/camera_vis.py`
+`data/structures/three_d/camera/camera_vis.py`
 
 ```text
 camera_vis.py
@@ -909,7 +909,7 @@ camera_vis.py
     └── return
 ```
 
-`./data/structures/three_d/camera/io.py`
+`data/structures/three_d/camera/io.py`
 
 ```text
 io.py

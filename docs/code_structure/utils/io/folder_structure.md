@@ -3,7 +3,7 @@
 ## Code folder structure
 
 ```text
-./utils/io/
+utils/io/
 ├── __init__.py  # io package API surface
 ├── config.py    # config-file I/O
 ├── chumpy.py    # chumpy-pickled file I/O with stream-class substitution to plain numpy arrays
@@ -18,7 +18,7 @@
 ## Tests folder structure
 
 ```text
-./tests/utils/io/
+tests/utils/io/
 ├── chumpy/
 │   └── test_chumpy_loading.py
 ├── config/

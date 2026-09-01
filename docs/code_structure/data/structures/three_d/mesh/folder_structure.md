@@ -3,7 +3,7 @@
 ## Code folder structure
 
 ```text
-./data/structures/three_d/mesh/
+data/structures/three_d/mesh/
 ├── __init__.py  # package API surface (re-exports Mesh + MeshTexture types + free functions)
 ├── mesh.py      # the Mesh class: geometry + optional MeshTexture
 ├── validate.py  # geometry validators + texture<->geometry linkage validation

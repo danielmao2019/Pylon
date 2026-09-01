@@ -3,7 +3,7 @@
 ## Code folder structure
 
 ```text
-render/
+models/three_d/meshes/render/
 ├── __init__.py      # MODELS.THREE_D.MESHES.RENDER package API surface.
 ├── core.py          # PyTorch3D RGB/mask rendering from a triangle Mesh and Camera.
 ├── core_blender.py  # Blender-based RGB/mask rendering parallel to the PyTorch3D stack.
@@ -16,6 +16,7 @@ render/
 
 ```text
 tests/models/three_d/meshes/render/
-├── test_core.py     # render_soft_mask_from_mesh and the camera it renders through: the coverage the silhouette carries a gradient through, and both camera models reaching PyTorch3D in PyTorch3D's own frames
-└── test_shading.py  # compute_sh_shading: band-count handling and the shading it evaluates over surface normals
+├── test_core.py          # render_soft_mask_from_mesh and the camera it renders through: the coverage the silhouette carries a gradient through, and both camera models reaching PyTorch3D in PyTorch3D's own frames
+├── test_core_blender.py  # render_rgb_from_mesh_blender's camera helper: the Blender camera parameters built from resolution-scaled intrinsics, against a stubbed bpy
+└── test_shading.py       # compute_sh_shading: band-count handling and the shading it evaluates over surface normals
 ```

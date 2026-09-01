@@ -2,7 +2,7 @@
 
 ## 1. Code structure trees
 
-`./web/reconcile/reconcile.ts`
+`web/reconcile/reconcile.ts`
 
 ```text
 reconcile.ts

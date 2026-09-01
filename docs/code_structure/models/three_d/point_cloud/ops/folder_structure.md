@@ -3,7 +3,7 @@
 ## Code folder structure
 
 ```text
-ops/
+models/three_d/point_cloud/ops/
 ├── __init__.py         # MODELS.THREE_D.POINT_CLOUD.OPS package API surface.
 ├── apply_transform.py  # applies a 4x4 transform to points in homogeneous coordinates via chunked_matmul
 ├── correspondences.py

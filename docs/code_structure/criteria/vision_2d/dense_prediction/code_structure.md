@@ -56,15 +56,15 @@ base.py
     │   │   └── return  # the mean over the per-sample losses
     │   └── else
     │       └── return  # the sum over the per-sample losses
+    ├── @abstractmethod def _task_specific_checks(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> None  [abstract]
+    │   ├── # Hook where each task asserts its own prediction and target shape and value contract, before any loss is computed.
+    │   └── raise NotImplementedError
     ├── def _match_resolution(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor
     │   ├── # Resamples the target onto the prediction's spatial size when the two disagree, so every downstream step compares pixel to pixel.
     │   ├── if the ground truth's spatial dimensions differ from the prediction's
     │   │   ├── impls choose nearest interpolation when the ground truth is an int64 tensor and bilinear otherwise  # impls-node-one-step:skip
     │   │   └── calls F.resize(y_true, size=y_pred.shape[-2:], interpolation=getattr(F.InterpolationMode, mode.upper()))
     │   └── return  # the ground truth at the prediction's spatial resolution
-    ├── @abstractmethod def _task_specific_checks(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> None  [abstract]
-    │   ├── # Hook where each task asserts its own prediction and target shape and value contract, before any loss is computed.
-    │   └── raise NotImplementedError
     ├── @abstractmethod def _get_valid_mask(self, y_true: torch.Tensor) -> torch.Tensor  [abstract]  # -> an (N, H, W) bool mask
     │   ├── # Hook where each task says which pixels carry supervision, so the loss averages over those alone.
     │   └── raise NotImplementedError

@@ -1,6 +1,6 @@
 # Mesh Data Structure Code Structure
 
-## Inheritance / type trees
+## 1. Inheritance / type trees
 
 ```text
 class abc.ABC
@@ -10,7 +10,7 @@ class abc.ABC
 class Mesh
 ```
 
-## Mesh class
+## 2. Code structure trees
 
 `data/structures/three_d/mesh/mesh.py`
 
@@ -62,8 +62,6 @@ mesh.py
         └── return target_mesh
 ```
 
-## Geometry and linkage validation
-
 `data/structures/three_d/mesh/validate.py`
 
 ```text
@@ -108,8 +106,6 @@ validate.py
         └── impls assert texture.device equals verts.device
 ```
 
-## Texture: abstract base
-
 `data/structures/three_d/mesh/texture/mesh_texture.py`
 
 ```text
@@ -122,8 +118,6 @@ mesh_texture.py
     └── @abc.abstractmethod def to(self, device: Union[str, torch.device, None] = None, uv_convention: Optional[str] = None) -> "MeshTexture"
         └── # Returns this texture on a target device and/or UV-origin convention.
 ```
-
-## Texture: vertex-color representation
 
 `data/structures/three_d/mesh/texture/mesh_texture_vertex_color.py`
 
@@ -168,8 +162,6 @@ mesh_texture_vertex_color.py
         ├── impls target_texture = MeshTextureVertexColor on the target device
         └── return target_texture
 ```
-
-## Texture: uv-texture-map representation
 
 `data/structures/three_d/mesh/texture/mesh_texture_uv_texture_map.py`
 
@@ -233,8 +225,6 @@ mesh_texture_uv_texture_map.py
         └── return result
 ```
 
-## Texture: UV-origin convention
-
 `data/structures/three_d/mesh/texture/conventions.py`
 
 ```text
@@ -247,8 +237,6 @@ conventions.py
         ├── impls flipped = a copy of verts_uvs with the V axis flipped (v -> 1 - v)
         └── return flipped
 ```
-
-## Texture: seam-safe canonical layout
 
 `data/structures/three_d/mesh/texture/canonicalize.py`
 
@@ -281,8 +269,6 @@ canonicalize.py
     └── return  # (obj_vt_table, obj_faces_uvs) with U_obj <= U_canonical
 ```
 
-## Texture: vertex-color validation
-
 `data/structures/three_d/mesh/texture/validate_vertex_color.py`
 
 ```text
@@ -308,8 +294,6 @@ validate_vertex_color.py
     ├── impls assert obj's smallest value is at least 0
     └── impls assert obj's largest value is at most 1
 ```
-
-## Texture: uv-texture-map validation
 
 `data/structures/three_d/mesh/texture/validate_uv_texture_map.py`
 
@@ -377,8 +361,6 @@ validate_uv_texture_map.py
     └── calls _validate_seam_safe_uv_layout()
 ```
 
-## Texture: texel-to-face map
-
 `data/structures/three_d/mesh/texture/texel_face_map.py`
 
 ```text
@@ -433,8 +415,6 @@ texel_face_map.py
     └── return  # [T, T, 3] barycentric weights (w0, w1, w2 summing to 1 on occupied texels)
 ```
 
-## Texture: package API surface
-
 `data/structures/three_d/mesh/texture/__init__.py`
 
 ```text
@@ -448,8 +428,6 @@ __init__.py
 ├── from data.structures.three_d.mesh.texture.validate_uv_texture_map import validate_uv_texture_map, validate_uv_texture_map_image, validate_verts_uvs, validate_faces_uvs, validate_uv_convention
 └── from data.structures.three_d.mesh.texture.validate_vertex_color import validate_vertex_color
 ```
-
-## Loading: API and format dispatch
 
 `data/structures/three_d/mesh/load/__init__.py`
 
@@ -474,8 +452,6 @@ load.py
     │   └── return
     └── assert 0, "Should not reach here."
 ```
-
-## Loading: OBJ
 
 `data/structures/three_d/mesh/load/load_obj.py`
 
@@ -508,6 +484,26 @@ load_obj.py
 │   │   ├── calls _load_mesh_uv_texture_map
 │   │   └── return
 │   └── assert 0, "Should not reach here."
+├── def _inspect_obj_file(obj_path: Path) -> Dict[str, bool]
+│   ├── # Inspects one OBJ to detect its texture representation (has_vertex_colors / has_uv_coords / has_uv_faces / has_mtllib).
+│   ├── impls start all four flags false
+│   ├── for each stripped line of the OBJ file
+│   │   ├── if the line is blank or starts with "#"
+│   │   │   └── continue
+│   │   ├── if the line starts with "mtllib "
+│   │   │   ├── impls has_mtllib = True
+│   │   │   └── continue
+│   │   ├── if the line starts with "vt "
+│   │   │   ├── impls has_uv_coords = True
+│   │   │   └── continue
+│   │   ├── if the line starts with "v "
+│   │   │   ├── if it carries seven or more whitespace-separated tokens
+│   │   │   │   └── impls has_vertex_colors = True
+│   │   │   └── continue
+│   │   └── if the line starts with "f "
+│   │       └── if any of its corner tokens contains "/"
+│   │           └── impls has_uv_faces = True
+│   └── return the four flags keyed has_vertex_colors / has_uv_coords / has_uv_faces / has_mtllib
 ├── def _load_mesh_geometry_only(path: Union[str, Path]) -> Mesh
 │   ├── # Loads a geometry-only OBJ (parses v / f lines; texture None).
 │   └── calls _resolve_input_path
@@ -523,43 +519,21 @@ load_obj.py
 ├── def _resolve_input_path(path: Union[str, Path]) -> Path
 │   ├── # Resolves a mesh path to exactly one OBJ file.
 │   └── calls _resolve_input_paths
-├── def _resolve_input_paths(path: Union[str, Path]) -> List[Path]
-│   ├── # Resolves a mesh path to one OBJ file, or every OBJ at the top level / one level below a directory.
-│   ├── impls candidate_path = path as a Path
-│   ├── if candidate_path is a file
-│   │   ├── impls assert its lowercased suffix is ".obj"
-│   │   ├── impls candidate_obj_paths = [candidate_path]
-│   │   └── return candidate_obj_paths
-│   ├── impls assert candidate_path is a directory
-│   ├── impls top_level_obj_paths = the sorted *.obj entries directly under it
-│   ├── impls nested_obj_paths = the sorted */*.obj entries one level below it
-│   ├── impls assert the two are not both non-empty
-│   ├── impls candidate_obj_paths = top_level_obj_paths followed by nested_obj_paths
-│   ├── impls assert candidate_obj_paths is non-empty
-│   └── return candidate_obj_paths
-└── def _inspect_obj_file(obj_path: Path) -> Dict[str, bool]
-    ├── # Inspects one OBJ to detect its texture representation (has_vertex_colors / has_uv_coords / has_uv_faces / has_mtllib).
-    ├── impls start all four flags false
-    ├── for each stripped line of the OBJ file
-    │   ├── if the line is blank or starts with "#"
-    │   │   └── continue
-    │   ├── if the line starts with "mtllib "
-    │   │   ├── impls has_mtllib = True
-    │   │   └── continue
-    │   ├── if the line starts with "vt "
-    │   │   ├── impls has_uv_coords = True
-    │   │   └── continue
-    │   ├── if the line starts with "v "
-    │   │   ├── if it carries seven or more whitespace-separated tokens
-    │   │   │   └── impls has_vertex_colors = True
-    │   │   └── continue
-    │   └── if the line starts with "f "
-    │       └── if any of its corner tokens contains "/"
-    │           └── impls has_uv_faces = True
-    └── return the four flags keyed has_vertex_colors / has_uv_coords / has_uv_faces / has_mtllib
+└── def _resolve_input_paths(path: Union[str, Path]) -> List[Path]
+    ├── # Resolves a mesh path to one OBJ file, or every OBJ at the top level / one level below a directory.
+    ├── impls candidate_path = path as a Path
+    ├── if candidate_path is a file
+    │   ├── impls assert its lowercased suffix is ".obj"
+    │   ├── impls candidate_obj_paths = [candidate_path]
+    │   └── return candidate_obj_paths
+    ├── impls assert candidate_path is a directory
+    ├── impls top_level_obj_paths = the sorted *.obj entries directly under it
+    ├── impls nested_obj_paths = the sorted */*.obj entries one level below it
+    ├── impls assert the two are not both non-empty
+    ├── impls candidate_obj_paths = top_level_obj_paths followed by nested_obj_paths
+    ├── impls assert candidate_obj_paths is non-empty
+    └── return candidate_obj_paths
 ```
-
-## Loading: GLB
 
 `data/structures/three_d/mesh/load/load_glb.py`
 
@@ -589,6 +563,19 @@ load_glb.py
 │   │   ├── calls _load_glb_uv_texture_map
 │   │   └── return
 │   └── assert 0, "Should not reach here."
+├── def _select_mesh_primitive(gltf: Dict[str, Any]) -> Tuple[int, int]
+│   ├── # Selects the (mesh_index, primitive_index) to load — the primitive whose material carries a base-color texture (for a GLB of many marker meshes plus one textured face, this uniquely picks the face).
+│   ├── impls assert the glTF declares at least one mesh
+│   ├── for each (mesh_index, primitive_index) over the glTF meshes and their primitives
+│   │   ├── impls is_textured = the primitive names a material that exists and carries a baseColorTexture  # impls-node-one-step:skip
+│   │   ├── impls vertex_count = the POSITION accessor's count, or 0 when the primitive declares none
+│   │   ├── if is_textured and no textured choice is held yet
+│   │   │   └── impls textured_choice = that pair
+│   │   └── if vertex_count exceeds the largest vertex count seen
+│   │       ├── impls largest_vertex_count = vertex_count
+│   │       └── impls largest_choice = that pair
+│   ├── impls assert largest_choice was set
+│   └── return textured_choice when one was found, else largest_choice  # the most-vertex primitive is the fallback
 ├── def _load_glb_geometry_only(gltf: Dict[str, Any], binary_blob: bytes, mesh_index: int, primitive_index: int) -> Mesh
 │   ├── # Builds a geometry-only Mesh from a GLB primitive (POSITION -> verts; indices -> faces; texture None).
 │   ├── calls read_accessor(POSITION)  # -> verts
@@ -597,11 +584,11 @@ load_glb.py
 │   └── return mesh
 ├── def _load_glb_vertex_color(gltf: Dict[str, Any], binary_blob: bytes, mesh_index: int, primitive_index: int) -> Mesh
 │   ├── # Builds a vertex-colored Mesh from a GLB primitive (POSITION -> verts; indices -> faces; COLOR_0 -> vertex_color).
-│   ├── calls read_accessor(POSITION)  # -> verts
-│   ├── calls read_accessor(indices)   # -> faces
-│   ├── calls read_accessor(COLOR_0)   # -> vertex_color
+│   ├── calls read_accessor(POSITION)                            # -> verts
+│   ├── calls read_accessor(indices)                             # -> faces
+│   ├── calls read_accessor(COLOR_0)                             # -> vertex_color
 │   ├── calls MeshTextureVertexColor(vertex_color=vertex_color)  # -> texture
-│   ├── calls Mesh(texture=texture)    # -> mesh
+│   ├── calls Mesh(texture=texture)                              # -> mesh
 │   └── return mesh
 ├── def _load_glb_uv_texture_map(gltf: Dict[str, Any], binary_blob: bytes, mesh_index: int, primitive_index: int) -> Mesh
 │   ├── # Builds a UV-textured Mesh from a GLB primitive (POSITION -> verts; the shared index buffer -> faces and the raw faces_uvs; TEXCOORD_0 -> verts_uvs; base-color image -> uv_texture_map) on uv_convention "top_left".
@@ -616,19 +603,6 @@ load_glb.py
 │   ├── calls MeshTextureUVTextureMap(uv_convention="top_left")
 │   ├── calls Mesh
 │   └── return
-├── def _select_mesh_primitive(gltf: Dict[str, Any]) -> Tuple[int, int]
-│   ├── # Selects the (mesh_index, primitive_index) to load — the primitive whose material carries a base-color texture (for a GLB of many marker meshes plus one textured face, this uniquely picks the face).
-│   ├── impls assert the glTF declares at least one mesh
-│   ├── for each (mesh_index, primitive_index) over the glTF meshes and their primitives
-│   │   ├── impls is_textured = the primitive names a material that exists and carries a baseColorTexture  # impls-node-one-step:skip
-│   │   ├── impls vertex_count = the POSITION accessor's count, or 0 when the primitive declares none
-│   │   ├── if is_textured and no textured choice is held yet
-│   │   │   └── impls textured_choice = that pair
-│   │   └── if vertex_count exceeds the largest vertex count seen
-│   │       ├── impls largest_vertex_count = vertex_count
-│   │       └── impls largest_choice = that pair
-│   ├── impls assert largest_choice was set
-│   └── return textured_choice when one was found, else largest_choice  # the most-vertex primitive is the fallback
 └── def _resolve_base_color_texture_image_index(gltf: Dict[str, Any], primitive: Dict[str, Any]) -> int
     ├── # Resolves a primitive's material base-color texture to its glTF image index (glTF-semantic material navigation).
     ├── impls base_color_texture = the primitive's material's pbrMetallicRoughness baseColorTexture
@@ -636,8 +610,6 @@ load_glb.py
     ├── impls image_index = the source of the glTF texture at texture_index
     └── return image_index
 ```
-
-## Loading: block merging
 
 `data/structures/three_d/mesh/load/merge.py`
 
@@ -717,8 +689,6 @@ merge.py
     └── return flat_uv_coords, contiguous
 ```
 
-## Saving: API and format dispatch
-
 `data/structures/three_d/mesh/save/__init__.py`
 
 ```text
@@ -748,8 +718,6 @@ save.py
     └── assert 0, "Should not reach here."
 ```
 
-## Saving: OBJ
-
 `data/structures/three_d/mesh/save/save_obj.py`
 
 ```text
@@ -776,6 +744,13 @@ save_obj.py
 │   │   ├── calls _save_uv_texture_map_obj
 │   │   └── return
 │   └── assert 0, "Should not reach here."
+├── def _resolve_output_obj_path(output_path: Union[str, Path]) -> Path
+│   ├── # Resolves an output path to a concrete .obj file path (an ".obj" path, or "<dir>/mesh.obj").
+│   ├── impls candidate_path = output_path as a Path
+│   ├── if its lowercased suffix is ".obj"
+│   │   └── return candidate_path
+│   ├── impls assert it carries no suffix at all
+│   └── return candidate_path / "mesh.obj"
 ├── def _save_geometry_only_obj(mesh: Mesh, obj_path: Path) -> None
 │   ├── # Writes the OBJ v / f lines.
 │   ├── impls write one "v x y z" line per verts row, each coordinate to six decimals
@@ -789,13 +764,6 @@ save_obj.py
 │   ├── calls _normalize_uv_texture_map_for_png
 │   ├── calls transform_uv_convention(verts_uvs=mesh.texture.verts_uvs.detach().cpu(), source_uv_convention=mesh.texture.uv_convention, target_uv_convention="obj")  # the convention the vt lines are written in
 │   └── calls collapse_seam_shifted_uv_rows  # seam-safe canonical -> OBJ vt structure
-├── def _resolve_output_obj_path(output_path: Union[str, Path]) -> Path
-│   ├── # Resolves an output path to a concrete .obj file path (an ".obj" path, or "<dir>/mesh.obj").
-│   ├── impls candidate_path = output_path as a Path
-│   ├── if its lowercased suffix is ".obj"
-│   │   └── return candidate_path
-│   ├── impls assert it carries no suffix at all
-│   └── return candidate_path / "mesh.obj"
 ├── def _normalize_vertex_color_for_obj(vertex_color: torch.Tensor) -> torch.Tensor
 │   ├── # Normalizes vertex color to float32 [0,1] for OBJ export.
 │   ├── if vertex_color's dtype is torch.uint8
@@ -816,8 +784,6 @@ save_obj.py
     ├── impls texture_array = texture_array converted to a uint8 NumPy array
     └── return texture_array
 ```
-
-## Saving: PLY
 
 `data/structures/three_d/mesh/save/save_ply.py`
 
@@ -841,6 +807,13 @@ save_ply.py
 │   ├── if isinstance(mesh.texture, MeshTextureUVTextureMap)
 │   │   └── raise ValueError  # UV-atlas textures export through OBJ or GLB
 │   └── assert 0, "Should not reach here."
+├── def _resolve_output_ply_path(output_path: Union[str, Path]) -> Path
+│   ├── # Resolves an output path to a concrete .ply file path (a ".ply" path, or "<dir>/mesh.ply").
+│   ├── impls candidate_path = output_path as a Path
+│   ├── if its lowercased suffix is ".ply"
+│   │   └── return candidate_path
+│   ├── impls assert it carries no suffix at all
+│   └── return candidate_path / "mesh.ply"
 ├── def _save_geometry_only_ply(mesh: Mesh, ply_path: Path) -> None
 │   ├── # Writes a geometry-only PLY.
 │   ├── impls write the ascii PLY header declaring V vertex elements with float x / y / z and F face elements with a uchar-int vertex_indices list  # impls-node-one-step:skip
@@ -850,13 +823,6 @@ save_ply.py
 ├── def _save_vertex_color_ply(mesh: Mesh, ply_path: Path) -> None
 │   ├── # Writes a vertex-colored PLY.
 │   └── calls _normalize_vertex_color_for_ply
-├── def _resolve_output_ply_path(output_path: Union[str, Path]) -> Path
-│   ├── # Resolves an output path to a concrete .ply file path (a ".ply" path, or "<dir>/mesh.ply").
-│   ├── impls candidate_path = output_path as a Path
-│   ├── if its lowercased suffix is ".ply"
-│   │   └── return candidate_path
-│   ├── impls assert it carries no suffix at all
-│   └── return candidate_path / "mesh.ply"
 └── def _normalize_vertex_color_for_ply(vertex_color: torch.Tensor) -> torch.Tensor
     ├── # Normalizes vertex color to uint8 [0,255] for PLY export.
     ├── if vertex_color's dtype is torch.uint8
@@ -868,8 +834,6 @@ save_ply.py
     ├── impls vertex_color = vertex_color made contiguous
     └── return vertex_color
 ```
-
-## Saving: GLB
 
 `data/structures/three_d/mesh/save/save_glb.py`
 
@@ -898,6 +862,13 @@ save_glb.py
 │   │   ├── calls _save_uv_texture_map_glb
 │   │   └── return
 │   └── assert 0, "Should not reach here."
+├── def _resolve_output_glb_path(output_path: Union[str, Path]) -> Path
+│   ├── # Resolves an output path to a concrete .glb file path (a ".glb" path, or "<dir>/mesh.glb").
+│   ├── impls candidate_path = output_path as a Path
+│   ├── if its lowercased suffix is ".glb"
+│   │   └── return candidate_path
+│   ├── impls assert it carries no suffix at all
+│   └── return candidate_path / "mesh.glb"
 ├── def _save_geometry_only_glb(mesh: Mesh, glb_path: Path) -> None
 │   ├── # Appends POSITION + indices accessors and writes the GLB.
 │   ├── calls append_accessor
@@ -906,23 +877,14 @@ save_glb.py
 │   ├── # Appends POSITION + indices + COLOR_0 accessors and writes the GLB.
 │   ├── calls append_accessor
 │   └── calls write_glb
-├── def _save_uv_texture_map_glb(mesh: Mesh, glb_path: Path) -> None
-│   ├── # Appends POSITION + indices + TEXCOORD_0 accessors + an embedded base-color texture image, then writes the GLB.
-│   ├── calls collapse_seam_shifted_uv_rows  # seam-safe canonical -> glTF shared-index vt structure
-│   ├── calls append_accessor
-│   ├── calls encode_image_bytes
-│   ├── calls append_image
-│   └── calls write_glb
-└── def _resolve_output_glb_path(output_path: Union[str, Path]) -> Path
-    ├── # Resolves an output path to a concrete .glb file path (a ".glb" path, or "<dir>/mesh.glb").
-    ├── impls candidate_path = output_path as a Path
-    ├── if its lowercased suffix is ".glb"
-    │   └── return candidate_path
-    ├── impls assert it carries no suffix at all
-    └── return candidate_path / "mesh.glb"
+└── def _save_uv_texture_map_glb(mesh: Mesh, glb_path: Path) -> None
+    ├── # Appends POSITION + indices + TEXCOORD_0 accessors + an embedded base-color texture image, then writes the GLB.
+    ├── calls collapse_seam_shifted_uv_rows  # seam-safe canonical -> glTF shared-index vt structure
+    ├── calls append_accessor
+    ├── calls encode_image_bytes
+    ├── calls append_image
+    └── calls write_glb
 ```
-
-## Framework interop conversions
 
 `data/structures/three_d/mesh/convert.py`
 
@@ -1051,8 +1013,6 @@ convert.py
     ├── impls vertex_color_rgb = vertex_color_cpu as an array
     └── return vertex_color_rgb
 ```
-
-## Package API surface
 
 `data/structures/three_d/mesh/__init__.py`
 

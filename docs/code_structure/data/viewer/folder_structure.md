@@ -3,7 +3,7 @@
 ## Code folder structure
 
 ```text
-./data/viewer/utils/
+data/viewer/utils/
 ├── displays/  # the display modalities (renamed from atomic_displays)
 │   ├── utils/
 │   │   ├── class_colors.py    # shared class-id to RGB palette utility
@@ -218,7 +218,7 @@
 ## Tests folder structure
 
 ```text
-./tests/data/viewer/
+tests/data/viewer/
 ├── backend/          # backend display, state, initialization, transform, and edge-case tests
 ├── dataset/          # dataset-app integration tests
 ├── fixtures/         # shared mock-dataset fixtures

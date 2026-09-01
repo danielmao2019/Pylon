@@ -1,6 +1,6 @@
 # Utils IO Code Structure
 
-## glTF/GLB I/O
+## 1. Code structure trees
 
 `utils/io/glb.py`
 
@@ -92,8 +92,6 @@ glb.py
     ├── impls accessor_type = the accessor type string that table pairs with num_components
     └── return accessor_type  # the inverse of _component_count
 ```
-
-## Image: file I/O and in-memory bytes codec
 
 `utils/io/image.py`
 
@@ -230,8 +228,6 @@ image.py
     ├── impls encoded_image = buffer's bytes
     └── return encoded_image  # the encoded image
 ```
-
-## chumpy pickle I/O
 
 `utils/io/chumpy.py`
 

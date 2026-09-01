@@ -4,8 +4,6 @@
 
 ### Backend schemas
 
-`./data/viewer/utils/displays/utils/ts/backend/schemas/display_response.py`
-
 ```text
 class BaseModel
 └── class DisplayResponse  # from here down, its complete set of direct subclasses
@@ -40,8 +38,6 @@ class BaseModel
 
 ### Frontend
 
-`./data/viewer/utils/displays/utils/ts/frontend/types/display_response.ts`
-
 ```text
 interface DisplayResponse
 ├── interface PointDisplayResponse
@@ -75,7 +71,7 @@ interface DisplayResponse
 
 ## 2. Code structure trees
 
-`./data/viewer/utils/displays/utils/class_colors.py`
+`data/viewer/utils/displays/utils/class_colors.py`
 
 ```text
 class_colors.py
@@ -85,7 +81,7 @@ class_colors.py
     └── # Maps each distinct class id to a deterministic RGB color from a fixed class-color palette.
 ```
 
-`./data/viewer/utils/displays/utils/heatmap_colors.py`
+`data/viewer/utils/displays/utils/heatmap_colors.py`
 
 ```text
 heatmap_colors.py
@@ -98,7 +94,7 @@ heatmap_colors.py
 
 ### Backend schemas
 
-`./data/viewer/utils/displays/utils/ts/backend/schemas/display_response.py`
+`data/viewer/utils/displays/utils/ts/backend/schemas/display_response.py`
 
 ```text
 display_response.py
@@ -113,7 +109,7 @@ display_response.py
 
 ### Frontend
 
-`./data/viewer/utils/displays/utils/ts/frontend/types/display_response.ts`
+`data/viewer/utils/displays/utils/ts/frontend/types/display_response.ts`
 
 ```text
 display_response.ts
@@ -127,7 +123,7 @@ display_response.ts
 
 ### Backend schemas
 
-`./data/viewer/utils/displays/utils/ts/backend/schemas/layered_display_response.py`
+`data/viewer/utils/displays/utils/ts/backend/schemas/layered_display_response.py`
 
 ```text
 layered_display_response.py
@@ -166,7 +162,7 @@ layered_display_response.py
 
 ### Frontend
 
-`./data/viewer/utils/displays/utils/ts/frontend/types/layered_display_response.ts`
+`data/viewer/utils/displays/utils/ts/frontend/types/layered_display_response.ts`
 
 ```text
 layered_display_response.ts
@@ -182,7 +178,7 @@ layered_display_response.ts
     └── layer_class: "raster" | "spatial"  # backend-stamped (layered_display_response.layer_class); the frontend reads it instead of re-deriving the raster/spatial taxonomy
 ```
 
-`./data/viewer/utils/displays/utils/ts/frontend/layered_display_container.ts`
+`data/viewer/utils/displays/utils/ts/frontend/layered_display_container.ts`
 
 ```text
 layered_display_container.ts
@@ -251,7 +247,7 @@ layered_display_container.ts
     └── return
 ```
 
-`./data/viewer/utils/displays/utils/ts/frontend/layer_renderer_registry.ts`
+`data/viewer/utils/displays/utils/ts/frontend/layer_renderer_registry.ts`
 
 ```text
 layer_renderer_registry.ts
@@ -284,7 +280,7 @@ layer_renderer_registry.ts
     └── return layerRenderer
 ```
 
-`./data/viewer/utils/displays/utils/ts/frontend/register_layer_renderers.ts`
+`data/viewer/utils/displays/utils/ts/frontend/register_layer_renderers.ts`
 
 ```text
 register_layer_renderers.ts
@@ -292,7 +288,7 @@ register_layer_renderers.ts
 └── impls import.meta.glob("data/viewer/utils/displays/**/ts/frontend/apis.ts", { eager: true })
 ```
 
-`./data/viewer/utils/displays/utils/ts/frontend/three_scene_helpers.ts`
+`data/viewer/utils/displays/utils/ts/frontend/three_scene_helpers.ts`
 
 ```text
 three_scene_helpers.ts
@@ -357,7 +353,7 @@ three_scene_helpers.ts
     └── impls window.requestAnimationFrame(draw)
 ```
 
-`./data/viewer/utils/displays/points/dash/apis.py`
+`data/viewer/utils/displays/points/dash/apis.py`
 
 ```text
 apis.py
@@ -378,7 +374,7 @@ apis.py
     └── # Recolors the segmentation point cloud's per-point class labels to RGB via the class-to-RGB mapping for Dash display.
 ```
 
-`./data/viewer/utils/displays/points/dash/core_points_display.py`
+`data/viewer/utils/displays/points/dash/core_points_display.py`
 
 ```text
 core_points_display.py
@@ -415,7 +411,7 @@ core_points_display.py
 
 ### Backend schemas
 
-`./data/viewer/utils/displays/points/ts/backend/schemas/display_response.py`
+`data/viewer/utils/displays/points/ts/backend/schemas/display_response.py`
 
 ```text
 display_response.py
@@ -442,7 +438,7 @@ display_response.py
 
 ### Backend
 
-`./data/viewer/utils/displays/points/ts/backend/apis.py`
+`data/viewer/utils/displays/points/ts/backend/apis.py`
 
 ```text
 apis.py
@@ -474,7 +470,7 @@ apis.py
     └── return
 ```
 
-`./data/viewer/utils/displays/points/ts/backend/core_points_display.py`
+`data/viewer/utils/displays/points/ts/backend/core_points_display.py`
 
 ```text
 core_points_display.py
@@ -487,7 +483,7 @@ core_points_display.py
 
 ### Frontend
 
-`./data/viewer/utils/displays/points/ts/frontend/types/display_response.ts`
+`data/viewer/utils/displays/points/ts/frontend/types/display_response.ts`
 
 ```text
 display_response.ts
@@ -512,7 +508,7 @@ display_response.ts
     └── meta_info  # common field
 ```
 
-`./data/viewer/utils/displays/points/ts/frontend/apis.ts`
+`data/viewer/utils/displays/points/ts/frontend/apis.ts`
 
 ```text
 apis.ts
@@ -532,7 +528,7 @@ apis.ts
 └── impls registerSpatialLayerRenderer({ displayKind: "color_pc", layerRenderer: createPointsObject })  # module-load self-registration of the spatial color-pc layer renderer
 ```
 
-`./data/viewer/utils/displays/points/ts/frontend/core_points_display.ts`
+`data/viewer/utils/displays/points/ts/frontend/core_points_display.ts`
 
 ```text
 core_points_display.ts
@@ -584,7 +580,7 @@ core_points_display.ts
     └── return
 ```
 
-`./data/viewer/utils/displays/pixels/dash/apis.py`
+`data/viewer/utils/displays/pixels/dash/apis.py`
 
 ```text
 apis.py
@@ -699,7 +695,7 @@ apis.py
     └── return rgb_image  # an HWC uint8 RGB image
 ```
 
-`./data/viewer/utils/displays/pixels/dash/core_pixels_display.py`
+`data/viewer/utils/displays/pixels/dash/core_pixels_display.py`
 
 ```text
 core_pixels_display.py
@@ -712,7 +708,7 @@ core_pixels_display.py
 
 ### Backend schemas
 
-`./data/viewer/utils/displays/pixels/ts/backend/schemas/display_response.py`
+`data/viewer/utils/displays/pixels/ts/backend/schemas/display_response.py`
 
 ```text
 display_response.py
@@ -763,7 +759,7 @@ display_response.py
 
 ### Backend
 
-`./data/viewer/utils/displays/pixels/ts/backend/apis.py`
+`data/viewer/utils/displays/pixels/ts/backend/apis.py`
 
 ```text
 apis.py
@@ -825,7 +821,7 @@ apis.py
     └── return
 ```
 
-`./data/viewer/utils/displays/pixels/ts/backend/core_pixels_display.py`
+`data/viewer/utils/displays/pixels/ts/backend/core_pixels_display.py`
 
 ```text
 core_pixels_display.py
@@ -838,7 +834,7 @@ core_pixels_display.py
 
 ### Frontend
 
-`./data/viewer/utils/displays/pixels/ts/frontend/types/display_response.ts`
+`data/viewer/utils/displays/pixels/ts/frontend/types/display_response.ts`
 
 ```text
 display_response.ts
@@ -887,7 +883,7 @@ display_response.ts
     └── meta_info  # common field
 ```
 
-`./data/viewer/utils/displays/pixels/ts/frontend/apis.ts`
+`data/viewer/utils/displays/pixels/ts/frontend/apis.ts`
 
 ```text
 apis.ts
@@ -928,7 +924,7 @@ apis.ts
 └── impls registerRasterLayerRenderer({ displayKind: "color_image", layerRenderer: renderColorImageDisplay })  # module-load self-registration of the raster color-image layer renderer
 ```
 
-`./data/viewer/utils/displays/pixels/ts/frontend/core_pixels_display.ts`
+`data/viewer/utils/displays/pixels/ts/frontend/core_pixels_display.ts`
 
 ```text
 core_pixels_display.ts
@@ -939,7 +935,7 @@ core_pixels_display.ts
     └── return LeafVNode keyed by displayResponse.url
 ```
 
-`./data/viewer/utils/displays/placeholders/dash/placeholder_display.py`
+`data/viewer/utils/displays/placeholders/dash/placeholder_display.py`
 
 ```text
 placeholder_display.py
@@ -949,7 +945,7 @@ placeholder_display.py
 
 ### Backend schemas
 
-`./data/viewer/utils/displays/placeholders/ts/backend/schemas/display_response.py`
+`data/viewer/utils/displays/placeholders/ts/backend/schemas/display_response.py`
 
 ```text
 display_response.py
@@ -965,7 +961,7 @@ display_response.py
 
 ### Backend
 
-`./data/viewer/utils/displays/placeholders/ts/backend/placeholder_display.py`
+`data/viewer/utils/displays/placeholders/ts/backend/placeholder_display.py`
 
 ```text
 placeholder_display.py
@@ -977,7 +973,7 @@ placeholder_display.py
 
 ### Frontend
 
-`./data/viewer/utils/displays/placeholders/ts/frontend/types/display_response.ts`
+`data/viewer/utils/displays/placeholders/ts/frontend/types/display_response.ts`
 
 ```text
 display_response.ts
@@ -991,7 +987,7 @@ display_response.ts
     └── message    # additional field
 ```
 
-`./data/viewer/utils/displays/placeholders/ts/frontend/placeholder_display.ts`
+`data/viewer/utils/displays/placeholders/ts/frontend/placeholder_display.ts`
 
 ```text
 placeholder_display.ts
@@ -1003,7 +999,7 @@ placeholder_display.ts
     └── return LeafVNode keyed by displayResponse.url
 ```
 
-`./data/viewer/utils/displays/videos/dash/video_display.py`
+`data/viewer/utils/displays/videos/dash/video_display.py`
 
 ```text
 video_display.py
@@ -1022,7 +1018,7 @@ video_display.py
 
 ### Backend schemas
 
-`./data/viewer/utils/displays/videos/ts/backend/schemas/display_response.py`
+`data/viewer/utils/displays/videos/ts/backend/schemas/display_response.py`
 
 ```text
 display_response.py
@@ -1037,7 +1033,7 @@ display_response.py
 
 ### Backend
 
-`./data/viewer/utils/displays/videos/ts/backend/video_display.py`
+`data/viewer/utils/displays/videos/ts/backend/video_display.py`
 
 ```text
 video_display.py
@@ -1050,7 +1046,7 @@ video_display.py
 
 ### Frontend
 
-`./data/viewer/utils/displays/videos/ts/frontend/types/display_response.ts`
+`data/viewer/utils/displays/videos/ts/frontend/types/display_response.ts`
 
 ```text
 display_response.ts
@@ -1063,7 +1059,7 @@ display_response.ts
     └── meta_info  # common field
 ```
 
-`./data/viewer/utils/displays/videos/ts/frontend/video_display.ts`
+`data/viewer/utils/displays/videos/ts/frontend/video_display.ts`
 
 ```text
 video_display.ts
@@ -1075,7 +1071,7 @@ video_display.ts
     └── return LeafVNode keyed by displayResponse.url
 ```
 
-`./data/viewer/utils/displays/texts/dash/text_display.py`
+`data/viewer/utils/displays/texts/dash/text_display.py`
 
 ```text
 text_display.py
@@ -1085,7 +1081,7 @@ text_display.py
 
 ### Backend schemas
 
-`./data/viewer/utils/displays/texts/ts/backend/schemas/display_response.py`
+`data/viewer/utils/displays/texts/ts/backend/schemas/display_response.py`
 
 ```text
 display_response.py
@@ -1101,7 +1097,7 @@ display_response.py
 
 ### Backend
 
-`./data/viewer/utils/displays/texts/ts/backend/text_display.py`
+`data/viewer/utils/displays/texts/ts/backend/text_display.py`
 
 ```text
 text_display.py
@@ -1114,7 +1110,7 @@ text_display.py
 
 ### Frontend
 
-`./data/viewer/utils/displays/texts/ts/frontend/types/display_response.ts`
+`data/viewer/utils/displays/texts/ts/frontend/types/display_response.ts`
 
 ```text
 display_response.ts
@@ -1128,7 +1124,7 @@ display_response.ts
     └── text       # additional field
 ```
 
-`./data/viewer/utils/displays/texts/ts/frontend/text_display.ts`
+`data/viewer/utils/displays/texts/ts/frontend/text_display.ts`
 
 ```text
 text_display.ts
@@ -1140,7 +1136,7 @@ text_display.ts
     └── return LeafVNode keyed by displayResponse.url
 ```
 
-`./data/viewer/utils/displays/tables/dash/table_display.py`
+`data/viewer/utils/displays/tables/dash/table_display.py`
 
 ```text
 table_display.py
@@ -1150,7 +1146,7 @@ table_display.py
 
 ### Backend schemas
 
-`./data/viewer/utils/displays/tables/ts/backend/schemas/display_response.py`
+`data/viewer/utils/displays/tables/ts/backend/schemas/display_response.py`
 
 ```text
 display_response.py
@@ -1165,7 +1161,7 @@ display_response.py
 
 ### Backend
 
-`./data/viewer/utils/displays/tables/ts/backend/table_display.py`
+`data/viewer/utils/displays/tables/ts/backend/table_display.py`
 
 ```text
 table_display.py
@@ -1178,7 +1174,7 @@ table_display.py
 
 ### Frontend
 
-`./data/viewer/utils/displays/tables/ts/frontend/types/display_response.ts`
+`data/viewer/utils/displays/tables/ts/frontend/types/display_response.ts`
 
 ```text
 display_response.ts
@@ -1191,7 +1187,7 @@ display_response.ts
     └── meta_info  # common field
 ```
 
-`./data/viewer/utils/displays/tables/ts/frontend/table_display.ts`
+`data/viewer/utils/displays/tables/ts/frontend/table_display.ts`
 
 ```text
 table_display.ts
@@ -1203,7 +1199,7 @@ table_display.ts
     └── return LeafVNode keyed by displayResponse.url
 ```
 
-`./data/viewer/utils/displays/scene_graphs/dash/scene_graph_display.py`
+`data/viewer/utils/displays/scene_graphs/dash/scene_graph_display.py`
 
 ```text
 scene_graph_display.py
@@ -1218,7 +1214,7 @@ scene_graph_display.py
 
 ### Backend schemas
 
-`./data/viewer/utils/displays/scene_graphs/ts/backend/schemas/display_response.py`
+`data/viewer/utils/displays/scene_graphs/ts/backend/schemas/display_response.py`
 
 ```text
 display_response.py
@@ -1233,7 +1229,7 @@ display_response.py
 
 ### Backend
 
-`./data/viewer/utils/displays/scene_graphs/ts/backend/scene_graph_display.py`
+`data/viewer/utils/displays/scene_graphs/ts/backend/scene_graph_display.py`
 
 ```text
 scene_graph_display.py
@@ -1251,6 +1247,9 @@ scene_graph_display.py
 │   ├── calls bake_scene_graph_geometry
 │   ├── calls bake_scene_graph_labels
 │   └── return
+├── def estimate_scene_scale
+│   ├── # Returns the world-units diagonal of the union of object positions, camera trajectory, and graph_nodes positions.
+│   └── return
 ├── def bake_scene_graph_geometry
 │   ├── # Bakes sphere-sampled nodes + line-sampled edges into the scene-graph geometry asset.
 │   ├── calls sample_node_spheres
@@ -1258,9 +1257,6 @@ scene_graph_display.py
 │   └── return
 ├── def bake_scene_graph_labels
 │   ├── # Bakes per-object-node labels (text, position, color, class identity, frequency) offset above each position by scene_scale.
-│   └── return
-├── def estimate_scene_scale
-│   ├── # Returns the world-units diagonal of the union of object positions, camera trajectory, and graph_nodes positions.
 │   └── return
 ├── def sample_node_spheres
 │   ├── # Samples each graph node into a sphere-shaped point patch, with radius derived from node_type and scene_scale, colored by node.color.
@@ -1272,7 +1268,7 @@ scene_graph_display.py
 
 ### Frontend
 
-`./data/viewer/utils/displays/scene_graphs/ts/frontend/types/display_response.ts`
+`data/viewer/utils/displays/scene_graphs/ts/frontend/types/display_response.ts`
 
 ```text
 display_response.ts
@@ -1285,7 +1281,7 @@ display_response.ts
     └── meta_info  # common field
 ```
 
-`./data/viewer/utils/displays/scene_graphs/ts/frontend/scene_graph_display.ts`
+`data/viewer/utils/displays/scene_graphs/ts/frontend/scene_graph_display.ts`
 
 ```text
 scene_graph_display.ts
@@ -1349,7 +1345,7 @@ scene_graph_display.ts
     └── return
 ```
 
-`./data/viewer/utils/displays/mesh/dash/apis.py`
+`data/viewer/utils/displays/mesh/dash/apis.py`
 
 ```text
 apis.py
@@ -1390,7 +1386,7 @@ apis.py
     └── return colored mesh
 ```
 
-`./data/viewer/utils/displays/mesh/dash/core_mesh_display.py`
+`data/viewer/utils/displays/mesh/dash/core_mesh_display.py`
 
 ```text
 core_mesh_display.py
@@ -1444,7 +1440,7 @@ core_mesh_display.py
 
 ### Backend schemas
 
-`./data/viewer/utils/displays/mesh/ts/backend/schemas/display_response.py`
+`data/viewer/utils/displays/mesh/ts/backend/schemas/display_response.py`
 
 ```text
 display_response.py
@@ -1483,7 +1479,7 @@ display_response.py
 
 ### Backend
 
-`./data/viewer/utils/displays/mesh/ts/backend/apis.py`
+`data/viewer/utils/displays/mesh/ts/backend/apis.py`
 
 ```text
 apis.py
@@ -1551,7 +1547,7 @@ apis.py
     └── return
 ```
 
-`./data/viewer/utils/displays/mesh/ts/backend/core_mesh_display.py`
+`data/viewer/utils/displays/mesh/ts/backend/core_mesh_display.py`
 
 ```text
 core_mesh_display.py
@@ -1588,7 +1584,7 @@ core_mesh_display.py
 
 ### Frontend
 
-`./data/viewer/utils/displays/mesh/ts/frontend/types/display_response.ts`
+`data/viewer/utils/displays/mesh/ts/frontend/types/display_response.ts`
 
 ```text
 display_response.ts
@@ -1625,7 +1621,7 @@ display_response.ts
     └── meta_info  # common field
 ```
 
-`./data/viewer/utils/displays/mesh/ts/frontend/core_mesh_display.ts`
+`data/viewer/utils/displays/mesh/ts/frontend/core_mesh_display.ts`
 
 ```text
 core_mesh_display.ts
@@ -1695,7 +1691,7 @@ core_mesh_display.ts
     └── return
 ```
 
-`./data/viewer/utils/displays/mesh/ts/frontend/apis.ts`
+`data/viewer/utils/displays/mesh/ts/frontend/apis.ts`
 
 ```text
 apis.ts
@@ -1722,7 +1718,7 @@ apis.ts
     └── return
 ```
 
-`./data/viewer/utils/displays/gaussians/dash/apis.py`
+`data/viewer/utils/displays/gaussians/dash/apis.py`
 
 ```text
 apis.py
@@ -1742,7 +1738,7 @@ apis.py
     └── # Recolors the segmentation Gaussian's per-Gaussian class ids to RGB via the class-to-RGB mapping.
 ```
 
-`./data/viewer/utils/displays/gaussians/dash/core_gaussians_display.py`
+`data/viewer/utils/displays/gaussians/dash/core_gaussians_display.py`
 
 ```text
 core_gaussians_display.py
@@ -1764,7 +1760,7 @@ core_gaussians_display.py
 
 ### Backend schemas
 
-`./data/viewer/utils/displays/gaussians/ts/backend/schemas/display_response.py`
+`data/viewer/utils/displays/gaussians/ts/backend/schemas/display_response.py`
 
 ```text
 display_response.py
@@ -1791,7 +1787,7 @@ display_response.py
 
 ### Backend
 
-`./data/viewer/utils/displays/gaussians/ts/backend/apis.py`
+`data/viewer/utils/displays/gaussians/ts/backend/apis.py`
 
 ```text
 apis.py
@@ -1818,7 +1814,7 @@ apis.py
     └── return
 ```
 
-`./data/viewer/utils/displays/gaussians/ts/backend/core_gaussians_display.py`
+`data/viewer/utils/displays/gaussians/ts/backend/core_gaussians_display.py`
 
 ```text
 core_gaussians_display.py
@@ -1831,7 +1827,7 @@ core_gaussians_display.py
 
 ### Frontend
 
-`./data/viewer/utils/displays/gaussians/ts/frontend/types/display_response.ts`
+`data/viewer/utils/displays/gaussians/ts/frontend/types/display_response.ts`
 
 ```text
 display_response.ts
@@ -1856,7 +1852,7 @@ display_response.ts
     └── meta_info  # common field
 ```
 
-`./data/viewer/utils/displays/gaussians/ts/frontend/apis.ts`
+`data/viewer/utils/displays/gaussians/ts/frontend/apis.ts`
 
 ```text
 apis.ts
@@ -1874,7 +1870,7 @@ apis.ts
     └── return
 ```
 
-`./data/viewer/utils/displays/gaussians/ts/frontend/core_gaussians_display.ts`
+`data/viewer/utils/displays/gaussians/ts/frontend/core_gaussians_display.ts`
 
 ```text
 core_gaussians_display.ts
@@ -1889,7 +1885,7 @@ core_gaussians_display.ts
     └── return LeafVNode keyed by displayResponse.url
 ```
 
-`./data/viewer/utils/displays/cameras/dash/camera_display.py`
+`data/viewer/utils/displays/cameras/dash/camera_display.py`
 
 ```text
 camera_display.py
@@ -1899,7 +1895,7 @@ camera_display.py
 
 ### Backend schemas
 
-`./data/viewer/utils/displays/cameras/ts/backend/schemas/display_response.py`
+`data/viewer/utils/displays/cameras/ts/backend/schemas/display_response.py`
 
 ```text
 display_response.py
@@ -1914,7 +1910,7 @@ display_response.py
 
 ### Backend
 
-`./data/viewer/utils/displays/cameras/ts/backend/apis.py`
+`data/viewer/utils/displays/cameras/ts/backend/apis.py`
 
 ```text
 apis.py
@@ -1948,7 +1944,7 @@ apis.py
     └── return
 ```
 
-`./data/viewer/utils/displays/cameras/ts/backend/core_camera_display.py`
+`data/viewer/utils/displays/cameras/ts/backend/core_camera_display.py`
 
 ```text
 core_camera_display.py
@@ -1962,7 +1958,7 @@ core_camera_display.py
 
 ### Frontend
 
-`./data/viewer/utils/displays/cameras/ts/frontend/types/display_response.ts`
+`data/viewer/utils/displays/cameras/ts/frontend/types/display_response.ts`
 
 ```text
 display_response.ts
@@ -1975,7 +1971,7 @@ display_response.ts
     └── meta_info  # common field; empty object for camera display
 ```
 
-`./data/viewer/utils/displays/cameras/ts/frontend/camera_display.ts`
+`data/viewer/utils/displays/cameras/ts/frontend/camera_display.ts`
 
 ```text
 camera_display.ts
@@ -2014,7 +2010,7 @@ camera_display.ts
     └── return
 ```
 
-`./data/viewer/utils/controls/camera/camera_state/dash/camera_state.py`
+`data/viewer/utils/controls/camera/camera_state/dash/camera_state.py`
 
 ```text
 camera_state.py
@@ -2029,7 +2025,7 @@ camera_state.py
 
 ### Backend schemas
 
-`./data/viewer/utils/controls/camera/camera_state/ts/backend/schemas/camera_state.py`
+`data/viewer/utils/controls/camera/camera_state/ts/backend/schemas/camera_state.py`
 
 ```text
 camera_state.py
@@ -2044,7 +2040,7 @@ camera_state.py
 
 ### Backend
 
-`./data/viewer/utils/controls/camera/camera_state/ts/backend/camera_state.py`
+`data/viewer/utils/controls/camera/camera_state/ts/backend/camera_state.py`
 
 ```text
 camera_state.py
@@ -2058,7 +2054,7 @@ camera_state.py
 
 ### Frontend
 
-`./data/viewer/utils/controls/camera/camera_state/ts/frontend/types.ts`
+`data/viewer/utils/controls/camera/camera_state/ts/frontend/types.ts`
 
 ```text
 types.ts
@@ -2071,7 +2067,7 @@ types.ts
     └── id
 ```
 
-`./data/viewer/utils/controls/camera/camera_controls/dash/trackball_camera_controls.py`
+`data/viewer/utils/controls/camera/camera_controls/dash/trackball_camera_controls.py`
 
 ```text
 trackball_camera_controls.py
@@ -2109,7 +2105,7 @@ trackball_camera_controls.py
     └── return
 ```
 
-`./data/viewer/utils/controls/camera/camera_controls/ts/frontend/trackball_camera_controls.ts`
+`data/viewer/utils/controls/camera/camera_controls/ts/frontend/trackball_camera_controls.ts`
 
 ```text
 trackball_camera_controls.ts
@@ -2159,7 +2155,7 @@ trackball_camera_controls.ts
     └── return
 ```
 
-`./data/viewer/utils/controls/camera/camera_sync/dash/camera_sync.py`
+`data/viewer/utils/controls/camera/camera_sync/dash/camera_sync.py`
 
 ```text
 camera_sync.py
@@ -2188,7 +2184,7 @@ camera_sync.py
     └── return
 ```
 
-`./data/viewer/utils/controls/camera/camera_sync/ts/frontend/types.ts`
+`data/viewer/utils/controls/camera/camera_sync/ts/frontend/types.ts`
 
 ```text
 types.ts
@@ -2198,7 +2194,7 @@ types.ts
     └── camera_state  # this source's current camera state
 ```
 
-`./data/viewer/utils/controls/camera/camera_sync/ts/frontend/camera_sync.ts`
+`data/viewer/utils/controls/camera/camera_sync/ts/frontend/camera_sync.ts`
 
 ```text
 camera_sync.ts
@@ -2262,7 +2258,7 @@ camera_sync.ts
 
 ### Backend schemas
 
-`./data/viewer/utils/controls/selectors/ts/backend/schemas/selector_response.py`
+`data/viewer/utils/controls/selectors/ts/backend/schemas/selector_response.py`
 
 ```text
 selector_response.py
@@ -2290,7 +2286,7 @@ selector_response.py
 
 ### Frontend
 
-`./data/viewer/utils/controls/selectors/ts/frontend/types/selector_response.ts`
+`data/viewer/utils/controls/selectors/ts/frontend/types/selector_response.ts`
 
 ```text
 selector_response.ts
@@ -2304,7 +2300,7 @@ selector_response.ts
     └── children: SelectionNode[]
 ```
 
-`./data/viewer/utils/controls/selectors/ts/frontend/selection_path.ts`
+`data/viewer/utils/controls/selectors/ts/frontend/selection_path.ts`
 
 ```text
 selection_path.ts
@@ -2318,7 +2314,7 @@ selection_path.ts
     └── return  # the completed root-leaf path
 ```
 
-`./data/viewer/utils/controls/selectors/ts/frontend/selector_cascade.ts`
+`data/viewer/utils/controls/selectors/ts/frontend/selector_cascade.ts`
 
 ```text
 selector_cascade.ts
@@ -2344,7 +2340,7 @@ selector_cascade.ts
     └── return  # [this level's <select> leaf, ...the deeper levels' leaves]
 ```
 
-`./data/viewer/utils/controls/selectors/dash/selector_cascade.py`
+`data/viewer/utils/controls/selectors/dash/selector_cascade.py`
 
 ```text
 selector_cascade.py
@@ -2369,7 +2365,7 @@ selector_cascade.py
 
 ### Backend schemas
 
-`./data/viewer/utils/displays/aabbs/threed/ts/backend/schemas/display_response.py`
+`data/viewer/utils/displays/aabbs/threed/ts/backend/schemas/display_response.py`
 
 ```text
 display_response.py
@@ -2384,7 +2380,7 @@ display_response.py
 
 ### Backend
 
-`./data/viewer/utils/displays/aabbs/threed/ts/backend/apis.py`
+`data/viewer/utils/displays/aabbs/threed/ts/backend/apis.py`
 
 ```text
 apis.py
@@ -2398,7 +2394,7 @@ apis.py
 
 ### Frontend
 
-`./data/viewer/utils/displays/aabbs/threed/ts/frontend/types/display_response.ts`
+`data/viewer/utils/displays/aabbs/threed/ts/frontend/types/display_response.ts`
 
 ```text
 display_response.ts
@@ -2411,7 +2407,7 @@ display_response.ts
     └── scores
 ```
 
-`./data/viewer/utils/displays/aabbs/threed/ts/frontend/apis.ts`
+`data/viewer/utils/displays/aabbs/threed/ts/frontend/apis.ts`
 
 ```text
 apis.ts
@@ -2447,7 +2443,7 @@ apis.ts
 
 ### Backend schemas
 
-`./data/viewer/utils/displays/aabbs/twod/ts/backend/schemas/display_response.py`
+`data/viewer/utils/displays/aabbs/twod/ts/backend/schemas/display_response.py`
 
 ```text
 display_response.py
@@ -2462,7 +2458,7 @@ display_response.py
 
 ### Backend
 
-`./data/viewer/utils/displays/aabbs/twod/ts/backend/apis.py`
+`data/viewer/utils/displays/aabbs/twod/ts/backend/apis.py`
 
 ```text
 apis.py
@@ -2476,7 +2472,7 @@ apis.py
 
 ### Frontend
 
-`./data/viewer/utils/displays/aabbs/twod/ts/frontend/types/display_response.ts`
+`data/viewer/utils/displays/aabbs/twod/ts/frontend/types/display_response.ts`
 
 ```text
 display_response.ts
@@ -2489,7 +2485,7 @@ display_response.ts
     └── scores
 ```
 
-`./data/viewer/utils/displays/aabbs/twod/ts/frontend/apis.ts`
+`data/viewer/utils/displays/aabbs/twod/ts/frontend/apis.ts`
 
 ```text
 apis.ts

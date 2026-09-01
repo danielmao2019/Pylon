@@ -128,12 +128,6 @@ test_texel_visibility_v2.py
 │   ├── calls compute_f_visibility_mask_v2(camera=camera, texel_face_map=texel_face_map)
 │   ├── impls assert no texel of the back-facing face is marked visible
 │   └── return
-├── def _build_texel_face_map_with_three_texels(face_index: int, occupied_positions: tuple) -> Dict[str, torch.Tensor]
-│   ├── # Build a [2, 2] texel_face_map assigning the given (row, col) positions to the given face with centroid barycentrics.
-│   ├── impls texel_face_index = a [2, 2] tensor holding face_index at occupied_positions
-│   ├── impls texel_barycentrics = a [2, 2, 3] tensor of one-third weights
-│   ├── impls texel_valid_mask = a [2, 2] tensor true only at occupied_positions
-│   └── return the three tensors under their texel_face_map keys
 ├── def test_select_visible_depth_clusters_per_camera_pixel_stops_at_first_large_gap() -> None
 │   ├── # _select_visible_depth_clusters_per_camera_pixel keeps only the front cluster when no later cluster is larger.
 │   ├── calls _select_visible_depth_clusters_per_camera_pixel(depth=a front cluster followed by a large gap)
@@ -166,12 +160,18 @@ test_texel_visibility_v2.py
 │   ├── calls _compute_texel_visibility_mask_from_world_coords(world_coords=two depth layers behind one pixel, camera=camera)
 │   ├── impls assert only the near layer's texels are marked visible
 │   └── return
-└── def _build_one_camera() -> Cameras
-    ├── # Build one identity OpenCV CPU camera for the focused v2 visibility tests.
-    ├── calls build_camera_intrinsics(model="pinhole", params=that camera's focal lengths, principal point and its own h and w, intr_convention="standard", device="cpu")
-    ├── calls CameraExtrinsics(extrinsics=the identity 4x4, extr_convention="opencv", device="cpu")
-    ├── calls Cameras(intrinsics=[camera_intrinsics], extrinsics=[camera_extrinsics], device="cpu")
-    └── return the built camera  # one identity-extrinsic Cameras
+├── def _build_one_camera() -> Cameras
+│   ├── # Build one identity OpenCV CPU camera for the focused v2 visibility tests.
+│   ├── calls build_camera_intrinsics(model="pinhole", params=that camera's focal lengths, principal point and its own h and w, intr_convention="standard", device="cpu")
+│   ├── calls CameraExtrinsics(extrinsics=the identity 4x4, extr_convention="opencv", device="cpu")
+│   ├── calls Cameras(intrinsics=[camera_intrinsics], extrinsics=[camera_extrinsics], device="cpu")
+│   └── return the built camera  # one identity-extrinsic Cameras
+└── def _build_texel_face_map_with_three_texels(face_index: int, occupied_positions: tuple) -> Dict[str, torch.Tensor]
+    ├── # Build a [2, 2] texel_face_map assigning the given (row, col) positions to the given face with centroid barycentrics.
+    ├── impls texel_face_index = a [2, 2] tensor holding face_index at occupied_positions
+    ├── impls texel_barycentrics = a [2, 2, 3] tensor of one-third weights
+    ├── impls texel_valid_mask = a [2, 2] tensor true only at occupied_positions
+    └── return the three tensors under their texel_face_map keys
 ```
 
 `tests/models/three_d/meshes/texture/test_vertex_visibility.py`

@@ -3,7 +3,7 @@
 ## Code folder structure
 
 ```text
-./web/
+web/
 └── reconcile/
     └── reconcile.ts  # VNode types + reconcileInto: identity-preserving DOM patch driver
 ```
@@ -11,5 +11,5 @@
 ## Tests folder structure
 
 ```text
-./tests/web/
+tests/web/
 ```

@@ -3,7 +3,7 @@
 ## Code folder structure
 
 ```text
-./models/three_d/meshes/texture/
+models/three_d/meshes/texture/
 ├── __init__.py  # package API surface (re-exports the convert and extract entry points)
 ├── convert.py   # texture-representation conversion: bake_vertex_colors_to_uv_texture_map, the vertex-color -> UV-atlas bake the fit model's initialization consumes
 └── extract/

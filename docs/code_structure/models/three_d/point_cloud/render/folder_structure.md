@@ -3,7 +3,7 @@
 ## Code folder structure
 
 ```text
-render/
+models/three_d/point_cloud/render/
 ├── __init__.py  # MODELS.THREE_D.POINT_CLOUD.RENDER package API surface.
 ├── common/
 │   ├── __init__.py

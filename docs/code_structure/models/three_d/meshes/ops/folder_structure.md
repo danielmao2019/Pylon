@@ -3,7 +3,7 @@
 ## Code folder structure
 
 ```text
-ops/
+models/three_d/meshes/ops/
 ├── __init__.py         # MODELS.THREE_D.MESHES.OPS package API surface.
 ├── apply_transform.py  # maps a Mesh's verts through a 4x4 transform via the chunked large×small matmul
 ├── arap.py             # As-rigid-as-possible mesh deformation solver and energy.
