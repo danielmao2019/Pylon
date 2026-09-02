@@ -124,6 +124,56 @@ def test_validate_intrinsics_params_dispatches_per_model_keys() -> None:
         )
 
 
+def test_validate_intrinsics_params_dispatches_per_model_tensor_keys() -> None:
+    """Each model accepts only its own named scalar tensor params beside h and w.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    model_params: Dict[str, Dict[str, Union[int, float]]] = {
+        "simple_pinhole": {"f": 400.0, "cx": 160.0, "cy": 120.0, "h": 240, "w": 320},
+        "pinhole": {
+            "fx": 400.0,
+            "fy": 410.0,
+            "cx": 160.0,
+            "cy": 120.0,
+            "h": 240,
+            "w": 320,
+        },
+        "ortho": {
+            "fx": 400.0,
+            "fy": 410.0,
+            "cx": 160.0,
+            "cy": 120.0,
+            "h": 240,
+            "w": 320,
+        },
+    }
+    foreign_model: Dict[str, str] = {
+        "simple_pinhole": "pinhole",
+        "pinhole": "simple_pinhole",
+        "ortho": "simple_pinhole",
+    }
+    for model, numeric_params in model_params.items():
+        params = _tensor_params(params=numeric_params)
+        accepted = validate_camera_intrinsics_params(
+            model=model, intr_convention="standard", params=params
+        )
+        assert accepted == params, (
+            "Expected the validated params to be the accepted params dict. "
+            f"{model=} {set(accepted.keys())=} {set(params.keys())=}"
+        )
+        with pytest.raises(AssertionError):
+            validate_camera_intrinsics_params(
+                model=model,
+                intr_convention="standard",
+                params=_tensor_params(params=model_params[foreign_model[model]]),
+            )
+
+
 def test_validate_intrinsics_params_rejects_a_params_dict_missing_the_resolution() -> (
     None
 ):
@@ -514,6 +564,89 @@ def test_build_camera_intrinsics_dispatches_to_model_subclass() -> None:
     assert ortho.model == "ortho", f"{ortho.model=}"
 
 
+def test_intrinsics_constructor_applies_requested_device_dtype_through_to() -> None:
+    """CameraIntrinsics.__init__ delegates requested device / dtype movement to to.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    intrinsics = build_camera_intrinsics(
+        model="pinhole",
+        params=_tensor_params(
+            params={
+                "fx": 400.0,
+                "fy": 410.0,
+                "cx": 160.0,
+                "cy": 120.0,
+                "h": 240,
+                "w": 320,
+            }
+        ),
+        intr_convention="standard",
+        device="cpu",
+        dtype=torch.float64,
+    )
+    for key, value in intrinsics.params.items():
+        assert value.device == torch.device("cpu"), (
+            "Expected every param tensor to carry the requested device. "
+            f"{key=} {value.device=}"
+        )
+        assert value.dtype == torch.float64, (
+            "Expected every param tensor to carry the requested dtype. "
+            f"{key=} {value.dtype=}"
+        )
+    assert intrinsics.device == torch.device("cpu"), (
+        "Expected intrinsics.device to match the placed param tensors. "
+        f"{intrinsics.device=}"
+    )
+    assert intrinsics.dtype == torch.float64, (
+        "Expected intrinsics.dtype to match the placed param tensors. "
+        f"{intrinsics.dtype=}"
+    )
+
+
+def test_intrinsics_to_follows_tensor_to_semantics() -> None:
+    """CameraIntrinsics.to applies Tensor.to-style device / dtype / copy semantics.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    intrinsics = build_camera_intrinsics(
+        model="pinhole",
+        params=_tensor_params(
+            params={
+                "fx": 400.0,
+                "fy": 410.0,
+                "cx": 160.0,
+                "cy": 120.0,
+                "h": 240,
+                "w": 320,
+            }
+        ),
+        intr_convention="standard",
+    )
+    moved = intrinsics.to(device="cpu", dtype=torch.float64, copy=True)
+    for key, value in moved.params.items():
+        assert value.device == torch.device("cpu"), (
+            "Expected every returned param tensor to carry the requested device. "
+            f"{key=} {value.device=}"
+        )
+        assert value.dtype == torch.float64, (
+            "Expected every returned param tensor to carry the requested dtype. "
+            f"{key=} {value.dtype=}"
+        )
+        assert value.data_ptr() != intrinsics.params[key].data_ptr(), (
+            "Expected copy=True to allocate storage distinct from the source params. "
+            f"{key=} {value.data_ptr()=} {intrinsics.params[key].data_ptr()=}"
+        )
+
+
 def test_simple_pinhole_project_applies_perspective_divide() -> None:
     """CameraIntrinsicsSimplePinhole.project applies the perspective divide.
 
@@ -580,7 +713,7 @@ def test_ortho_project_skips_perspective_divide() -> None:
     )
 
 
-_REPO_ROOT = Path(__file__).resolve().parents[5]
+_REPO_ROOT = Path(__file__).resolve().parents[6]
 _REPO_SOURCE_ROOTS = (
     "agents",
     "criteria",
@@ -1424,3 +1557,123 @@ def test_the_pytorch3d_frames_params_move_when_the_aspect_ratio_does() -> None:
     assert aspect.params["cx"] != pytest.approx(
         intrinsics.params["cx"]
     ), f"{aspect.params=} {intrinsics.params=}"
+
+
+def test_intrinsics_tensor_state_stays_differentiable_through_project() -> None:
+    """Tensor intrinsics state stays on the autograd path through projection.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    model_params: Dict[str, Tuple[Dict[str, Union[int, float]], Tuple[str, ...]]] = {
+        "simple_pinhole": (
+            {"f": 400.0, "cx": 160.0, "cy": 120.0, "h": 240, "w": 320},
+            ("f", "cx", "cy"),
+        ),
+        "pinhole": (
+            {
+                "fx": 400.0,
+                "fy": 410.0,
+                "cx": 160.0,
+                "cy": 120.0,
+                "h": 240,
+                "w": 320,
+            },
+            ("fx", "fy", "cx", "cy"),
+        ),
+        "ortho": (
+            {
+                "fx": 400.0,
+                "fy": 410.0,
+                "cx": 160.0,
+                "cy": 120.0,
+                "h": 240,
+                "w": 320,
+            },
+            ("fx", "fy", "cx", "cy"),
+        ),
+    }
+    for model, (numeric_params, projection_keys) in model_params.items():
+        params = _tensor_params(params=numeric_params, requires_grad=True)
+        intrinsics = build_camera_intrinsics(
+            model=model,
+            params=params,
+            intr_convention="standard",
+            device="cpu",
+        )
+        image_points = intrinsics.project(
+            points_camera=torch.tensor([[1.0, 2.0, 4.0]], dtype=torch.float32)
+        )
+        loss = image_points.sum()
+        loss.backward()
+        for key in projection_keys:
+            assert params[key].grad is not None, (
+                "Expected every source tensor param to receive a gradient. "
+                f"{model=} {key=} {params[key].grad=}"
+            )
+
+
+def test_scale_intrinsics_keeps_tensor_state_differentiable() -> None:
+    """scale_intrinsics keeps tensor state and tensor scale factors differentiable.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    model_params: Dict[str, Tuple[Dict[str, Union[int, float]], Tuple[str, ...]]] = {
+        "simple_pinhole": (
+            {"f": 400.0, "cx": 160.0, "cy": 120.0, "h": 240, "w": 320},
+            ("f", "cx", "cy"),
+        ),
+        "pinhole": (
+            {
+                "fx": 400.0,
+                "fy": 410.0,
+                "cx": 160.0,
+                "cy": 120.0,
+                "h": 240,
+                "w": 320,
+            },
+            ("fx", "fy", "cx", "cy"),
+        ),
+        "ortho": (
+            {
+                "fx": 400.0,
+                "fy": 410.0,
+                "cx": 160.0,
+                "cy": 120.0,
+                "h": 240,
+                "w": 320,
+            },
+            ("fx", "fy", "cx", "cy"),
+        ),
+    }
+    for model, (numeric_params, projection_keys) in model_params.items():
+        params = _tensor_params(params=numeric_params, requires_grad=True)
+        scale = torch.tensor([2.0, 2.0], dtype=torch.float32, requires_grad=True)
+        intrinsics = build_camera_intrinsics(
+            model=model,
+            params=params,
+            intr_convention="standard",
+            device="cpu",
+        )
+        scaled_intrinsics = intrinsics.scale_intrinsics(scale=scale)
+        image_points = scaled_intrinsics.project(
+            points_camera=torch.tensor([[1.0, 2.0, 4.0]], dtype=torch.float32)
+        )
+        loss = image_points.sum()
+        loss.backward()
+        for key in projection_keys:
+            assert params[key].grad is not None, (
+                "Expected every source tensor param to receive a gradient. "
+                f"{model=} {key=} {params[key].grad=}"
+            )
+        assert scale.grad is not None, (
+            "Expected the tensor scale factors to receive a gradient. "
+            f"{model=} {scale.grad=}"
+        )

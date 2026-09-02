@@ -496,6 +496,87 @@ def test_camera_and_cameras_to_keep_tensor_state_on_the_autograd_path() -> None:
     assert matrix.grad is not None, f"{matrix.grad=}"
 
 
+def test_transform_extrinsics_normalizes_rotation_input() -> None:
+    """transform_extrinsics normalizes each rotation representation to the pose tensor.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    matrix = _build_extrinsics_matrix()
+    extrinsics = CameraExtrinsics(
+        extrinsics=matrix,
+        extr_convention="standard",
+        device="cpu",
+    )
+    scale = 2.0
+    rotation_torch = torch.tensor(
+        [[0.0, 0.0, 1.0], [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0]],
+        dtype=torch.float32,
+    )
+    translation = torch.tensor([1.0, 2.0, 3.0], dtype=torch.float32)
+    expected = extrinsics.transform_extrinsics(
+        scale=scale, rotation=rotation_torch, translation=translation
+    )
+    rotations: List[Union[np.ndarray, torch.Tensor, List[List[float]]]] = [
+        rotation_torch.numpy(),
+        rotation_torch,
+        rotation_torch.tolist(),
+    ]
+    for rotation in rotations:
+        transformed = extrinsics.transform_extrinsics(
+            scale=scale, rotation=rotation, translation=translation
+        )
+        assert torch.allclose(transformed.extrinsics, expected.extrinsics, atol=1e-6), (
+            "Expected every rotation representation to normalize to the same pose. "
+            f"{type(rotation)=} {transformed.extrinsics=} {expected.extrinsics=}"
+        )
+
+
+def test_transform_extrinsics_normalizes_translation_input() -> None:
+    """transform_extrinsics normalizes each translation representation to the pose tensor.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    matrix = _build_extrinsics_matrix()
+    extrinsics = CameraExtrinsics(
+        extrinsics=matrix,
+        extr_convention="standard",
+        device="cpu",
+    )
+    scale = 2.0
+    rotation = torch.tensor(
+        [[0.0, 0.0, 1.0], [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0]],
+        dtype=torch.float32,
+    )
+    translation_torch = torch.tensor([1.0, 2.0, 3.0], dtype=torch.float32)
+    expected = extrinsics.transform_extrinsics(
+        scale=scale, rotation=rotation, translation=translation_torch
+    )
+    translations: List[
+        Union[np.ndarray, torch.Tensor, Tuple[float, ...], List[float]]
+    ] = [
+        translation_torch.numpy(),
+        translation_torch,
+        tuple(translation_torch.tolist()),
+        translation_torch.tolist(),
+    ]
+    for translation in translations:
+        transformed = extrinsics.transform_extrinsics(
+            scale=scale, rotation=rotation, translation=translation
+        )
+        assert torch.allclose(transformed.extrinsics, expected.extrinsics, atol=1e-6), (
+            "Expected every translation representation to normalize to the same pose. "
+            f"{type(translation)=} {transformed.extrinsics=} {expected.extrinsics=}"
+        )
+
+
 @pytest.mark.parametrize(
     "source_extr_convention,target_extr_convention",
     list(product(EXTR_CONVENTIONS, EXTR_CONVENTIONS)),
@@ -1064,3 +1145,160 @@ def test_a_camera_names_the_frame_of_each_half_separately() -> None:
     assert (
         plane_only.intrinsics.intr_convention == "opengl"
     ), f"{plane_only.intrinsics=}"
+
+
+def test_extrinsics_tensor_matrix_stays_differentiable_through_pose_accessors() -> None:
+    """Tensor-valued extrinsics stay on the autograd path through the pose accessors.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    translation = torch.tensor(
+        [0.3, -0.2, 1.1], dtype=torch.float32, requires_grad=True
+    )
+    matrix = torch.cat(
+        [
+            torch.cat(
+                [torch.eye(3, dtype=torch.float32), translation.unsqueeze(1)], dim=1
+            ),
+            torch.tensor([[0.0, 0.0, 0.0, 1.0]], dtype=torch.float32),
+        ],
+        dim=0,
+    )
+    extrinsics = CameraExtrinsics(
+        extrinsics=matrix,
+        extr_convention="standard",
+        device="cpu",
+    )
+    loss = extrinsics.w2c.sum() + extrinsics.center.sum()
+    loss.backward()
+    assert translation.grad is not None, (
+        "Expected the source extrinsics tensor to receive a gradient. "
+        f"{translation.grad=}"
+    )
+
+
+def test_extrinsics_constructor_applies_requested_device_dtype_through_to() -> None:
+    """CameraExtrinsics.__init__ delegates requested device / dtype movement to to.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    extrinsics = CameraExtrinsics(
+        extrinsics=_build_extrinsics_matrix(),
+        extr_convention="standard",
+        device="cpu",
+        dtype=torch.float64,
+    )
+    assert extrinsics.extrinsics.device == torch.device("cpu"), (
+        "Expected the cam2world tensor to carry the requested device. "
+        f"{extrinsics.extrinsics.device=}"
+    )
+    assert extrinsics.extrinsics.dtype == torch.float64, (
+        "Expected the cam2world tensor to carry the requested dtype. "
+        f"{extrinsics.extrinsics.dtype=}"
+    )
+    assert extrinsics.device == extrinsics.extrinsics.device, (
+        "Expected extrinsics.device to match its tensor state. "
+        f"{extrinsics.device=} {extrinsics.extrinsics.device=}"
+    )
+    assert extrinsics.dtype == extrinsics.extrinsics.dtype, (
+        "Expected extrinsics.dtype to match its tensor state. "
+        f"{extrinsics.dtype=} {extrinsics.extrinsics.dtype=}"
+    )
+
+
+def test_extrinsics_to_follows_tensor_to_semantics() -> None:
+    """CameraExtrinsics.to applies Tensor.to-style device / dtype / copy semantics.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    extrinsics = CameraExtrinsics(
+        extrinsics=_build_extrinsics_matrix(),
+        extr_convention="standard",
+        device="cpu",
+    )
+    moved = extrinsics.to(device="cpu", dtype=torch.float64, copy=True)
+    assert moved.extrinsics.device == torch.device("cpu"), (
+        "Expected the returned cam2world tensor to carry the requested device. "
+        f"{moved.extrinsics.device=}"
+    )
+    assert moved.extrinsics.dtype == torch.float64, (
+        "Expected the returned cam2world tensor to carry the requested dtype. "
+        f"{moved.extrinsics.dtype=}"
+    )
+    assert moved.extrinsics.data_ptr() != extrinsics.extrinsics.data_ptr(), (
+        "Expected copy=True to allocate storage distinct from the source extrinsics. "
+        f"{moved.extrinsics.data_ptr()=} {extrinsics.extrinsics.data_ptr()=}"
+    )
+
+
+def test_camera_and_cameras_to_preserve_tensor_parameter_graphs() -> None:
+    """Camera.to and Cameras.to keep tensor intrinsics and extrinsics differentiable.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    params = {
+        key: torch.tensor(float(value), dtype=torch.float32, requires_grad=True)
+        for key, value in {
+            "fx": 400.0,
+            "fy": 410.0,
+            "cx": 160.0,
+            "cy": 120.0,
+            "h": 240,
+            "w": 320,
+        }.items()
+    }
+    translation = torch.tensor(
+        [0.3, -0.2, 1.1], dtype=torch.float32, requires_grad=True
+    )
+    matrix = torch.cat(
+        [
+            torch.cat(
+                [torch.eye(3, dtype=torch.float32), translation.unsqueeze(1)], dim=1
+            ),
+            torch.tensor([[0.0, 0.0, 0.0, 1.0]], dtype=torch.float32),
+        ],
+        dim=0,
+    )
+    intrinsics = build_camera_intrinsics(
+        model="ortho", params=params, intr_convention="standard"
+    )
+    extrinsics = CameraExtrinsics(extrinsics=matrix, extr_convention="standard")
+    camera = Camera(intrinsics=intrinsics, extrinsics=extrinsics)
+    cameras = Cameras(intrinsics=[intrinsics], extrinsics=[extrinsics])
+    moved_camera = camera.to(
+        device=intrinsics.device, dtype=torch.float64, extr_convention="pytorch3d"
+    )
+    moved_cameras = cameras.to(
+        device=intrinsics.device, dtype=torch.float64, extr_convention="pytorch3d"
+    )
+    points_camera = torch.tensor([[1.0, 2.0, 4.0]], dtype=torch.float64)
+    loss = (
+        moved_camera.intrinsics.project(points_camera=points_camera).sum()
+        + moved_cameras.center.sum()
+    )
+    loss.backward()
+    for key in ("fx", "fy", "cx", "cy"):
+        assert params[key].grad is not None, (
+            "Expected the source intrinsics params to receive gradients. "
+            f"{key=} {params[key].grad=}"
+        )
+    assert translation.grad is not None, (
+        "Expected the source extrinsics tensor to receive a gradient. "
+        f"{translation.grad=}"
+    )

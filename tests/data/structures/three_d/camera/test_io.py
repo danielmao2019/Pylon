@@ -439,6 +439,51 @@ def test_model_and_params_survive_round_trip(tmp_path: Path) -> None:
             ), f"{format=} {loaded.intrinsics.params=} {params=}"
 
 
+def test_tensor_intrinsics_params_round_trip_as_serialized_values(
+    tmp_path: Path,
+) -> None:
+    """Tensor intrinsics params round-trip through camera I/O as numeric values.
+
+    Args:
+        tmp_path: Pytest-provided temporary directory for the round-trip file.
+
+    Returns:
+        None.
+    """
+    numeric_params = {
+        "fx": 400.0,
+        "fy": 410.0,
+        "cx": 160.0,
+        "cy": 120.0,
+        "h": 240,
+        "w": 320,
+    }
+    for format in ("json", "npz"):
+        intrinsics = build_camera_intrinsics(
+            model="ortho",
+            params={
+                key: torch.tensor(float(value), dtype=torch.float32)
+                for key, value in numeric_params.items()
+            },
+            intr_convention="standard",
+        )
+        extrinsics = _make_extrinsics(
+            translation=[0.3, -0.2, 1.1], extr_convention="standard"
+        )
+        camera = Camera(intrinsics=intrinsics, extrinsics=extrinsics)
+        camera_path = tmp_path / f"camera.{format}"
+        camera.save(camera_path=camera_path)
+        loaded = Camera.load(camera_path=camera_path)
+        for key, value in numeric_params.items():
+            assert torch.allclose(
+                loaded.intrinsics.params[key],
+                torch.tensor(float(value), dtype=loaded.intrinsics.params[key].dtype),
+            ), (
+                "Expected the loaded params to equal the source tensor values. "
+                f"{format=} {key=} {loaded.intrinsics.params[key]=} {value=}"
+            )
+
+
 def test_extrinsics_and_extr_convention_survive_round_trip(tmp_path: Path) -> None:
     """A Camera's extrinsics matrix and extr_convention survive json and npz round trips.
 

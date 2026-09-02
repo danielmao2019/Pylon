@@ -69,15 +69,23 @@ class Cameras:
             if intrinsics
             else torch.device(device) if device is not None else torch.device("cpu")
         )
+        if component_device.type == "cuda" and component_device.index is None:
+            component_device = torch.device("cuda", torch.cuda.current_device())
         component_dtype = (
             intrinsics[0].dtype if intrinsics else dtype or torch.get_default_dtype()
         )
         for intrinsic, extrinsic in zip(intrinsics, extrinsics):
-            assert intrinsic.device == component_device, (
+            intrinsic_device = intrinsic.device
+            extrinsic_device = extrinsic.device
+            if intrinsic_device.type == "cuda" and intrinsic_device.index is None:
+                intrinsic_device = torch.device("cuda", torch.cuda.current_device())
+            if extrinsic_device.type == "cuda" and extrinsic_device.index is None:
+                extrinsic_device = torch.device("cuda", torch.cuda.current_device())
+            assert intrinsic_device == component_device, (
                 "Expected all CameraIntrinsics entries to share device. "
                 f"{intrinsic.device=} {component_device=}"
             )
-            assert extrinsic.device == component_device, (
+            assert extrinsic_device == component_device, (
                 "Expected all CameraExtrinsics entries to share device. "
                 f"{extrinsic.device=} {component_device=}"
             )
