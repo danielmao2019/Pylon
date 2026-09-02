@@ -77,8 +77,21 @@ interface DisplayResponse
 class_colors.py
 ├── from typing import Dict, Tuple
 ├── import torch
-└── def map_class_ids_to_rgb(class_ids: torch.Tensor) -> Dict[int, Tuple[int, int, int]]
-    └── # Maps each distinct class id to a deterministic RGB color from a fixed class-color palette.
+├── def map_class_ids_to_rgb(class_ids: torch.Tensor) -> Dict[int, Tuple[int, int, int]]
+│   ├── # Maps each distinct class id to a deterministic RGB color from a fixed class-color palette.
+│   ├── impls assert isinstance(class_ids, torch.Tensor)
+│   ├── impls assert class_ids.numel() > 0
+│   ├── impls flattened_class_ids = class_ids.detach().cpu().reshape(-1).to(torch.int64)
+│   ├── impls unique_class_ids = torch.unique(flattened_class_ids, sorted=True)
+│   ├── calls get_class_color(class_id=each unique class id cast to int)
+│   ├── impls class_id_to_rgb = each such int keyed to its own get_class_color result
+│   └── return class_id_to_rgb
+└── def get_class_color(class_id: int) -> Tuple[int, int, int]
+    ├── # Maps one class identifier onto a stable palette color, wrapping the palette for ids past its end.
+    ├── impls assert isinstance(class_id, int)
+    ├── impls assert class_id >= 0
+    ├── impls palette = [(37, 99, 235), (220, 38, 38), (22, 163, 74), (202, 138, 4), (147, 51, 234), (8, 145, 178), (234, 88, 12), (79, 70, 229)]
+    └── return palette[class_id % len(palette)]
 ```
 
 `data/viewer/utils/displays/utils/heatmap_colors.py`
@@ -243,8 +256,9 @@ layered_display_container.ts
 │   ├── impls container.dataset.cameraState = JSON.stringify(cameraState)
 │   └── impls container.dispatchEvent(new CustomEvent("camera-pose-change", { bubbles: true, detail: cameraState }))
 └── function _alignRasterFrustum({ baseImage }: { baseImage: HTMLImageElement }): { width: number; height: number }
-    ├── # Resolves the raster cell's shared frustum from the base image's intrinsic natural pixel extent { width: baseImage.naturalWidth, height: baseImage.naturalHeight } — the one coordinate grid every aux overlay maps onto.
-    └── return
+    ├── # Resolves the raster cell's shared frustum from the base image's intrinsic natural pixel extent — the one coordinate grid every aux overlay maps onto.
+    ├── impls frustum = { width: baseImage.naturalWidth, height: baseImage.naturalHeight }
+    └── return frustum  # the cell's shared frustum
 ```
 
 `data/viewer/utils/displays/utils/ts/frontend/layer_renderer_registry.ts`
@@ -328,12 +342,32 @@ three_scene_helpers.ts
 ├── function attachThreeScenePickSeam({ container, camera, scenes }: { container: HTMLDivElement; camera: THREE.PerspectiveCamera; scenes: readonly THREE.Scene[] }): void
 │   ├── # Installs a base-camera pickAt seam onto any spatial display container so a consumer can hit-test the given scenes via the camera without owning the camera, renderer, or scenes.
 │   ├── impls raycaster = new THREE.Raycaster()
-│   ├── impls pickAt = (clientX, clientY) => NDC from the container rect (null if empty), camera raycast over each scene, return first hit object else null
+│   ├── function pickAt(clientX: number, clientY: number): THREE.Object3D | null [local]
+│   │   ├── # The installed hit-test seam: maps a client point into the container's NDC and returns the first object the camera ray hits.
+│   │   ├── impls rect = the container's bounding client rect
+│   │   ├── if the rect is empty
+│   │   │   └── return  # null: there is nothing to hit-test against
+│   │   ├── impls ndcX = ((clientX - rect.left) / rect.width) * 2 - 1
+│   │   ├── impls ndcY = -((clientY - rect.top) / rect.height) * 2 + 1  # client space is y-down, NDC is y-up
+│   │   ├── impls ndc = new THREE.Vector2(ndcX, ndcY)
+│   │   ├── calls raycaster.setFromCamera(ndc, camera)
+│   │   ├── for each scene of scenes
+│   │   │   ├── impls intersections = raycaster.intersectObjects(scene.children, true)
+│   │   │   └── if intersections is non-empty
+│   │   │       └── return  # that first hit's object
+│   │   └── return  # null: no scene was hit
 │   ├── impls (container as PickableThreeContainer).pickAt = pickAt  # additive seam; base HTMLDivElement contract unchanged
 │   └── return
 └── function startThreeSceneRenderLoop({ scene, camera, renderer, controls, onAfterRender }: { scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; controls: ReturnType<typeof createTrackballCameraControls> | null; onAfterRender?: () => void }): void
     ├── # Shared runtime every spatial display runs: fits the renderer buffer, camera aspect, and trackball screen to the canvas on each resize, and drives the requestAnimationFrame loop that self-stops once the canvas leaves the DOM.
-    ├── impls fit = () => { renderer.setSize(renderer.domElement.clientWidth, renderer.domElement.clientHeight, false); camera.aspect = renderer.domElement.clientWidth / renderer.domElement.clientHeight; camera.updateProjectionMatrix(); if (controls) controls.handleResize() }
+    ├── function fit(): void [local]
+    │   ├── # The callback the ResizeObserver drives on every canvas resize.
+    │   ├── calls renderer.setSize(renderer.domElement.clientWidth, renderer.domElement.clientHeight, false)
+    │   ├── impls camera.aspect = renderer.domElement.clientWidth / renderer.domElement.clientHeight
+    │   ├── calls camera.updateProjectionMatrix
+    │   ├── if controls is not null
+    │   │   └── calls controls.handleResize
+    │   └── return
     ├── impls new ResizeObserver(fit).observe(renderer.domElement)
     ├── impls wasConnected = false  # the canvas is not appended until after render() returns, so only a later disconnect counts as an unmount
     ├── def draw
@@ -406,7 +440,9 @@ core_points_display.py
 │   └── return trace
 └── def create_dash_points_component
     ├── # Assembles the Dash component that hosts the point-cloud scene and its trackball camera controls.
-    └── return
+    ├── impls assert isinstance(scene, go.Scatter3d)
+    ├── impls display = dcc.Graph(figure=go.Figure(data=[scene]))
+    └── return display  # the point-cloud display element
 ```
 
 ### Backend schemas
@@ -445,6 +481,8 @@ apis.py
 ├── from typing import Any, Dict, Optional, Tuple
 ├── import torch
 ├── from data.structures.three_d.point_cloud.io.load_point_cloud import load_point_cloud
+├── from data.structures.three_d.point_cloud.io.save_point_cloud import save_point_cloud
+├── from data.structures.three_d.point_cloud.point_cloud import PointCloud
 ├── from data.viewer.utils.displays.points.ts.backend.core_points_display import create_points_display_response_core
 ├── from data.viewer.utils.displays.points.ts.backend.schemas.display_response import SegmentationPCDisplayResponse
 ├── from data.viewer.utils.displays.utils.class_colors import map_class_ids_to_rgb
@@ -463,7 +501,19 @@ apis.py
 │   └── return
 ├── def _map_segmentation_pc_to_rgb(segmentation_pc_path: str, class_id_to_rgb: Dict[int, Tuple[int, int, int]]) -> str
 │   ├── # Writes a backend-colorized point-cloud resource using the class-to-RGB mapping.
-│   └── return
+│   ├── impls assert isinstance(segmentation_pc_path, str)
+│   ├── impls assert isinstance(class_id_to_rgb, dict)
+│   ├── calls load_point_cloud(filepath=segmentation_pc_path, device="cpu")
+│   ├── impls label = the loaded cloud's own class ids, cast to torch.int64
+│   ├── impls rgb = a float32 zeros tensor of shape (segmentation_pc.num_points, 3) on the cloud's device
+│   ├── for each class_id, color in class_id_to_rgb.items()
+│   │   └── impls rgb[label == int(class_id)] = color  # a label with no mapping entry keeps rgb 0
+│   ├── impls colorized_data = the cloud's fields other than xyz / rgb / colors, carrying rgb under the "rgb" key
+│   ├── impls colorized_pc = PointCloud(xyz=segmentation_pc.xyz, data=colorized_data)
+│   ├── impls output_path = the deterministic colorized display path derived from segmentation_pc_path
+│   ├── calls save_point_cloud(pc=colorized_pc, output_filepath=str(output_path))
+│   ├── impls colorized_pc_path = str(output_path)
+│   └── return colorized_pc_path  # the colorized point-cloud path the response serves
 └── def _build_segmentation_pc_meta_info(class_id_to_rgb: Dict[int, Tuple[int, int, int]]) -> Dict[str, Any]
     ├── # Builds factual class/color metadata from the class-to-RGB mapping.
     ├── impls stores `class_id_to_rgb`
@@ -561,7 +611,23 @@ core_points_display.ts
 │   ├── calls parsePlyBuffer({ buffer })                                                          → geometry
 │   └── return geometry
 ├── function parsePlyBuffer({ buffer }: { buffer: ArrayBuffer }): THREE.BufferGeometry
-│   └── # Parses a PLY buffer (ASCII or binary little-endian) into a BufferGeometry with `position` and optional `color` attributes; internal PLY scalar/property parsing is private to this function.
+│   ├── # Parses a PLY buffer (ASCII or binary little-endian) into a BufferGeometry with `position` and `color` attributes; internal PLY scalar/property parsing is private to this function.
+│   ├── impls headerText = the buffer's leading 1048576 bytes decoded as utf-8
+│   ├── impls endIndex = headerText.indexOf("end_header")
+│   ├── if endIndex < 0
+│   │   └── throw new Error("PLY header is missing end_header")
+│   ├── impls dataOffset = the encoded byte length of headerText through the end of "end_header"
+│   ├── impls advance dataOffset past each following newline byte, 10 or 13
+│   ├── impls header = the vertex element's declared format, count, and scalar properties, read from the text before "end_header"  # impls-node-one-step:skip
+│   ├── if header.format === "ascii"
+│   │   ├── impls geometry = the post-header lines split on whitespace, read into the vertex position/color attributes
+│   │   ├── impls a color channel the header's properties leave out reads 180
+│   │   └── return geometry
+│   ├── if header.format === "binary_little_endian"
+│   │   ├── impls geometry = the post-header bytes read little-endian at each property's own offset/type, into the vertex position/color attributes
+│   │   ├── impls a color channel the header's properties leave out reads 180
+│   │   └── return geometry
+│   └── throw new Error(`unsupported PLY format ${header.format}`)
 ├── function createThreePoints({ geometry, pointSize, pointColor }: { geometry: THREE.BufferGeometry; pointSize?: number; pointColor?: string }): THREE.Points
 │   ├── # Sync-builds THREE.PointsMaterial + THREE.Points from the loaded geometry.
 │   ├── impls geometry.computeBoundingSphere(); boundingRadius = geometry.boundingSphere.radius
@@ -700,10 +766,21 @@ apis.py
 ```text
 core_pixels_display.py
 ├── from typing import Any
+├── import plotly.graph_objects as go
+├── import torch
 ├── from dash import dcc
 └── def create_dash_pixels_display(image: Any, image_interpolation: str) -> dcc.Graph
     ├── # Renders a Dash pixel-image display element from the resolved interpolation choice; modality-agnostic.
-    └── return
+    ├── if isinstance(image, torch.Tensor)
+    │   └── impls image_array = image.detach().cpu().numpy()
+    ├── else
+    │   └── impls image_array = image
+    ├── impls assert image_array has shape [H, W, 3]
+    ├── impls zsmooth = False when image_interpolation is "nearest", "fast" otherwise  # the caller's per-modality interpolation choice
+    ├── impls figure = a go.Figure over a go.Image trace of image_array carrying that zsmooth
+    ├── impls hide figure's axes, letting the image fill the cell at its own aspect ratio
+    ├── impls display = dcc.Graph(figure=figure)
+    └── return display  # the pixel display element
 ```
 
 ### Backend schemas
@@ -939,8 +1016,12 @@ core_pixels_display.ts
 
 ```text
 placeholder_display.py
+├── from dash import html
 └── def create_placeholder_display
-    └── # Builds the Dash missing-result placeholder display from a message.
+    ├── # Builds the Dash missing-result placeholder display from a message.
+    ├── impls assert isinstance(message, str)
+    ├── impls display = html.Div(message, className="placeholder-surface")
+    └── return display  # the slot's stand-in element
 ```
 
 ### Backend schemas
@@ -1075,8 +1156,12 @@ video_display.ts
 
 ```text
 text_display.py
+├── from dash import html
 └── def create_text_display
-    └── # Builds the Dash text display from a text string.
+    ├── # Builds the Dash text display from a text string.
+    ├── impls assert isinstance(text, str)
+    ├── impls display = html.Pre(text, className="text-display")
+    └── return display  # the slot's text element, whitespace preserved
 ```
 
 ### Backend schemas
@@ -1140,8 +1225,12 @@ text_display.ts
 
 ```text
 table_display.py
+├── from dash import dash_table
 └── def create_table_display
-    └── # Builds the Dash table display from tabular data.
+    ├── # Builds the Dash table display from tabular data.
+    ├── impls columns = one column spec per field name, over the sorted set of names the rows carry  # sorting the name set is what fixes column order
+    ├── impls display = dash_table.DataTable(columns=columns, data=the rows)
+    └── return display  # the slot's table element
 ```
 
 ### Backend schemas
@@ -1318,7 +1407,14 @@ scene_graph_display.ts
 │   ├── impls mount the container inside the display container
 │   └── return  # the overlay container
 ├── async function loadSceneGraphPayload({ displayResponse }: { displayResponse: SceneGraphDisplayResponse }): Promise<SceneGraphPayload>
-│   └── # Async-loads the scene-graph payload from displayResponse.url and returns the parsed payload (node/edge positions + colors + label entries).
+│   ├── # Async-loads the scene-graph payload from displayResponse.url and returns the parsed payload (node/edge positions + colors + label entries).
+│   ├── if displayResponse.url === null
+│   │   └── throw new Error("scene graph display response url is null")
+│   ├── impls response = await fetch(displayResponse.url)
+│   ├── if !response.ok
+│   │   └── throw new Error(`unable to load scene graph: HTTP ${response.status}`)
+│   ├── impls payload = (await response.json()) as SceneGraphPayload  # cast unchecked
+│   └── return payload
 ├── function createThreeSceneGraphPoints({ payload, nodeSize, edgeColor, edgeWidth }: { payload: SceneGraphPayload; nodeSize?: number; edgeColor?: string; edgeWidth?: number }): { points: THREE.Points; labels: object[] }
 │   ├── # Sync-builds THREE.Points + per-frame label data from a pre-loaded payload.
 │   ├── impls effectiveNodeSize = nodeSize ?? DEFAULT_NODE_SIZE
@@ -1435,7 +1531,9 @@ core_mesh_display.py
 │   └── return
 └── def create_dash_mesh_component
     ├── # Assembles the Dash component that hosts the Mesh3d scene and its trackball camera controls.
-    └── return
+    ├── impls assert isinstance(scene, go.Mesh3d)
+    ├── impls display = dcc.Graph(figure=go.Figure(data=[scene]))
+    └── return display  # the mesh display element
 ```
 
 ### Backend schemas
@@ -1483,6 +1581,7 @@ display_response.py
 
 ```text
 apis.py
+├── import json
 ├── from pathlib import Path
 ├── from typing import Any, Dict, Tuple
 ├── import torch
@@ -1531,8 +1630,13 @@ apis.py
 │   │   └── impls assigns scalar_rgb as the per-texel RGB on the UV texture map
 │   └── return
 ├── def _write_sparse_heatmap_resource(input_path: Path, output_path: Path) -> None
-│   ├── # Writes the (indices, values) delta + geometry reference from input_path to output_path as the wire resource.
-│   └── return
+│   ├── # Writes the (indices, values) delta + geometry_url from input_path to output_path as the wire resource.
+│   ├── impls geometry_url = the url of the mesh resource those indices index into, read from input_path
+│   ├── impls indices, values = the non-default entries read from input_path
+│   ├── impls payload = {"geometry_url": geometry_url, "indices": indices.tolist(), "values": values.tolist()}
+│   ├── impls output_path.parent.mkdir(parents=True, exist_ok=True)
+│   └── with output_path.open("w") as fh
+│       └── impls json.dump(payload, fh)
 ├── def _build_segmentation_mesh_meta_info
 │   ├── # Builds class/color metadata from the class-to-RGB mapping.
 │   ├── impls stores `class_id_to_rgb`
@@ -1735,7 +1839,10 @@ apis.py
 │   ├── calls _map_segmentation_gs_to_rgb(segmentation_gs_path=segmentation_gs_path, class_id_to_rgb=class_id_to_rgb)
 │   └── calls create_dash_gaussians_display
 └── def _map_segmentation_gs_to_rgb
-    └── # Recolors the segmentation Gaussian's per-Gaussian class ids to RGB via the class-to-RGB mapping.
+    ├── # Recolors the segmentation Gaussian's per-Gaussian class ids to RGB via the class-to-RGB mapping.
+    ├── impls assert isinstance(segmentation_gs_path, str)
+    ├── impls assert isinstance(class_id_to_rgb, dict)
+    └── raise NotImplementedError("Dash segmentation-to-color Gaussian mapping is declared by the skeleton but not exercised by any caller in this branch.")
 ```
 
 `data/viewer/utils/displays/gaussians/dash/core_gaussians_display.py`
@@ -1755,7 +1862,8 @@ core_gaussians_display.py
 │   └── return
 └── def create_dash_gaussians_component
     ├── # Assembles the Dash component that hosts the Gaussian-splat scene and its trackball camera controls.
-    └── return
+    ├── impls assert isinstance(title, str)
+    └── raise NotImplementedError("Dash Gaussian component assembly is declared by the skeleton but not exercised by any caller in this branch.")
 ```
 
 ### Backend schemas
@@ -1995,7 +2103,14 @@ camera_display.ts
 │   ├── impls loadCamerasPayload({ displayResponse }).then(payload => group.add(createThreeCameras({ payload, frustumOpacity })))
 │   └── return group
 ├── async function loadCamerasPayload({ displayResponse }: { displayResponse: CameraDisplayResponse }): Promise<CamerasPayload>
-│   └── # Async-loads the camera-vis JSON payload from displayResponse.url and validates each entry has center / center_color / center_size / axes / frustum_lines and that every axes/frustum line carries start / end / color; returns the validated payload.
+│   ├── # Async-fetches the camera-vis JSON payload from displayResponse.url and hands the decoded body to the payload validator.
+│   ├── if displayResponse.url === null
+│   │   └── throw new Error("camera display response url is null")
+│   ├── impls response = await fetch(displayResponse.url)
+│   ├── if !response.ok
+│   │   └── throw new Error(`unable to load camera visualization: HTTP ${response.status}`)
+│   ├── impls payload = validateCameraVisualizationPayloads({ value: await response.json() })
+│   └── return payload
 ├── function createThreeCameras({ payload, frustumOpacity }: { payload: CamerasPayload; frustumOpacity?: number }): THREE.Object3D
 │   ├── # Sync-builds the transparent Three.js centers + line segments from a pre-validated camera-vis payload, reading every baked glyph size + color from the payload.
 │   ├── impls effectiveFrustumOpacity = frustumOpacity ?? DEFAULT_FRUSTUM_OPACITY
@@ -2029,7 +2144,9 @@ camera_state.py
 
 ```text
 camera_state.py
-└── class CameraState
+├── from pydantic import BaseModel
+└── class CameraState(BaseModel)
+    ├── # One camera's viewer-side state: its intrinsics, extrinsics and convention, plus the name and id identifying it.
     ├── intrinsics
     ├── extrinsics
     ├── intr_convention
@@ -2177,7 +2294,16 @@ camera_sync.py
 │   └── return
 ├── def _set_camera_state_from_source_camera
 │   ├── # Commits the firing source display's current camera state into that source's CameraSyncState entry in the store.
-│   └── return
+│   ├── impls assert source_camera is None or isinstance(source_camera, dict)
+│   ├── impls assert camera_sync_state is None or isinstance(camera_sync_state, dict)
+│   ├── impls assert isinstance(source_id, (str, dict))
+│   ├── if camera_sync_state is None
+│   │   └── impls updated_camera_sync_state = {"camera_state": None, "source_id": None, "target_ids": []}
+│   ├── else
+│   │   └── impls updated_camera_sync_state = dict(camera_sync_state)
+│   ├── impls updated_camera_sync_state["camera_state"] = source_camera  # committed even when None
+│   ├── impls updated_camera_sync_state["source_id"] = source_id
+│   └── return updated_camera_sync_state  # the updated camera-sync store data
 └── def apply_camera_state_to_target
     ├── # Applies one source's current camera state to a single registered Dash spatial-display target.
     ├── impls applies the source's CameraSyncState.camera_state to a Dash spatial-display target registered under that source
