@@ -1,4 +1,4 @@
-from typing import Dict, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, Union
 
 import torch
 
@@ -10,20 +10,14 @@ class SingleTaskCriterion(BaseCriterion):
 
     def __call__(
         self,
-        y_pred: Union[torch.Tensor, Dict[str, torch.Tensor]],
-        y_true: Union[torch.Tensor, Dict[str, torch.Tensor]],
+        y_pred: Union[torch.Tensor, Dict[str, Any]],
+        y_true: Union[torch.Tensor, Dict[str, Any]],
     ) -> torch.Tensor:
         r"""This method assumes `_compute_loss(...)` is implemented.
 
         Args:
-            y_pred: Single-task model outputs. Tensor inputs are forwarded
-                directly. One-entry tensor dicts are unwrapped for backward
-                compatibility. Structured values are otherwise passed through to
-                `_compute_loss(...)` unchanged.
-            y_true: Single-task supervision inputs. Tensor inputs are forwarded
-                directly. One-entry tensor dicts are unwrapped for backward
-                compatibility. Structured values are otherwise passed through to
-                `_compute_loss(...)` unchanged.
+            y_pred: Single-task model outputs. Tensor inputs are forwarded directly. One-entry dicts are unwrapped to the single prediction tensor they carry. Multi-entry dicts are passed through to `_compute_loss(...)` unchanged.
+            y_true: Single-task supervision inputs. Tensor inputs are forwarded directly. One-entry dicts are unwrapped to the single supervision tensor they carry. Multi-entry dicts are passed through to `_compute_loss(...)` unchanged.
 
         Returns:
             Scalar loss tensor returned by `_compute_loss(...)`.
@@ -47,10 +41,13 @@ class SingleTaskCriterion(BaseCriterion):
                     "Expected every `y_pred` dict key to be a string. "
                     f"{y_pred.keys()=}"
                 )
-                assert all(
+                assert any(
                     isinstance(value, torch.Tensor) for value in y_pred.values()
                 ), (
-                    "Expected every `y_pred` dict value to be a tensor. "
+                    "Expected the `y_pred` dict to carry at least one tensor "
+                    "prediction, since a criterion scores tensors; a prediction "
+                    "may also carry the model's own params structure, whose "
+                    "fields `_compute_loss` selects among. "
                     f"{[(key, type(value)) for key, value in y_pred.items()]=}"
                 )
 
@@ -66,18 +63,21 @@ class SingleTaskCriterion(BaseCriterion):
                     "Expected every `y_true` dict key to be a string. "
                     f"{y_true.keys()=}"
                 )
-                assert all(
+                assert any(
                     isinstance(value, torch.Tensor) for value in y_true.values()
                 ), (
-                    "Expected every `y_true` dict value to be a tensor. "
+                    "Expected the `y_true` dict to carry at least one tensor "
+                    "supervision target, since a criterion scores tensors; a "
+                    "batch may also carry per-datapoint values the collation "
+                    "could not stack, which `_compute_loss` selects among. "
                     f"{[(key, type(value)) for key, value in y_true.items()]=}"
                 )
 
         _validate_inputs()
 
         def _normalize_inputs() -> Tuple[
-            Union[torch.Tensor, Dict[str, torch.Tensor]],
-            Union[torch.Tensor, Dict[str, torch.Tensor]],
+            Union[torch.Tensor, Dict[str, Any]],
+            Union[torch.Tensor, Dict[str, Any]],
         ]:
             if isinstance(y_pred, dict) and len(y_pred) == 1:
                 y_pred_normalized = next(iter(y_pred.values()))
