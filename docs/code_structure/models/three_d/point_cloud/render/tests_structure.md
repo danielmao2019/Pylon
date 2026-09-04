@@ -13,11 +13,6 @@ test_render_rgb.py
 ├── from data.structures.three_d.camera.intrinsics.camera_intrinsics import build_camera_intrinsics
 ├── from data.structures.three_d.point_cloud.point_cloud import PointCloud
 ├── from models.three_d.point_cloud.render import render_rgb_from_point_cloud
-├── def _build_camera(focal: float, principal_point: float) -> Camera
-│   ├── # Builds the identity-pose opengl pinhole camera on the cpu that every test in this file renders through.
-│   ├── calls build_camera_intrinsics(model="pinhole", params=the fx/fy/cx/cy/h/w built from focal and principal_point, intr_convention="standard", device=cpu)
-│   ├── calls CameraExtrinsics(extrinsics=the identity [4, 4], extr_convention="opengl", device=cpu)
-│   └── calls Camera(intrinsics=intrinsics, extrinsics=extrinsics, device=cpu)
 ├── def test_render_rgb_basic
 │   ├── # Four coloured points at distinct depths render to a [3, H, W] float32 image whose values stay inside [0, 1].
 │   ├── calls PointCloud(xyz=four points at distinct depths, data={'rgb': their four colours})
@@ -61,18 +56,23 @@ test_render_rgb.py
 │   ├── calls _build_camera(focal=100.0, principal_point=50.0)
 │   └── with pytest.raises(AssertionError)
 │       └── calls render_rgb_from_point_cloud(pc=pc_data, camera=camera, resolution=(100, 100))
-└── def test_render_rgb_invalid_inputs
-    ├── # The rejected-input surface: a non-PointCloud pc, a non-CameraIntrinsics intrinsics, a malformed extrinsics matrix, and a non-positive resolution.
-    ├── calls PointCloud(xyz=one point, data={'rgb': one colour})
-    ├── calls _build_camera(focal=100.0, principal_point=50.0)
-    ├── with pytest.raises(AssertionError)
-    │   └── calls render_rgb_from_point_cloud(pc=None, camera=camera, resolution=(100, 100))
-    ├── with pytest.raises(AssertionError)
-    │   └── calls CameraExtrinsics(extrinsics=a [3, 3] matrix, extr_convention="opengl", device=cpu)
-    ├── with pytest.raises(AssertionError)
-    │   └── calls Camera(intrinsics=a raw [4, 4] tensor, extrinsics=a valid CameraExtrinsics, device=cpu)
-    └── with pytest.raises(AssertionError)
-        └── calls render_rgb_from_point_cloud(pc=pc_data, camera=camera, resolution=(0, 100))
+├── def test_render_rgb_invalid_inputs
+│   ├── # The rejected-input surface: a non-PointCloud pc, a non-CameraIntrinsics intrinsics, a malformed extrinsics matrix, and a non-positive resolution.
+│   ├── calls PointCloud(xyz=one point, data={'rgb': one colour})
+│   ├── calls _build_camera(focal=100.0, principal_point=50.0)
+│   ├── with pytest.raises(AssertionError)
+│   │   └── calls render_rgb_from_point_cloud(pc=None, camera=camera, resolution=(100, 100))
+│   ├── with pytest.raises(AssertionError)
+│   │   └── calls CameraExtrinsics(extrinsics=a [3, 3] matrix, extr_convention="opengl", device=cpu)
+│   ├── with pytest.raises(AssertionError)
+│   │   └── calls Camera(intrinsics=a raw [4, 4] tensor, extrinsics=a valid CameraExtrinsics, device=cpu)
+│   └── with pytest.raises(AssertionError)
+│       └── calls render_rgb_from_point_cloud(pc=pc_data, camera=camera, resolution=(0, 100))
+└── def _build_camera(focal: float, principal_point: float) -> Camera
+    ├── # Builds the identity-pose opengl pinhole camera on the cpu that every test in this file renders through.
+    ├── calls build_camera_intrinsics(model="pinhole", params=the fx/fy/cx/cy/h/w built from focal and principal_point, intr_convention="standard", device=cpu)
+    ├── calls CameraExtrinsics(extrinsics=the identity [4, 4], extr_convention="opengl", device=cpu)
+    └── calls Camera(intrinsics=intrinsics, extrinsics=extrinsics, device=cpu)
 ```
 
 `tests/models/three_d/point_cloud/render/test_render_depth.py`
@@ -86,11 +86,6 @@ test_render_depth.py
 ├── from data.structures.three_d.camera.intrinsics.camera_intrinsics import build_camera_intrinsics
 ├── from data.structures.three_d.point_cloud.point_cloud import PointCloud
 ├── from models.three_d.point_cloud.render import render_depth_from_point_cloud
-├── def _build_camera(focal: float, principal_point: float) -> Camera
-│   ├── # Builds the identity-pose opengl pinhole camera on the cpu that every test in this file renders through.
-│   ├── calls build_camera_intrinsics(model="pinhole", params=the fx/fy/cx/cy/h/w built from focal and principal_point, intr_convention="standard", device=cpu)
-│   ├── calls CameraExtrinsics(extrinsics=the identity [4, 4], extr_convention="opengl", device=cpu)
-│   └── calls Camera(intrinsics=intrinsics, extrinsics=extrinsics, device=cpu)
 ├── def test_render_depth_basic
 │   ├── # Four points at distinct depths render to a [H, W] float32 map whose covered pixels all carry positive depth.
 │   ├── calls PointCloud(xyz=four points at distinct depths)
@@ -135,18 +130,23 @@ test_render_depth.py
 │   ├── calls render_depth_from_point_cloud(pc=pc_data, camera=camera, resolution=(50, 50))
 │   ├── calls render_depth_from_point_cloud(pc=pc_data, camera=camera, resolution=(200, 200))
 │   └── impls assert each map matches its requested resolution and carries rendered content
-└── def test_render_depth_invalid_inputs
-    ├── # The rejected-input surface: a non-PointCloud pc, a non-CameraIntrinsics intrinsics, a malformed extrinsics matrix, and a non-positive resolution.
-    ├── calls PointCloud(xyz=one point)
-    ├── calls _build_camera(focal=100.0, principal_point=50.0)
-    ├── with pytest.raises(AssertionError)
-    │   └── calls render_depth_from_point_cloud(pc="not a point cloud", camera=valid_camera, resolution=(100, 100))
-    ├── with pytest.raises(AssertionError)
-    │   └── calls Camera(intrinsics=a raw [4, 4] tensor, extrinsics=a valid CameraExtrinsics, device=cpu)
-    ├── with pytest.raises(AssertionError)
-    │   └── calls CameraExtrinsics(extrinsics=a [3, 3] matrix, extr_convention="opengl", device=cpu)
-    └── with pytest.raises(AssertionError)
-        └── calls render_depth_from_point_cloud(pc=valid_pc_data, camera=valid_camera, resolution=(0, 100))
+├── def test_render_depth_invalid_inputs
+│   ├── # The rejected-input surface: a non-PointCloud pc, a non-CameraIntrinsics intrinsics, a malformed extrinsics matrix, and a non-positive resolution.
+│   ├── calls PointCloud(xyz=one point)
+│   ├── calls _build_camera(focal=100.0, principal_point=50.0)
+│   ├── with pytest.raises(AssertionError)
+│   │   └── calls render_depth_from_point_cloud(pc="not a point cloud", camera=valid_camera, resolution=(100, 100))
+│   ├── with pytest.raises(AssertionError)
+│   │   └── calls Camera(intrinsics=a raw [4, 4] tensor, extrinsics=a valid CameraExtrinsics, device=cpu)
+│   ├── with pytest.raises(AssertionError)
+│   │   └── calls CameraExtrinsics(extrinsics=a [3, 3] matrix, extr_convention="opengl", device=cpu)
+│   └── with pytest.raises(AssertionError)
+│       └── calls render_depth_from_point_cloud(pc=valid_pc_data, camera=valid_camera, resolution=(0, 100))
+└── def _build_camera(focal: float, principal_point: float) -> Camera
+    ├── # Builds the identity-pose opengl pinhole camera on the cpu that every test in this file renders through.
+    ├── calls build_camera_intrinsics(model="pinhole", params=the fx/fy/cx/cy/h/w built from focal and principal_point, intr_convention="standard", device=cpu)
+    ├── calls CameraExtrinsics(extrinsics=the identity [4, 4], extr_convention="opengl", device=cpu)
+    └── calls Camera(intrinsics=intrinsics, extrinsics=extrinsics, device=cpu)
 ```
 
 `tests/models/three_d/point_cloud/render/test_render_segmentation.py`
@@ -160,11 +160,6 @@ test_render_segmentation.py
 ├── from data.structures.three_d.camera.intrinsics.camera_intrinsics import build_camera_intrinsics
 ├── from data.structures.three_d.point_cloud.point_cloud import PointCloud
 ├── from models.three_d.point_cloud.render import render_segmentation_from_point_cloud
-├── def _build_camera(focal: float, principal_point: float) -> Camera
-│   ├── # Builds the identity-pose opengl pinhole camera on the cpu that every test in this file renders through.
-│   ├── calls build_camera_intrinsics(model="pinhole", params=the fx/fy/cx/cy/h/w built from focal and principal_point, intr_convention="standard", device=cpu)
-│   ├── calls CameraExtrinsics(extrinsics=the identity [4, 4], extr_convention="opengl", device=cpu)
-│   └── calls Camera(intrinsics=intrinsics, extrinsics=extrinsics, device=cpu)
 ├── def test_render_segmentation_basic
 │   ├── # Three labelled points render to an [H, W] int64 label map whose uncovered pixels carry the default 255 ignore label.
 │   ├── calls PointCloud(xyz=three points at distinct depths, data={'labels': their three labels})
@@ -202,16 +197,21 @@ test_render_segmentation.py
 │   ├── calls _build_camera(focal=100.0, principal_point=50.0)
 │   └── with pytest.raises(AssertionError)
 │       └── calls render_segmentation_from_point_cloud(pc=pc_data, key="labels", camera=camera, resolution=(100, 100))
-└── def test_render_segmentation_invalid_inputs
-    ├── # The rejected-input surface: a non-PointCloud pc, a non-CameraIntrinsics intrinsics, a malformed extrinsics matrix, and a non-positive resolution.
-    ├── calls PointCloud(xyz=one point, data={'labels': one label})
-    ├── calls _build_camera(focal=100.0, principal_point=50.0)
-    ├── with pytest.raises(AssertionError)
-    │   └── calls render_segmentation_from_point_cloud(pc=None, key="labels", camera=valid_camera, resolution=(100, 100))
-    ├── with pytest.raises(AssertionError)
-    │   └── calls Camera(intrinsics=a raw [4, 4] tensor, extrinsics=a valid CameraExtrinsics, device=cpu)
-    ├── with pytest.raises(AssertionError)
-    │   └── calls CameraExtrinsics(extrinsics=a [3, 3] matrix, extr_convention="opengl", device=cpu)
-    └── with pytest.raises(AssertionError)
-        └── calls render_segmentation_from_point_cloud(pc=pc_data, key="labels", camera=valid_camera, resolution=(0, 100))
+├── def test_render_segmentation_invalid_inputs
+│   ├── # The rejected-input surface: a non-PointCloud pc, a non-CameraIntrinsics intrinsics, a malformed extrinsics matrix, and a non-positive resolution.
+│   ├── calls PointCloud(xyz=one point, data={'labels': one label})
+│   ├── calls _build_camera(focal=100.0, principal_point=50.0)
+│   ├── with pytest.raises(AssertionError)
+│   │   └── calls render_segmentation_from_point_cloud(pc=None, key="labels", camera=valid_camera, resolution=(100, 100))
+│   ├── with pytest.raises(AssertionError)
+│   │   └── calls Camera(intrinsics=a raw [4, 4] tensor, extrinsics=a valid CameraExtrinsics, device=cpu)
+│   ├── with pytest.raises(AssertionError)
+│   │   └── calls CameraExtrinsics(extrinsics=a [3, 3] matrix, extr_convention="opengl", device=cpu)
+│   └── with pytest.raises(AssertionError)
+│       └── calls render_segmentation_from_point_cloud(pc=pc_data, key="labels", camera=valid_camera, resolution=(0, 100))
+└── def _build_camera(focal: float, principal_point: float) -> Camera
+    ├── # Builds the identity-pose opengl pinhole camera on the cpu that every test in this file renders through.
+    ├── calls build_camera_intrinsics(model="pinhole", params=the fx/fy/cx/cy/h/w built from focal and principal_point, intr_convention="standard", device=cpu)
+    ├── calls CameraExtrinsics(extrinsics=the identity [4, 4], extr_convention="opengl", device=cpu)
+    └── calls Camera(intrinsics=intrinsics, extrinsics=extrinsics, device=cpu)
 ```

@@ -240,6 +240,7 @@ render_rgb_o3d.py
 ```text
 render_rgb_volumetric.py
 ├── import itertools
+├── import json
 ├── import logging
 ├── import math
 ├── import subprocess
@@ -273,9 +274,9 @@ render_rgb_volumetric.py
 │   │   ├── calls render_rgb_from_point_cloud(pc=pc, camera=render_camera, resolution=resolution, return_mask=True)
 │   │   └── impls append the image and mask to the training set
 │   ├── if debug
-│   │   └── impls tempdir = the retained ./test_volumetric_rendering workspace
+│   │   └── impls tempdir = the retained ./test_volumetric_rendering workspace, with cleanup_fn = None
 │   ├── else
-│   │   └── impls temp_dir_context = a TemporaryDirectory whose path is tempdir
+│   │   └── impls temp_dir_context = a TemporaryDirectory whose path is tempdir and whose cleanup is cleanup_fn
 │   ├── try
 │   │   ├── calls _create_images(images=images, output_root=tempdir, downscale_factor=downscale_factor)
 │   │   ├── calls _create_masks(masks=masks, output_root=tempdir, downscale_factor=downscale_factor)
@@ -286,7 +287,7 @@ render_rgb_volumetric.py
 │   │   ├── calls load_splatfacto_model(model_dir=str(model_dir), device=target_device)
 │   │   └── calls render_rgb_from_splatfacto(model=pipeline, camera=camera, resolution=resolution)
 │   ├── finally
-│   │   └── if not debug
+│   │   └── if cleanup_fn is not None
 │   │       └── calls temp_dir_context.cleanup()
 │   └── return  # the evaluation render moved onto the point cloud's device
 ├── def gen_auxiliary_cameras(points: torch.Tensor, camera: Camera) -> List[Camera]
@@ -294,10 +295,11 @@ render_rgb_volumetric.py
 │   ├── calls camera.to(device=device, extr_convention="standard")
 │   ├── impls step = half the distance from the camera position to the point cloud centroid
 │   ├── impls direction_specs = the 26 unit vectors over itertools.product([-1, 0, 1], repeat=3) minus the origin
-│   └── for direction_unit in direction_specs
-│       ├── impls aux_standard = the primary rotation block with the position translated by direction_unit * step
-│       ├── calls Camera(intrinsics=camera.intrinsics, extrinsics=CameraExtrinsics(extrinsics=aux_standard, extr_convention="standard", device=device), device=device)
-│       └── impls append the auxiliary camera converted back to the primary camera's convention
+│   ├── for direction_unit in direction_specs
+│   │   ├── impls aux_standard = the primary rotation block with the position translated by direction_unit * step
+│   │   ├── calls Camera(intrinsics=camera.intrinsics, extrinsics=CameraExtrinsics(extrinsics=aux_standard, extr_convention="standard", device=device), device=device)
+│   │   └── impls append the auxiliary camera converted back to the primary camera's convention
+│   └── return  # the 26 auxiliary cameras, in the primary camera's own convention
 ├── def _create_images(images: List[torch.Tensor], output_root: str, downscale_factor: int) -> None
 │   ├── # Writes the rendered RGB tensors into the nerfstudio dataset's downscale-suffixed images directory.
 │   └── for idx, image in enumerate(images)
@@ -424,16 +426,20 @@ apply_point_size_postprocessing.py
     ├── impls result = a clone of rendered_image
     ├── calls create_circular_kernel_offsets(point_size, device)
     ├── impls y_coords, x_coords = the [H, W] pixel coordinate grids
-    └── for dy, dx in kernel_offsets
-        ├── impls neighbor_y, neighbor_x = the coordinate grids shifted by (dy, dx)
-        ├── impls valid_mask = the in-image-bounds test over the shifted coordinates
-        ├── if not valid_mask.any()
-        │   └── continue
-        ├── impls restrict the current and neighbour coordinates to valid_mask
-        ├── impls propagate_mask = the neighbour carries depth and is nearer than the current pixel
-        └── if propagate_mask.any()
-            ├── impls restrict both coordinate sets to propagate_mask
-            └── impls copy rendered_image at the neighbour coordinates into result at the current coordinates
+    ├── for dy, dx in kernel_offsets
+    │   ├── impls neighbor_y, neighbor_x = the coordinate grids shifted by (dy, dx)
+    │   ├── impls valid_mask = the in-image-bounds test over the shifted coordinates
+    │   ├── if not valid_mask.any()
+    │   │   └── continue
+    │   ├── impls restrict the current and neighbour coordinates to valid_mask
+    │   ├── impls propagate_mask = the neighbour carries depth and is nearer than the current pixel
+    │   └── if propagate_mask.any()
+    │       ├── impls restrict both coordinate sets to propagate_mask
+    │       ├── if is_multichannel
+    │       │   └── impls copy rendered_image's [:, neighbour] pixels into result's [:, current] pixels
+    │       └── else
+    │           └── impls copy rendered_image's [neighbour] pixels into result's [current] pixels
+    └── return  # result, the dilated image carrying rendered_image's shape
 ```
 
 `models/three_d/point_cloud/render/common/create_circular_kernel_offsets.py`
