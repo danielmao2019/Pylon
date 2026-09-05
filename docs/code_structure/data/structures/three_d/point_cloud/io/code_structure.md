@@ -68,6 +68,7 @@ load_point_cloud.py
 │   ├── assert result carries 'xyz'
 │   ├── impls is_seg_file = whether '_seg' occurs in the basename of filepath
 │   ├── if is_seg_file and result carries 'feat'
+│   │   ├── assert result['feat'] dtype is float32 or float64
 │   │   └── impls result['feat'] = result['feat'] cast to int64  # a segmentation file's feature column is a label column
 │   ├── calls PointCloud(data=result)
 │   └── return  # the PointCloud wrapping result
