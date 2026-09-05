@@ -1,7 +1,5 @@
 """Unit tests for the mesh convert-module framework interop boundary."""
 
-import sys
-import types
 from pathlib import Path
 
 import numpy as np
@@ -10,37 +8,6 @@ import torch
 import trimesh
 from PIL import Image
 from torch.testing import assert_close
-
-
-def _install_namespace_package(package_name: str, package_path: Path) -> None:
-    """Install one namespace package so the data tree imports without setup.
-
-    Args:
-        package_name: Dotted package name to register.
-        package_path: Filesystem directory backing the package.
-
-    Returns:
-        None.
-    """
-
-    if package_name in sys.modules:
-        return
-
-    module = types.ModuleType(package_name)
-    module.__file__ = str(package_path / "__init__.py")
-    module.__path__ = [str(package_path)]
-    sys.modules[package_name] = module
-
-
-REPO_ROOT = Path(__file__).resolve().parents[5]
-_install_namespace_package(package_name="data", package_path=REPO_ROOT / "data")
-_install_namespace_package(
-    package_name="data.structures", package_path=REPO_ROOT / "data" / "structures"
-)
-_install_namespace_package(
-    package_name="data.structures.three_d",
-    package_path=REPO_ROOT / "data" / "structures" / "three_d",
-)
 
 from data.structures.three_d.mesh import (
     Mesh,

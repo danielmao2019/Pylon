@@ -1,42 +1,7 @@
 """Unit tests for the uv-texture-map mesh-texture representation."""
 
-import sys
-import types
-from pathlib import Path
-
 import pytest
 import torch
-
-
-def _install_namespace_package(package_name: str, package_path: Path) -> None:
-    """Install one namespace package so the data tree imports without setup.
-
-    Args:
-        package_name: Dotted package name to register.
-        package_path: Filesystem directory backing the package.
-
-    Returns:
-        None.
-    """
-
-    if package_name in sys.modules:
-        return
-
-    module = types.ModuleType(package_name)
-    module.__file__ = str(package_path / "__init__.py")
-    module.__path__ = [str(package_path)]
-    sys.modules[package_name] = module
-
-
-REPO_ROOT = Path(__file__).resolve().parents[6]
-_install_namespace_package(package_name="data", package_path=REPO_ROOT / "data")
-_install_namespace_package(
-    package_name="data.structures", package_path=REPO_ROOT / "data" / "structures"
-)
-_install_namespace_package(
-    package_name="data.structures.three_d",
-    package_path=REPO_ROOT / "data" / "structures" / "three_d",
-)
 
 from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import (
     MeshTextureUVTextureMap,
