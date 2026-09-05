@@ -13,9 +13,12 @@ goal: re-design pc dtype contract/provenance
 
 ### 1.1. Proposed Solution
 
-1. The principle, in one sentence: load point cloud preserves everything whenever possible and only dtype converts for the dtype system mismatch between torch and the format it is reading.
-2. the fundamental root cause is the dtype system mismatch: torch has no uint16 and no uint32, so ply u2 loads as int32 and ply u4 loads as int64. everything else loads unchanged: i1 as int8, u1 as uint8, i2 as int16, i4 as int32, f4 as float32, f8 as float64, b1 as bool.
-3. The core design change in this task:
+1. the fundamental root cause is the dtype system mismatch. torch has no uint16 and no uint32, so ply u2 loads as int32 and ply u4 loads as int64. everything else loads unchanged: i1 as int8, u1 as uint8, i2 as int16, i4 as int32, f4 as float32, f8 as float64, b1 as bool. numpy also has uint64 and float128 that torch 2.2.2 does not, torch has bfloat16 that numpy 1.26.4 does not, and ply has no 64-bit integer.
+2. there is one universe of conceptual dtypes, system-agnostic. every concrete system supports a subset of it, and no system's subset contains every other's.
+3. the core principles:
+   1. a dtype is a set of values, and one dtype's set may sit inside another's. float32's sits inside float64's. convert or refuse is decided by whether the data falls inside the target dtype's set, never by the pair of dtype names. inside means nothing is lost, so convert. outside means something is lost, so refuse. no dtype is ruled out in advance: complex, uint64 and float128 are each handled by this same test.
+   2. load point cloud preserves everything whenever possible, and converts dtype only for the mismatch between torch and the format it is reading.
+4. The core design change in this task:
    1. add meta data in `PointCloud`:
       1. in addition to the fields being loaded, a meta data is created and stored inside the PointCloud obj returned from load.
       2. meta data records whatever the original dtype is, upon construction.
