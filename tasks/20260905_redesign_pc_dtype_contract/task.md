@@ -57,7 +57,9 @@ goal: re-design pc dtype contract/provenance
          3. save point cloud
             1. strictly follows the meta data. it does not need to be aware of the dtype mismatch at all.
             2. meta data defaults to that version in the PointCloud obj, but overridable by an optional arg to control how it wants the field to be saved as.
-            3. defensive programming: save point cloud casts each field to the recorded dtype and asserts the cast is lossless.
+            3. save point cloud recovers both halves of the record, and the override arg overrides either of them.
+               1. dtype: save casts each field to the recorded dtype. defensive programming: it asserts the cast is lossless.
+               2. layout: save writes each component of a field under its recorded column name, instead of deriving names from the field name. a field with no recorded layout and more than one column has no names to write under, so it is refused unless the override supplies them.
             4. rgb is the one field that also needs a convention conversion, because its dtype carries a convention as well as a value set. save reads the convention off the field's current dtype and off the recorded dtype, and converts between the two. the dtype defines the convention: a float dtype means 0 to 1, an integer dtype means that dtype's own range. so a uint8 color is 0 to 255 and a uint16 color is 0 to 65535, which is what las stores.
 5. what becomes stale design:
    - the color rescale that guesses a [0, 1] range from the values and multiplies by 255
@@ -80,3 +82,4 @@ goal: re-design pc dtype contract/provenance
 2. constructing a `PointCloud` from numpy arrays is in scope. the obj always stores torch tensors.
 3. convention conversion is not avoidable and save point cloud does it, reading each convention off a dtype. what is out of scope is the effort of building a general named-convention mechanism with conversions between named conventions.
 4. every consumer this change breaks is fixed within this task, together with its tests. merging a branch that leaves a consumer broken breaks main.
+5. tests in scope are anything this task might possibly impact. that resolves to the 57 test files referencing `PointCloud`, its I/O or `Select`: the point cloud I/O suites, the `PointCloud` and `Select` suites, the vision-3d transform suites, the PCR collators and dataloaders, the viewer point cloud display suites, the PCR dataset suites, and the point cloud model and render suites.
