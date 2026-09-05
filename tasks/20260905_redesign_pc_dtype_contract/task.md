@@ -26,11 +26,12 @@ goal: re-design pc dtype contract/provenance
          1. what it is: meta data records what the source looked like, upon construction. it records the source of the data, wherever the data comes from: a load from disk, a construction from a torch tensor or a numpy array, or addition or deletion of fields. it records two things.
             1. dtype:
                1. it records the conceptual dtype, not the spelling of whichever system the field came from. a field entering as ply u2, as numpy uint16, or as an open3d UInt16 all record the same thing.
-               2. a las bit-packed field is an ordinary unsigned integer. laspy materializes it as uint8, so uint8 is what enters the obj and uint8 is what the record stores. no special treatment.
+               2. it is recorded against the source layout and not the loaded layout: one dtype per source column, not one per loaded field. a ply holding x as f4 beside y and z as f8 records float32 for x and float64 for y and z, the loaded xyz is float64, and save writes each column back as the type it was.
+               3. a las bit-packed field is an ordinary unsigned integer. laspy materializes it as uint8, so uint8 is what enters the obj and uint8 is what the record stores. no special treatment.
             2. layout:
-               1. it records the ordered names of the source columns the field was assembled from. xyz loaded from a ply records ('x', 'y', 'z'), rgb records ('red', 'green', 'blue'), a single-column intensity records ('intensity',).
+               1. it records the mapping between the source layout and the loaded layout: the columns the source held on one side, the fields the reader assembled them into on the other. a ply maps ('x', 'y', 'z') to xyz, maps ('red', 'green', 'blue') to rgb, and maps ('intensity',) to intensity.
                2. a field that never came from a file records no layout, because it had no source columns.
-         2. granularity: it is per-field, created when a field enters the obj and deleted when the field is removed.
+         2. granularity: the record is per-field, created when a field enters the obj and deleted when the field is removed. inside a field, both halves are keyed on the source columns.
          3. immutability: for each field, the record is never mutable. an overwrite of a field that already exists must NOT change the meta data.
       2. no canonicalization: `PointCloud` does not canonicalize any field, color included. rgb enters and is held exactly as it arrived, like every other field.
       3. validation:
