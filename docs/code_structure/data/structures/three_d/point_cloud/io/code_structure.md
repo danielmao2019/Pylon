@@ -18,17 +18,17 @@ load_point_cloud.py
 ├── def load_point_cloud(filepath: str, nameInPly: Optional[str] = None, name_feat: Optional[str] = None, device: Union[str, torch.device] = 'cuda', dtype: torch.dtype = torch.float32) -> PointCloud
 │   ├── # Loads one point cloud file of any supported format and hands it back as a PointCloud placed on the requested device.
 │   ├── def _validate_inputs [local]
-│   │   ├── assert the normalized form of filepath names an existing file
-│   │   └── assert the lowercased extension of filepath is one of the supported formats
+│   │   └── assert the extension of filepath is one of the supported formats
 │   ├── calls _validate_inputs()
 │   ├── def _normalize_inputs [local]
 │   │   ├── impls filepath = filepath normalized with its separators rewritten to forward slashes
+│   │   ├── assert filepath names an existing file
 │   │   └── return filepath
 │   ├── calls _normalize_inputs(filepath=filepath)
 │   ├── impls filepath = the returned value from _normalize_inputs
-│   ├── impls file_ext = the lowercased extension of filepath
 │   ├── def _load_by_format [local]
 │   │   ├── # Reads the file through the one reader that owns its extension.
+│   │   ├── impls file_ext = the extension of filepath
 │   │   ├── if file_ext == '.pth'
 │   │   │   ├── calls _load_from_pth(filepath, device=device)
 │   │   │   └── return the fields it read
@@ -50,30 +50,26 @@ load_point_cloud.py
 │   │   └── assert 0, "Should not reach here."
 │   ├── calls _load_by_format()
 │   ├── impls pc_data = the fields the matched reader returned
-│   ├── def numpy_to_torch_on_device(key: str, x: Union[np.ndarray, torch.Tensor]) -> torch.Tensor [local]
-│   │   ├── # Places one loaded field on the requested device, casting to the requested dtype only the positions.
+│   ├── def _normalize_field(key: str, x: Union[np.ndarray, torch.Tensor]) -> torch.Tensor [local]
+│   │   ├── # Places one loaded field on the requested device and casts it to the dtype its key calls for.
 │   │   ├── if isinstance(x, np.ndarray)
 │   │   │   ├── if x.dtype == np.uint16
 │   │   │   │   └── impls x = x cast to np.int32  # torch carries no uint16, and int32 inflates it least
-│   │   │   ├── impls tensor = x wrapped as a torch tensor
-│   │   │   ├── impls tensor = tensor moved to device
-│   │   │   ├── if key == 'xyz'
-│   │   │   │   └── impls tensor = tensor cast to dtype
-│   │   │   └── return tensor
-│   │   ├── elif isinstance(x, torch.Tensor)
-│   │   │   ├── impls tensor = x moved to device
-│   │   │   ├── if key == 'xyz'
-│   │   │   │   └── impls tensor = tensor cast to dtype
-│   │   │   └── return tensor
-│   │   └── else
-│   │       └── return x
+│   │   │   └── impls x = x wrapped as a torch tensor
+│   │   ├── assert x is a torch.Tensor
+│   │   ├── impls tensor = x moved to device
+│   │   ├── if key == 'xyz'
+│   │   │   ├── assert tensor is a floating point tensor
+│   │   │   └── impls tensor = tensor cast to dtype
+│   │   ├── impls is_seg_file = whether '_seg' occurs in the basename of filepath
+│   │   ├── if key == 'feat' and is_seg_file
+│   │   │   ├── assert tensor is a floating point or integer tensor
+│   │   │   └── impls tensor = tensor cast to int64  # a segmentation file's feature column is a label column
+│   │   └── return tensor
+│   ├── impls result = an empty dict
 │   ├── for each key, value in pc_data
-│   │   └── calls numpy_to_torch_on_device(key, value)
-│   ├── impls result = the placed fields under the keys pc_data carried them under
-│   ├── assert result carries 'xyz'
-│   ├── impls is_seg_file = whether '_seg' occurs in the lowercased basename of filepath
-│   ├── if is_seg_file and result carries 'feat'
-│   │   └── impls result['feat'] = result['feat'] cast to int64  # a segmentation file's feature column is a label column
+│   │   ├── calls _normalize_field(key, value)
+│   │   └── impls result[key] = the normalized field it returned
 │   ├── calls PointCloud(data=result)
 │   └── return  # the PointCloud wrapping result
 ├── def _load_from_pth(filepath: str, device: Union[str, torch.device] = 'cuda') -> Dict[str, Union[torch.Tensor, np.ndarray]]

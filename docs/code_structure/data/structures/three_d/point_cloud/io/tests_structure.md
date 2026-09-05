@@ -128,6 +128,12 @@ test_point_cloud_loading.py
 │   ├── impls an existing file whose extension is .xyz
 │   └── with pytest.raises(AssertionError)
 │       └── calls load_point_cloud(filepath=filepath, device='cpu')
+├── def test_uppercase_extension_is_rejected
+│   ├── # An extension differing from a supported one only in case names no reader, so it is rejected.
+│   ├── impls filepath = a path under temp_dir ending in .PLY
+│   ├── calls write_ply(filepath)
+│   └── with pytest.raises(AssertionError)
+│       └── calls load_point_cloud(filepath=filepath, device='cpu')
 ├── def write_ply(filepath, num_points=8, with_rgb=False, extra_field=None, element_name='vertex')
 │   ├── # Writes a PLY whose one element carries xyz plus whichever optional columns the caller asks for.
 │   ├── impls columns = the x, y and z fields as float32  # impls-node-one-step:skip — names the three fields
@@ -201,6 +207,16 @@ test_point_cloud_operations.py
 │   ├── calls PlyData.write(filepath)
 │   ├── calls load_point_cloud(filepath=filepath, device='cpu')
 │   └── impls assert the label field is torch.int32
+├── def test_uppercase_seg_marker_leaves_the_feature_column_alone
+│   ├── # The _seg marker is matched as stored, so an uppercase _SEG basename is not a segmentation file.
+│   ├── calls torch.save(a [N, 4] float32 tensor, a filepath containing _SEG)
+│   ├── calls load_point_cloud(filepath=filepath, device='cpu')
+│   └── impls assert feat is still float32
+├── def test_integer_xyz_is_rejected
+│   ├── # An integer coordinate block is rejected rather than cast into a valid-looking float one.
+│   ├── calls torch.save(a [N, 3] int64 tensor, filepath)
+│   └── with pytest.raises(AssertionError)
+│       └── calls load_point_cloud(filepath=filepath, device='cpu')
 ├── def test_windows_style_path_resolves
 │   ├── # A path written with backslashes names the same file as the one written with slashes.
 │   ├── impls windows_style_path = the filepath with its slashes turned into backslashes

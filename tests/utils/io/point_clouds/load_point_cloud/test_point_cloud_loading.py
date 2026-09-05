@@ -31,6 +31,15 @@ def temp_dir():
         yield directory
 
 
+def test_uppercase_extension_is_rejected(temp_dir):
+    """An extension differing from a supported one only in case names no reader, so it is rejected."""
+    filepath = os.path.join(temp_dir, "upper.PLY")
+    write_ply(filepath)
+
+    with pytest.raises(AssertionError):
+        load_point_cloud(filepath=filepath, device='cpu')
+
+
 def write_ply(
     filepath: str,
     num_points: int = 8,

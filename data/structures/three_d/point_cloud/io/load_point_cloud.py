@@ -277,7 +277,6 @@ def load_point_cloud(
         name_feat: Name of feature column (optional)
         device: Device to place tensors on ('cuda', 'cpu', or torch.device)
         dtype: Precision for position data (torch.float32 or torch.float64)
-               Helper loaders always use float64 internally, then convert to requested dtype
 
     Returns:
         PointCloud with coordinates in requested dtype.
@@ -285,10 +284,7 @@ def load_point_cloud(
     """
 
     def _validate_inputs() -> None:
-        assert os.path.isfile(
-            os.path.normpath(filepath).replace('\\', '/')
-        ), f"Point cloud file not found: {filepath}"
-        assert os.path.splitext(filepath)[1].lower() in {
+        assert os.path.splitext(filepath)[1] in {
             '.pth',
             '.ply',
             '.pcd',
@@ -296,27 +292,27 @@ def load_point_cloud(
             '.laz',
             '.off',
             '.txt',
-        }, f"Unsupported file format: {os.path.splitext(filepath)[1].lower()}"
+        }, f"Unsupported file format: {os.path.splitext(filepath)[1]} from {filepath=}"
 
     _validate_inputs()
 
     def _normalize_inputs(filepath: str) -> str:
         filepath = os.path.normpath(filepath).replace('\\', '/')
+        assert os.path.isfile(filepath), f"Point cloud file not found: {filepath}"
         return filepath
 
-    filepath = _normalize_inputs(filepath)
-
-    file_ext = os.path.splitext(filepath)[1].lower()
+    filepath = _normalize_inputs(filepath=filepath)
 
     def _load_by_format() -> Dict[str, Union[torch.Tensor, np.ndarray]]:
         """Read the file through the one reader that owns its extension.
 
         Args:
-            None. The enclosing call's filepath, file_ext, nameInPly, name_feat and device are read from the closure.
+            None. The enclosing call's filepath, nameInPly, name_feat and device are read from the closure.
 
         Returns:
             Dictionary keyed by field name ('xyz' plus whatever else the format carries), holding the arrays or tensors the matching reader produced.
         """
+        file_ext = os.path.splitext(filepath)[1]
         if file_ext == '.pth':
             return _load_from_pth(filepath, device=device)
         if file_ext == '.ply':
@@ -333,46 +329,44 @@ def load_point_cloud(
 
     pc_data = _load_by_format()
 
-    # Convert any numpy arrays to torch tensors and transfer to device
-    def numpy_to_torch_on_device(
-        key: str,
-        x: Union[np.ndarray, torch.Tensor],
-    ) -> torch.Tensor:
-        # Input validations
-        assert isinstance(key, str), f"{type(key)=}"
-        assert isinstance(x, (np.ndarray, torch.Tensor)), f"{type(x)=}"
+    def _normalize_field(key: str, x: Union[np.ndarray, torch.Tensor]) -> torch.Tensor:
+        """Place one loaded field on the requested device and cast it to the dtype its key calls for.
 
+        Args:
+            key: Field name the matched reader returned this field under.
+            x: The field exactly as the reader produced it, an np.ndarray or a torch.Tensor.
+
+        Returns:
+            The field as a torch.Tensor on device, positions cast to dtype and a segmentation
+            file's label column cast to torch.int64.
+        """
         if isinstance(x, np.ndarray):
-            # Handle uint16 which is not supported by PyTorch - use minimal size increase
             if x.dtype == np.uint16:
-                x = x.astype(
-                    np.int32
-                )  # Use int32 instead of int64 to minimize size inflation
-            tensor = torch.from_numpy(x).to(device)
-            # Apply requested dtype only to position data
-            if key == 'xyz':
-                tensor = tensor.to(dtype)
-            return tensor
-        elif isinstance(x, torch.Tensor):
-            tensor = x.to(device)
-            # Apply requested dtype only to position data
-            if key == 'xyz':
-                tensor = tensor.to(dtype)
-            return tensor
-        else:
-            return x
+                x = x.astype(np.int32)
+            x = torch.from_numpy(x)
 
-    # Apply numpy to torch conversion and device transfer
-    result = {
-        key: numpy_to_torch_on_device(key, value) for key, value in pc_data.items()
-    }
+        assert isinstance(x, torch.Tensor), f"{type(x)=} under {key=}"
+        tensor = x.to(device)
 
-    # Ensure xyz exists and is in correct dtype
-    assert 'xyz' in result
+        if key == 'xyz':
+            assert tensor.is_floating_point(), f"{tensor.dtype=} from {filepath=}"
+            tensor = tensor.to(dtype)
 
-    # Handle segmentation files - convert labels to int64
-    is_seg_file = '_seg' in os.path.basename(filepath).lower()
-    if is_seg_file and 'feat' in result:
-        result['feat'] = result['feat'].long()
+        is_seg_file = '_seg' in os.path.basename(filepath)
+        if key == 'feat' and is_seg_file:
+            assert tensor.is_floating_point() or tensor.dtype in (
+                torch.uint8,
+                torch.int8,
+                torch.int16,
+                torch.int32,
+                torch.int64,
+            ), f"{tensor.dtype=} from {filepath=}"
+            tensor = tensor.to(torch.int64)
+
+        return tensor
+
+    result = {}
+    for key, value in pc_data.items():
+        result[key] = _normalize_field(key, value)
 
     return PointCloud(data=result)

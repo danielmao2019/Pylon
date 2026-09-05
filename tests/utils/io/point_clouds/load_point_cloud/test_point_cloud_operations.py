@@ -106,6 +106,26 @@ def test_uint16_field_becomes_int32(temp_dir):
     assert result.label.dtype == torch.int32, f"{result.label.dtype=}"
 
 
+def test_uppercase_seg_marker_leaves_the_feature_column_alone(temp_dir):
+    """The _seg marker is matched as stored, so an uppercase _SEG basename is not a segmentation file."""
+    filepath = os.path.join(temp_dir, "scene_SEG.pth")
+    data = torch.cat([torch.rand(12, 3), torch.randint(0, 10, (12, 1)).float()], dim=1)
+    torch.save(data, filepath)
+
+    result = load_point_cloud(filepath=filepath, device='cpu')
+
+    assert result.feat.dtype == torch.float32, f"{result.feat.dtype=}"
+
+
+def test_integer_xyz_is_rejected(temp_dir):
+    """An integer coordinate block is rejected rather than cast into a valid-looking float one."""
+    filepath = os.path.join(temp_dir, "integer_xyz.pth")
+    torch.save(torch.randint(0, 10, (12, 3)), filepath)
+
+    with pytest.raises(AssertionError):
+        load_point_cloud(filepath=filepath, device='cpu')
+
+
 def test_windows_style_path_resolves(temp_dir):
     """A path written with backslashes names the same file as the one written with slashes."""
     filepath = os.path.join(temp_dir, "windows.pth")
