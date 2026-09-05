@@ -49,3 +49,6 @@ goal: re-design pc dtype contract/provenance
 3. Confirmation message that this task is all done and this branch is good to merge.
 
 ### 2.1. Task Scope
+
+1. load: .pth, .ply, .pcd, .las, .laz, .off, .txt. save: .ply. neither expands.
+2. constructing a `PointCloud` from numpy arrays is in scope. the obj always stores torch tensors.
