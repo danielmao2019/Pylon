@@ -50,18 +50,19 @@ load_point_cloud.py
 │   │   └── assert 0, "Should not reach here."
 │   ├── calls _load_by_format()
 │   ├── impls pc_data = the fields the matched reader returned
-│   ├── def _place_field_on_device(key: str, x: Union[np.ndarray, torch.Tensor]) -> torch.Tensor [local]
+│   ├── def _normalize_field(key: str, x: Union[np.ndarray, torch.Tensor]) -> torch.Tensor [local]
 │   │   ├── # Places one loaded field on the requested device, casting to the requested dtype only the positions.
 │   │   ├── if isinstance(x, np.ndarray)
 │   │   │   ├── if x.dtype == np.uint16
 │   │   │   │   └── impls x = x cast to np.int32  # torch carries no uint16, and int32 inflates it least
 │   │   │   └── impls x = x wrapped as a torch tensor
+│   │   ├── assert x is a torch.Tensor
 │   │   ├── impls tensor = x moved to device
 │   │   ├── if key == 'xyz'
 │   │   │   └── impls tensor = tensor cast to dtype
 │   │   └── return tensor
 │   ├── for each key, value in pc_data
-│   │   └── calls _place_field_on_device(key, value)
+│   │   └── calls _normalize_field(key, value)
 │   ├── impls result = the placed fields under the keys pc_data carried them under
 │   ├── assert result carries 'xyz'
 │   ├── impls is_seg_file = whether '_seg' occurs in the basename of filepath
