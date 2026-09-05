@@ -23,10 +23,13 @@ goal: re-design pc dtype contract/provenance
 4. The core design change in this task:
    1. the `PointCloud` class:
       1. new attr: meta data.
-         1. what it is:
-            1. meta data records whatever the original dtype is, upon construction. it records the source of the data, wherever the data comes from: a load from disk, a construction from a torch tensor or a numpy array, or addition or deletion of fields.
-            2. it records the conceptual dtype, not the spelling of whichever system the field came from. a field entering as ply u2, as numpy uint16, or as an open3d UInt16 all record the same thing.
-            3. a las bit-packed field is an ordinary unsigned integer. laspy materializes it as uint8, so uint8 is what enters the obj and uint8 is what the record stores. no special treatment.
+         1. what it is: meta data records what the source looked like, upon construction. it records the source of the data, wherever the data comes from: a load from disk, a construction from a torch tensor or a numpy array, or addition or deletion of fields. it records two things.
+            1. dtype:
+               1. it records the conceptual dtype, not the spelling of whichever system the field came from. a field entering as ply u2, as numpy uint16, or as an open3d UInt16 all record the same thing.
+               2. a las bit-packed field is an ordinary unsigned integer. laspy materializes it as uint8, so uint8 is what enters the obj and uint8 is what the record stores. no special treatment.
+            2. layout:
+               1. it records the ordered names of the source columns the field was assembled from. xyz loaded from a ply records ('x', 'y', 'z'), rgb records ('red', 'green', 'blue'), a single-column intensity records ('intensity',).
+               2. a field that never came from a file records no layout, because it had no source columns.
          2. granularity: it is per-field, created when a field enters the obj and deleted when the field is removed.
          3. immutability: for each field, the record is never mutable. an overwrite of a field that already exists must NOT change the meta data.
       2. no canonicalization: `PointCloud` does not canonicalize any field, color included. rgb enters and is held exactly as it arrived, like every other field.
