@@ -62,6 +62,9 @@ load_point_cloud.py
 │   │   │   ├── assert tensor is a floating point tensor
 │   │   │   └── impls tensor = tensor cast to dtype
 │   │   ├── impls is_seg_file = whether '_seg' occurs in the basename of filepath
+│   │   ├── if key == 'indices'
+│   │   │   ├── assert tensor is an integer tensor
+│   │   │   └── impls tensor = tensor cast to int64  # PointCloud consumes indices as an index tensor
 │   │   ├── if key == 'feat' and is_seg_file
 │   │   │   ├── assert tensor is a floating point or integer tensor
 │   │   │   └── impls tensor = tensor cast to int64  # a segmentation file's feature column is a label column
@@ -227,7 +230,8 @@ save_point_cloud.py
     │   └── else
     │       ├── if field_data is one-dimensional
     │       │   ├── if field_data.dtype.kind is 'i' or 'u'
-    │       │   │   └── impls dtype_char = 'i4'  # every integer field is narrowed to i4
+    │       │   │   ├── assert every value of field_data fits in int32
+    │       │   │   └── impls dtype_char = 'i4'  # PLY carries no 64-bit integer
     │       │   ├── else
     │       │   │   └── impls dtype_char = 'f4' when field_data.dtype.itemsize is at most 4, else 'f8'
     │       │   ├── impls vertex_dtype gains (field_name, dtype_char)
@@ -236,7 +240,8 @@ save_point_cloud.py
     │           └── for each column i of field_data
     │               ├── impls col_name = field_name suffixed with i when field_data has more than one column, else field_name
     │               ├── if field_data.dtype.kind is 'i' or 'u'
-    │               │   └── impls dtype_char = 'i4'  # every integer field is narrowed to i4
+    │               │   ├── assert every value of that column fits in int32
+    │               │   └── impls dtype_char = 'i4'  # PLY carries no 64-bit integer
     │               ├── else
     │               │   └── impls dtype_char = 'f4' when field_data.dtype.itemsize is at most 4, else 'f8'
     │               ├── impls vertex_dtype gains (col_name, dtype_char)

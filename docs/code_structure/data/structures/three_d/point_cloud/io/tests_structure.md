@@ -376,6 +376,18 @@ test_ply_saving.py
 │   ├── calls save_point_cloud(pc, filepath)
 │   ├── calls load_point_cloud(filepath)
 │   └── impls assert the loaded xyz matches the saved coordinates
+├── def test_indices_survive_the_ply_round_trip
+│   ├── # A PointCloud carrying indices comes back carrying them, as the int64 PointCloud requires.
+│   ├── impls filepath = the path of a tempfile.NamedTemporaryFile with suffix '.ply'
+│   ├── calls save_point_cloud(pc, filepath)
+│   ├── calls load_point_cloud(filepath)
+│   ├── impls assert the loaded indices hold the saved values
+│   └── impls assert the loaded indices are torch.int64
+├── def test_integer_field_beyond_int32_is_rejected
+│   ├── # An integer value the PLY column cannot hold is rejected instead of being truncated into a different one.
+│   ├── impls filepath = the path of a tempfile.NamedTemporaryFile with suffix '.ply'
+│   └── with pytest.raises
+│       └── calls save_point_cloud(a pc whose integer field exceeds int32, filepath)
 └── def test_precision_consistency_save_load
     ├── # The precision the writer keeps is the precision the reader hands back.
     ├── impls filepath = the path of a tempfile.NamedTemporaryFile with suffix '.ply'
