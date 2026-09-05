@@ -43,7 +43,7 @@ goal: re-design pc dtype contract/provenance
       2. user of PointCloud obj may however modify the fields, but the meta data stays constant and immutable once created.
       3. the meta data travels with the field, so Select preserves it.
       4. point cloud I/O:
-         1. no field name is special in I/O. xyz, rgb, indices, feat, colors, normals are ordinary fields.
+         1. no field name is special in I/O where dtype is concerned. xyz, rgb, indices, feat, colors, normals are ordinary fields. the one exception is rgb, whose dtype conversion is not a mere cast but also a matter of data convention. save's color convention conversion is keyed on the field name and is the only such branch in the I/O layer.
          2. load point cloud
             1. preserves everything whenever possible, and converts dtype only for the mismatch between torch and the format it is reading. a reader never widens a field it builds: xyz records the dtype the file stores its coordinate columns in, so an f4 ply gives float32 xyz and an f8 ply gives float64 xyz.
             2. it takes an optional arg to override the dtype a field is loaded as, the same way save point cloud does. the override changes only the value handed back, never the record, which stays the dtype the source held.
@@ -72,3 +72,4 @@ goal: re-design pc dtype contract/provenance
 1. load: .pth, .ply, .pcd, .las, .laz, .off, .txt. save: .ply. neither expands.
 2. constructing a `PointCloud` from numpy arrays is in scope. the obj always stores torch tensors.
 3. convention conversion is not avoidable and save point cloud does it, reading each convention off a dtype. what is out of scope is the effort of building a general named-convention mechanism with conversions between named conventions.
+4. every consumer this change breaks is fixed within this task, together with its tests. merging a branch that leaves a consumer broken breaks main.
