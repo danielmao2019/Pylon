@@ -13,7 +13,7 @@ goal: re-design pc dtype contract/provenance
 
 ### 1.1. Proposed Solution
 
-1. The principle, in one sentence: load point cloud preserves everything whenever possible and only dtype converts for the dtype system mismatch between torch and ply.
+1. The principle, in one sentence: load point cloud preserves everything whenever possible and only dtype converts for the dtype system mismatch between torch and the format it is reading.
 2. the fundamental root cause is the dtype system mismatch: torch has no uint16 and no uint32, so ply u2 loads as int32 and ply u4 loads as int64. everything else loads unchanged: i1 as int8, u1 as uint8, i2 as int16, i4 as int32, f4 as float32, f8 as float64, b1 as bool.
 3. The core design change in this task:
    1. add meta data in `PointCloud`:
