@@ -51,6 +51,7 @@ goal: re-design pc dtype contract/provenance
             1. strictly follows the meta data. it does not need to be aware of the dtype mismatch at all.
             2. meta data defaults to that version in the PointCloud obj, but overridable by an optional arg to control how it wants the field to be saved as.
             3. defensive programming: save point cloud casts each field to the recorded dtype and asserts the cast is lossless.
+            4. rgb is the one field that also needs a convention conversion, because its dtype carries a convention as well as a value set. save reads the convention off the field's current dtype and off the recorded dtype, and converts between the two.
 5. what becomes stale design:
    - the color rescale that guesses a [0, 1] range from the values and multiplies by 255
    - the narrowing of every integer field to i4
