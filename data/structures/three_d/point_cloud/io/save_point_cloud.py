@@ -6,6 +6,28 @@ from plyfile import PlyData, PlyElement
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 
 
+def save_point_cloud(pc: PointCloud, output_filepath: str) -> None:
+    """Save point cloud data to file.
+
+    Args:
+        pc: Point cloud data with xyz and other fields
+        output_filepath: Output file path (supports .ply format)
+    """
+    file_ext = os.path.splitext(output_filepath)[1].lower()
+
+    if file_ext == '.ply':
+        _save_as_ply(pc, output_filepath)
+    else:
+        raise ValueError(
+            f"Unsupported output format: {file_ext}. Currently only .ply is supported."
+        )
+
+    # Count points for logging
+    num_points = pc.num_points
+
+    print(f"   💾 Saved {num_points} points to: {output_filepath}")
+
+
 def _save_as_ply(pc: PointCloud, output_filepath: str) -> None:
     """Save point cloud data to PLY file using plyfile library.
 
@@ -116,25 +138,3 @@ def _save_as_ply(pc: PointCloud, output_filepath: str) -> None:
 
     # Write PLY file
     PlyData([vertex_element]).write(output_filepath)
-
-
-def save_point_cloud(pc: PointCloud, output_filepath: str) -> None:
-    """Save point cloud data to file.
-
-    Args:
-        pc: Point cloud data with xyz and other fields
-        output_filepath: Output file path (supports .ply format)
-    """
-    file_ext = os.path.splitext(output_filepath)[1].lower()
-
-    if file_ext == '.ply':
-        _save_as_ply(pc, output_filepath)
-    else:
-        raise ValueError(
-            f"Unsupported output format: {file_ext}. Currently only .ply is supported."
-        )
-
-    # Count points for logging
-    num_points = pc.num_points
-
-    print(f"   💾 Saved {num_points} points to: {output_filepath}")

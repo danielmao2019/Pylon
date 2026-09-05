@@ -1,12 +1,12 @@
-import pytest
 import tempfile
+
 import numpy as np
+import pytest
 import torch
 from plyfile import PlyData
-from data.structures.three_d.point_cloud.point_cloud import PointCloud
 
 from data.structures.three_d.point_cloud.io import load_point_cloud, save_point_cloud
-
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
 
 # ============================================================================
 # BASIC PLY SAVING TESTS
@@ -121,11 +121,12 @@ def test_rgb_colors_saving():
         loaded = load_point_cloud(tmp_file.name)
         assert hasattr(loaded, 'rgb')
 
-        # RGB should be preserved within uint8 quantization tolerance
+        # The writer scales [0, 1] colors to [0, 255] uint8 and the reader returns
+        # them as stored, so the round trip is compared against the scaled values.
         np.testing.assert_allclose(
             loaded.rgb.cpu().numpy(),
-            colors.cpu().numpy(),
-            rtol=1e-2,  # Allow for uint8 quantization error
+            (colors.cpu().numpy() * 255).astype(np.uint8),
+            atol=1,  # Allow for uint8 quantization error
         )
 
 
@@ -154,11 +155,12 @@ def test_colors_field_mapping():
         loaded = load_point_cloud(tmp_file.name)
         assert hasattr(loaded, 'rgb')
 
-        # Colors should be preserved within uint8 quantization tolerance
+        # The writer scales [0, 1] colors to [0, 255] uint8 and the reader returns
+        # them as stored, so the round trip is compared against the scaled values.
         np.testing.assert_allclose(
             loaded.rgb.cpu().numpy(),
-            colors.cpu().numpy(),
-            rtol=2e-2,  # Allow for uint8 quantization error
+            (colors.cpu().numpy() * 255).astype(np.uint8),
+            atol=1,  # Allow for uint8 quantization error
         )
 
 
@@ -215,7 +217,9 @@ def test_single_feature_saving():
 
         # Should have intensity field
         assert 'intensity' in vertex_data.dtype.names
-        np.testing.assert_allclose(vertex_data['intensity'], intensity.squeeze().numpy(), rtol=1e-6)
+        np.testing.assert_allclose(
+            vertex_data['intensity'], intensity.squeeze().numpy(), rtol=1e-6
+        )
 
 
 def test_multiple_features_saving():
@@ -385,7 +389,9 @@ def test_save_load_round_trip(coordinates, features):
         # Verify features if present
         if features is not None:
             # Features may be saved with different field names
-            feature_fields = [name for name in loaded.field_names() if name.startswith('features')]
+            feature_fields = [
+                name for name in loaded.field_names() if name.startswith('features')
+            ]
             assert len(feature_fields) > 0, "Features should be preserved"
 
 

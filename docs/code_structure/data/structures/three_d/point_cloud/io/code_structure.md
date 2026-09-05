@@ -171,3 +171,81 @@ load_point_cloud.py
     │   └── impls result['feat'] = features
     └── return result
 ```
+
+`data/structures/three_d/point_cloud/io/save_point_cloud.py`
+
+```text
+save_point_cloud.py
+├── from typing import Dict, Any
+├── import os
+├── import numpy as np
+├── import torch
+├── from plyfile import PlyData, PlyElement
+├── from data.structures.three_d.point_cloud.point_cloud import PointCloud
+├── def save_point_cloud(pc: PointCloud, output_filepath: str) -> None
+│   ├── # Writes a point cloud through the writer that owns the output file's extension.
+│   ├── impls file_ext = the lowercased extension of output_filepath
+│   ├── if file_ext == '.ply'
+│   │   └── calls _save_as_ply(pc, output_filepath)
+│   ├── else
+│   │   └── raise ValueError  # the extension matches no supported format
+│   ├── impls num_points = pc.num_points
+│   └── impls prints a line naming num_points and output_filepath
+└── def _save_as_ply(pc: PointCloud, output_filepath: str) -> None
+    ├── # Writes a point cloud to a PLY file, mapping each field onto the vertex columns the format names.
+    ├── assert output_filepath ends with '.ply'
+    ├── assert pc is a PointCloud
+    ├── impls field_mapping: Dict[str, Any] = every field of pc under its own name
+    ├── impls positions = field_mapping['xyz']
+    ├── if positions is a torch.Tensor
+    │   └── impls positions = positions detached, moved to cpu and handed to numpy
+    ├── assert positions is two-dimensional with a trailing axis of three
+    ├── impls num_points = the row count of positions
+    ├── impls vertex_dtype = [('x', 'f4'), ('y', 'f4'), ('z', 'f4')]
+    ├── impls vertex_arrays = the x, y and z position columns cast to np.float32, keyed by those names
+    ├── for each field_name, field_data in field_mapping
+    │   ├── if field_name is 'xyz' or 'pos', or field_data is None
+    │   │   └── continue
+    │   ├── if field_data is a torch.Tensor
+    │   │   └── impls field_data = field_data detached, moved to cpu and handed to numpy
+    │   ├── if field_name is 'colors' or 'rgb', and field_data has three columns
+    │   │   ├── impls color_data = field_data
+    │   │   ├── if color_data.max() <= 1.0
+    │   │   │   └── impls color_data = color_data scaled by 255 and cast to np.uint8
+    │   │   ├── else
+    │   │   │   └── impls color_data = color_data cast to np.uint8
+    │   │   ├── impls vertex_dtype gains ('red', 'u1'), ('green', 'u1') and ('blue', 'u1')
+    │   │   ├── impls vertex_arrays['red'] = column 0 of color_data
+    │   │   ├── impls vertex_arrays['green'] = column 1 of color_data
+    │   │   └── impls vertex_arrays['blue'] = column 2 of color_data
+    │   ├── elif field_name is 'normals', and field_data has three columns
+    │   │   ├── impls normal_data = field_data cast to np.float32
+    │   │   ├── impls vertex_dtype gains ('nx', 'f4'), ('ny', 'f4') and ('nz', 'f4')
+    │   │   ├── impls vertex_arrays['nx'] = column 0 of normal_data
+    │   │   ├── impls vertex_arrays['ny'] = column 1 of normal_data
+    │   │   └── impls vertex_arrays['nz'] = column 2 of normal_data
+    │   └── else
+    │       ├── if field_data is one-dimensional
+    │       │   ├── if field_data.dtype.kind is 'i' or 'u'
+    │       │   │   └── impls dtype_char = 'i4'  # every integer field is narrowed to i4
+    │       │   ├── else
+    │       │   │   └── impls dtype_char = 'f4' when field_data.dtype.itemsize is at most 4, else 'f8'
+    │       │   ├── impls vertex_dtype gains (field_name, dtype_char)
+    │       │   └── impls vertex_arrays[field_name] = field_data cast to dtype_char  # the dtype string is rebuilt from its own characters
+    │       └── elif field_data is two-dimensional
+    │           └── for each column i of field_data
+    │               ├── impls col_name = field_name suffixed with i when field_data has more than one column, else field_name
+    │               ├── if field_data.dtype.kind is 'i' or 'u'
+    │               │   └── impls dtype_char = 'i4'  # every integer field is narrowed to i4
+    │               ├── else
+    │               │   └── impls dtype_char = 'f4' when field_data.dtype.itemsize is at most 4, else 'f8'
+    │               ├── impls vertex_dtype gains (col_name, dtype_char)
+    │               └── impls vertex_arrays[col_name] = column i of field_data cast to dtype_char  # the dtype string is rebuilt from its own characters
+    ├── impls vertex_array = an empty structured array of num_points rows and dtype vertex_dtype
+    ├── for each field_name in vertex_arrays
+    │   └── impls vertex_array[field_name] = vertex_arrays[field_name]
+    ├── calls PlyElement.describe(vertex_array, 'vertex')
+    ├── impls vertex_element = the described element
+    ├── calls os.makedirs(the directory of output_filepath, exist_ok=True)
+    └── calls PlyData([vertex_element]).write(output_filepath)
+```

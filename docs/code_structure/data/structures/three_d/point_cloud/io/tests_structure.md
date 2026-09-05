@@ -278,3 +278,108 @@ test_precision_handling.py
     ├── calls PlyElement.describe(the rows, 'vertex')
     └── calls PlyData.write(filepath)
 ```
+
+`tests/utils/io/point_clouds/save_point_cloud/test_ply_saving.py`
+
+```text
+test_ply_saving.py
+├── import pytest
+├── import tempfile
+├── import numpy as np
+├── import torch
+├── from plyfile import PlyData
+├── from data.structures.three_d.point_cloud.point_cloud import PointCloud
+├── from data.structures.three_d.point_cloud.io import load_point_cloud, save_point_cloud
+├── def test_basic_ply_saving
+│   ├── # Coordinates written to a PLY come back as the ones that were saved.
+│   ├── impls filepath = the path of a tempfile.NamedTemporaryFile with suffix '.ply'
+│   ├── calls save_point_cloud(pc, filepath)
+│   ├── calls load_point_cloud(filepath)
+│   └── impls assert the loaded xyz matches the saved coordinates
+├── def test_numpy_array_input
+│   ├── # A PointCloud built from an np.array saves on the same terms as one built from a tensor.
+│   ├── impls filepath = the path of a tempfile.NamedTemporaryFile with suffix '.ply'
+│   ├── calls save_point_cloud(pc, filepath)
+│   ├── calls load_point_cloud(filepath)
+│   └── impls assert the loaded xyz matches the saved coordinates
+├── def test_large_coordinates_precision
+│   ├── # UTM-magnitude coordinates survive the round trip to within float32's own resolution.
+│   ├── impls filepath = the path of a tempfile.NamedTemporaryFile with suffix '.ply'
+│   ├── calls save_point_cloud(pc, filepath)
+│   ├── calls load_point_cloud(filepath)
+│   └── impls assert the largest coordinate error is within torch.finfo(torch.float32).eps of the magnitude
+├── def test_rgb_colors_saving
+│   ├── # An rgb field of [0, 1] floats is stored as [0, 255] uint8 and read back at that scale.
+│   ├── impls filepath = the path of a tempfile.NamedTemporaryFile with suffix '.ply'
+│   ├── calls save_point_cloud(pc, filepath)
+│   ├── calls load_point_cloud(filepath)
+│   ├── impls assert the loaded fields carry rgb
+│   └── impls assert through np.testing.assert_allclose that the loaded rgb matches the saved colours scaled to uint8
+├── def test_colors_field_mapping
+│   ├── # A field named colors is written under the PLY's own red, green and blue names.
+│   ├── impls filepath = the path of a tempfile.NamedTemporaryFile with suffix '.ply'
+│   ├── calls save_point_cloud(pc, filepath)
+│   ├── calls load_point_cloud(filepath)
+│   ├── impls assert the loaded fields carry rgb
+│   └── impls assert through np.testing.assert_allclose that the loaded rgb matches the saved colours scaled to uint8
+├── def test_normalized_colors_conversion
+│   ├── # Read from the file itself, a [0, 1] colour lands on its [0, 255] counterpart.
+│   ├── impls filepath = the path of a tempfile.NamedTemporaryFile with suffix '.ply'
+│   ├── calls save_point_cloud(pc, filepath)
+│   ├── calls PlyData.read(filepath)
+│   └── impls assert the red, green and blue columns hold the scaled values to within one step
+├── def test_single_feature_saving
+│   ├── # A one-column feature field is written under its own name.
+│   ├── impls filepath = the path of a tempfile.NamedTemporaryFile with suffix '.ply'
+│   ├── calls save_point_cloud(pc, filepath)
+│   ├── calls PlyData.read(filepath)
+│   └── impls assert the vertex data carries that column with the saved values
+├── def test_multiple_features_saving
+│   ├── # A multi-column field is split into one PLY column per index, suffixed by it.
+│   ├── impls filepath = the path of a tempfile.NamedTemporaryFile with suffix '.ply'
+│   ├── calls save_point_cloud(pc, filepath)
+│   ├── calls PlyData.read(filepath)
+│   └── impls assert the vertex data carries one suffixed column per index
+├── def test_none_field_handling
+│   ├── # A field whose value is None is skipped.
+│   ├── impls filepath = the path of a tempfile.NamedTemporaryFile with suffix '.ply'
+│   ├── calls save_point_cloud(pc, filepath)
+│   ├── calls PlyData.read(filepath)
+│   └── impls assert that column is absent from the vertex data
+├── def test_missing_xyz_field_error
+│   ├── # A value of a type other than PointCloud is rejected.
+│   ├── impls filepath = the path of a tempfile.NamedTemporaryFile with suffix '.ply'
+│   └── with pytest.raises
+│       └── calls save_point_cloud(a str, filepath)
+├── def test_wrong_file_extension_error
+│   ├── # An output path no writer owns is rejected.
+│   ├── impls filepath = the path of a tempfile.NamedTemporaryFile with suffix '.ply'
+│   └── with pytest.raises
+│       └── calls save_point_cloud(pc, a filepath that is not .ply)
+├── def test_cuda_tensor_saving
+│   ├── # Fields living on a cuda device are written from there, where one is available.
+│   ├── impls filepath = the path of a tempfile.NamedTemporaryFile with suffix '.ply'
+│   ├── impls skipped unless torch.cuda.is_available()
+│   ├── calls save_point_cloud(pc, filepath)
+│   ├── calls load_point_cloud(filepath)
+│   └── impls assert the loaded xyz matches the saved coordinates
+├── def test_mixed_tensor_types_saving
+│   ├── # One PointCloud may carry numpy and torch fields together.
+│   ├── impls filepath = the path of a tempfile.NamedTemporaryFile with suffix '.ply'
+│   ├── calls save_point_cloud(pc, filepath)
+│   ├── calls load_point_cloud(filepath)
+│   └── impls assert the loaded fields carry both
+├── def test_save_load_round_trip
+│   ├── # Across coordinate magnitudes, and with a feature column or with coordinates alone, saving then loading preserves the values.
+│   ├── impls filepath = the path of a tempfile.NamedTemporaryFile with suffix '.ply'
+│   ├── impls parametrized over small coordinates, UTM-magnitude coordinates, and coordinates with a feature column
+│   ├── calls save_point_cloud(pc, filepath)
+│   ├── calls load_point_cloud(filepath)
+│   └── impls assert the loaded xyz matches the saved coordinates
+└── def test_precision_consistency_save_load
+    ├── # The precision the writer keeps is the precision the reader hands back.
+    ├── impls filepath = the path of a tempfile.NamedTemporaryFile with suffix '.ply'
+    ├── calls save_point_cloud(pc, filepath)
+    ├── calls load_point_cloud(filepath)
+    └── impls assert the largest coordinate error is within torch.finfo(torch.float32).eps of the magnitude
+```
