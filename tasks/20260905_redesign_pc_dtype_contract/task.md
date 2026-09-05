@@ -46,7 +46,10 @@ goal: re-design pc dtype contract/provenance
          1. no field name is special in I/O where dtype is concerned. xyz, rgb, indices, feat, colors, normals are ordinary fields. the one exception is rgb, whose dtype conversion is not a mere cast but also a matter of data convention. save's color convention conversion is keyed on the field name and is the only such branch in the I/O layer.
          2. load point cloud
             1. preserves everything whenever possible, and converts dtype only for the mismatch between torch and the format it is reading. a reader never widens a field it builds: xyz records the dtype the file stores its coordinate columns in, so an f4 ply gives float32 xyz and an f8 ply gives float64 xyz.
-            2. it takes an optional arg to override the dtype a field is loaded as, the same way save point cloud does. the override changes only the value handed back, never the record, which stays the dtype the source held.
+            2. the new API on return dtype override:
+               1. load point cloud should take an optional arg to override the dtype a field is loaded as, the same way save point cloud does. the override changes only the value handed back, never the meta data record, which stays the dtype the source held.
+               2. this override replaces the existing dtype arg, which cast xyz alone. it is the same control at per-field granularity, so every caller passing dtype is updated.
+               3. name_feat is removed. the override covers the dtype it forced, while its renaming of a named column to feat and its reshape to [N, 1] are dropped rather than replaced, because fields keep their own names and no caller outside a test passes it.
             3. the .off reader keeps building float32 and hard-asserts it is never handed anything beyond what it can already handle, rather than widening to cover it.
          3. save point cloud
             1. strictly follows the meta data. it does not need to be aware of the dtype mismatch at all.
