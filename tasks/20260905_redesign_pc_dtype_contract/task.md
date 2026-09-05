@@ -29,7 +29,8 @@ goal: re-design pc dtype contract/provenance
             3. a las bit-packed field is an ordinary unsigned integer. laspy materializes it as uint8, so uint8 is what enters the obj and uint8 is what the record stores. no special treatment.
          2. granularity: it is per-field, created when a field enters the obj and deleted when the field is removed.
          3. immutability: for each field, the record is never mutable. an overwrite of a field that already exists must NOT change the meta data.
-      2. validation:
+      2. no canonicalization: `PointCloud` does not canonicalize any field, color included. rgb enters and is held exactly as it arrived, like every other field.
+      3. validation:
          1. `PointCloud` keeps validating xyz and rgb by field name.
          2. xyz is any floating point dtype.
          3. rgb is either
