@@ -15,9 +15,7 @@ goal: re-design pc dtype contract/provenance
 
 1. the fundamental root cause is the dtype system mismatch. torch has no uint16 and no uint32, so ply u2 loads as int32 and ply u4 loads as int64. everything else loads unchanged: i1 as int8, u1 as uint8, i2 as int16, i4 as int32, f4 as float32, f8 as float64, b1 as bool. numpy also has uint64 and float128 that torch 2.2.2 does not, torch has bfloat16 that numpy 1.26.4 does not, and ply has no 64-bit integer.
 2. there is one universe of conceptual dtypes, system-agnostic. every concrete system supports a subset of it, and no system's subset contains every other's.
-3. the core principles:
-   1. a dtype is a set of values, and one dtype's set may sit inside another's. float32's sits inside float64's. convert or refuse is decided by whether the data falls inside the target dtype's set, never by the pair of dtype names. inside means nothing is lost, so convert. outside means something is lost, so refuse. no dtype is ruled out in advance: complex, uint64 and float128 are each handled by this same test.
-   2. load point cloud preserves everything whenever possible, and converts dtype only for the mismatch between torch and the format it is reading.
+3. the core principles: a dtype is a set of values, and one dtype's set may sit inside another's. float32's sits inside float64's. convert or refuse is decided by whether the data falls inside the target dtype's set, never by the pair of dtype names. inside means nothing is lost, so convert. outside means something is lost, so refuse. no dtype is ruled out in advance: complex, uint64 and float128 are each handled by this same test.
 4. The core design change in this task:
    1. add meta data in `PointCloud`:
       1. in addition to the fields being loaded, a meta data is created and stored inside the PointCloud obj returned from load.
@@ -31,13 +29,12 @@ goal: re-design pc dtype contract/provenance
       3. the meta data travels with the field, so Select preserves it.
       4. point cloud I/O:
          1. no field name is special in I/O. xyz, rgb, indices, feat, colors, normals are ordinary fields.
-         2. save point cloud
+         2. load point cloud preserves everything whenever possible, and converts dtype only for the mismatch between torch and the format it is reading.
+         3. save point cloud
             1. strictly follows the meta data. it does not need to be aware of the dtype mismatch at all.
             2. meta data defaults to that version in the PointCloud obj, but overridable by an optional arg to control how it wants the field to be saved as.
-            3. defensive programming:
-               1. save point cloud casts each field to the recorded dtype and asserts the cast is lossless.
-               2. torch int64 has no ply column, so it is refused unless overridden.
-4. what becomes stale design:
+            3. defensive programming: save point cloud casts each field to the recorded dtype and asserts the cast is lossless.
+5. what becomes stale design:
    - the colour rescale that guesses a [0, 1] range from the values and multiplies by 255
    - the narrowing of every integer field to i4
    - writing xyz as f4 whatever its dtype
