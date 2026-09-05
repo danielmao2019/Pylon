@@ -283,28 +283,55 @@ def load_point_cloud(
         PointCloud with coordinates in requested dtype.
         Additional fields may include 'feat', 'rgb', etc. depending on file format.
     """
-    filepath = os.path.normpath(filepath).replace('\\', '/')
 
-    # Check file existence once at the beginning
-    assert os.path.isfile(filepath), f"Point cloud file not found: {filepath}"
+    def _validate_inputs() -> None:
+        assert os.path.isfile(
+            os.path.normpath(filepath).replace('\\', '/')
+        ), f"Point cloud file not found: {filepath}"
+        assert os.path.splitext(filepath)[1].lower() in {
+            '.pth',
+            '.ply',
+            '.pcd',
+            '.las',
+            '.laz',
+            '.off',
+            '.txt',
+        }, f"Unsupported file format: {os.path.splitext(filepath)[1].lower()}"
+
+    _validate_inputs()
+
+    def _normalize_inputs(filepath: str) -> str:
+        filepath = os.path.normpath(filepath).replace('\\', '/')
+        return filepath
+
+    filepath = _normalize_inputs(filepath)
 
     file_ext = os.path.splitext(filepath)[1].lower()
 
-    # Load data using appropriate loader
-    if file_ext == '.pth':
-        pc_data = _load_from_pth(filepath, device=device)
-    elif file_ext == '.ply':
-        pc_data = _load_from_ply(filepath, nameInPly=nameInPly, name_feat=name_feat)
-    elif file_ext == '.pcd':
-        pc_data = _load_from_pcd(filepath)
-    elif file_ext in ['.las', '.laz']:
-        pc_data = _load_from_las(filepath)
-    elif file_ext == '.off':
-        pc_data = _load_from_off(filepath, device=device)
-    elif file_ext == '.txt':
-        pc_data = _load_from_txt(filepath)
-    else:
-        raise ValueError(f"Unsupported file format: {file_ext}")
+    def _load_by_format() -> Dict[str, Union[torch.Tensor, np.ndarray]]:
+        """Read the file through the one reader that owns its extension.
+
+        Args:
+            None. The enclosing call's filepath, file_ext, nameInPly, name_feat and device are read from the closure.
+
+        Returns:
+            Dictionary keyed by field name ('xyz' plus whatever else the format carries), holding the arrays or tensors the matching reader produced.
+        """
+        if file_ext == '.pth':
+            return _load_from_pth(filepath, device=device)
+        if file_ext == '.ply':
+            return _load_from_ply(filepath, nameInPly=nameInPly, name_feat=name_feat)
+        if file_ext == '.pcd':
+            return _load_from_pcd(filepath)
+        if file_ext in ['.las', '.laz']:
+            return _load_from_las(filepath)
+        if file_ext == '.off':
+            return _load_from_off(filepath, device=device)
+        if file_ext == '.txt':
+            return _load_from_txt(filepath)
+        assert 0, "Should not reach here."
+
+    pc_data = _load_by_format()
 
     # Convert any numpy arrays to torch tensors and transfer to device
     def numpy_to_torch_on_device(
