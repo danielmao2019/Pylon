@@ -19,7 +19,7 @@ load_point_cloud.py
 │   ├── # Loads one point cloud file of any supported format and hands it back as a PointCloud placed on the requested device.
 │   ├── def _validate_inputs [local]
 │   │   ├── assert the normalized form of filepath names an existing file
-│   │   └── assert the lowercased extension of filepath is one of the supported formats
+│   │   └── assert the extension of filepath is one of the supported formats
 │   ├── calls _validate_inputs()
 │   ├── def _normalize_inputs [local]
 │   │   ├── impls filepath = filepath normalized with its separators rewritten to forward slashes
