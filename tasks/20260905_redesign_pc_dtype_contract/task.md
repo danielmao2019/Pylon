@@ -70,3 +70,4 @@ goal: re-design pc dtype contract/provenance
 
 1. load: .pth, .ply, .pcd, .las, .laz, .off, .txt. save: .ply. neither expands.
 2. constructing a `PointCloud` from numpy arrays is in scope. the obj always stores torch tensors.
+3. naming the color format conventions and building the conversions between them as a general mechanism is out of scope. save point cloud still converts rgb between conventions, reading each off a dtype.
