@@ -26,9 +26,9 @@ load_point_cloud.py
 │   │   └── return filepath
 │   ├── calls _normalize_inputs(filepath=filepath)
 │   ├── impls filepath = the returned value from _normalize_inputs
-│   ├── impls file_ext = the lowercased extension of filepath
 │   ├── def _load_by_format [local]
 │   │   ├── # Reads the file through the one reader that owns its extension.
+│   │   ├── impls file_ext = the extension of filepath
 │   │   ├── if file_ext == '.pth'
 │   │   │   ├── calls _load_from_pth(filepath, device=device)
 │   │   │   └── return the fields it read
