@@ -59,11 +59,11 @@ load_point_cloud.py
 │   │   ├── assert x is a torch.Tensor
 │   │   ├── impls tensor = x moved to device
 │   │   ├── if key == 'xyz'
-│   │   │   ├── assert tensor dtype is float32 or float64
+│   │   │   ├── assert tensor is a floating point tensor
 │   │   │   └── impls tensor = tensor cast to dtype
 │   │   ├── impls is_seg_file = whether '_seg' occurs in the basename of filepath
 │   │   ├── if key == 'feat' and is_seg_file
-│   │   │   ├── assert tensor dtype is float32 or float64
+│   │   │   ├── assert tensor is a floating point or integer tensor
 │   │   │   └── impls tensor = tensor cast to int64  # a segmentation file's feature column is a label column
 │   │   └── return tensor
 │   ├── impls result = an empty dict
