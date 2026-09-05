@@ -59,6 +59,7 @@ load_point_cloud.py
 │   │   ├── assert x is a torch.Tensor
 │   │   ├── impls tensor = x moved to device
 │   │   ├── if key == 'xyz'
+│   │   │   ├── assert tensor dtype is float32 or float64
 │   │   │   └── impls tensor = tensor cast to dtype
 │   │   └── return tensor
 │   ├── for each key, value in pc_data
