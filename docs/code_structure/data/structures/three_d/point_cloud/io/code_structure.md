@@ -66,9 +66,10 @@ load_point_cloud.py
 │   │   │   ├── assert tensor dtype is float32 or float64
 │   │   │   └── impls tensor = tensor cast to int64  # a segmentation file's feature column is a label column
 │   │   └── return tensor
+│   ├── impls result = an empty dict
 │   ├── for each key, value in pc_data
-│   │   └── calls _normalize_field(key, value)
-│   ├── impls result = the placed fields under the keys pc_data carried them under
+│   │   ├── calls _normalize_field(key, value)
+│   │   └── impls result[key] = the normalized field it returned
 │   ├── calls PointCloud(data=result)
 │   └── return  # the PointCloud wrapping result
 ├── def _load_from_pth(filepath: str, device: Union[str, torch.device] = 'cuda') -> Dict[str, Union[torch.Tensor, np.ndarray]]
