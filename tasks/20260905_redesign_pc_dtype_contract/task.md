@@ -24,12 +24,11 @@ goal: re-design pc dtype contract/provenance
    1. the `PointCloud` class:
       1. new attr: meta data.
          1. what it is:
-            1. meta data records whatever the original dtype is, upon construction.
+            1. meta data records whatever the original dtype is, upon construction. it records the source of the data, wherever the data comes from: a load from disk, a construction from a torch tensor or a numpy array, or addition or deletion of fields.
             2. it records the conceptual dtype, not the spelling of whichever system the field came from. a field entering as ply u2, as numpy uint16, or as an open3d UInt16 all record the same thing.
             3. a las bit-packed field is an ordinary unsigned integer. laspy materializes it as uint8, so uint8 is what enters the obj and uint8 is what the record stores. no special treatment.
          2. granularity: it is per-field, created when a field enters the obj and deleted when the field is removed.
-         3. immutability:
-            1. a meta data is created and stored inside the PointCloud obj returned from load.
+         3. immutability: for each field, the record is never mutable. an overwrite of a field that already exists must NOT change the meta data.
       2. validation:
          1. `PointCloud` keeps validating xyz and rgb by field name.
          2. xyz is any floating point dtype.
@@ -52,7 +51,7 @@ goal: re-design pc dtype contract/provenance
             2. meta data defaults to that version in the PointCloud obj, but overridable by an optional arg to control how it wants the field to be saved as.
             3. defensive programming: save point cloud casts each field to the recorded dtype and asserts the cast is lossless.
 5. what becomes stale design:
-   - the colour rescale that guesses a [0, 1] range from the values and multiplies by 255
+   - the color rescale that guesses a [0, 1] range from the values and multiplies by 255
    - the narrowing of every integer field to i4
    - writing xyz as f4 whatever its dtype
    - the _seg filename test that casts feat to int64
