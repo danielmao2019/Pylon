@@ -52,7 +52,7 @@ goal: re-design pc dtype contract/provenance
             1. strictly follows the meta data. it does not need to be aware of the dtype mismatch at all.
             2. meta data defaults to that version in the PointCloud obj, but overridable by an optional arg to control how it wants the field to be saved as.
             3. defensive programming: save point cloud casts each field to the recorded dtype and asserts the cast is lossless.
-            4. rgb is the one field that also needs a convention conversion, because its dtype carries a convention as well as a value set. save reads the convention off the field's current dtype and off the recorded dtype, and converts between the two. the convention is read off the dtype alone: float means the [0, 1] format, unsigned int means the 0 to 255 format, signed int means the -128 to 127 format.
+            4. rgb is the one field that also needs a convention conversion, because its dtype carries a convention as well as a value set. save reads the convention off the field's current dtype and off the recorded dtype, and converts between the two. the dtype defines the convention: a float dtype means 0 to 1, an integer dtype means that dtype's own range. so a uint8 color is 0 to 255 and a uint16 color is 0 to 65535, which is what las stores.
 5. what becomes stale design:
    - the color rescale that guesses a [0, 1] range from the values and multiplies by 255
    - the narrowing of every integer field to i4
@@ -71,4 +71,4 @@ goal: re-design pc dtype contract/provenance
 
 1. load: .pth, .ply, .pcd, .las, .laz, .off, .txt. save: .ply. neither expands.
 2. constructing a `PointCloud` from numpy arrays is in scope. the obj always stores torch tensors.
-3. naming the color format conventions and building the conversions between them as a general mechanism is out of scope. save point cloud still converts rgb between conventions, reading each off a dtype.
+3. convention conversion is not avoidable and save point cloud does it, reading each convention off a dtype. what is out of scope is the effort of building a general named-convention mechanism with conversions between named conventions.
