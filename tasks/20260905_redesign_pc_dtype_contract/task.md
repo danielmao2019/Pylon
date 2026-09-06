@@ -70,7 +70,11 @@ goal: re-design pc dtype contract/provenance
 1. what it is: the mapping between the source layout and the loaded layout, with the columns the source held on one side and the fields assembled from them on the other.
 2. forward mapping:
    1. in-memory variables use the identity mapping: the name a field was handed under stands for the whole block of columns it was handed as.
-   2. .ply: ('x', 'y', 'z') maps to xyz, ('red', 'green', 'blue') maps to rgb, and ('intensity',) maps to intensity.
+   2. .ply:
+      1. ('x', 'y', 'z') maps to xyz, ('red', 'green', 'blue') maps to rgb, and ('intensity',) maps to intensity.
+      2. a file with more than one separately named group of columns does not by itself define which group's columns form each field.
+   3. a .pth holds one block of unnamed columns and defines no column-to-field mapping.
+   4. a .txt holds unnamed columns and defines no column-to-field mapping.
 3. reverse mapping: each field maps back to the source column names its mapping records. a field mapped from ('x', 'y', 'z') maps back to x, y and z.
 
 #### 1.1.4. New Meta Data API
