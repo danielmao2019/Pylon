@@ -21,19 +21,20 @@ goal: re-design pc dtype contract/provenance
 
 #### 1.1.1. Type Casting
 
-1. there is one universe of conceptual dtypes, system-agnostic. every concrete system supports a subset of it, and no system's subset contains every other's.
-   1. torch has no uint16 and no uint32. numpy has uint64 and float128 that torch 2.2.2 does not, torch has bfloat16 that numpy 1.26.4 does not, and ply has no 64-bit integer.
-   2. every ply dtype torch carries loads unchanged: i1 as int8, u1 as uint8, i2 as int16, i4 as int32, f4 as float32, f8 as float64, b1 as bool.
-2. a dtype is a set of values, and one dtype's set may sit inside another's. float32's sits inside float64's.
-   1. convert or refuse is decided by whether the data falls inside the target dtype's set, never by the pair of dtype names. inside means nothing is lost, so convert. outside means something is lost, so refuse: the cast hard-asserts and the program aborts.
-   2. no field name changes how a dtype is cast. xyz, rgb, indices, feat, colors and normals cast by the same rules as any other field.
-3. when a system does not support the target dtype, value-set containment names the dtype that system uses in its place.
-   1. consider that system's dtypes whose value sets are supersets of the target dtype's entire value set. if any exist, the smallest such superset is used, regardless of which values happen to be present in the data.
-      1. in torch storage, ply u2 and numpy uint16 both go to int32, and ply u4 and numpy uint32 both go to int64.
-   2. if no containing dtype exists, test the largest narrower dtype that system supports. convert only if the actual values are exactly representable in it; otherwise hard-assert and abort. do not test progressively smaller dtypes.
-      1. in torch storage, a float128 source with no override uses float64 if its actual values fit exactly. float32 and smaller dtypes are not tested.
-      2. in a ply column, an int64 target goes to i4 and a uint64 target goes to u4.
-   3. the dtype a system uses in place of one it does not support is a patch for the mismatch, never a color convention conversion.
+1. the dtype systems are each a subset of one universal, system-agnostic collection of conceptual dtypes, and no system's subset contains every other's, so the systems mismatch.
+   1. ply's subset is b1, i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer.
+   2. torch 2.2.2 has no uint16, uint32, uint64 or float128, and bfloat16 is its alone.
+   3. numpy 1.26.4 has uint64 and float128, and has no bfloat16.
+2. a type cast must be lossless: it never changes a value, in the mathematical sense.
+   1. each dtype is a set of values, and one dtype's set may sit inside another's. float32's sits inside float64's.
+   2. the dtype a conceptual dtype the system lacks is cast into is named by containment.
+      1. the smallest of that system's dtypes whose set contains its entire set, when one exists.
+         1. in torch storage, ply u2 and numpy uint16 both go to int32, and ply u4 and numpy uint32 both go to int64.
+      2. the largest narrower dtype the system supports, when none exists, and no smaller dtype is considered after it.
+         1. in torch storage, a float128 source with no override uses float64. float32 and smaller dtypes are not considered.
+         2. in a ply column, an int64 target goes to i4 and a uint64 target goes to u4.
+   3. the values decide against the dtype cast into: inside it nothing is lost, so convert; outside it something is lost, so the cast hard-asserts and the program aborts.
+   4. no field name changes the decision. xyz, rgb, indices, feat, colors and normals cast by the same rules as any other field.
 
 #### 1.1.2. Color Data Convention Conversion
 
