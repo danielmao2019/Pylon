@@ -133,7 +133,7 @@ goal: re-design pc dtype contract/provenance
             1. a reader neither widens nor narrows what the file holds.
             2. a reader never widens a field it builds.
                1. an f4 ply gives float32 xyz and an f8 ply gives float64 xyz.
-         2. the columns a field is assembled from must all hold one dtype. the reader hard-asserts it, and a file whose columns disagree aborts the program rather than being promoted to a dtype covering them all.
+         2. fields are assembled according to Layout Mapping.
          3. the .off reader keeps building float32 and hard-asserts it is never handed anything beyond what it can already handle, rather than widening to cover it.
       2. save point cloud
          1. strictly follows the meta data. it does not need to be aware of the dtype mismatch at all.
