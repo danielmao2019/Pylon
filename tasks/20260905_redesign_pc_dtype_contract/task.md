@@ -5,9 +5,10 @@ goal: re-design pc dtype contract/provenance
 - [1. Guidelines](#1-guidelines)
   - [1.1. Proposed Solution](#11-proposed-solution)
     - [1.1.1. Type Casting](#111-type-casting)
-    - [1.1.2. New Meta Data API](#112-new-meta-data-api)
-    - [1.1.3. Color Data Convention Conversion](#113-color-data-convention-conversion)
-    - [1.1.4. what becomes stale design](#114-what-becomes-stale-design)
+    - [1.1.2. Color Data Convention Conversion](#112-color-data-convention-conversion)
+    - [1.1.3. New Meta Data API](#113-new-meta-data-api)
+    - [1.1.4. Point Cloud Data Structure Construction and I/O](#114-point-cloud-data-structure-construction-and-io)
+    - [1.1.5. what becomes stale design](#115-what-becomes-stale-design)
 - [2. Definition of Done](#2-definition-of-done)
   - [2.1. Task Scope](#21-task-scope)
 
@@ -31,7 +32,9 @@ goal: re-design pc dtype contract/provenance
       2. a float128 source with no override records float128 in meta data and uses float64 storage if its actual values fit exactly. float32 and smaller dtypes are not tested.
    6. load point cloud preserves everything whenever possible, and converts dtype only for the mismatch between torch and the format it is reading.
 
-#### 1.1.2. New Meta Data API
+#### 1.1.2. Color Data Convention Conversion
+
+#### 1.1.3. New Meta Data API
 
 4. The core design change in this task:
    1. the `PointCloud` class:
@@ -90,9 +93,9 @@ goal: re-design pc dtype contract/provenance
                   1. defensive programming: it asserts the cast is lossless. a target dtype ply does not have, such as int64, is never substituted for. save hard-asserts and the program aborts. with no override in place the target is the record, so this is the user asking for int64 in a ply file, and it is the user's own doing.
                2. layout: save writes each column of a field under the source column name the mapping gives it, instead of deriving names from the field name. a mapping that does not name exactly as many source columns as the field has columns leaves save with no names to write under, so it is refused unless the override supplies them. a field with no recorded layout is that same case.
 
-#### 1.1.3. Color Data Convention Conversion
+#### 1.1.4. Point Cloud Data Structure Construction and I/O
 
-#### 1.1.4. what becomes stale design
+#### 1.1.5. what becomes stale design
 
 - the color rescale that guesses a [0, 1] range from the values and multiplies by 255
 - the narrowing of every integer field to i4
