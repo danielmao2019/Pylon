@@ -26,7 +26,7 @@ goal: re-design pc dtype contract/provenance
 3. the core principles of lossless dtype casting:
    1. a dtype is a set of values, and one dtype's set may sit inside another's. float32's sits inside float64's.
    2. convert or refuse is decided by whether the data falls inside the target dtype's set, never by the pair of dtype names. inside means nothing is lost, so convert. outside means something is lost, so refuse.
-   3. no dtype is ruled out in advance: complex, uint64 and float128 are each handled by this same test.
+   3. complex and float128 are handled by this same representability test.
    4. dtype system mismatch: no field name is special. xyz, rgb, indices, feat, colors, normals are ordinary fields. converting uint16 to int32 because torch lacks uint16 is a patch for that mismatch, not a color convention conversion.
 4. when torch does not support the target dtype, consider the torch dtypes whose value sets are supersets of the target dtype's entire value set. if any exist, storage uses the smallest such superset, regardless of which values happen to be present in the data. ply u2 and numpy uint16 both go to int32, ply u4 and numpy uint32 both go to int64.
    1. if no containing dtype exists, test the largest narrower dtype supported by torch. convert only if the actual values are exactly representable in it; otherwise hard-assert and abort. do not test progressively smaller dtypes.
