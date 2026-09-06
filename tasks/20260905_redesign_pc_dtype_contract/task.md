@@ -67,14 +67,15 @@ goal: re-design pc dtype contract/provenance
    1. user of PointCloud obj may however modify the fields, but the meta data stays constant and immutable once created.
 4. the meta data travels with the field, so Select preserves it.
 5. for `__init__` and load point cloud, the target dtype is the source dtype unless a meta data override specifies another dtype.
-6. `__init__` accepts an optional meta data override for construction from in-memory variables, just as load point cloud does. a dtype override changes the target dtype without changing the source dtype recorded in meta data.
-   1. the override reaches the layout half as well. the API allows it and the caller chooses whether to use it.
+6. constructing from in-memory variables, each half of a field's record comes from exactly one of two places, the in-memory variable itself or the optional meta data override `__init__` accepts just as load point cloud does, and the caller chooses which for each half.
+   1. a dtype override changes the target dtype without changing the source dtype recorded in meta data.
+   2. the override reaches the layout half as well.
 7. load point cloud should take an optional arg to override the meta data, the same way save point cloud does, and it reaches both halves.
    1. the dtype half changes only the value handed back. the record stays the dtype the source column held.
       1. the meta data override provides the same dtype control as the former dtype argument, at per-field granularity.
       2. the meta data override covers the dtype formerly forced by name_feat.
    2. the layout half chooses which source columns the reader assembles together. that is the loaded side of the mapping, so the record's loaded side is what the override asked for while its source side stays the columns the file held.
-8. save point cloud: meta data defaults to that version in the PointCloud obj, but overridable by an optional arg to control how it wants the field to be saved as.
+8. save point cloud: the dtype and layout each field is written under are decided by exactly two things, the record the PointCloud obj carries and the optional meta data override the caller passes to control how it wants the field saved. save derives nothing else.
    1. the override arg overrides either half of the record.
       1. with no override in place, the target is the record, including when it records int64 for a ply save.
    2. dtype: the dtype recorded for each source column is its save target unless overridden. the actual ply storage dtype follows the lossless casting rule in Type Casting.
