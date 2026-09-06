@@ -6,9 +6,10 @@ goal: re-design pc dtype contract/provenance
   - [1.1. Proposed Solution](#11-proposed-solution)
     - [1.1.1. Type Casting](#111-type-casting)
     - [1.1.2. Color Data Convention Conversion](#112-color-data-convention-conversion)
-    - [1.1.3. New Meta Data API](#113-new-meta-data-api)
-    - [1.1.4. Point Cloud Data Structure Construction and I/O](#114-point-cloud-data-structure-construction-and-io)
-    - [1.1.5. what becomes stale design](#115-what-becomes-stale-design)
+    - [1.1.3. Layout Mapping](#113-layout-mapping)
+    - [1.1.4. New Meta Data API](#114-new-meta-data-api)
+    - [1.1.5. Point Cloud Data Structure Construction and I/O](#115-point-cloud-data-structure-construction-and-io)
+    - [1.1.6. what becomes stale design](#116-what-becomes-stale-design)
 - [2. Definition of Done](#2-definition-of-done)
   - [2.1. Project Consumers be Refactored](#21-project-consumers-be-refactored)
   - [2.2. Task Scope](#22-task-scope)
@@ -64,7 +65,9 @@ goal: re-design pc dtype contract/provenance
    3. a float dtype names the 0 to 1 convention.
    4. uint16 names the 0 to 65535 convention.
 
-#### 1.1.3. New Meta Data API
+#### 1.1.3. Layout Mapping
+
+#### 1.1.4. New Meta Data API
 
 1. what it is: meta data records what the source looked like, upon construction. it records the source of the data, wherever the data comes from: a load from disk, a construction from a torch tensor or a numpy array, or addition or deletion of fields. it records two things.
    1. dtype:
@@ -98,7 +101,7 @@ goal: re-design pc dtype contract/provenance
       1. the ply u4 example is therefore saved as u4.
    3. layout: save writes each field back out under the names the record maps it from. a field the record maps from ('x', 'y', 'z') is written out as x, y and z.
 
-#### 1.1.4. Point Cloud Data Structure Construction and I/O
+#### 1.1.5. Point Cloud Data Structure Construction and I/O
 
 1. the `PointCloud` class:
    1. common construction by `__init__` from in-memory variables or by load point cloud from files:
@@ -137,7 +140,7 @@ goal: re-design pc dtype contract/provenance
    2. colors are stored as uint16, while ply stores colors as u1.
    3. a bit-packed field is an ordinary unsigned integer. laspy materializes it as uint8, so uint8 is what enters the obj and what the meta data records.
 
-#### 1.1.5. what becomes stale design
+#### 1.1.6. what becomes stale design
 
 - the color rescale that guesses a [0, 1] range from the values and multiplies by 255
 - the narrowing of every integer field to i4
