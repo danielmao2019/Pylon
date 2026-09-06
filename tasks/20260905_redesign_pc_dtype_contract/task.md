@@ -47,6 +47,7 @@ goal: re-design pc dtype contract/provenance
    4. it differs from that mesh rule in admitting any integer width and any float width, because ply stores colors as u1 while las stores them as uint16.
 2. color convention: conversion changes between color representations, such as 0 to 255 integer representation and 0 to 1 floating point representation.
    1. the dtype defines the convention: a float dtype means 0 to 1, an integer dtype means that dtype's own range. so a uint8 color is 0 to 255 and a uint16 color is 0 to 65535, which is what las stores. uint16 color data stored in an int32 tensor retains the 0 to 65535 color representation.
+      1. replacing rgb with a clone preserves its existing color convention.
    2. the conversion rounds, and that rounding is lossless as this design defines loss. a color that arrived from an integer source sits exactly on that range's grid, so it converts back to the value it came from.
    3. what save asserts is that the values sit inside the range the field's current dtype declares: 0 to 1 for a float, the dtype's own range for an integer.
    4. a color that does not sit on the target grid was put there by the user modifying the field, and the rounding it then takes is the user's own concern. the module rounds and does not refuse.
