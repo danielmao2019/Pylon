@@ -55,8 +55,9 @@ goal: re-design pc dtype contract/provenance
    2. target representation:
       1. a floating point target uses $y$ without integer rounding.
       2. an integer target rounds $y$ to the nearest integer.
-         1. that rounding is lossless as this design defines loss. a color that arrived from an integer source sits exactly on that range's grid, so it converts back to the value it came from.
-         2. a color that does not sit on the target grid was put there by the user modifying the field, and the rounding it then takes is the user's own concern. the module rounds and does not refuse.
+   3. losslessness: the source values must be exactly recoverable by converting the result back to the source convention. rounding alone does not make a conversion lossless.
+      1. 0 to 65535 into 0 to 255: a value of 1 rounds to 0 and converts back to 0, so the conversion is lossy.
+      2. 0 to 65535 into 0 to 255: a value of 257 converts to 1 and back to 257, so the conversion is lossless.
 3. naming conventions by dtype: the conventions are told apart by dtype and never by inspecting the values, the same way `validate_vertex_color` tells mesh vertex colors apart. integer conventions span their dtype's full range.
    1. uint8 names the 0 to 255 convention.
    2. int8 names the -128 to 127 convention.
