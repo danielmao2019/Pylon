@@ -143,6 +143,7 @@ goal: re-design pc dtype contract/provenance
 - writing xyz as f4 whatever its dtype
 - the _seg filename test that casts feat to int64
 - the colors and pos aliases
+- the readers splitting a block the file names nothing by column index: the .pth reader taking columns zero through two as xyz and every column past the third as feat, and the .txt reader taking column six alone as feat when the file holds seven or more columns and every column past the third otherwise
 - the writer deriving x, y, z and red, green, blue from the field name, and its feat_0, feat_1 suffix fallback for anything else
 - PointCloud requiring indices to be int64
 - retired load point cloud arguments:
