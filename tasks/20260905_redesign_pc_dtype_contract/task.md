@@ -47,7 +47,9 @@ goal: re-design pc dtype contract/provenance
       2. user of PointCloud obj may however modify the fields, but the meta data stays constant and immutable once created.
       3. the meta data travels with the field, so Select preserves it.
       4. point cloud I/O:
-         1. no field name is special in I/O where dtype is concerned. xyz, rgb, indices, feat, colors, normals are ordinary fields. the one exception is rgb, whose dtype conversion is not a mere cast but also a matter of data convention. save's color convention conversion is keyed on the field name and is the only such branch in the I/O layer.
+         1. conversions:
+            1. dtype system mismatch: no field name is special. xyz, rgb, indices, feat, colors, normals are ordinary fields. converting uint16 to int32 because torch lacks uint16 is a patch for that mismatch, not a color convention conversion.
+            2. color convention: conversion changes between color representations, such as 0 to 255 integer representation and 0 to 1 floating point representation. save's color convention conversion is keyed on rgb and is the only such branch in the I/O layer.
          2. load point cloud
             1. preserves everything whenever possible, and converts dtype only for the mismatch between torch and the format it is reading. a reader never widens a field it builds: the record keeps the dtype the file stores each coordinate column in, so an f4 ply gives float32 xyz and an f8 ply gives float64 xyz.
             2. the columns a field is assembled from must all hold one dtype. the reader hard-asserts it, and a file whose columns disagree aborts the program rather than being promoted to a dtype covering them all.
@@ -64,7 +66,7 @@ goal: re-design pc dtype contract/provenance
             3. save point cloud recovers both halves of the record, and the override arg overrides either of them.
                1. dtype: save casts each column of a field to the dtype recorded for that source column. defensive programming: it asserts the cast is lossless.
                2. layout: save writes each column of a field under the source column name the mapping gives it, instead of deriving names from the field name. a mapping that does not name exactly as many source columns as the field has columns leaves save with no names to write under, so it is refused unless the override supplies them. a field with no recorded layout is that same case.
-            4. rgb is the one field that also needs a convention conversion, because its dtype carries a convention as well as a value set. save reads the convention off the field's current dtype and off the recorded dtype, and converts between the two. the dtype defines the convention: a float dtype means 0 to 1, an integer dtype means that dtype's own range. so a uint8 color is 0 to 255 and a uint16 color is 0 to 65535, which is what las stores.
+            4. rgb is the one field with convention conversion between color representations. save reads the convention off the field's current dtype and off the recorded dtype, and converts between the two. the dtype defines the convention: a float dtype means 0 to 1, an integer dtype means that dtype's own range. so a uint8 color is 0 to 255 and a uint16 color is 0 to 65535, which is what las stores.
                1. the conversion rounds, and that rounding is lossless as this design defines loss. a colour that arrived from an integer source sits exactly on that range's grid, so it converts back to the value it came from.
                2. what save asserts is that the values sit inside the range the field's current dtype declares: 0 to 1 for a float, the dtype's own range for an integer.
                3. a colour that does not sit on the target grid was put there by the user modifying the field, and the rounding it then takes is the user's own concern. the module rounds and does not refuse.
