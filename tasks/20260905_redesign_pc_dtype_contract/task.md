@@ -59,7 +59,7 @@ goal: re-design pc dtype contract/provenance
    3. losslessness: the conversion proceeds only if the source values are exactly recoverable by converting the result back to the source convention; otherwise it hard-asserts and aborts.
       1. 0 to 65535 into 0 to 255: a value of 1 rounds to 0 and converts back to 0, so the conversion is lossy.
       2. 0 to 65535 into 0 to 255: a value of 257 converts to 1 and back to 257, so the conversion is lossless.
-3. naming conventions by dtype: the conventions are told apart by dtype and never by inspecting the values, the same way `validate_vertex_color` tells mesh vertex colors apart. integer conventions span their dtype's full range.
+3. naming conventions by dtype: the conventions are told apart by dtype and never by inspecting the values, the same way `validate_vertex_color` tells mesh vertex colors apart. the naming dtype is the data's own conceptual dtype, not the dtype of the tensor holding it, so uint16 color data held in an int32 tensor is named uint16. integer conventions span their dtype's full range.
    1. uint8 names the 0 to 255 convention.
    2. int8 names the -128 to 127 convention.
    3. a float dtype names the 0 to 1 convention.
@@ -114,7 +114,6 @@ goal: re-design pc dtype contract/provenance
          1. rgb enters and is held exactly as it arrived, like every other field.
          2. fields keep their own names.
       2. both `__init__` and load point cloud apply Type Casting to the target dtype supplied by New Meta Data API.
-         1. uint16 color data stored in an int32 tensor retains the 0 to 65535 color representation.
    2. validation:
       1. the columns a field is assembled from must all hold one dtype. disagreeing column dtypes hard-assert and abort rather than being promoted to a dtype covering them all.
       2. `PointCloud` keeps validating xyz and rgb by field name.
