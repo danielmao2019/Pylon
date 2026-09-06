@@ -73,7 +73,7 @@ goal: re-design pc dtype contract/provenance
          1. for the ply u4 example in Type Casting, the record holds uint32.
          2. a float128 source with no override records float128 in meta data.
          3. for a las bit-packed field materialized as uint8, uint8 is what the record stores. no special treatment.
-      4. the record keeps the dtype the file stores each coordinate column in.
+         4. for las coordinates materialized as float64, float64 is what the record stores. no special treatment.
    2. layout:
       1. it records the mapping between the source layout and the loaded layout: the columns the source held on one side, the fields the reader assembled them into on the other. a ply maps ('x', 'y', 'z') to xyz, maps ('red', 'green', 'blue') to rgb, and maps ('intensity',) to intensity.
       2. a field constructed from an in-memory variable records the identity mapping: the name it was handed under stands for the whole block of columns it was handed as.
