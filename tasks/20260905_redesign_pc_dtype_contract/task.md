@@ -67,7 +67,10 @@ goal: re-design pc dtype contract/provenance
    1. user of PointCloud obj may however modify the fields, but the meta data stays constant and immutable once created.
 4. the meta data travels with the field, so Select preserves it.
 5. for `__init__` and load point cloud, the target dtype is the source dtype unless a meta data override specifies another dtype.
-6. constructing from in-memory variables, each half of a field's record comes from exactly one of two places, the in-memory variable itself or the optional meta data override `__init__` accepts just as load point cloud does, and the caller chooses which for each half.
+6. a source that does not define one of a field's two halves makes the meta data override required rather than optional: the caller supplies that half, and a construction or load without it hard-asserts and aborts.
+   1. a .pth holds one block of columns the file names nothing, so it defines no layout and the caller's override names the columns.
+   2. a ply carrying more than one element does not define which element's columns a field is assembled from, so the caller's override names them.
+7. constructing from in-memory variables, each half of a field's record comes from exactly one of two places, the in-memory variable itself or the optional meta data override `__init__` accepts just as load point cloud does, and the caller chooses which for each half.
    1. a dtype override changes the target dtype without changing the source dtype recorded in meta data.
    2. the override reaches the layout half as well.
 7. load point cloud should take an optional arg to override the meta data, the same way save point cloud does, and it reaches both halves.
