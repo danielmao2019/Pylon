@@ -98,7 +98,7 @@ goal: re-design pc dtype contract/provenance
       2. a .txt holds columns the file names nothing, so it defines no layout and the caller's override names the columns.
       3. a ply carrying more than one element does not define which element's columns a field is assembled from, so the caller's override names them.
    4. a dtype override changes the target dtype without changing the source dtype the record keeps.
-   5. a layout override chooses which source columns are assembled into a field. the record's loaded side is what the override asked for, while its source side stays the columns the source held.
+   5. a layout override chooses which source columns are assembled into a field. the mapping's loaded side is what the override asked for, while its source side stays the columns the source held.
 7. save point cloud: each field is written under the dtype and layout its record names, and save derives nothing else.
    1. the record is the target, including when it records int64 for a ply save.
    2. dtype: the dtype recorded for each source column is its save target. the actual ply storage dtype follows the lossless casting rule in Type Casting.
