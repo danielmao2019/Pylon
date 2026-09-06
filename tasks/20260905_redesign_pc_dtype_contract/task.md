@@ -45,7 +45,7 @@ goal: re-design pc dtype contract/provenance
    3. the two are told apart by dtype and never by inspecting the values, the same way `validate_vertex_color` tells mesh vertex colors apart.
    4. it differs from that mesh rule in admitting any integer width and any float width, because ply stores colors as u1 while las stores them as uint16.
 2. color convention: conversion changes between color representations, such as 0 to 255 integer representation and 0 to 1 floating point representation.
-   1. the dtype defines the convention: a float dtype means 0 to 1, an integer dtype means that dtype's own range. so a uint8 color is 0 to 255 and a uint16 color is 0 to 65535, which is what las stores. the dtype that defines the convention is the conceptual dtype and never the torch dtype the field is stored in: a uint16 color held in an int32 tensor is a 0 to 65535 color, because int32 storage is the dtype system mismatch patch and not a convention change.
+   1. the dtype defines the convention: a float dtype means 0 to 1, an integer dtype means that dtype's own range. so a uint8 color is 0 to 255 and a uint16 color is 0 to 65535, which is what las stores. the dtype that defines the convention is the conceptual dtype and never the torch dtype the field is stored in: a uint16 color held in an int32 tensor is a 0 to 65535 color.
    2. the conversion rounds, and that rounding is lossless as this design defines loss. a color that arrived from an integer source sits exactly on that range's grid, so it converts back to the value it came from.
    3. what save asserts is that the values sit inside the range the field's current dtype declares: 0 to 1 for a float, the dtype's own range for an integer.
    4. a color that does not sit on the target grid was put there by the user modifying the field, and the rounding it then takes is the user's own concern. the module rounds and does not refuse.
@@ -79,7 +79,7 @@ goal: re-design pc dtype contract/provenance
 8. save point cloud: meta data defaults to that version in the PointCloud obj, but overridable by an optional arg to control how it wants the field to be saved as.
    1. the override arg overrides either half of the record.
       1. with no override in place, the target is the record, including when it records int64 for a ply save.
-   2. dtype: each saved column of a field uses the dtype recorded for that source column.
+   2. dtype: the dtype recorded for each source column is its save target unless overridden. the actual ply storage dtype follows the lossless casting rule in Type Casting.
       1. the ply u4 example is therefore saved as u4.
    3. layout: save writes each field back out under the names the record maps it from. a field the record maps from ('x', 'y', 'z') is written out as x, y and z.
 
