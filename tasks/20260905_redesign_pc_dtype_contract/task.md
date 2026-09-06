@@ -125,8 +125,8 @@ goal: re-design pc dtype contract/provenance
 - the writer deriving x, y, z and red, green, blue from the field name, and its feat_0, feat_1 suffix fallback for anything else
 - PointCloud requiring indices to be int64
 - retired load point cloud arguments:
-   1. the meta data override replaces the existing dtype arg, which cast xyz alone.
-   2. name_feat is removed.
+   1. the meta data override replaces the existing dtype arg, which cast xyz alone, and controls dtype per field.
+   2. name_feat is removed, and the meta data override covers the dtype it formerly forced.
       1. name_feat's renaming of a named column to feat and its reshape to [N, 1] are dropped rather than replaced because of the field-name preservation required by Point Cloud Data Structure Construction and I/O.
          1. another reason for dropping these two behaviors is that no caller outside a test passes name_feat.
    3. nameInPly is removed.
