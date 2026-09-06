@@ -10,7 +10,8 @@ goal: re-design pc dtype contract/provenance
     - [1.1.4. Point Cloud Data Structure Construction and I/O](#114-point-cloud-data-structure-construction-and-io)
     - [1.1.5. what becomes stale design](#115-what-becomes-stale-design)
 - [2. Definition of Done](#2-definition-of-done)
-  - [2.1. Task Scope](#21-task-scope)
+  - [2.1. Project Consumers be Refactored](#21-project-consumers-be-refactored)
+  - [2.2. Task Scope](#22-task-scope)
 
 ----------
 
@@ -132,7 +133,11 @@ goal: re-design pc dtype contract/provenance
 2. This branch is rebased onto latest `main`.
 3. Confirmation message that this task is all done and this branch is good to merge.
 
-### 2.1. Task Scope
+### 2.1. Project Consumers be Refactored
+
+This commit "[Project][Tasks] Merge 20260903_integrate_blend_texture_not_render (#17)" in the iVISION project made a patch to `data/structures/three_d/point_cloud/io/load_point_cloud.py` to silence the dtype bug with point clouds. This task should be considered as the official solution to be adopted. Once this task's branch is merged into `Pylon:main`, the iVISION project should have their main rebased onto `Pylon:main` (a mirror `lib` in the iVISION project), so that the patch to `data/structures/three_d/point_cloud/io/load_point_cloud.py` is discarded and the new design by this task is adopted in the iVISION project.
+
+### 2.2. Task Scope
 
 1. load: .pth, .ply, .pcd, .las, .laz, .off, .txt. save: .ply. neither expands.
 2. constructing a `PointCloud` from numpy arrays is in scope. the obj always stores torch tensors.
