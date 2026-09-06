@@ -25,7 +25,7 @@ goal: re-design pc dtype contract/provenance
       1. new attr: meta data.
          1. what it is: meta data records what the source looked like, upon construction. it records the source of the data, wherever the data comes from: a load from disk, a construction from a torch tensor or a numpy array, or addition or deletion of fields. it records two things.
             1. dtype:
-               1. it records the conceptual dtype, not the spelling of whichever system the field came from. a field entering as ply u2, as numpy uint16, or as an open3d UInt16 all record the same thing.
+               1. it records the conceptual dtype. a field entering as ply u2, as numpy uint16, or as an open3d UInt16 all record the same thing.
                2. it is recorded against the source layout and not the loaded layout: the dtype is the one the source column held, not the one the loaded field carries. a ply u4 column loads as int64 because torch has no uint32, the record holds uint32, and save writes it back as u4.
                3. a las bit-packed field is an ordinary unsigned integer. laspy materializes it as uint8, so uint8 is what enters the obj and uint8 is what the record stores. no special treatment.
             2. layout:
@@ -64,7 +64,8 @@ goal: re-design pc dtype contract/provenance
             1. strictly follows the meta data. it does not need to be aware of the dtype mismatch at all.
             2. meta data defaults to that version in the PointCloud obj, but overridable by an optional arg to control how it wants the field to be saved as.
             3. save point cloud recovers both halves of the record, and the override arg overrides either of them.
-               1. dtype: save casts each column of a field to the dtype recorded for that source column. defensive programming: it asserts the cast is lossless.
+               1. dtype: save casts each column of a field to the dtype recorded for that source column.
+                  1. defensive programming: it asserts the cast is lossless. a target dtype ply does not have, such as int64, is never substituted for. save hard-asserts and the program aborts. with no override in place the target is the record, so this is the user asking for int64 in a ply file, and it is the user's own doing.
                2. layout: save writes each column of a field under the source column name the mapping gives it, instead of deriving names from the field name. a mapping that does not name exactly as many source columns as the field has columns leaves save with no names to write under, so it is refused unless the override supplies them. a field with no recorded layout is that same case.
             4. rgb is the one field with convention conversion between color representations. save reads the convention off the field's current dtype and off the recorded dtype, and converts between the two. the dtype defines the convention: a float dtype means 0 to 1, an integer dtype means that dtype's own range. so a uint8 color is 0 to 255 and a uint16 color is 0 to 65535, which is what las stores.
                1. the conversion rounds, and that rounding is lossless as this design defines loss. a colour that arrived from an integer source sits exactly on that range's grid, so it converts back to the value it came from.
