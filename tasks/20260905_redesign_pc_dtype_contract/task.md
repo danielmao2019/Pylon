@@ -19,7 +19,9 @@ goal: re-design pc dtype contract/provenance
    1. a dtype is a set of values, and one dtype's set may sit inside another's. float32's sits inside float64's.
    2. convert or refuse is decided by whether the data falls inside the target dtype's set, never by the pair of dtype names. inside means nothing is lost, so convert. outside means something is lost, so refuse.
    3. no dtype is ruled out in advance: complex, uint64 and float128 are each handled by this same test.
-   4. for load and construction from in-memory variables, the target dtype is the source dtype unless a meta data override specifies another dtype. the record always keeps the source dtype.
+   4. for load and construction from in-memory variables,
+ the target dtype is the source dtype unless a meta data override specifies another dtype.
+ the record always keeps the source dtype.
    5. when torch does not support the target dtype, storage uses the smallest torch dtype whose set contains the target dtype's set, if one exists. ply u2 and numpy uint16 both go to int32, ply u4 and numpy uint32 both go to int64.
       1. if no containing dtype exists, test the largest narrower dtype supported by torch. convert only if the actual values are exactly representable in it; otherwise hard-assert and abort. do not test progressively smaller dtypes.
       2. a float128 source with no override records float128 in meta data and uses float64 storage if its actual values fit exactly. float32 and smaller dtypes are not tested.
@@ -36,7 +38,8 @@ goal: re-design pc dtype contract/provenance
                2. a field that never came from a file records no layout, because it had no source columns.
          2. granularity: the record is per-field, created when a field enters the obj and deleted when the field is removed. inside a field, both halves are keyed on the source columns.
          3. immutability: for each field, the record is never mutable. an overwrite of a field that already exists must NOT change the meta data.
-      2. no canonicalization: `PointCloud` does not canonicalize any field, color included. rgb enters and is held exactly as it arrived, like every other field.
+      2. no canonicalization: `PointCloud` does not canonicalize any field, color included.
+ rgb enters and is held exactly as it arrived, like every other field.
       3. validation:
          1. `PointCloud` keeps validating xyz and rgb by field name.
          2. xyz is any floating point dtype.
@@ -55,7 +58,8 @@ goal: re-design pc dtype contract/provenance
             1. dtype system mismatch: no field name is special. xyz, rgb, indices, feat, colors, normals are ordinary fields. converting uint16 to int32 because torch lacks uint16 is a patch for that mismatch, not a color convention conversion.
             2. color convention: conversion changes between color representations, such as 0 to 255 integer representation and 0 to 1 floating point representation. save's color convention conversion is keyed on rgb and is the only such branch in the I/O layer.
          2. load point cloud
-            1. preserves everything whenever possible, and converts dtype only for the mismatch between torch and the format it is reading. a reader never widens a field it builds: the record keeps the dtype the file stores each coordinate column in, so an f4 ply gives float32 xyz and an f8 ply gives float64 xyz.
+            1. preserves everything whenever possible, and converts dtype only for the mismatch between torch and the format it is reading.
+ a reader never widens a field it builds: the record keeps the dtype the file stores each coordinate column in, so an f4 ply gives float32 xyz and an f8 ply gives float64 xyz.
             2. the columns a field is assembled from must all hold one dtype. the reader hard-asserts it, and a file whose columns disagree aborts the program rather than being promoted to a dtype covering them all.
             3. the new API on the meta data override:
                1. load point cloud should take an optional arg to override the meta data, the same way save point cloud does, and it reaches both halves.
@@ -67,7 +71,8 @@ goal: re-design pc dtype contract/provenance
          3. save point cloud
             1. strictly follows the meta data. it does not need to be aware of the dtype mismatch at all.
             2. meta data defaults to that version in the PointCloud obj, but overridable by an optional arg to control how it wants the field to be saved as.
-            3. save point cloud recovers both halves of the record, and the override arg overrides either of them.
+            3. save point cloud recovers both halves of the record,
+ and the override arg overrides either of them.
                1. dtype: save casts each column of a field to the dtype recorded for that source column.
                   1. defensive programming: it asserts the cast is lossless. a target dtype ply does not have, such as int64, is never substituted for. save hard-asserts and the program aborts. with no override in place the target is the record, so this is the user asking for int64 in a ply file, and it is the user's own doing.
                2. layout: save writes each column of a field under the source column name the mapping gives it, instead of deriving names from the field name. a mapping that does not name exactly as many source columns as the field has columns leaves save with no names to write under, so it is refused unless the override supplies them. a field with no recorded layout is that same case.
