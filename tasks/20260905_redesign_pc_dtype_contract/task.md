@@ -92,11 +92,13 @@ goal: re-design pc dtype contract/provenance
          1. rgb enters and is held exactly as it arrived, like every other field.
          2. fields keep their own names.
       2. both `__init__` and load point cloud apply Type Casting to the target dtype supplied by New Meta Data API.
+         1. uint16 color data stored in an int32 tensor retains the 0 to 65535 color representation.
       3. validation:
          1. `PointCloud` keeps validating xyz and rgb by field name.
          2. xyz is any floating point dtype.
          3. rgb is validated against its current color convention, as Color Data Convention Conversion defines it.
             1. a floating point rgb carrying a value outside 0 to 1 is refused. `PointCloud` hard-asserts and the program aborts, both when the field enters and on every later assignment to it.
+   2. replacing rgb with a clone preserves its existing color convention.
 2. consumers/users of `PointCloud`:
    1. any consumer of PointCloud in Pylon should be adjusted to work with the new design of PointCloud and its I/O.
       1. every caller passing dtype is updated to the meta data override.
