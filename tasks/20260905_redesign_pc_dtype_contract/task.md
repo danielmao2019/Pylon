@@ -90,7 +90,8 @@ goal: re-design pc dtype contract/provenance
    2. it is optional where the source defines a half, and it replaces that half when it states one.
    3. it is required where the source does not define a half: the caller supplies that half, and a construction or load without it hard-asserts and aborts.
       1. a .pth holds one block of columns the file names nothing, so it defines no layout and the caller's override names the columns.
-      2. a ply carrying more than one element does not define which element's columns a field is assembled from, so the caller's override names them.
+      2. a .txt holds columns the file names nothing, so it defines no layout and the caller's override names the columns.
+      3. a ply carrying more than one element does not define which element's columns a field is assembled from, so the caller's override names them.
    4. a dtype override changes the target dtype without changing the source dtype the record keeps.
    5. a layout override chooses which source columns are assembled into a field. the record's loaded side is what the override asked for, while its source side stays the columns the source held.
 7. save point cloud: each field is written under the dtype and layout its record names, and save derives nothing else.
