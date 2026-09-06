@@ -32,7 +32,7 @@ goal: re-design pc dtype contract/provenance
    1. if no containing dtype exists, test the largest narrower dtype supported by torch. convert only if the actual values are exactly representable in it; otherwise hard-assert and abort. do not test progressively smaller dtypes.
    2. a float128 source with no override uses float64 storage if its actual values fit exactly. float32 and smaller dtypes are not tested.
    3. a ply u4 column loads as int64 because torch has no uint32.
-5. for saving, defensive programming asserts that the dtype cast is lossless.
+5. every dtype cast `__init__`, load point cloud and save point cloud perform is lossless: the cast never changes the value, in the mathematical sense. defensive programming asserts it.
    1. a target dtype ply does not have, such as int64, is never substituted for. save hard-asserts and the program aborts.
       1. in the no-override int64 case described by New Meta Data API, this is the user asking for int64 in a ply file, and it is the user's own doing.
 
