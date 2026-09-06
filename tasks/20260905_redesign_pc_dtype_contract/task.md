@@ -100,6 +100,7 @@ goal: re-design pc dtype contract/provenance
    1. any consumer of PointCloud in Pylon should be adjusted to work with the new design of PointCloud and its I/O.
       1. every caller passing dtype is updated to the meta data override.
       2. Select asserts that indices are int64 at the point of use.
+      3. the point cloud displays under `data/viewer/utils/displays/points/dash` and `data/viewer/utils/displays/points/ts` assume 0 to 255 colors, and each applies Color Data Convention Conversion to rgb in its input normalization.
    2. point cloud I/O:
       1. load point cloud
          1. load point cloud preserves everything whenever possible, and applies Type Casting only for the dtype mismatch between torch and the format it is reading.
