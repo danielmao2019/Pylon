@@ -57,12 +57,11 @@ goal: re-design pc dtype contract/provenance
       2. an integer target rounds $y$ to the nearest integer.
          1. that rounding is lossless as this design defines loss. a color that arrived from an integer source sits exactly on that range's grid, so it converts back to the value it came from.
          2. a color that does not sit on the target grid was put there by the user modifying the field, and the rounding it then takes is the user's own concern. the module rounds and does not refuse.
-3. naming conventions by dtype: the conventions are told apart by dtype and never by inspecting the values, the same way `validate_vertex_color` tells mesh vertex colors apart.
-   1. a float dtype names the 0 to 1 convention.
-   2. an integer dtype names the convention spanning its own range.
-      1. uint8 names the 0 to 255 convention.
-      2. int8 names the -128 to 127 convention.
-      3. uint16 names the 0 to 65535 convention.
+3. naming conventions by dtype: the conventions are told apart by dtype and never by inspecting the values, the same way `validate_vertex_color` tells mesh vertex colors apart. integer conventions span their dtype's full range.
+   1. uint8 names the 0 to 255 convention.
+   2. int8 names the -128 to 127 convention.
+   3. a float dtype names the 0 to 1 convention.
+   4. uint16 names the 0 to 65535 convention.
 
 #### 1.1.3. New Meta Data API
 
