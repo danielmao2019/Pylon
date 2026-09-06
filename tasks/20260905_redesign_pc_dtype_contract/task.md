@@ -112,10 +112,10 @@ goal: re-design pc dtype contract/provenance
          4. the .off reader keeps building float32 and hard-asserts it is never handed anything beyond what it can already handle, rather than widening to cover it.
       2. save point cloud
          1. strictly follows the meta data. it does not need to be aware of the dtype mismatch at all.
-            1. save point cloud recovers both halves of the record as specified by New Meta Data API; its dtype casts follow the saving-specific losslessness and unsupported-target checks in Type Casting.
+            1. save point cloud recovers both halves of the record as specified by New Meta Data API, and its dtype casts follow Type Casting.
          2. save's color convention conversion is keyed on rgb and is the only such branch in the I/O layer.
             1. rgb is the one field with convention conversion between color representations.
-            2. save reads the conventions off the field's current dtype and off the recorded dtype, and applies Color Data Convention Conversion between the two.
+            2. save reads the conventions off the field's current conceptual dtype and off the target conceptual dtype, and applies Color Data Convention Conversion between the two.
 
 #### 1.1.5. what becomes stale design
 
