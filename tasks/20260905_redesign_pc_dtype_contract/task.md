@@ -152,10 +152,13 @@ goal: re-design pc dtype contract/provenance
 - the narrowing of every integer field to i4
 - writing xyz as f4 whatever its dtype
 - the _seg filename test that casts feat to int64
-- the colors and pos aliases
-- the readers splitting a block the file names nothing by column index: the .pth reader taking columns zero through two as xyz and every column past the third as feat, and the .txt reader taking column six alone as feat when the file holds seven or more columns and every column past the third otherwise
-- the writer deriving x, y, z and red, green, blue from the field name, and its feat_0, feat_1 suffix fallback for anything else
 - PointCloud requiring indices to be int64
+- retired layout behavior:
+   1. the colors and pos aliases.
+   2. splitting unnamed columns by position:
+      1. the .pth reader taking columns zero through two as xyz and every column past the third as feat.
+      2. the .txt reader taking column six alone as feat when the file holds seven or more columns and every column past the third otherwise.
+   3. deriving x, y, z and red, green, blue from the field name, and the feat_0, feat_1 suffix fallback for anything else.
 - retired load point cloud arguments:
    1. the meta data override replaces the existing dtype arg, which cast xyz alone, and controls dtype per field.
    2. name_feat is removed, and the meta data override covers the dtype it formerly forced.
