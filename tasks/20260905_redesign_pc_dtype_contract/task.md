@@ -117,7 +117,7 @@ goal: re-design pc dtype contract/provenance
             1. save point cloud recovers both halves of the record as specified by New Meta Data API, and its dtype casts follow Type Casting.
          2. save's color convention conversion is keyed on rgb and is the only such branch in the I/O layer.
             1. rgb is the one field with convention conversion between color representations.
-            2. save reads the conventions off the field's current conceptual dtype and off the target conceptual dtype, and applies Color Data Convention Conversion between the two.
+            2. save applies Color Data Convention Conversion from the field's current color convention to the convention defined by the target conceptual dtype.
 
 #### 1.1.5. what becomes stale design
 
