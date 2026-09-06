@@ -28,15 +28,13 @@ goal: re-design pc dtype contract/provenance
    2. convert or refuse is decided by whether the data falls inside the target dtype's set, never by the pair of dtype names. inside means nothing is lost, so convert. outside means something is lost, so refuse.
    3. complex and float128 are handled by this same representability test.
    4. dtype system mismatch: no field name is special. xyz, rgb, indices, feat, colors, normals are ordinary fields. converting uint16 to int32 because torch lacks uint16 is a patch for that mismatch, not a color convention conversion.
-4. when torch does not support the target dtype, consider the torch dtypes whose value sets are supersets of the target dtype's entire value set. if any exist, storage uses the smallest such superset, regardless of which values happen to be present in the data. ply u2 and numpy uint16 both go to int32, ply u4 and numpy uint32 both go to int64.
-   1. if no containing dtype exists, test the largest narrower dtype supported by torch. convert only if the actual values are exactly representable in it; otherwise hard-assert and abort. do not test progressively smaller dtypes.
-   2. a float128 source with no override uses float64 storage if its actual values fit exactly. float32 and smaller dtypes are not tested.
-   3. a ply u4 column loads as int64 because torch has no uint32.
-5. when ply does not support the target dtype, value-set containment names the ply dtype the column uses.
-   1. consider the ply dtypes whose value sets are supersets of the target dtype's entire value set. if any exist, the column uses the smallest such superset, regardless of which values happen to be present in the data.
-   2. if no containing dtype exists, test the largest narrower dtype supported by ply. convert only if the actual values are exactly representable in it; otherwise hard-assert and abort. do not test progressively smaller dtypes.
-      1. an int64 target goes to i4 and a uint64 target goes to u4.
-6. every dtype cast `__init__`, load point cloud and save point cloud perform is lossless: the cast never changes the value, in the mathematical sense. a cast that would change a value hard-asserts and aborts.
+4. when a system does not support the target dtype, value-set containment names the dtype that system uses in its place.
+   1. consider that system's dtypes whose value sets are supersets of the target dtype's entire value set. if any exist, the smallest such superset is used, regardless of which values happen to be present in the data.
+      1. in torch storage, ply u2 and numpy uint16 both go to int32, and ply u4 and numpy uint32 both go to int64. a ply u4 column loads as int64 because torch has no uint32.
+   2. if no containing dtype exists, test the largest narrower dtype that system supports. convert only if the actual values are exactly representable in it; otherwise hard-assert and abort. do not test progressively smaller dtypes.
+      1. in torch storage, a float128 source with no override uses float64 if its actual values fit exactly. float32 and smaller dtypes are not tested.
+      2. in a ply column, an int64 target goes to i4 and a uint64 target goes to u4.
+5. every dtype cast `__init__`, load point cloud and save point cloud perform is lossless: the cast never changes the value, in the mathematical sense. a cast that would change a value hard-asserts and aborts.
 
 #### 1.1.2. Color Data Convention Conversion
 
