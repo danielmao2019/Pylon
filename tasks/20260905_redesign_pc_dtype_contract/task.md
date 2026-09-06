@@ -40,7 +40,7 @@ goal: re-design pc dtype contract/provenance
 
 #### 1.1.2. Color Data Convention Conversion
 
-1. color conventions: rgb admits any integer width and any float width, unlike mesh vertex colors, because ply stores colors as u1 while las stores them as uint16. conventions include:
+1. color conventions: rgb admits any integer width and any float width, unlike mesh vertex colors. conventions include:
    1. 0 to 255 unsigned integer representation.
    2. -128 to 127 signed integer representation.
    3. 0 to 1 floating point representation.
@@ -73,8 +73,6 @@ goal: re-design pc dtype contract/provenance
       3. it is recorded against the source layout and not the loaded layout: the dtype is the one the source column held, not the one the loaded field carries.
          1. for the ply u4 example in Type Casting, the record holds uint32.
          2. a float128 source with no override records float128 in meta data.
-         3. for a las bit-packed field materialized as uint8, uint8 is what the record stores. no special treatment.
-         4. for las coordinates materialized as float64, float64 is what the record stores. no special treatment.
    2. layout:
       1. it records the mapping between the source layout and the loaded layout: the columns the source held on one side, the fields the reader assembled them into on the other. a ply maps ('x', 'y', 'z') to xyz, maps ('red', 'green', 'blue') to rgb, and maps ('intensity',) to intensity.
       2. a field constructed from an in-memory variable records the identity mapping: the name it was handed under stands for the whole block of columns it was handed as.
@@ -127,14 +125,17 @@ goal: re-design pc dtype contract/provenance
             2. a reader never widens a field it builds.
                1. an f4 ply gives float32 xyz and an f8 ply gives float64 xyz.
          2. the columns a field is assembled from must all hold one dtype. the reader hard-asserts it, and a file whose columns disagree aborts the program rather than being promoted to a dtype covering them all.
-         3. a las bit-packed field is an ordinary unsigned integer. laspy materializes it as uint8, so uint8 is what enters the obj.
-         4. the .off reader keeps building float32 and hard-asserts it is never handed anything beyond what it can already handle, rather than widening to cover it.
+         3. the .off reader keeps building float32 and hard-asserts it is never handed anything beyond what it can already handle, rather than widening to cover it.
       2. save point cloud
          1. strictly follows the meta data. it does not need to be aware of the dtype mismatch at all.
             1. save point cloud recovers both halves of the record as specified by New Meta Data API, and its dtype casts follow Type Casting.
          2. save's color convention conversion is keyed on rgb and is the only such branch in the I/O layer.
             1. rgb is the one field with convention conversion between color representations.
             2. save applies Color Data Convention Conversion from the field's current color convention to the convention defined by the target conceptual dtype.
+3. .las and .laz:
+   1. coordinates are the scaled x, y and z. laspy materializes them as float64, so float64 is what enters the obj and what the meta data records.
+   2. colors are stored as uint16, while ply stores colors as u1.
+   3. a bit-packed field is an ordinary unsigned integer. laspy materializes it as uint8, so uint8 is what enters the obj and what the meta data records.
 
 #### 1.1.5. what becomes stale design
 
