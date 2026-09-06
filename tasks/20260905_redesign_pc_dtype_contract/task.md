@@ -26,7 +26,7 @@ goal: re-design pc dtype contract/provenance
          1. what it is: meta data records what the source looked like, upon construction. it records the source of the data, wherever the data comes from: a load from disk, a construction from a torch tensor or a numpy array, or addition or deletion of fields. it records two things.
             1. dtype:
                1. it records the conceptual dtype, not the spelling of whichever system the field came from. a field entering as ply u2, as numpy uint16, or as an open3d UInt16 all record the same thing.
-               2. it is recorded against the source layout and not the loaded layout: one dtype per source column, not one per loaded field. a ply holding x as f4 beside y and z as f8 records float32 for x and float64 for y and z, the loaded xyz is float64, and save writes each column back as the type it was.
+               2. it is recorded against the source layout and not the loaded layout: one dtype per source column, not one per loaded field. a ply holding x as f4 beside y and z as f8 records float32 for x and float64 for y and z, so save writes each column back as the type it was.
                3. a las bit-packed field is an ordinary unsigned integer. laspy materializes it as uint8, so uint8 is what enters the obj and uint8 is what the record stores. no special treatment.
             2. layout:
                1. it records the mapping between the source layout and the loaded layout: the columns the source held on one side, the fields the reader assembled them into on the other. a ply maps ('x', 'y', 'z') to xyz, maps ('red', 'green', 'blue') to rgb, and maps ('intensity',) to intensity.
@@ -49,19 +49,24 @@ goal: re-design pc dtype contract/provenance
       4. point cloud I/O:
          1. no field name is special in I/O where dtype is concerned. xyz, rgb, indices, feat, colors, normals are ordinary fields. the one exception is rgb, whose dtype conversion is not a mere cast but also a matter of data convention. save's color convention conversion is keyed on the field name and is the only such branch in the I/O layer.
          2. load point cloud
-            1. preserves everything whenever possible, and converts dtype only for the mismatch between torch and the format it is reading. a reader never widens a field it builds: xyz records the dtype the file stores its coordinate columns in, so an f4 ply gives float32 xyz and an f8 ply gives float64 xyz.
-            2. the new API on return dtype override:
-               1. load point cloud should take an optional arg to override the dtype a field is loaded as, the same way save point cloud does. the override changes only the value handed back, never the meta data record, which stays the dtype the source held.
-               2. this override replaces the existing dtype arg, which cast xyz alone. it is the same control at per-field granularity, so every caller passing dtype is updated.
-               3. name_feat is removed. the override covers the dtype it forced, while its renaming of a named column to feat and its reshape to [N, 1] are dropped rather than replaced, because fields keep their own names and no caller outside a test passes it.
+            1. preserves everything whenever possible, and converts dtype only for the mismatch between torch and the format it is reading. a reader never widens a field it builds: the record keeps the dtype the file stores each coordinate column in, so an f4 ply gives float32 xyz and an f8 ply gives float64 xyz.
+            2. the new API on the meta data override:
+               1. load point cloud should take an optional arg to override the meta data, the same way save point cloud does, and it reaches both halves.
+               2. the dtype half changes only the value handed back. the record stays the dtype the source column held.
+               3. the layout half chooses which source columns the reader assembles together. that is the loaded side of the mapping, so the record's loaded side is what the override asked for while its source side stays the columns the file held.
+               4. this override replaces the existing dtype arg, which cast xyz alone. it is the same control at per-field granularity, so every caller passing dtype is updated.
+               5. name_feat is removed. the override covers the dtype it forced, while its renaming of a named column to feat and its reshape to [N, 1] are dropped rather than replaced, because fields keep their own names and no caller outside a test passes it.
             3. the .off reader keeps building float32 and hard-asserts it is never handed anything beyond what it can already handle, rather than widening to cover it.
          3. save point cloud
             1. strictly follows the meta data. it does not need to be aware of the dtype mismatch at all.
             2. meta data defaults to that version in the PointCloud obj, but overridable by an optional arg to control how it wants the field to be saved as.
             3. save point cloud recovers both halves of the record, and the override arg overrides either of them.
-               1. dtype: save casts each field to the recorded dtype. defensive programming: it asserts the cast is lossless.
-               2. layout: save writes each component of a field under its recorded column name, instead of deriving names from the field name. a field with no recorded layout and more than one column has no names to write under, so it is refused unless the override supplies them.
+               1. dtype: save casts each column of a field to the dtype recorded for that source column. defensive programming: it asserts the cast is lossless.
+               2. layout: save writes each column of a field under the source column name the mapping gives it, instead of deriving names from the field name. a mapping that does not name exactly as many source columns as the field has columns leaves save with no names to write under, so it is refused unless the override supplies them. a field with no recorded layout is that same case.
             4. rgb is the one field that also needs a convention conversion, because its dtype carries a convention as well as a value set. save reads the convention off the field's current dtype and off the recorded dtype, and converts between the two. the dtype defines the convention: a float dtype means 0 to 1, an integer dtype means that dtype's own range. so a uint8 color is 0 to 255 and a uint16 color is 0 to 65535, which is what las stores.
+               1. the conversion rounds, and that rounding is lossless as this design defines loss. a colour that arrived from an integer source sits exactly on that range's grid, so it converts back to the value it came from.
+               2. what save asserts is that the values sit inside the range the field's current dtype declares: 0 to 1 for a float, the dtype's own range for an integer.
+               3. a colour that does not sit on the target grid was put there by the user modifying the field, and the rounding it then takes is the user's own concern. the module rounds and does not refuse.
 5. what becomes stale design:
    - the color rescale that guesses a [0, 1] range from the values and multiplies by 255
    - the narrowing of every integer field to i4
