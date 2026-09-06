@@ -96,7 +96,7 @@ goal: re-design pc dtype contract/provenance
       3. validation:
          1. `PointCloud` keeps validating xyz and rgb by field name.
          2. xyz is any floating point dtype.
-         3. rgb is validated against the convention its own dtype declares, as Color Data Convention Conversion defines it.
+         3. rgb is validated against its current color convention, as Color Data Convention Conversion defines it.
             1. a floating point rgb carrying a value outside 0 to 1 is refused. `PointCloud` hard-asserts and the program aborts, both when the field enters and on every later assignment to it.
 2. consumers/users of `PointCloud`:
    1. any consumer of PointCloud in Pylon should be adjusted to work with the new design of PointCloud and its I/O.
