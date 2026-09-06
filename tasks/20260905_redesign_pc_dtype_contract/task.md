@@ -33,8 +33,9 @@ goal: re-design pc dtype contract/provenance
    2. a float128 source with no override uses float64 storage if its actual values fit exactly. float32 and smaller dtypes are not tested.
    3. a ply u4 column loads as int64 because torch has no uint32.
 5. every dtype cast `__init__`, load point cloud and save point cloud perform is lossless: the cast never changes the value, in the mathematical sense. defensive programming asserts it.
-   1. a target dtype ply does not have, such as int64, is never substituted for. save hard-asserts and the program aborts.
-      1. in the no-override int64 case described by New Meta Data API, this is the user asking for int64 in a ply file, and it is the user's own doing.
+   1. a target dtype ply does not have, including int64 and uint64, is cast at save to a dtype ply does have, and the actual values decide: save converts when they are exactly representable in that dtype, and hard-asserts and refuses to save when they are not. this holds whether the target comes from the record or from the save meta data override.
+      1. the dtype tested is the largest narrower one ply has, and no progressively smaller dtype is tested after it. an int64 target is tested against i4, so an int64 field whose values all fit i4 is written as i4 and one whose values do not is refused.
+      2. a uint64 target is tested against u4 under the same rule: values that all fit u4 are written as u4, and other values are refused.
 
 #### 1.1.2. Color Data Convention Conversion
 
