@@ -67,6 +67,12 @@ goal: re-design pc dtype contract/provenance
 
 #### 1.1.3. Layout Mapping
 
+1. what it is: the mapping between the source layout and the loaded layout, with the columns the source held on one side and the fields assembled from them on the other.
+2. forward mapping:
+   1. in-memory variables use the identity mapping: the name a field was handed under stands for the whole block of columns it was handed as.
+   2. .ply: ('x', 'y', 'z') maps to xyz, ('red', 'green', 'blue') maps to rgb, and ('intensity',) maps to intensity.
+3. reverse mapping: each field maps back to the source column names its mapping records. a field mapped from ('x', 'y', 'z') maps back to x, y and z.
+
 #### 1.1.4. New Meta Data API
 
 1. what it is: meta data records what the source looked like, upon construction. it records the source of the data, wherever the data comes from: a load from disk, a construction from a torch tensor or a numpy array, or addition or deletion of fields. it records two things.
@@ -76,9 +82,7 @@ goal: re-design pc dtype contract/provenance
       3. it is recorded against the source layout and not the loaded layout: the dtype is the one the source column held, not the one the loaded field carries.
          1. for the ply u4 example in Type Casting, the record holds uint32.
          2. a float128 source with no override records float128 in meta data.
-   2. layout:
-      1. it records the mapping between the source layout and the loaded layout: the columns the source held on one side, the fields the reader assembled them into on the other. a ply maps ('x', 'y', 'z') to xyz, maps ('red', 'green', 'blue') to rgb, and maps ('intensity',) to intensity.
-      2. a field constructed from an in-memory variable records the identity mapping: the name it was handed under stands for the whole block of columns it was handed as.
+   2. layout: it records the mapping defined by Layout Mapping.
 2. granularity: the record is per-field, created when a field enters the obj and deleted when the field is removed. inside a field, both halves are keyed on the source columns.
 3. immutability: for each field, the record is never mutable. an overwrite of a field that already exists must NOT change the meta data.
    1. user of PointCloud obj may however modify the fields, but the meta data stays constant and immutable once created.
@@ -99,7 +103,7 @@ goal: re-design pc dtype contract/provenance
    1. the record is the target, including when it records int64 for a ply save.
    2. dtype: the dtype recorded for each source column is its save target. the actual ply storage dtype follows the lossless casting rule in Type Casting.
       1. the ply u4 example is therefore saved as u4.
-   3. layout: save writes each field back out under the names the record maps it from. a field the record maps from ('x', 'y', 'z') is written out as x, y and z.
+   3. layout: output columns follow the reverse mapping defined by Layout Mapping.
 
 #### 1.1.5. Point Cloud Data Structure Construction and I/O
 
