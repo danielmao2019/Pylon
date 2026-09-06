@@ -50,13 +50,14 @@ goal: re-design pc dtype contract/provenance
          1. no field name is special in I/O where dtype is concerned. xyz, rgb, indices, feat, colors, normals are ordinary fields. the one exception is rgb, whose dtype conversion is not a mere cast but also a matter of data convention. save's color convention conversion is keyed on the field name and is the only such branch in the I/O layer.
          2. load point cloud
             1. preserves everything whenever possible, and converts dtype only for the mismatch between torch and the format it is reading. a reader never widens a field it builds: the record keeps the dtype the file stores each coordinate column in, so an f4 ply gives float32 xyz and an f8 ply gives float64 xyz.
-            2. the new API on the meta data override:
+            2. the columns a field is assembled from must all hold one dtype. the reader hard-asserts it, and a file whose columns disagree aborts the program rather than being promoted to a dtype covering them all.
+            3. the new API on the meta data override:
                1. load point cloud should take an optional arg to override the meta data, the same way save point cloud does, and it reaches both halves.
                2. the dtype half changes only the value handed back. the record stays the dtype the source column held.
                3. the layout half chooses which source columns the reader assembles together. that is the loaded side of the mapping, so the record's loaded side is what the override asked for while its source side stays the columns the file held.
                4. this override replaces the existing dtype arg, which cast xyz alone. it is the same control at per-field granularity, so every caller passing dtype is updated.
                5. name_feat is removed. the override covers the dtype it forced, while its renaming of a named column to feat and its reshape to [N, 1] are dropped rather than replaced, because fields keep their own names and no caller outside a test passes it.
-            3. the .off reader keeps building float32 and hard-asserts it is never handed anything beyond what it can already handle, rather than widening to cover it.
+            4. the .off reader keeps building float32 and hard-asserts it is never handed anything beyond what it can already handle, rather than widening to cover it.
          3. save point cloud
             1. strictly follows the meta data. it does not need to be aware of the dtype mismatch at all.
             2. meta data defaults to that version in the PointCloud obj, but overridable by an optional arg to control how it wants the field to be saved as.
