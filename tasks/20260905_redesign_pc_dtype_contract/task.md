@@ -21,11 +21,14 @@ goal: re-design pc dtype contract/provenance
 
 #### 1.1.1. Type Casting
 
-1. the fundamental root cause is the dtype system mismatch: the dtype systems are each a subset of one universal, system-agnostic collection of conceptual dtypes, and no system's subset contains every other's. uint16 and int32 are two distinct conceptual dtypes; numpy int32 and torch int32 represent the same conceptual dtype.
-   1. ply's subset is b1, i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer.
-   2. torch 2.2.2 has no uint16, uint32, uint64 or float128, and bfloat16 is its alone.
-   3. numpy 1.26.4 has uint64 and float128, and has no bfloat16.
-   4. every ply dtype torch carries loads unchanged: i1 as int8, u1 as uint8, i2 as int16, i4 as int32, f4 as float32, f8 as float64, b1 as bool.
+1. the fundamental root cause is the dtype system mismatch: the dtype systems are each a subset of one universal, system-agnostic collection of conceptual dtypes, and no system's subset contains every other's.
+   1. conceptual dtype identity across systems:
+      1. uint16 and int32 are two distinct conceptual dtypes; numpy int32 and torch int32 represent the same conceptual dtype.
+      2. every ply dtype torch carries loads unchanged: i1 as int8, u1 as uint8, i2 as int16, i4 as int32, f4 as float32, f8 as float64, b1 as bool.
+   2. each system's supported subset:
+      1. ply's subset is b1, i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer.
+      2. torch 2.2.2 has no uint16, uint32, uint64 or float128, and bfloat16 is its alone.
+      3. numpy 1.26.4 has uint64 and float128, and has no bfloat16.
 2. every dtype cast `__init__`, load point cloud and save point cloud perform must be lossless: it never changes a value, in the mathematical sense.
    1. each dtype is a set of values, and one dtype's set may sit inside another's. float32's sits inside float64's. every casting decision reads those sets and the values a field holds, never the dtype names alone.
    2. when a system lacks a conceptual dtype but has one whose set contains its entire set, the smallest such dtype is used, and the cast converts whichever values are present in the data.
