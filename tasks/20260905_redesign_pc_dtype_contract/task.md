@@ -28,7 +28,7 @@ goal: re-design pc dtype contract/provenance
    4. every ply dtype torch carries loads unchanged: i1 as int8, u1 as uint8, i2 as int16, i4 as int32, f4 as float32, f8 as float64, b1 as bool.
 2. every dtype cast `__init__`, load point cloud and save point cloud perform must be lossless: it never changes a value, in the mathematical sense.
    1. each dtype is a set of values, and one dtype's set may sit inside another's. float32's sits inside float64's.
-   2. the dtype a conceptual dtype the system lacks is cast into is named by containment.
+   2. containment names the dtype a system uses for a conceptual dtype it lacks.
       1. the smallest of that system's dtypes whose set contains its entire set, when one exists, regardless of which values happen to be present in the data.
          1. in torch storage, ply u2 and numpy uint16 both go to int32, and ply u4 and numpy uint32 both go to int64.
       2. the largest narrower dtype the system supports, when none exists, and no smaller dtype is considered after it.
