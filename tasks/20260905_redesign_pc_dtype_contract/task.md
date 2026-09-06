@@ -9,7 +9,7 @@ goal: re-design pc dtype contract/provenance
     - [1.1.3. Layout Mapping](#113-layout-mapping)
     - [1.1.4. New Meta Data API](#114-new-meta-data-api)
     - [1.1.5. Point Cloud Data Structure Construction and I/O](#115-point-cloud-data-structure-construction-and-io)
-    - [1.1.6. what becomes stale design](#116-what-becomes-stale-design)
+    - [1.1.6. What Becomes Stale Design](#116-what-becomes-stale-design)
 - [2. Definition of Done](#2-definition-of-done)
   - [2.1. Project Consumers be Refactored](#21-project-consumers-be-refactored)
   - [2.2. Task Scope](#22-task-scope)
@@ -140,7 +140,7 @@ goal: re-design pc dtype contract/provenance
    2. colors are stored as uint16, while ply stores colors as u1.
    3. a bit-packed field is an ordinary unsigned integer. laspy materializes it as uint8, so uint8 is what enters the obj and what the meta data records.
 
-#### 1.1.6. what becomes stale design
+#### 1.1.6. What Becomes Stale Design
 
 - the color rescale that guesses a [0, 1] range from the values and multiplies by 255
 - the narrowing of every integer field to i4
