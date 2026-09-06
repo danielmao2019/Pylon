@@ -21,20 +21,19 @@ goal: re-design pc dtype contract/provenance
 
 #### 1.1.1. Type Casting
 
-1. the fundamental root cause is the dtype system mismatch. torch has no uint16 and no uint32, so ply u2 loads as int32 and ply u4 loads as int64. everything else loads unchanged: i1 as int8, u1 as uint8, i2 as int16, i4 as int32, f4 as float32, f8 as float64, b1 as bool. numpy also has uint64 and float128 that torch 2.2.2 does not, torch has bfloat16 that numpy 1.26.4 does not, and ply has no 64-bit integer.
-2. there is one universe of conceptual dtypes, system-agnostic. every concrete system supports a subset of it, and no system's subset contains every other's.
-3. the core principles of lossless dtype casting:
-   1. a dtype is a set of values, and one dtype's set may sit inside another's. float32's sits inside float64's.
-   2. convert or refuse is decided by whether the data falls inside the target dtype's set, never by the pair of dtype names. inside means nothing is lost, so convert. outside means something is lost, so refuse.
-   3. complex and float128 are handled by this same representability test.
-   4. dtype system mismatch: no field name is special. xyz, rgb, indices, feat, colors, normals are ordinary fields. converting uint16 to int32 because torch lacks uint16 is a patch for that mismatch, not a color convention conversion.
-4. when a system does not support the target dtype, value-set containment names the dtype that system uses in its place.
+1. there is one universe of conceptual dtypes, system-agnostic. every concrete system supports a subset of it, and no system's subset contains every other's.
+   1. torch has no uint16 and no uint32. numpy has uint64 and float128 that torch 2.2.2 does not, torch has bfloat16 that numpy 1.26.4 does not, and ply has no 64-bit integer.
+   2. every ply dtype torch carries loads unchanged: i1 as int8, u1 as uint8, i2 as int16, i4 as int32, f4 as float32, f8 as float64, b1 as bool.
+2. a dtype is a set of values, and one dtype's set may sit inside another's. float32's sits inside float64's.
+   1. convert or refuse is decided by whether the data falls inside the target dtype's set, never by the pair of dtype names. inside means nothing is lost, so convert. outside means something is lost, so refuse: the cast hard-asserts and the program aborts.
+   2. no field name changes how a dtype is cast. xyz, rgb, indices, feat, colors and normals cast by the same rules as any other field.
+3. when a system does not support the target dtype, value-set containment names the dtype that system uses in its place.
    1. consider that system's dtypes whose value sets are supersets of the target dtype's entire value set. if any exist, the smallest such superset is used, regardless of which values happen to be present in the data.
-      1. in torch storage, ply u2 and numpy uint16 both go to int32, and ply u4 and numpy uint32 both go to int64. a ply u4 column loads as int64 because torch has no uint32.
+      1. in torch storage, ply u2 and numpy uint16 both go to int32, and ply u4 and numpy uint32 both go to int64.
    2. if no containing dtype exists, test the largest narrower dtype that system supports. convert only if the actual values are exactly representable in it; otherwise hard-assert and abort. do not test progressively smaller dtypes.
       1. in torch storage, a float128 source with no override uses float64 if its actual values fit exactly. float32 and smaller dtypes are not tested.
       2. in a ply column, an int64 target goes to i4 and a uint64 target goes to u4.
-5. every dtype cast `__init__`, load point cloud and save point cloud perform is lossless: the cast never changes the value, in the mathematical sense. a cast that would change a value hard-asserts and aborts.
+   3. the dtype a system uses in place of one it does not support is a patch for the mismatch, never a color convention conversion.
 
 #### 1.1.2. Color Data Convention Conversion
 
@@ -147,6 +146,7 @@ This commit "[Project][Tasks] Merge 20260903_integrate_blend_texture_not_render 
 1. load: .pth, .ply, .pcd, .las, .laz, .off, .txt. save: .ply. neither expands.
 2. constructing a `PointCloud` from numpy arrays is in scope. the obj always stores torch tensors.
 3. uint64 is unsupported as a source dtype for `__init__` or load point cloud and as a dtype in their meta data overrides. either case hard-asserts and aborts, regardless of the actual values. an override requesting another dtype does not make a uint64 source acceptable.
-4. convention conversion is not avoidable: save point cloud does it, and so do the point cloud displays under `data/viewer/utils/displays/points`, each reading its conventions off a dtype. what is out of scope is the effort of building a general named-convention mechanism with conversions between named conventions.
-5. every consumer this change breaks is fixed within this task, together with its tests. merging a branch that leaves a consumer broken breaks main.
-6. tests in scope are anything this task might possibly impact. that resolves to the 57 test files referencing `PointCloud`, its I/O or `Select`: the point cloud I/O suites, the `PointCloud` and `Select` suites, the vision-3d transform suites, the PCR collators and dataloaders, the viewer point cloud display suites, the PCR dataset suites, and the point cloud model and render suites.
+4. complex and float128 are in scope, ruled in or out per case by the same representability test as every other dtype rather than by their names.
+5. convention conversion is not avoidable: save point cloud does it, and so do the point cloud displays under `data/viewer/utils/displays/points`, each reading its conventions off a dtype. what is out of scope is the effort of building a general named-convention mechanism with conversions between named conventions.
+6. every consumer this change breaks is fixed within this task, together with its tests. merging a branch that leaves a consumer broken breaks main.
+7. tests in scope are anything this task might possibly impact. that resolves to the 57 test files referencing `PointCloud`, its I/O or `Select`: the point cloud I/O suites, the `PointCloud` and `Select` suites, the vision-3d transform suites, the PCR collators and dataloaders, the viewer point cloud display suites, the PCR dataset suites, and the point cloud model and render suites.
