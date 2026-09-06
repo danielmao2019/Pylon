@@ -4,6 +4,10 @@ goal: re-design pc dtype contract/provenance
 
 - [1. Guidelines](#1-guidelines)
   - [1.1. Proposed Solution](#11-proposed-solution)
+    - [1.1.1. Type Casting](#111-type-casting)
+    - [1.1.2. New Meta Data API](#112-new-meta-data-api)
+    - [1.1.3. Color Data Convention Conversion](#113-color-data-convention-conversion)
+    - [1.1.4. what becomes stale design](#114-what-becomes-stale-design)
 - [2. Definition of Done](#2-definition-of-done)
   - [2.1. Task Scope](#21-task-scope)
 
@@ -13,6 +17,8 @@ goal: re-design pc dtype contract/provenance
 
 ### 1.1. Proposed Solution
 
+#### 1.1.1. Type Casting
+
 1. the fundamental root cause is the dtype system mismatch. torch has no uint16 and no uint32, so ply u2 loads as int32 and ply u4 loads as int64. everything else loads unchanged: i1 as int8, u1 as uint8, i2 as int16, i4 as int32, f4 as float32, f8 as float64, b1 as bool. numpy also has uint64 and float128 that torch 2.2.2 does not, torch has bfloat16 that numpy 1.26.4 does not, and ply has no 64-bit integer.
 2. there is one universe of conceptual dtypes, system-agnostic. every concrete system supports a subset of it, and no system's subset contains every other's.
 3. the core principles of lossless dtype casting:
@@ -20,13 +26,16 @@ goal: re-design pc dtype contract/provenance
    2. convert or refuse is decided by whether the data falls inside the target dtype's set, never by the pair of dtype names. inside means nothing is lost, so convert. outside means something is lost, so refuse.
    3. no dtype is ruled out in advance: complex, uint64 and float128 are each handled by this same test.
    4. dtype system mismatch: no field name is special. xyz, rgb, indices, feat, colors, normals are ordinary fields. converting uint16 to int32 because torch lacks uint16 is a patch for that mismatch, not a color convention conversion.
-   5. when torch does not support the target dtype, storage uses the smallest torch dtype whose set contains the target dtype's set, if one exists. ply u2 and numpy uint16 both go to int32, ply u4 and numpy uint32 both go to int64.
+   5. for both `__init__` and load point cloud, when torch does not support the target dtype, storage uses the smallest torch dtype whose set contains the target dtype's set, if one exists. ply u2 and numpy uint16 both go to int32, ply u4 and numpy uint32 both go to int64.
       1. if no containing dtype exists, test the largest narrower dtype supported by torch. convert only if the actual values are exactly representable in it; otherwise hard-assert and abort. do not test progressively smaller dtypes.
       2. a float128 source with no override records float128 in meta data and uses float64 storage if its actual values fit exactly. float32 and smaller dtypes are not tested.
-   6. preserves everything whenever possible, and converts dtype only for the mismatch between torch and the format it is reading.
+   6. load point cloud preserves everything whenever possible, and converts dtype only for the mismatch between torch and the format it is reading.
+
+#### 1.1.2. New Meta Data API
+
 4. The core design change in this task:
    1. the `PointCloud` class:
-      1. for load and construction from in-memory variables,
+      1. common construction by `__init__` from in-memory variables or by load point cloud from files:
          1. no canonicalization: `PointCloud` does not canonicalize any field, color included.
          2. validation:
             1. `PointCloud` keeps validating xyz and rgb by field name.
@@ -45,14 +54,14 @@ goal: re-design pc dtype contract/provenance
          3. immutability: for each field, the record is never mutable. an overwrite of a field that already exists must NOT change the meta data.
             1. user of PointCloud obj may however modify the fields, but the meta data stays constant and immutable once created.
          4. the meta data travels with the field, so Select preserves it.
-         5. the target dtype is the source dtype unless a meta data override specifies another dtype.
+         5. for `__init__` and load point cloud, the target dtype is the source dtype unless a meta data override specifies another dtype.
          6. `__init__` accepts an optional meta data override for construction from in-memory variables, just as load point cloud does. a dtype override changes the target dtype without changing the source dtype recorded in meta data.
          7. load point cloud should take an optional arg to override the meta data, the same way save point cloud does, and it reaches both halves.
             1. the dtype half changes only the value handed back. the record stays the dtype the source column held.
             2. the layout half chooses which source columns the reader assembles together. that is the loaded side of the mapping, so the record's loaded side is what the override asked for while its source side stays the columns the file held.
-         8. meta data defaults to that version in the PointCloud obj, but overridable by an optional arg to control how it wants the field to be saved as.
-            1. and the override arg overrides either of them.
-      3. conversions:
+         8. save point cloud: meta data defaults to that version in the PointCloud obj, but overridable by an optional arg to control how it wants the field to be saved as.
+            1. the override arg overrides either half of the record.
+      3. color representation and convention conversion:
          1. rgb is either
             1. an integer dtype, where the dtype's own range is the colour range, or
             2. a floating point dtype of any width holding 0 to 1.
@@ -76,18 +85,22 @@ goal: re-design pc dtype contract/provenance
             4. the .off reader keeps building float32 and hard-asserts it is never handed anything beyond what it can already handle, rather than widening to cover it.
          2. save point cloud
             1. strictly follows the meta data. it does not need to be aware of the dtype mismatch at all.
-            2. save point cloud recovers both halves of the record,
+            2. save point cloud recovers both halves of the record:
                1. dtype: save casts each column of a field to the dtype recorded for that source column.
                   1. defensive programming: it asserts the cast is lossless. a target dtype ply does not have, such as int64, is never substituted for. save hard-asserts and the program aborts. with no override in place the target is the record, so this is the user asking for int64 in a ply file, and it is the user's own doing.
                2. layout: save writes each column of a field under the source column name the mapping gives it, instead of deriving names from the field name. a mapping that does not name exactly as many source columns as the field has columns leaves save with no names to write under, so it is refused unless the override supplies them. a field with no recorded layout is that same case.
-5. what becomes stale design:
-   - the color rescale that guesses a [0, 1] range from the values and multiplies by 255
-   - the narrowing of every integer field to i4
-   - writing xyz as f4 whatever its dtype
-   - the _seg filename test that casts feat to int64
-   - the colors and pos aliases
-   - the writer deriving x, y, z and red, green, blue from the field name, and its feat_0, feat_1 suffix fallback for anything else
-   - PointCloud requiring indices to be int64. Select asserts it at the point of use instead
+
+#### 1.1.3. Color Data Convention Conversion
+
+#### 1.1.4. what becomes stale design
+
+- the color rescale that guesses a [0, 1] range from the values and multiplies by 255
+- the narrowing of every integer field to i4
+- writing xyz as f4 whatever its dtype
+- the _seg filename test that casts feat to int64
+- the colors and pos aliases
+- the writer deriving x, y, z and red, green, blue from the field name, and its feat_0, feat_1 suffix fallback for anything else
+- PointCloud requiring indices to be int64. Select asserts it at the point of use instead
 
 ## 2. Definition of Done
 
