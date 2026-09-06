@@ -40,16 +40,18 @@ goal: re-design pc dtype contract/provenance
 
 #### 1.1.2. Color Data Convention Conversion
 
-1. color conventions: rgb admits any integer width and any float width, unlike mesh vertex colors, because ply stores colors as u1 while las stores them as uint16.
-   1. an integer representation, where the dtype's own range is the color range.
-   2. a floating point representation holding 0 to 1.
+1. color conventions: rgb admits any integer width and any float width, unlike mesh vertex colors, because ply stores colors as u1 while las stores them as uint16. conventions include:
+   1. 0 to 255 unsigned integer representation.
+   2. -128 to 127 signed integer representation.
+   3. 0 to 1 floating point representation.
+   4. 0 to 65535 unsigned integer representation.
 2. conversion between conventions:
    1. conversion changes between color representations, such as 0 to 255 integer representation and 0 to 1 floating point representation.
    2. the conversion rounds, and that rounding is lossless as this design defines loss. a color that arrived from an integer source sits exactly on that range's grid, so it converts back to the value it came from.
       1. a color that does not sit on the target grid was put there by the user modifying the field, and the rounding it then takes is the user's own concern. the module rounds and does not refuse.
 3. naming conventions by dtype:
-   1. the dtype defines the convention: a float dtype means 0 to 1, an integer dtype means that dtype's own range. so a uint8 color is 0 to 255 and a uint16 color is 0 to 65535, which is what las stores.
-   2. the two are told apart by dtype and never by inspecting the values, the same way `validate_vertex_color` tells mesh vertex colors apart.
+   1. the dtype defines the convention: a float dtype means 0 to 1, an integer dtype means that dtype's own range. uint8 names the 0 to 255 convention, int8 names the -128 to 127 convention, and uint16 names the 0 to 65535 convention.
+   2. the conventions are told apart by dtype and never by inspecting the values, the same way `validate_vertex_color` tells mesh vertex colors apart.
 
 #### 1.1.3. New Meta Data API
 
