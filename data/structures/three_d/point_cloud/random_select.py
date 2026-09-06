@@ -1,4 +1,4 @@
-from typing import Any, Optional, Union
+from typing import Any, Optional
 import torch
 
 from data.structures.three_d.point_cloud.point_cloud import PointCloud

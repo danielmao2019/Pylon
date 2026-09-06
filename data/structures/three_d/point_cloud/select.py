@@ -9,16 +9,6 @@ class Select:
     def __init__(self, indices: Union[torch.Tensor, List[int]]) -> None:
         self.indices = indices
 
-    def _materialize_indices(self, device: torch.device) -> torch.Tensor:
-        if isinstance(self.indices, list):
-            indices_tensor = torch.tensor(self.indices, dtype=torch.int64, device=device)
-        else:
-            assert self.indices.dtype == torch.int64, f"{self.indices.dtype=}"
-            assert self.indices.device == device, f"{self.indices.device=}, {device=}"
-            indices_tensor = self.indices
-        assert torch.all(indices_tensor >= 0), f"Negative indices not allowed: {indices_tensor}"
-        return indices_tensor
-
     def __call__(self, pc: PointCloud) -> PointCloud:
         assert isinstance(pc, PointCloud), f"{type(pc)=}"
         indices = self._materialize_indices(device=pc.xyz.device)
@@ -45,3 +35,13 @@ class Select:
         if num_indices <= 5:
             return f"Select(indices={self.indices.tolist()})"
         return f"Select(indices=[...{num_indices} indices])"
+
+    def _materialize_indices(self, device: torch.device) -> torch.Tensor:
+        if isinstance(self.indices, list):
+            indices_tensor = torch.tensor(self.indices, dtype=torch.int64, device=device)
+        else:
+            assert self.indices.dtype == torch.int64, f"{self.indices.dtype=}"
+            assert self.indices.device == device, f"{self.indices.device=}, {device=}"
+            indices_tensor = self.indices
+        assert torch.all(indices_tensor >= 0), f"Negative indices not allowed: {indices_tensor}"
+        return indices_tensor

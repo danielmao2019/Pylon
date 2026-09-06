@@ -1,4 +1,4 @@
-from typing import Dict, Optional, Tuple, Union
+from typing import Dict, Optional, Tuple
 
 import torch
 
@@ -42,55 +42,6 @@ class PointCloud:
                 self._assert_field_name_valid(name=key)
                 self._validate_field(name=key, value=value)
                 self._fields[key] = value
-
-    def _validate_field(self, name: str, value: torch.Tensor) -> None:
-        assert isinstance(
-            value, torch.Tensor
-        ), f"{name} must be torch.Tensor, got {type(value)}"
-        assert value.ndim >= 1, f"{name} must be at least 1D, got shape {value.shape}"
-        assert (
-            value.shape[0] > 0
-        ), f"{name} must have at least one point, got {value.shape[0]}"
-        assert (
-            value.shape[0] == self._length
-        ), f"{name} length mismatch: {value.shape=}, expected {self._length}"
-        assert (
-            value.device == self._device
-        ), f"{name} device mismatch: {value.device=} vs {self._device=}"
-        if name == 'xyz':
-            self.validate_xyz_tensor(value)
-        elif name == 'rgb':
-            self.validate_rgb_tensor(value)
-        elif name == 'indices':
-            assert value.dtype == torch.int64, f"{value.dtype=}"
-
-    @staticmethod
-    def validate_xyz_tensor(xyz: torch.Tensor) -> None:
-        assert isinstance(xyz, torch.Tensor), f"{type(xyz)=}"
-        assert xyz.ndim == 2, f"{xyz.shape=}"
-        assert xyz.shape[1] == 3, f"{xyz.shape=}"
-        assert xyz.is_floating_point(), f"{xyz.dtype=}"
-        assert not torch.isnan(xyz).any(), "xyz tensor contains NaN"
-        assert not torch.isinf(xyz).any(), "xyz tensor contains Inf"
-
-    @staticmethod
-    def validate_rgb_tensor(rgb: torch.Tensor) -> None:
-        assert isinstance(rgb, torch.Tensor), f"{type(rgb)=}"
-        assert rgb.ndim == 2, f"{rgb.shape=}"
-        assert rgb.shape[1] == 3, f"{rgb.shape=}"
-        assert not torch.isnan(rgb).any(), "rgb tensor contains NaN"
-        assert not torch.isinf(rgb).any(), "rgb tensor contains Inf"
-
-    def _assert_field_name_valid(self, name: str) -> None:
-        assert isinstance(name, str), f"{type(name)=}"
-        assert not name.startswith(
-            '_'
-        ), f"Field names cannot start with underscore: {name}"
-        assert name not in (
-            'device',
-            'num_points',
-            'field_names',
-        ), f"Reserved attribute name: {name}"
 
     @property
     def xyz(self) -> torch.Tensor:
@@ -149,3 +100,52 @@ class PointCloud:
         super().__setattr__('_fields', state['_fields'])
         super().__setattr__('_length', state['_length'])
         super().__setattr__('_device', state['_device'])
+
+    def _validate_field(self, name: str, value: torch.Tensor) -> None:
+        assert isinstance(
+            value, torch.Tensor
+        ), f"{name} must be torch.Tensor, got {type(value)}"
+        assert value.ndim >= 1, f"{name} must be at least 1D, got shape {value.shape}"
+        assert (
+            value.shape[0] > 0
+        ), f"{name} must have at least one point, got {value.shape[0]}"
+        assert (
+            value.shape[0] == self._length
+        ), f"{name} length mismatch: {value.shape=}, expected {self._length}"
+        assert (
+            value.device == self._device
+        ), f"{name} device mismatch: {value.device=} vs {self._device=}"
+        if name == 'xyz':
+            self.validate_xyz_tensor(value)
+        elif name == 'rgb':
+            self.validate_rgb_tensor(value)
+        elif name == 'indices':
+            assert value.dtype == torch.int64, f"{value.dtype=}"
+
+    @staticmethod
+    def validate_xyz_tensor(xyz: torch.Tensor) -> None:
+        assert isinstance(xyz, torch.Tensor), f"{type(xyz)=}"
+        assert xyz.ndim == 2, f"{xyz.shape=}"
+        assert xyz.shape[1] == 3, f"{xyz.shape=}"
+        assert xyz.is_floating_point(), f"{xyz.dtype=}"
+        assert not torch.isnan(xyz).any(), "xyz tensor contains NaN"
+        assert not torch.isinf(xyz).any(), "xyz tensor contains Inf"
+
+    @staticmethod
+    def validate_rgb_tensor(rgb: torch.Tensor) -> None:
+        assert isinstance(rgb, torch.Tensor), f"{type(rgb)=}"
+        assert rgb.ndim == 2, f"{rgb.shape=}"
+        assert rgb.shape[1] == 3, f"{rgb.shape=}"
+        assert not torch.isnan(rgb).any(), "rgb tensor contains NaN"
+        assert not torch.isinf(rgb).any(), "rgb tensor contains Inf"
+
+    def _assert_field_name_valid(self, name: str) -> None:
+        assert isinstance(name, str), f"{type(name)=}"
+        assert not name.startswith(
+            '_'
+        ), f"Field names cannot start with underscore: {name}"
+        assert name not in (
+            'device',
+            'num_points',
+            'field_names',
+        ), f"Reserved attribute name: {name}"
