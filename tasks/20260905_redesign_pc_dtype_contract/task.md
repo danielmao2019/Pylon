@@ -127,6 +127,7 @@ goal: re-design pc dtype contract/provenance
    2. name_feat is removed.
       1. name_feat's renaming of a named column to feat and its reshape to [N, 1] are dropped rather than replaced because of the field-name preservation required by Point Cloud Data Structure Construction and I/O.
          1. another reason for dropping these two behaviors is that no caller outside a test passes name_feat.
+   3. nameInPly is removed.
 
 ## 2. Definition of Done
 
