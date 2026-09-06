@@ -48,7 +48,7 @@ goal: re-design pc dtype contract/provenance
 
 #### 1.1.3. New Meta Data API
 
-1. new attr: meta data.
+1. new `PointCloud` attr: meta data.
    1. what it is: meta data records what the source looked like, upon construction. it records the source of the data, wherever the data comes from: a load from disk, a construction from a torch tensor or a numpy array, or addition or deletion of fields. it records two things.
       1. dtype:
          1. the record always keeps the source dtype.
