@@ -55,7 +55,7 @@ goal: re-design pc dtype contract/provenance
    2. target representation:
       1. a floating point target uses $y$ without integer rounding.
       2. an integer target rounds $y$ to the nearest integer.
-   3. losslessness: the source values must be exactly recoverable by converting the result back to the source convention. rounding alone does not make a conversion lossless.
+   3. losslessness: the conversion proceeds only if the source values are exactly recoverable by converting the result back to the source convention; otherwise it hard-asserts and aborts.
       1. 0 to 65535 into 0 to 255: a value of 1 rounds to 0 and converts back to 0, so the conversion is lossy.
       2. 0 to 65535 into 0 to 255: a value of 257 converts to 1 and back to 257, so the conversion is lossless.
 3. naming conventions by dtype: the conventions are told apart by dtype and never by inspecting the values, the same way `validate_vertex_color` tells mesh vertex colors apart. integer conventions span their dtype's full range.
