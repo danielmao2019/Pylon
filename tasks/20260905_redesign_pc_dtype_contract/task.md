@@ -28,7 +28,7 @@ goal: re-design pc dtype contract/provenance
    2. convert or refuse is decided by whether the data falls inside the target dtype's set, never by the pair of dtype names. inside means nothing is lost, so convert. outside means something is lost, so refuse.
    3. no dtype is ruled out in advance: complex, uint64 and float128 are each handled by this same test.
    4. dtype system mismatch: no field name is special. xyz, rgb, indices, feat, colors, normals are ordinary fields. converting uint16 to int32 because torch lacks uint16 is a patch for that mismatch, not a color convention conversion.
-4. when torch does not support the target dtype, storage uses the smallest torch dtype whose set contains the target dtype's set, if one exists. ply u2 and numpy uint16 both go to int32, ply u4 and numpy uint32 both go to int64.
+4. when torch does not support the target dtype, consider the torch dtypes whose value sets are supersets of the target dtype's entire value set. if any exist, storage uses the smallest such superset, regardless of which values happen to be present in the data. ply u2 and numpy uint16 both go to int32, ply u4 and numpy uint32 both go to int64.
    1. if no containing dtype exists, test the largest narrower dtype supported by torch. convert only if the actual values are exactly representable in it; otherwise hard-assert and abort. do not test progressively smaller dtypes.
    2. a float128 source with no override uses float64 storage if its actual values fit exactly. float32 and smaller dtypes are not tested.
    3. a ply u4 column loads as int64 because torch has no uint32.
@@ -62,13 +62,14 @@ goal: re-design pc dtype contract/provenance
       4. the record keeps the dtype the file stores each coordinate column in.
    2. layout:
       1. it records the mapping between the source layout and the loaded layout: the columns the source held on one side, the fields the reader assembled them into on the other. a ply maps ('x', 'y', 'z') to xyz, maps ('red', 'green', 'blue') to rgb, and maps ('intensity',) to intensity.
-      2. a field that never came from a file records no layout, because it had no source columns.
+      2. a field constructed from an in-memory variable records the identity mapping: the name it was handed under stands for the whole block of columns it was handed as.
 2. granularity: the record is per-field, created when a field enters the obj and deleted when the field is removed. inside a field, both halves are keyed on the source columns.
 3. immutability: for each field, the record is never mutable. an overwrite of a field that already exists must NOT change the meta data.
    1. user of PointCloud obj may however modify the fields, but the meta data stays constant and immutable once created.
 4. the meta data travels with the field, so Select preserves it.
 5. for `__init__` and load point cloud, the target dtype is the source dtype unless a meta data override specifies another dtype.
 6. `__init__` accepts an optional meta data override for construction from in-memory variables, just as load point cloud does. a dtype override changes the target dtype without changing the source dtype recorded in meta data.
+   1. the override reaches the layout half as well. the API allows it and the caller chooses whether to use it.
 7. load point cloud should take an optional arg to override the meta data, the same way save point cloud does, and it reaches both halves.
    1. the dtype half changes only the value handed back. the record stays the dtype the source column held.
       1. the meta data override provides the same dtype control as the former dtype argument, at per-field granularity.
