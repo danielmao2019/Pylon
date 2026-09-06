@@ -19,7 +19,10 @@ goal: re-design pc dtype contract/provenance
    1. a dtype is a set of values, and one dtype's set may sit inside another's. float32's sits inside float64's.
    2. convert or refuse is decided by whether the data falls inside the target dtype's set, never by the pair of dtype names. inside means nothing is lost, so convert. outside means something is lost, so refuse.
    3. no dtype is ruled out in advance: complex, uint64 and float128 are each handled by this same test.
-   4. the target of a forced conversion is the smallest torch dtype whose set contains the source dtype's set. ply u2 and numpy uint16 both go to int32, ply u4 and numpy uint32 both go to int64.
+   4. for load and construction from in-memory variables, the target dtype is the source dtype unless a meta data override specifies another dtype. the record always keeps the source dtype.
+   5. when torch does not support the target dtype, storage uses the smallest torch dtype whose set contains the target dtype's set, if one exists. ply u2 and numpy uint16 both go to int32, ply u4 and numpy uint32 both go to int64.
+      1. if no containing dtype exists, test the largest narrower dtype supported by torch. convert only if the actual values are exactly representable in it; otherwise hard-assert and abort. do not test progressively smaller dtypes.
+      2. a float128 source with no override records float128 in meta data and uses float64 storage if its actual values fit exactly. float32 and smaller dtypes are not tested.
 4. The core design change in this task:
    1. the `PointCloud` class:
       1. new attr: meta data.
@@ -42,6 +45,7 @@ goal: re-design pc dtype contract/provenance
             2. a floating point dtype of any width holding 0 to 1.
             3. the two are told apart by dtype and never by inspecting the values, the same way `validate_vertex_color` tells mesh vertex colours apart.
             4. it differs from that mesh rule in admitting any integer width and any float width, because ply stores colours as u1 while las stores them as uint16, and a reader neither widens nor narrows what the file holds.
+      4. `__init__` accepts an optional meta data override for construction from in-memory variables, just as load point cloud does. a dtype override changes the target dtype without changing the source dtype recorded in meta data.
    2. consumers/users of `PointCloud`:
       1. any consumer of PointCloud in Pylon should be adjusted to work with the new design of PointCloud and its I/O.
       2. user of PointCloud obj may however modify the fields, but the meta data stays constant and immutable once created.
