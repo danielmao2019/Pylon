@@ -37,6 +37,68 @@ base_trainer.py
     │   ├── calls self._init_tot_epochs
     │   ├── impls enable torch.autograd anomaly detection
     │   └── impls init the after-train / after-val threads and the threading.Lock buffer lock
+    └── def run(self) -> None
+        ├── # Initializes components, runs the train/val epoch loop with early stopping, then the test epoch.
+        ├── calls self._init_components_
+        ├── for idx in range(start_epoch, self.tot_epochs)
+        │   ├── if self.early_stopping and self.early_stopping.should_stop()
+        │   │   ├── calls self._save_progress
+        │   │   └── break
+        │   ├── calls set_seed
+        │   ├── calls self._train_epoch_
+        │   ├── calls self._val_epoch_
+        │   └── calls self._save_progress
+        ├── impls join any remaining after-train / after-val threads
+        └── calls self._test_epoch_
+    ├── def _init_components_(self) -> None
+    │   ├── # Initializes every trainer component in dependency order.
+    │   ├── calls self._init_logger
+    │   ├── calls self._init_determinism
+    │   ├── calls self._init_checkpoint_indices
+    │   ├── calls self._init_state
+    │   ├── calls self._init_dataloaders
+    │   ├── calls self._init_criterion
+    │   ├── calls self._init_metric
+    │   ├── calls self._init_model
+    │   ├── calls self._init_optimizer
+    │   ├── calls self._init_scheduler
+    │   ├── calls self._init_debugger
+    │   ├── calls self._init_early_stopping
+    │   └── calls self._load_checkpoint
+    ├── def _train_epoch_(self) -> None
+    │   ├── # Runs one training epoch, skipping when no dataloader/model or the epoch's checkpoint already exists.
+    │   ├── if not (self.train_dataloader and self.model)
+    │   │   └── return
+    │   ├── if the epoch's checkpoint already exists
+    │   │   ├── impls torch.load and load_state_dict, then skip the epoch
+    │   │   └── return
+    │   ├── impls join the previous after-train thread if alive
+    │   ├── calls self._before_train_loop
+    │   ├── for each dp in self.train_dataloader
+    │   │   └── calls self._train_step
+    │   └── calls self._after_train_loop_
+    ├── def _val_epoch_(self) -> None
+    │   ├── # Runs one validation epoch, sequentially or via a dynamic parallel executor, then the after-val hook.
+    │   ├── if not (self.val_dataloader and self.model)
+    │   │   └── return
+    │   ├── impls join the previous after-val thread if alive
+    │   ├── calls self._before_val_loop
+    │   ├── if self.eval_n_jobs == 1
+    │   │   └── for each dp in self.val_dataloader
+    │   │       └── calls self._eval_step
+    │   ├── else
+    │   │   ├── calls create_dynamic_executor
+    │   │   ├── impls submit each self._eval_step to the executor
+    │   │   └── impls collect the submitted futures via as_completed
+    │   └── calls self._after_val_loop_
+    ├── @torch.no_grad() def _test_epoch_(self) -> None
+    │   ├── # Runs the test epoch on the best checkpoint: before-test setup, the test loop, and after-test save.
+    │   ├── if not (self.test_dataloader and self.model)
+    │   │   └── return
+    │   ├── calls self._before_test_loop_
+    │   ├── for each dp in self.test_dataloader
+    │   │   └── calls self._eval_step
+    │   └── calls self._after_test_loop_
     ├── def _init_work_dir(self) -> None
     │   ├── # Creates and stores the work dir from config, or None when unconfigured.
     │   ├── if self.config.get('work_dir', None)
@@ -70,16 +132,14 @@ base_trainer.py
     │   ├── calls set_determinism
     │   ├── impls validate and store train_seeds / val_seeds / test_seed from config
     │   └── calls set_seed                               # the init seed
-    ├── @property def expected_files(self) -> List[str]
-    │   ├── # The per-epoch artifact filenames that mark an epoch finished.
-    │   └── return  # ["training_losses.pt", "optimizer_buffer.json", "validation_scores.json"]
-    ├── def _init_early_stopping(self) -> None
-    │   ├── # Builds the early-stopping object from config (or None) and updates it with existing scores.
-    │   ├── if early_stopping_config is None
-    │   │   ├── impls set self.early_stopping to None
-    │   │   └── return
-    │   ├── calls build_from_config                      # the early stopping, with work_dir / tot_epochs / metric / expected_files / logger
-    │   └── impls update early_stopping with existing scores
+    ├── def _init_checkpoint_indices(self) -> None
+    │   ├── # Precomputes the epoch indices at which checkpoints and debug outputs are saved, by checkpoint_method.
+    │   ├── if checkpoint_method == 'all'
+    │   │   └── impls checkpoint_indices = every epoch index
+    │   ├── elif checkpoint_method == 'latest'
+    │   │   └── impls checkpoint_indices = the last epoch only
+    │   └── else
+    │       └── impls checkpoint_indices = every-N epochs plus the last
     ├── def _init_state(self) -> None
     │   ├── # Determines the resume point self.cum_epochs by scanning finished epoch dirs that carry a checkpoint.
     │   ├── if self.work_dir is None
@@ -139,29 +199,29 @@ base_trainer.py
     ├── @abstractmethod def _init_scheduler(self) -> None
     │   ├── # Abstract hook: subclasses build self.scheduler from config.
     │   └── raise NotImplementedError
-    ├── def _load_checkpoint(self) -> None
-    │   ├── # Loads the model/optimizer/scheduler state_dicts from the last finished epoch's checkpoint when resuming.
-    │   ├── if self.cum_epochs == 0
-    │   │   └── return
-    │   ├── impls torch.load the previous epoch's checkpoint
-    │   └── impls load_state_dict into self.model, self.optimizer, and self.scheduler
-    ├── def _init_checkpoint_indices(self) -> None
-    │   ├── # Precomputes the epoch indices at which checkpoints and debug outputs are saved, by checkpoint_method.
-    │   ├── if checkpoint_method == 'all'
-    │   │   └── impls checkpoint_indices = every epoch index
-    │   ├── elif checkpoint_method == 'latest'
-    │   │   └── impls checkpoint_indices = the last epoch only
-    │   └── else
-    │       └── impls checkpoint_indices = every-N epochs plus the last
     ├── def _init_debugger(self)
     │   ├── # Builds the debugger from config and registers its forward hooks, or None.
     │   ├── if self.config.get('debugger', None)
     │   │   └── calls build_from_config                  # the debugger, model=self.model
     │   └── else
     │       └── impls set self.debugger to None
-    ├── def _set_gradients_(self, dp: Dict[str, Dict[str, Any]]) -> None   [abstract]
-    │   ├── # Abstract hook: subclasses zero grads and backprop the datapoint's losses.
-    │   └── raise NotImplementedError
+    ├── def _init_early_stopping(self) -> None
+    │   ├── # Builds the early-stopping object from config (or None) and updates it with existing scores.
+    │   ├── if early_stopping_config is None
+    │   │   ├── impls set self.early_stopping to None
+    │   │   └── return
+    │   ├── calls build_from_config                      # the early stopping, with work_dir / tot_epochs / metric / expected_files / logger
+    │   └── impls update early_stopping with existing scores
+    ├── def _load_checkpoint(self) -> None
+    │   ├── # Loads the model/optimizer/scheduler state_dicts from the last finished epoch's checkpoint when resuming.
+    │   ├── if self.cum_epochs == 0
+    │   │   └── return
+    │   ├── impls torch.load the previous epoch's checkpoint
+    │   └── impls load_state_dict into self.model, self.optimizer, and self.scheduler
+    ├── def _before_train_loop(self) -> None
+    │   ├── # Puts the model in train mode, resets criterion/optimizer/logger buffers, and sets the epoch's train seed.
+    │   ├── impls model.train and reset criterion / optimizer / logger buffers
+    │   └── impls set the train dataloader's base seed to this epoch's train seed
     ├── def _train_step(self, dp: Dict[str, Dict[str, Any]]) -> None
     │   ├── # Runs one training iteration: forward, loss, logging, gradient set, optimizer + scheduler step.
     │   ├── calls self.model                             # dp['inputs'] → dp['outputs']
@@ -170,34 +230,9 @@ base_trainer.py
     │   ├── calls self._set_gradients_
     │   ├── impls optimizer.step then scheduler.step
     │   └── impls log the iteration time via time.time
-    ├── def _eval_step(self, dp: Dict[str, Dict[str, Any]], flush_prefix: Optional[str] = None) -> None
-    │   ├── # Runs one eval iteration: inference, metric, optional debug outputs, score logging, optional flush.
-    │   ├── calls self.model                             # dp['inputs'] → dp['outputs']
-    │   ├── calls self.metric                            # dp → dp['scores']
-    │   ├── if self.debugger and self.debugger.enabled
-    │   │   └── calls self.debugger                      # dp, self.model → dp['debug']
-    │   ├── calls log_scores
-    │   └── if flush_prefix is not None
-    │       └── impls flush the logger with flush_prefix
-    ├── def _train_epoch_(self) -> None
-    │   ├── # Runs one training epoch, skipping when no dataloader/model or the epoch's checkpoint already exists.
-    │   ├── if not (self.train_dataloader and self.model)
-    │   │   └── return
-    │   ├── if the epoch's checkpoint already exists
-    │   │   ├── impls torch.load and load_state_dict, then skip the epoch
-    │   │   └── return
-    │   ├── impls join the previous after-train thread if alive
-    │   ├── calls self._before_train_loop
-    │   ├── for each dp in self.train_dataloader
-    │   │   └── calls self._train_step
-    │   └── calls self._after_train_loop_
-    ├── def _before_train_loop(self) -> None
-    │   ├── # Puts the model in train mode, resets criterion/optimizer/logger buffers, and sets the epoch's train seed.
-    │   ├── impls model.train and reset criterion / optimizer / logger buffers
-    │   └── impls set the train dataloader's base seed to this epoch's train seed
-    ├── def _save_checkpoint_(self, output_path: str) -> None
-    │   ├── # Default checkpoint save: torch.save the model/optimizer/scheduler state_dicts to output_path.
-    │   └── impls torch.save the model / optimizer / scheduler state_dicts to output_path
+    ├── def _set_gradients_(self, dp: Dict[str, Dict[str, Any]]) -> None   [abstract]
+    │   ├── # Abstract hook: subclasses zero grads and backprop the datapoint's losses.
+    │   └── raise NotImplementedError
     ├── def _after_train_loop_(self) -> None
     │   ├── # Spawns a background thread that saves the epoch's losses, optimizer buffer, and checkpoint, and relinks checkpoint_latest.
     │   ├── if self.work_dir is None
@@ -209,20 +244,9 @@ base_trainer.py
     │   │   └── impls relink checkpoint_latest.pt to the epoch checkpoint
     │   ├── calls after_train_ops                        # the threading.Thread target
     │   └── impls start the after-train thread
-    ├── def _val_epoch_(self) -> None
-    │   ├── # Runs one validation epoch, sequentially or via a dynamic parallel executor, then the after-val hook.
-    │   ├── if not (self.val_dataloader and self.model)
-    │   │   └── return
-    │   ├── impls join the previous after-val thread if alive
-    │   ├── calls self._before_val_loop
-    │   ├── if self.eval_n_jobs == 1
-    │   │   └── for each dp in self.val_dataloader
-    │   │       └── calls self._eval_step
-    │   ├── else
-    │   │   ├── calls create_dynamic_executor
-    │   │   ├── impls submit each self._eval_step to the executor
-    │   │   └── impls collect the submitted futures via as_completed
-    │   └── calls self._after_val_loop_
+    ├── def _save_checkpoint_(self, output_path: str) -> None
+    │   ├── # Default checkpoint save: torch.save the model/optimizer/scheduler state_dicts to output_path.
+    │   └── impls torch.save the model / optimizer / scheduler state_dicts to output_path
     ├── def _before_val_loop(self) -> None
     │   ├── # Puts the model in eval mode, resets metric/logger, sets the val seed, and toggles the debugger by checkpoint index.
     │   ├── impls model.eval and reset metric / logger, set the val base seed
@@ -230,6 +254,15 @@ base_trainer.py
     │   │   └── impls enable and reset the debugger
     │   └── elif self.debugger
     │       └── impls disable the debugger
+    ├── def _eval_step(self, dp: Dict[str, Dict[str, Any]], flush_prefix: Optional[str] = None) -> None
+    │   ├── # Runs one eval iteration: inference, metric, optional debug outputs, score logging, optional flush.
+    │   ├── calls self.model                             # dp['inputs'] → dp['outputs']
+    │   ├── calls self.metric                            # dp → dp['scores']
+    │   ├── if self.debugger and self.debugger.enabled
+    │   │   └── calls self.debugger                      # dp, self.model → dp['debug']
+    │   ├── calls log_scores
+    │   └── if flush_prefix is not None
+    │       └── impls flush the logger with flush_prefix
     ├── def _after_val_loop_(self) -> None
     │   ├── # Spawns a background thread that saves validation scores, updates early stopping, relinks the best checkpoint, saves debug outputs, and cleans checkpoints.
     │   ├── if self.work_dir is None
@@ -246,6 +279,17 @@ base_trainer.py
     │   │   └── calls self._clean_checkpoints
     │   ├── calls after_val_ops                          # the threading.Thread target
     │   └── impls start the after-val thread
+    ├── def _before_test_loop_(self) -> str
+    │   ├── # Loads the best checkpoint into the model, sets eval mode and the test seed, and returns the checkpoint path.
+    │   ├── calls self._find_best_checkpoint
+    │   ├── impls torch.load and load_state_dict the best checkpoint, set eval and test seed
+    │   └── return  # the best checkpoint path
+    ├── def _after_test_loop_(self, best_checkpoint: str) -> None
+    │   ├── # Writes the test scores and best-checkpoint path to test/test_results.json.
+    │   ├── if self.work_dir is None
+    │   │   └── return
+    │   ├── calls serialize_tensor                       # the metric summary
+    │   └── impls jsbeautifier-dump the results to test_results.json
     ├── def _find_best_checkpoint(self) -> str
     │   ├── # Scans finished epochs and returns the checkpoint path with the best validation score.
     │   ├── calls get_metric_directions
@@ -276,53 +320,9 @@ base_trainer.py
     │   │   └── impls os.system rm the checkpoint when the next epoch finished
     │   ├── calls clean_single_checkpoint                # mapped over the existing checkpoints
     │   └── impls run clean_single_checkpoint across a ThreadPoolExecutor
-    ├── @torch.no_grad() def _test_epoch_(self) -> None
-    │   ├── # Runs the test epoch on the best checkpoint: before-test setup, the test loop, and after-test save.
-    │   ├── if not (self.test_dataloader and self.model)
-    │   │   └── return
-    │   ├── calls self._before_test_loop_
-    │   ├── for each dp in self.test_dataloader
-    │   │   └── calls self._eval_step
-    │   └── calls self._after_test_loop_
-    ├── def _before_test_loop_(self) -> str
-    │   ├── # Loads the best checkpoint into the model, sets eval mode and the test seed, and returns the checkpoint path.
-    │   ├── calls self._find_best_checkpoint
-    │   ├── impls torch.load and load_state_dict the best checkpoint, set eval and test seed
-    │   └── return  # the best checkpoint path
-    ├── def _after_test_loop_(self, best_checkpoint: str) -> None
-    │   ├── # Writes the test scores and best-checkpoint path to test/test_results.json.
-    │   ├── if self.work_dir is None
-    │   │   └── return
-    │   ├── calls serialize_tensor                       # the metric summary
-    │   └── impls jsbeautifier-dump the results to test_results.json
-    ├── def _init_components_(self) -> None
-    │   ├── # Initializes every trainer component in dependency order.
-    │   ├── calls self._init_logger
-    │   ├── calls self._init_determinism
-    │   ├── calls self._init_checkpoint_indices
-    │   ├── calls self._init_state
-    │   ├── calls self._init_dataloaders
-    │   ├── calls self._init_criterion
-    │   ├── calls self._init_metric
-    │   ├── calls self._init_model
-    │   ├── calls self._init_optimizer
-    │   ├── calls self._init_scheduler
-    │   ├── calls self._init_debugger
-    │   ├── calls self._init_early_stopping
-    │   └── calls self._load_checkpoint
-    └── def run(self) -> None
-        ├── # Initializes components, runs the train/val epoch loop with early stopping, then the test epoch.
-        ├── calls self._init_components_
-        ├── for idx in range(start_epoch, self.tot_epochs)
-        │   ├── if self.early_stopping and self.early_stopping.should_stop()
-        │   │   ├── calls self._save_progress
-        │   │   └── break
-        │   ├── calls set_seed
-        │   ├── calls self._train_epoch_
-        │   ├── calls self._val_epoch_
-        │   └── calls self._save_progress
-        ├── impls join any remaining after-train / after-val threads
-        └── calls self._test_epoch_
+    ├── @property def expected_files(self) -> List[str]
+    │   ├── # The per-epoch artifact filenames that mark an epoch finished.
+    │   └── return  # ["training_losses.pt", "optimizer_buffer.json", "validation_scores.json"]
 ```
 
 `runners/trainers/supervised_single_task_trainer.py`
