@@ -46,12 +46,23 @@ goal: re-design pc dtype contract/provenance
    3. 0 to 1 floating point representation.
    4. 0 to 65535 unsigned integer representation.
 2. conversion between conventions:
-   1. conversion changes between color representations, such as 0 to 255 integer representation and 0 to 1 floating point representation.
-   2. the conversion rounds, and that rounding is lossless as this design defines loss. a color that arrived from an integer source sits exactly on that range's grid, so it converts back to the value it came from.
-      1. a color that does not sit on the target grid was put there by the user modifying the field, and the rounding it then takes is the user's own concern. the module rounds and does not refuse.
-3. naming conventions by dtype:
-   1. the dtype defines the convention: a float dtype means 0 to 1, an integer dtype means that dtype's own range. uint8 names the 0 to 255 convention, int8 names the -128 to 127 convention, and uint16 names the 0 to 65535 convention.
-   2. the conventions are told apart by dtype and never by inspecting the values, the same way `validate_vertex_color` tells mesh vertex colors apart.
+   1. range mapping: for source range $[a, b]$ and target range $[c, d]$, each channel value $x$ maps to $y = c + (x - a)(d - c)/(b - a)$ before rounding.
+      1. 0 to 255 into 0 to 1: $y = x/255$.
+      2. -128 to 127 into 0 to 1: $y = (x + 128)/255$.
+      3. -128 to 127 into 0 to 255: $y = x + 128$.
+      4. 0 to 65535 into 0 to 255: $y = x/257$.
+      5. the reverse conversion uses the same formula with the source and target ranges exchanged.
+   2. target representation:
+      1. a floating point target uses $y$ without integer rounding.
+      2. an integer target rounds $y$ to the nearest integer.
+         1. that rounding is lossless as this design defines loss. a color that arrived from an integer source sits exactly on that range's grid, so it converts back to the value it came from.
+         2. a color that does not sit on the target grid was put there by the user modifying the field, and the rounding it then takes is the user's own concern. the module rounds and does not refuse.
+3. naming conventions by dtype: the conventions are told apart by dtype and never by inspecting the values, the same way `validate_vertex_color` tells mesh vertex colors apart.
+   1. a float dtype names the 0 to 1 convention.
+   2. an integer dtype names the convention spanning its own range.
+      1. uint8 names the 0 to 255 convention.
+      2. int8 names the -128 to 127 convention.
+      3. uint16 names the 0 to 65535 convention.
 
 #### 1.1.3. New Meta Data API
 
@@ -95,12 +106,12 @@ goal: re-design pc dtype contract/provenance
          2. fields keep their own names.
       2. both `__init__` and load point cloud apply Type Casting to the target dtype supplied by New Meta Data API.
          1. uint16 color data stored in an int32 tensor retains the 0 to 65535 color representation.
-      3. validation:
-         1. `PointCloud` keeps validating xyz and rgb by field name.
-         2. xyz is any floating point dtype.
-         3. rgb is validated against its current color convention, as Color Data Convention Conversion defines it.
-            1. a floating point rgb carrying a value outside 0 to 1 is refused. `PointCloud` hard-asserts and the program aborts, both when the field enters and on every later assignment to it.
-   2. replacing rgb with a clone preserves its existing color convention.
+   2. validation:
+      1. `PointCloud` keeps validating xyz and rgb by field name.
+      2. xyz is any floating point dtype.
+      3. `PointCloud` enforces that rgb values lie inside the range of their current color convention, as Color Data Convention Conversion defines it.
+         1. a floating point rgb carrying a value outside 0 to 1 is refused. `PointCloud` hard-asserts and the program aborts, both when the field enters and on every later assignment to it.
+   3. replacing rgb with a clone preserves its existing color convention.
 2. consumers/users of `PointCloud`:
    1. any consumer of PointCloud in Pylon should be adjusted to work with the new design of PointCloud and its I/O.
       1. every caller passing dtype is updated to the meta data override.
