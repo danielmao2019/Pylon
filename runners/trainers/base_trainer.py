@@ -1,4 +1,4 @@
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional
 from abc import ABC, abstractmethod
 import copy
 import os
@@ -12,15 +12,14 @@ import criteria
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from utils.builders import build_from_config
 from utils.determinism import set_determinism, set_seed
-from utils.io.json import serialize_tensor
-from utils.io.json import save_json
+from utils.io.json import serialize_tensor, save_json
 from agents.manager.training_job import TrainingJob
 from agents.monitor.system_monitor import SystemMonitor
 from utils.dynamic_executor import create_dynamic_executor
 from utils.logging.text_logger import TextLogger
 from utils.logging.screen_logger import ScreenLogger
 from utils.logging import echo_page_break, log_losses, log_scores
-from runners.model_comparison import compare_scores, get_metric_directions, reduce_scores_to_scalar
+from runners.model_comparison import compare_scores, get_metric_directions
 
 
 class BaseTrainer(ABC):
