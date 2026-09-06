@@ -80,7 +80,7 @@ goal: re-design pc dtype contract/provenance
       1. with no override in place, the target is the record, including when it records int64 for a ply save.
    2. dtype: each saved column of a field uses the dtype recorded for that source column.
       1. the ply u4 example is therefore saved as u4.
-   3. layout: the output column names are the source column names the mapping gives each field column, instead of names derived from the field name. a mapping that does not name exactly as many source columns as the field has columns leaves save with no names to write under, so it is refused unless the override supplies them. a field with no recorded layout is that same case.
+   3. layout: save writes each field back out under the names the record maps it from. a field the record maps from ('x', 'y', 'z') is written out as x, y and z.
 
 #### 1.1.4. Point Cloud Data Structure Construction and I/O
 
