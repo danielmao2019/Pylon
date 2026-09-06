@@ -81,7 +81,9 @@ goal: re-design pc dtype contract/provenance
 2. granularity: the record is per-field, created when a field enters the obj and deleted when the field is removed. inside a field, both halves are keyed on the source columns.
 3. immutability: for each field, the record is never mutable. an overwrite of a field that already exists must NOT change the meta data.
    1. user of PointCloud obj may however modify the fields, but the meta data stays constant and immutable once created.
-4. the meta data travels with the field, so Select preserves it.
+4. the meta data travels with the field.
+   1. Select preserves it.
+   2. serializing a `PointCloud` and restoring it preserves it. a cache is not a source, so restoring builds no new record.
 5. for `__init__` and load point cloud, the target dtype is the source dtype.
 6. the meta data override:
    1. `__init__`, load point cloud and save point cloud each accept one, and it reaches both halves at each.
