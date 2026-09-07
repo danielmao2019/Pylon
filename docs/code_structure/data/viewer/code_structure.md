@@ -343,7 +343,7 @@ three_scene_helpers.ts
 │   ├── # Installs a base-camera pickAt seam onto any spatial display container so a consumer can hit-test the given scenes via the camera without owning the camera, renderer, or scenes.
 │   ├── impls raycaster = new THREE.Raycaster()
 │   ├── function pickAt(clientX: number, clientY: number): THREE.Object3D | null [local]
-│   │   ├── # The installed hit-test seam: maps a client point into the container's NDC and returns the first object the camera ray hits.
+│   │   ├── # The installed hit-test seam: maps a client point into the container's NDC and returns the first object the camera ray surface locations.
 │   │   ├── impls rect = the container's bounding client rect
 │   │   ├── if the rect is empty
 │   │   │   └── return  # null: there is nothing to hit-test against
