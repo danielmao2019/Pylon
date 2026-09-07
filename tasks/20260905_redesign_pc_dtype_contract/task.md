@@ -118,7 +118,7 @@ goal: re-design pc dtype contract/provenance
    2. the record is the target for every field it names, including when it records int64 for a ply save.
    3. dtype: the dtype recorded for each source column is its save target. the actual ply storage dtype follows the lossless casting rule in Type Casting.
       1. the ply u4 example is therefore saved as u4.
-   4. layout: output columns follow the reverse mapping defined by Layout Mapping. the save format must support the target layout.
+   4. layout: output columns follow the reverse mapping defined by Layout Mapping. the save format must support the target layout. one it cannot express hard-asserts and aborts.
 
 #### 1.1.5. Point Cloud Data Structure Construction and I/O
 
