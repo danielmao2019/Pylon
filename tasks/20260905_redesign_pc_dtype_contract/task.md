@@ -79,7 +79,7 @@ goal: re-design pc dtype contract/provenance
 2. forward mapping: determining the layout from the source, one rule per source.
    1. an in-memory variable uses the identity mapping: the name a field was handed under stands for the whole block of columns it was handed as.
    2. a .pth holds one block of unnamed columns and defines no column-to-field mapping. its columns are named by position.
-   3. a .ply maps ('x', 'y', 'z') to xyz, ('red', 'green', 'blue') to rgb, and ('intensity',) to intensity.
+   3. a .ply names each column, mapping ('x', 'y', 'z') to xyz, ('red', 'green', 'blue') to rgb, and every other column to a field under its own name, so ('intensity',) maps to intensity.
       1. a file with more than one separately named group of columns does not by itself define which group's columns form each field.
    4. a .pcd names each open3d attribute, mapping ('positions',) to xyz, ('colors',) to rgb, and every other attribute to a field under its own name.
    5. a .las or .laz names each laspy dimension separately and as ply does, mapping ('x', 'y', 'z') to xyz, ('red', 'green', 'blue') to rgb, and every other dimension to a field under its own name.
