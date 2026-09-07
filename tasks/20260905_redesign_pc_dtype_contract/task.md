@@ -38,6 +38,14 @@ goal: re-design pc dtype contract/provenance
       1. in torch storage, a float128 source with no override uses float64. float32 and smaller dtypes are not considered.
       2. in a ply column, an int64 target goes to i4 and a uint64 target goes to u4.
    4. no field name changes the decision. xyz, rgb, indices, feat, colors and normals cast by the same rules as any other field.
+3. the dtype each source defines:
+   1. an in-memory variable defines the dtype its tensor or array carries.
+   2. a .pth defines the dtype the stored tensor or array carries.
+   3. a .ply defines each column's stored dtype character, so an f4 column defines float32 and an f8 column defines float64, and it stores colors as u1.
+   4. a .pcd defines the dtype each open3d attribute carries.
+   5. a .las or .laz defines the dtype laspy materializes each dimension as: float64 for the scaled x, y and z, uint16 for the colors, and uint8 for a bit-packed field, which is an ordinary unsigned integer.
+   6. a .txt holds decimal text, which yields float64.
+   7. a .off holds decimal text, and float32 is what the reader keeps it at, hard-asserting it is never handed anything beyond what float32 holds rather than widening to cover it.
 
 #### 1.1.2. Color Data Convention Conversion
 
@@ -132,20 +140,14 @@ goal: re-design pc dtype contract/provenance
          1. load point cloud preserves everything whenever possible, and applies Type Casting only for the dtype mismatch between torch and the format it is reading.
             1. a reader neither widens nor narrows what the file holds.
             2. a reader never widens a field it builds.
-               1. an f4 ply gives float32 xyz and an f8 ply gives float64 xyz.
          2. fields are assembled according to Layout Mapping.
-         3. the .off reader keeps building float32 and hard-asserts it is never handed anything beyond what it can already handle, rather than widening to cover it.
-         4. the .txt reader keeps building float64, the dtype reading decimal text yields.
+         3. each field enters under the dtype its source defines, as Type Casting defines it.
       2. save point cloud
          1. strictly follows the meta data. it does not need to be aware of the dtype mismatch at all.
             1. save point cloud recovers both halves of the record as specified by New Meta Data API, and its dtype casts follow Type Casting.
          2. save's color convention conversion is keyed on rgb and is the only such branch in the I/O layer.
             1. rgb is the one field with convention conversion between color representations.
             2. save applies Color Data Convention Conversion from the field's current color convention to the convention defined by the target conceptual dtype.
-3. .las and .laz:
-   1. coordinates are the scaled x, y and z. laspy materializes them as float64, so float64 is what enters the obj and what the meta data records.
-   2. colors are stored as uint16, while ply stores colors as u1.
-   3. a bit-packed field is an ordinary unsigned integer. laspy materializes it as uint8, so uint8 is what enters the obj and what the meta data records.
 
 #### 1.1.6. What Becomes Stale Design
 
