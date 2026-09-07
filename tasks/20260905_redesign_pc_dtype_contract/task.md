@@ -30,7 +30,7 @@ goal: re-design pc dtype contract/provenance
       1. ply's subset is b1, i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer.
       2. torch 2.2.2 has no uint16, uint32, uint64 or float128, and bfloat16 is its alone.
       3. numpy 1.26.4 has uint64 and float128, and has no bfloat16.
-2. every dtype cast `__init__`, load point cloud and save point cloud perform must be lossless: it never changes a value, in the mathematical sense.
+2. every dtype cast `__init__`, load point cloud and save point cloud decide on their own must be lossless: it never changes a value, in the mathematical sense.
    1. each dtype is a set of values, and one dtype's set may sit inside another's. float32's sits inside float64's. every casting decision reads those sets and the values a field holds, never the dtype names alone.
    2. when a system lacks a conceptual dtype but has one whose set contains its entire set, the smallest such dtype is used, and the cast converts whichever values are present in the data.
       1. in torch storage, ply u2 and numpy uint16 both go to int32, and ply u4 and numpy uint32 both go to int64.
@@ -38,6 +38,7 @@ goal: re-design pc dtype contract/provenance
       1. in torch storage, a float128 source with no override uses float64. float32 and smaller dtypes are not considered.
       2. in a ply column, an int64 target goes to i4 and a uint64 target goes to u4.
    4. no field name changes the decision. xyz, rgb, indices, feat, colors and normals cast by the same rules as any other field.
+   5. a cast a dtype override asks for is the caller's decision rather than the module's, so it converts as asked. a float32 override on float64 coordinates narrows them and the resolution they lose is the caller's own.
 3. determining the dtype from the source, one rule per source:
    1. an in-memory variable defines the dtype its tensor or array carries.
    2. a .pth defines the dtype the stored tensor or array carries.
