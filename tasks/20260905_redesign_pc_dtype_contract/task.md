@@ -24,7 +24,7 @@ goal: re-design pc dtype contract/provenance
 
 1. the fundamental root cause is the dtype system mismatch: the dtype systems are each a subset of one universal, system-agnostic collection of conceptual dtypes, and no system's subset contains every other's.
    1. conceptual dtype identity across systems:
-      1. uint16 and int32 are two distinct conceptual dtypes; numpy int32 and torch int32 represent the same conceptual dtype.
+      1. uint16 and int32 are two distinct conceptual dtypes. numpy int32 and torch int32 represent the same conceptual dtype.
       2. every ply dtype torch carries loads unchanged: i1 as int8, u1 as uint8, i2 as int16, i4 as int32, f4 as float32, f8 as float64, b1 as bool.
    2. each system's supported subset:
       1. ply's subset is b1, i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer.
@@ -34,7 +34,7 @@ goal: re-design pc dtype contract/provenance
    1. each dtype is a set of values, and one dtype's set may sit inside another's. float32's sits inside float64's. every casting decision reads those sets and the values a field holds, never the dtype names alone.
    2. when a system lacks a conceptual dtype but has one whose set contains its entire set, the smallest such dtype is used, and the cast converts whichever values are present in the data.
       1. in torch storage, ply u2 and numpy uint16 both go to int32, and ply u4 and numpy uint32 both go to int64.
-   3. when the system has no such dtype, the largest narrower one it supports is used and no smaller dtype is considered after it, and the values then decide: every value inside that dtype's set means nothing is lost, so the cast converts; any value outside means something is lost, so the cast hard-asserts and the program aborts.
+   3. when the system has no such dtype, the largest narrower one it supports is used and no smaller dtype is considered after it, and the values then decide. every value inside that dtype's set means nothing is lost, so the cast converts. any value outside means something is lost, so the cast hard-asserts and the program aborts.
       1. in torch storage, a float128 source with no override uses float64. float32 and smaller dtypes are not considered.
       2. in a ply column, an int64 target goes to i4 and a uint64 target goes to u4.
    4. no field name changes the decision. xyz, rgb, indices, feat, colors and normals cast by the same rules as any other field.
@@ -64,7 +64,7 @@ goal: re-design pc dtype contract/provenance
    2. target representation:
       1. a floating point target uses $y$ without integer rounding.
       2. an integer target rounds $y$ to the nearest integer.
-   3. losslessness: every convention conversion, whichever caller asks for it, proceeds only if the source values are exactly recoverable by converting the result back to the source convention; otherwise it hard-asserts and aborts.
+   3. losslessness: every convention conversion, whichever caller asks for it, proceeds only if the source values are exactly recoverable by converting the result back to the source convention. otherwise it hard-asserts and aborts.
       1. 0 to 65535 into 0 to 255: a value of 1 rounds to 0 and converts back to 0, so the conversion is lossy.
       2. 0 to 65535 into 0 to 255: a value of 257 converts to 1 and back to 257, so the conversion is lossless.
 3. naming conventions by dtype: the conventions are told apart by dtype and never by inspecting the values, the same way `validate_vertex_color` tells mesh vertex colors apart. the naming dtype is the data's own conceptual dtype, not the dtype of the tensor holding it, so uint16 color data held in an int32 tensor is named uint16. integer conventions span their dtype's full range.
