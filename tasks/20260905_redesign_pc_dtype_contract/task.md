@@ -56,7 +56,7 @@ goal: re-design pc dtype contract/provenance
    2. target representation:
       1. a floating point target uses $y$ without integer rounding.
       2. an integer target rounds $y$ to the nearest integer.
-   3. losslessness: the conversion proceeds only if the source values are exactly recoverable by converting the result back to the source convention; otherwise it hard-asserts and aborts.
+   3. losslessness: every convention conversion, whichever caller asks for it, proceeds only if the source values are exactly recoverable by converting the result back to the source convention; otherwise it hard-asserts and aborts.
       1. 0 to 65535 into 0 to 255: a value of 1 rounds to 0 and converts back to 0, so the conversion is lossy.
       2. 0 to 65535 into 0 to 255: a value of 257 converts to 1 and back to 257, so the conversion is lossless.
 3. naming conventions by dtype: the conventions are told apart by dtype and never by inspecting the values, the same way `validate_vertex_color` tells mesh vertex colors apart. the naming dtype is the data's own conceptual dtype, not the dtype of the tensor holding it, so uint16 color data held in an int32 tensor is named uint16. integer conventions span their dtype's full range.
@@ -75,6 +75,7 @@ goal: re-design pc dtype contract/provenance
       2. a file with more than one separately named group of columns does not by itself define which group's columns form each field.
    3. a .pth holds one block of unnamed columns and defines no column-to-field mapping.
    4. a .txt holds unnamed columns and defines no column-to-field mapping.
+   5. a .off names no columns, and the OFF format declares its vertex block to be the coordinates, so it maps ('x', 'y', 'z') to xyz.
 3. reverse mapping: each field maps back to the source column names its mapping records. a field mapped from ('x', 'y', 'z') maps back to x, y and z.
 
 #### 1.1.4. New Meta Data API
@@ -134,6 +135,7 @@ goal: re-design pc dtype contract/provenance
                1. an f4 ply gives float32 xyz and an f8 ply gives float64 xyz.
          2. fields are assembled according to Layout Mapping.
          3. the .off reader keeps building float32 and hard-asserts it is never handed anything beyond what it can already handle, rather than widening to cover it.
+         4. the .txt reader keeps building float64, the dtype reading decimal text yields.
       2. save point cloud
          1. strictly follows the meta data. it does not need to be aware of the dtype mismatch at all.
             1. save point cloud recovers both halves of the record as specified by New Meta Data API, and its dtype casts follow Type Casting.
