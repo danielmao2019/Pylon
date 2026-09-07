@@ -155,6 +155,7 @@ goal: re-design pc dtype contract/provenance
          2. save's color convention conversion is keyed on rgb and is the only such branch in the I/O layer.
             1. rgb is the one field with convention conversion between color representations.
             2. save applies Color Data Convention Conversion from the field's current color convention to the convention defined by the target conceptual dtype.
+            3. save refuses a lossy one: a conversion whose result does not convert back to the source values exactly hard-asserts and the program aborts, so a rounded color never reaches the file.
 
 #### 1.1.6. What Becomes Stale Design
 
