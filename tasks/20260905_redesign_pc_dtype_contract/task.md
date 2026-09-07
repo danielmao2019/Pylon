@@ -103,6 +103,7 @@ goal: re-design pc dtype contract/provenance
 4. the meta data travels with the field.
    1. Select preserves it.
    2. serializing a `PointCloud` and restoring it preserves it. a cache is not a source, so restoring builds no new record.
+   3. constructing a `PointCloud` from a field that already carries a record inherits that record. another obj is not a source, so construction builds no new record for such a field.
 5. for `__init__` and load point cloud, the target dtype is the source dtype.
 6. the meta data override:
    1. `__init__`, load point cloud and save point cloud each accept one, and it reaches both halves at each.
