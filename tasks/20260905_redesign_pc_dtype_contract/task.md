@@ -89,7 +89,7 @@ goal: re-design pc dtype contract/provenance
 
 #### 1.1.4. New Meta Data API
 
-1. what it is: meta data records what the source looked like, upon construction. it records the source of the data, wherever the data comes from: a load from disk, a construction from a torch tensor or a numpy array, or addition or deletion of fields. it records two things.
+1. what it is: meta data records what the source looked like, upon construction. it records the source of the data, wherever the data comes from: a load from disk, or a construction from a torch tensor or a numpy array. it records two things.
    1. dtype:
       1. the record always keeps the source dtype.
       2. it records the conceptual dtype. a field entering as ply u2, as numpy uint16, or as an open3d UInt16 all record the same thing.
@@ -97,13 +97,13 @@ goal: re-design pc dtype contract/provenance
          1. for the ply u4 example in Type Casting, the record holds uint32.
          2. a float128 source with no override records float128 in meta data.
    2. layout: it records the mapping defined by Layout Mapping.
-2. granularity: the record is per-field, created when a field enters the obj and deleted when the field is removed. inside a field, both halves are keyed on the source columns.
-3. immutability: for each field, the record is never mutable. an overwrite of a field that already exists must NOT change the meta data.
+2. granularity: the record is one whole, created when the obj is constructed. inside it, both halves are keyed on the source columns.
+3. immutability: the record is never mutable. adding a field, deleting a field, and overwriting an existing field all leave it exactly as it was.
    1. user of PointCloud obj may however modify the fields, but the meta data stays constant and immutable once created.
-4. the meta data travels with the field.
+4. the meta data travels with the obj.
    1. Select preserves it.
    2. serializing a `PointCloud` and restoring it preserves it. a cache is not a source, so restoring builds no new record.
-   3. constructing a `PointCloud` from a field that already carries a record inherits that record. another obj is not a source, so construction builds no new record for such a field.
+   3. constructing a `PointCloud` from another obj's fields inherits that obj's record. another obj is not a source, so construction builds no new record.
 5. for `__init__` and load point cloud, the target dtype is the source dtype.
 6. the meta data override:
    1. `__init__`, load point cloud and save point cloud each accept one, and it reaches both halves at each.
@@ -111,11 +111,14 @@ goal: re-design pc dtype contract/provenance
    3. it is required where the source does not define a half: the caller supplies that half, and a construction or load without it hard-asserts and aborts.
    4. a dtype override changes the target dtype without changing the source dtype the record keeps.
    5. a layout override chooses which source columns are assembled into a field. the mapping's loaded side is what the override asked for, while its source side stays the columns the source held.
-7. save point cloud: each field is written under the dtype and layout its record names, and save derives nothing else.
-   1. the record is the target, including when it records int64 for a ply save.
-   2. dtype: the dtype recorded for each source column is its save target. the actual ply storage dtype follows the lossless casting rule in Type Casting.
+7. save point cloud: each field is written under a target dtype and a target layout, and save derives nothing else.
+   1. where the obj's fields and the record's fields differ:
+      1. a field the record names that the obj no longer holds is not saved.
+      2. a field the obj holds that the record does not name takes its target dtype and target layout from the field itself and from the override.
+   2. the record is the target for every field it names, including when it records int64 for a ply save.
+   3. dtype: the dtype recorded for each source column is its save target. the actual ply storage dtype follows the lossless casting rule in Type Casting.
       1. the ply u4 example is therefore saved as u4.
-   3. layout: output columns follow the reverse mapping defined by Layout Mapping.
+   4. layout: output columns follow the reverse mapping defined by Layout Mapping. the save format must support the target layout.
 
 #### 1.1.5. Point Cloud Data Structure Construction and I/O
 
