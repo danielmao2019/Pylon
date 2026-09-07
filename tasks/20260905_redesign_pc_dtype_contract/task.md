@@ -38,7 +38,7 @@ goal: re-design pc dtype contract/provenance
       1. in torch storage, a float128 source with no override uses float64. float32 and smaller dtypes are not considered.
       2. in a ply column, an int64 target goes to i4 and a uint64 target goes to u4.
    4. no field name changes the decision. xyz, rgb, indices, feat, colors and normals cast by the same rules as any other field.
-3. the dtype each source defines:
+3. determining the dtype from the source, one rule per source:
    1. an in-memory variable defines the dtype its tensor or array carries.
    2. a .pth defines the dtype the stored tensor or array carries.
    3. a .ply defines each column's stored dtype character, so an f4 column defines float32 and an f8 column defines float64, and it stores colors as u1.
