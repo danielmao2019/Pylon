@@ -25,15 +25,16 @@ goal: re-design pc dtype contract/provenance
 1. the fundamental root cause is the dtype system mismatch: the dtype systems are each a subset of one universal, system-agnostic collection of conceptual dtypes, and no system's subset contains every other's.
    1. conceptual dtype identity across systems:
       1. uint16 and int32 are two distinct conceptual dtypes. numpy int32 and torch int32 represent the same conceptual dtype.
-      2. every ply dtype torch carries loads unchanged: i1 as int8, u1 as uint8, i2 as int16, i4 as int32, f4 as float32, f8 as float64, b1 as bool.
+      2. every ply dtype torch carries loads unchanged: i1 as int8, u1 as uint8, i2 as int16, i4 as int32, f4 as float32, f8 as float64.
    2. each system's supported subset:
-      1. ply's subset is b1, i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer.
+      1. ply's subset is i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer and no boolean.
       2. torch 2.2.2 has no uint16, uint32, uint64 or float128, and bfloat16 is its alone.
       3. numpy 1.26.4 has uint64 and float128, and has no bfloat16.
 2. every dtype cast `__init__`, load point cloud and save point cloud decide on their own must be lossless: it never changes a value, in the mathematical sense.
    1. each dtype is a set of values, and one dtype's set may sit inside another's. float32's sits inside float64's. every casting decision reads those sets and the values a field holds, never the dtype names alone.
    2. when a system lacks a conceptual dtype but has one whose set contains its entire set, the smallest such dtype is used, and the cast converts whichever values are present in the data.
       1. in torch storage, ply u2 and numpy uint16 both go to int32, and ply u4 and numpy uint32 both go to int64.
+      2. in a ply column, a bool target goes to u1: i1 and u1 are both one byte and both contain bool's two values, and u1 is the one whose signedness matches bool's.
    3. when the system has no such dtype, the largest narrower one it supports is used and no smaller dtype is considered after it, and the values then decide. every value inside that dtype's set means nothing is lost, so the cast converts. any value outside means something is lost, so the cast hard-asserts and the program aborts.
       1. in torch storage, a float128 source with no override uses float64. float32 and smaller dtypes are not considered.
       2. in a ply column, an int64 target goes to i4 and a uint64 target goes to u4.
