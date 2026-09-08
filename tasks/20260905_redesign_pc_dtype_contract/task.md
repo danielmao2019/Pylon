@@ -10,6 +10,7 @@ goal: re-design pc dtype contract/provenance
     - [1.1.4. New Meta Data API](#114-new-meta-data-api)
     - [1.1.5. Point Cloud Data Structure Construction and I/O](#115-point-cloud-data-structure-construction-and-io)
     - [1.1.6. What Becomes Stale Design](#116-what-becomes-stale-design)
+  - [1.2. Solution Constraints](#12-solution-constraints)
 - [2. Definition of Done](#2-definition-of-done)
   - [2.1. Project Consumers be Refactored](#21-project-consumers-be-refactored)
   - [2.2. Task Scope](#22-task-scope)
@@ -175,6 +176,13 @@ goal: re-design pc dtype contract/provenance
    2. name_feat is removed, and the meta data override covers the dtype it formerly forced.
       1. name_feat's renaming of a named column to feat and its reshape to [N, 1] are dropped rather than replaced because of the field-name preservation required by Point Cloud Data Structure Construction and I/O.
    3. nameInPly is removed.
+
+### 1.2. Solution Constraints
+
+1. You must use "meta_data" as the name of the new arg of init, load, and save. nothing else accepted.
+2. There must be one local helper under `PointCloud.__init__` that infers/derives the meta data from the source and checks the meta_data override arg to produce the final meta_data. note that this is outside of `_normalize_inputs` (a sibling of it).
+3. There must be one local helper under `PointCloud.__init__` that applies changes to the source data when a meta data override is provided.
+4. load point cloud gets the source data and passes the source data loaded from disk to RAM and the meta data override and pass down to `PointCloud` to construct it.
 
 ## 2. Definition of Done
 
