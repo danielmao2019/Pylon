@@ -21,6 +21,7 @@ from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import (
     MeshTextureVertexColor,
 )
 from data.viewer.utils.controls.camera.camera_controls.dash.trackball_camera_controls import (
+    assert_dash_trackball_camera_controls,
     create_dash_trackball_camera_controls,
 )
 from data.viewer.utils.controls.camera.camera_sync.threejs import (
@@ -881,8 +882,8 @@ def _build_textured_mesh_html(
         )
 
     viewer_script_without_camera_sync = _build_viewer_script(camera_sync_script="")
-    create_dash_trackball_camera_controls(
-        renderer_controls=viewer_script_without_camera_sync,
+    assert_dash_trackball_camera_controls(
+        controls=viewer_script_without_camera_sync,
     )
 
     camera_sync_script = build_threejs_camera_sync_script(
@@ -1083,6 +1084,7 @@ def create_dash_mesh_display(
     mesh_color: Optional[str] = None,
     mesh_opacity: Optional[float] = None,
     mesh_side: Optional[str] = None,
+    lock_roll: Optional[Tuple[float, float, float]] = None,
 ) -> dcc.Graph:
     """Render a Dash mesh display element.
 
@@ -1101,6 +1103,7 @@ def create_dash_mesh_display(
             `DEFAULT_MESH_OPACITY` is used.
         mesh_side: Optional side mode override; when None `DEFAULT_MESH_SIDE`
             is used.
+        lock_roll: Optional axis to lock camera roll about, as an `(x, y, z)` world-space direction in the mesh's own world frame. When supplied, the rendered camera uses Plotly gl3d `dragmode="turntable"` with `camera.up` pinned to the normalized axis, so left-drag rotation never changes camera roll. When None, the camera controls are the free trackball: `dragmode="orbit"`, which carries the up vector along with the left-drag and leaves camera roll free; `"orbit"` is not Plotly's own gl3d default of `"turntable"`, so a caller that passes nothing gets left-drag roll that the same call did not produce before this version.
 
     Returns:
         Dash `dcc.Graph` wrapping the mesh scene.
@@ -1118,6 +1121,15 @@ def create_dash_mesh_display(
     assert mesh_side is None or isinstance(mesh_side, str), (
         "Expected `mesh_side` to be None or a string. " f"{type(mesh_side)=}"
     )
+    assert lock_roll is None or (
+        isinstance(lock_roll, tuple)
+        and len(lock_roll) == 3
+        and all(isinstance(component, float) for component in lock_roll)
+        and any(component != 0.0 for component in lock_roll)
+    ), (
+        "Expected `lock_roll` to be None or a non-zero 3-tuple of floats. "
+        f"{lock_roll=}"
+    )
 
     scene = create_dash_mesh_scene(
         mesh=mesh,
@@ -1125,7 +1137,7 @@ def create_dash_mesh_display(
         mesh_opacity=mesh_opacity,
         mesh_side=mesh_side,
     )
-    controls = create_dash_trackball_camera_controls
+    controls = create_dash_trackball_camera_controls(lock_roll=lock_roll)
     return create_dash_mesh_component(
         scene=scene,
         controls=controls,
@@ -1345,18 +1357,26 @@ def _create_dash_uv_texture_map_mesh_scene(
 
 def create_dash_mesh_component(
     scene: go.Mesh3d,
-    controls: Any,
+    controls: Dict[str, Any],
 ) -> dcc.Graph:
     """Wrap the mesh scene and camera controls into a Dash component.
 
     Args:
         scene: Plotly `go.Mesh3d` trace for the mesh.
-        controls: Dash trackball camera-controls factory for the renderer.
+        controls: Plotly gl3d `layout.scene` camera configuration built by
+            `create_dash_trackball_camera_controls`.
 
     Returns:
-        Dash `dcc.Graph` rendering the mesh scene.
+        Dash `dcc.Graph` rendering the mesh scene under the supplied camera
+        configuration.
     """
     assert isinstance(scene, go.Mesh3d), (
         "Expected `scene` to be a Plotly `go.Mesh3d` trace. " f"{type(scene)=}"
     )
-    return dcc.Graph(figure=go.Figure(data=[scene]))
+    assert isinstance(controls, dict), (
+        "Expected `controls` to be a Plotly gl3d scene camera configuration. "
+        f"{type(controls)=}"
+    )
+    return dcc.Graph(
+        figure=go.Figure(data=[scene], layout=go.Layout(scene=controls)),
+    )

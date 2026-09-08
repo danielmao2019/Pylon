@@ -4,16 +4,14 @@ import type { CameraState } from "data/viewer/utils/controls/camera/camera_state
 
 export const DEFAULT_TRACKBALL_PERSPECTIVE_CAMERA_FOV: number = 45;
 
-type CameraStateListener = (cameraState: CameraState) => void;
+// Squared length below which a cross product no longer defines a direction: the
+// view direction runs parallel to the roll-lock axis and their cross product
+// collapses, so the camera right axis is carried instead of re-derived.
+const ROLL_LOCK_DEGENERACY_EPSILON_SQUARED = 1e-12;
+// Radians of camera rotation per pixel of roll-locked left-drag.
+const ROLL_LOCKED_ROTATE_SPEED = 0.005;
 
-interface RendererTrackballCameraControls {
-  targetElement: HTMLElement;
-  getCameraState: () => CameraState | null;
-  applyCameraState: (cameraState: CameraState | null) => void;
-  subscribeCameraStateChange: (
-    listener: CameraStateListener,
-  ) => () => void;
-}
+type CameraStateListener = (cameraState: CameraState) => void;
 
 export interface TrackballCameraControls {
   getCameraState: () => CameraState | null;
@@ -30,49 +28,83 @@ export interface ThreeTrackballCameraControls extends TrackballCameraControls {
   update: () => void;
 }
 
-export function createTrackballCameraControls(args: {
-  targetElement: HTMLElement;
-  initialCameraState?: CameraState | null;
-}): TrackballCameraControls;
-
-export function createTrackballCameraControls(args: {
+// Builds, validates, and returns the trackball controls, seeding them from
+// initialCameraState and observing the container's data-camera-state attribute
+// for external sync.
+//
+// Args:
+//   container: the display container the controls stamp their wiring onto and
+//     observe data-camera-state on.
+//   camera: the perspective camera the controls drive.
+//   renderer: the WebGL renderer whose canvas receives the pointer events.
+//   initialCameraState: initial framing (camera-to-world extrinsics + intrinsics);
+//     null uses the camera's default framing.
+//   lockRoll: the world-space axis to lock camera roll about, in the scene's own
+//     world frame; null is the free trackball whose camera roll follows the drag.
+//     This module owns no axis of its own, so the axis is always the caller's.
+//
+// Returns:
+//   The validated trackball controls.
+export function createTrackballCameraControls({
+  container,
+  camera,
+  renderer,
+  initialCameraState = null,
+  lockRoll = null,
+}: {
+  container: HTMLElement;
   camera: THREE.PerspectiveCamera;
   renderer: THREE.WebGLRenderer;
-  container: HTMLElement;
   initialCameraState?: CameraState | null;
-}): ThreeTrackballCameraControls;
-
-export function createTrackballCameraControls(args:
-  | {
-      targetElement: HTMLElement;
-      initialCameraState?: CameraState | null;
-    }
-  | {
-      camera: THREE.PerspectiveCamera;
-      renderer: THREE.WebGLRenderer;
-      container: HTMLElement;
-      initialCameraState?: CameraState | null;
-    },
-): TrackballCameraControls | ThreeTrackballCameraControls {
-  if ("camera" in args) {
-    return createThreeTrackballCameraControls(args);
-  }
-  const { targetElement, initialCameraState = null } = args;
+  lockRoll?: THREE.Vector3 | null;
+}): ThreeTrackballCameraControls {
   const controls = createRendererTrackballCameraControls({
-    targetElement,
-    initialCameraState,
+    container,
+    camera,
+    renderer,
+    lockRoll,
   });
-  assertTrackballCameraControls(controls);
+  assertTrackballCameraControls({ container, lockRoll });
+  if (initialCameraState !== null) {
+    controls.applyCameraState(initialCameraState);
+  }
+  const observer = new MutationObserver(() => {
+    const serializedCameraState = container.dataset.cameraState;
+    if (serializedCameraState === undefined) {
+      return;
+    }
+    controls.applyCameraState(JSON.parse(serializedCameraState) as CameraState);
+  });
+  observer.observe(container, {
+    attributeFilter: ["data-camera-state"],
+    attributes: true,
+  });
   return controls;
 }
 
-function createThreeTrackballCameraControls(args: {
+// Constructs the renderer-specific trackball controls wiring left-drag rotate,
+// right-drag pan, wheel zoom, and context-menu suppression.
+//
+// Args:
+//   container: the display container the constructed wiring is stamped onto.
+//   camera: the perspective camera the controls drive.
+//   renderer: the WebGL renderer whose canvas receives the pointer events.
+//   lockRoll: the world-space axis to lock camera roll about; null wires the free
+//     trackball rotation that carries camera.up along with the drag.
+//
+// Returns:
+//   The renderer-specific trackball controls.
+function createRendererTrackballCameraControls({
+  container,
+  camera,
+  renderer,
+  lockRoll,
+}: {
+  container: HTMLElement;
   camera: THREE.PerspectiveCamera;
   renderer: THREE.WebGLRenderer;
-  container: HTMLElement;
-  initialCameraState?: CameraState | null;
+  lockRoll: THREE.Vector3 | null;
 }): ThreeTrackballCameraControls {
-  const { camera, renderer, container, initialCameraState = null } = args;
   const threeControls = new ThreeTrackballControlsImpl(camera, renderer.domElement);
   const listeners = new Set<CameraStateListener>();
   threeControls.rotateSpeed = 3;
@@ -82,6 +114,96 @@ function createThreeTrackballCameraControls(args: {
   renderer.domElement.addEventListener("contextmenu", (event: MouseEvent) => {
     event.preventDefault();
   });
+  container.dataset.cameraControlMode = "trackball";
+  container.dataset.trackballMouseMapping =
+    "left-drag-rotate/right-drag-pan/wheel-zoom";
+  container.dataset.contextMenuBehavior = "suppressed-for-trackball-pan";
+
+  if (lockRoll !== null) {
+    const rollLockAxis = lockRoll.clone().normalize();
+    // Three's own rotation is the free trackball that carries camera.up along
+    // with the drag; the roll-locked left-drag below replaces it, leaving three's
+    // right-drag pan and wheel zoom untouched.
+    threeControls.noRotate = true;
+    container.dataset.cameraRollLock = JSON.stringify({
+      x: rollLockAxis.x,
+      y: rollLockAxis.y,
+      z: rollLockAxis.z,
+    });
+    container.dataset.cameraRightAxisConstraint = "perpendicular-to-roll-lock-axis";
+    container.dataset.cameraRotationLimit = "roll-locked-to-supplied-axis";
+
+    const cameraRightAxis = new THREE.Vector3().crossVectors(
+      threeControls.target.clone().sub(camera.position),
+      rollLockAxis,
+    );
+    if (cameraRightAxis.lengthSq() < ROLL_LOCK_DEGENERACY_EPSILON_SQUARED) {
+      // The camera already looks along the lock axis, so every axis perpendicular
+      // to the lock axis is an equally valid camera right axis to start from.
+      cameraRightAxis.set(1, 0, 0).cross(rollLockAxis);
+      if (cameraRightAxis.lengthSq() < ROLL_LOCK_DEGENERACY_EPSILON_SQUARED) {
+        cameraRightAxis.set(0, 1, 0).cross(rollLockAxis);
+      }
+    }
+    cameraRightAxis.normalize();
+
+    let leftDragActive = false;
+    let lastClientX = 0;
+    let lastClientY = 0;
+    renderer.domElement.addEventListener("pointerdown", (event: PointerEvent) => {
+      if (event.button !== 0) {
+        return;
+      }
+      leftDragActive = true;
+      lastClientX = event.clientX;
+      lastClientY = event.clientY;
+    });
+    window.addEventListener("pointerup", () => {
+      leftDragActive = false;
+    });
+    window.addEventListener("pointermove", (event: PointerEvent) => {
+      if (!leftDragActive) {
+        return;
+      }
+      const deltaX = event.clientX - lastClientX;
+      const deltaY = event.clientY - lastClientY;
+      lastClientX = event.clientX;
+      lastClientY = event.clientY;
+      const offset = camera.position.clone().sub(threeControls.target);
+      const yaw = new THREE.Quaternion().setFromAxisAngle(
+        rollLockAxis,
+        -deltaX * ROLL_LOCKED_ROTATE_SPEED,
+      );
+      offset.applyQuaternion(yaw);
+      cameraRightAxis.applyQuaternion(yaw);
+      const yawedRightAxis = new THREE.Vector3().crossVectors(
+        offset.clone().negate(),
+        rollLockAxis,
+      );
+      if (yawedRightAxis.lengthSq() >= ROLL_LOCK_DEGENERACY_EPSILON_SQUARED) {
+        yawedRightAxis.normalize();
+        // Past a pole the re-derived axis points the opposite way, which would
+        // reverse the next pitch and bounce the camera off the pole; taking the
+        // carried axis's orientation pitches straight through and out the far side.
+        if (yawedRightAxis.dot(cameraRightAxis) < 0) {
+          yawedRightAxis.negate();
+        }
+        cameraRightAxis.copy(yawedRightAxis);
+      }
+      const pitch = new THREE.Quaternion().setFromAxisAngle(
+        cameraRightAxis,
+        -deltaY * ROLL_LOCKED_ROTATE_SPEED,
+      );
+      offset.applyQuaternion(pitch);
+      camera.position.copy(threeControls.target).add(offset);
+      camera.up
+        .crossVectors(cameraRightAxis, offset.clone().negate().normalize())
+        .normalize();
+      camera.lookAt(threeControls.target);
+      threeControls.dispatchEvent({ type: "change" });
+    });
+  }
+
   threeControls.addEventListener("change", () => {
     const cameraState = buildThreeTrackballCameraState({
       camera,
@@ -91,7 +213,7 @@ function createThreeTrackballCameraControls(args: {
       listener(cameraState);
     }
   });
-  const result = Object.assign(threeControls, {
+  return Object.assign(threeControls, {
     getCameraState: () =>
       buildThreeTrackballCameraState({
         camera,
@@ -114,25 +236,159 @@ function createThreeTrackballCameraControls(args: {
       };
     },
   });
-  if (initialCameraState !== null) {
-    result.applyCameraState(initialCameraState);
+}
+
+// Validates the constructed controls satisfy every trackball contract by running
+// the mouse-mapping, no-orbit, no-pose-clamp, and roll-lock assertions.
+//
+// Args:
+//   container: the display container carrying the constructed controls' wiring.
+//   lockRoll: the world-space axis the controls were asked to lock roll about;
+//     null asserts the free trackball.
+//
+// Returns:
+//   void.
+function assertTrackballCameraControls({
+  container,
+  lockRoll,
+}: {
+  container: HTMLElement;
+  lockRoll: THREE.Vector3 | null;
+}): void {
+  assertTrackballMouseMapping({ container });
+  assertNoOrbitCameraControls({ container });
+  assertNoCameraPoseClamps({ container, lockRoll });
+  assertRollLock({ container, lockRoll });
+}
+
+// Asserts the controls map left-drag to rotate, right-drag to pan, and wheel to
+// zoom, and that the canvas suppresses its context menu.
+//
+// Args:
+//   container: the display container carrying the constructed controls' wiring.
+//
+// Returns:
+//   void.
+function assertTrackballMouseMapping({
+  container,
+}: {
+  container: HTMLElement;
+}): void {
+  if (
+    container.dataset.trackballMouseMapping !==
+    "left-drag-rotate/right-drag-pan/wheel-zoom"
+  ) {
+    throw new Error("invalid trackball camera controls");
   }
-  const observer = new MutationObserver(() => {
-    const raw = container.dataset.cameraState;
-    if (raw === undefined) {
-      return;
+  if (
+    container.dataset.contextMenuBehavior !== "suppressed-for-trackball-pan"
+  ) {
+    throw new Error("context menu blocks trackball panning");
+  }
+}
+
+// Asserts the controls do not use forbidden orbit-style target-locked camera
+// semantics.
+//
+// Args:
+//   container: the display container carrying the constructed controls' wiring.
+//
+// Returns:
+//   void.
+function assertNoOrbitCameraControls({
+  container,
+}: {
+  container: HTMLElement;
+}): void {
+  if (
+    container.dataset.cameraControlMode === "orbit" ||
+    container.dataset.cameraControlFamily === "orbit"
+  ) {
+    throw new Error("orbit-style camera controls are forbidden");
+  }
+}
+
+// Asserts the controls impose no camera-pose restriction on polar angle, azimuth
+// angle, target lock, distance, pan, translation, or rotation.
+//
+// Args:
+//   container: the display container carrying the constructed controls' wiring.
+//   lockRoll: the world-space axis the controls were asked to lock roll about;
+//     null forbids every rotation restriction.
+//
+// Returns:
+//   void.
+function assertNoCameraPoseClamps({
+  container,
+  lockRoll,
+}: {
+  container: HTMLElement;
+  lockRoll: THREE.Vector3 | null;
+}): void {
+  const forbiddenRestrictionKeys = [
+    "cameraPolarAngleLimit",
+    "cameraAzimuthAngleLimit",
+    "cameraTargetLock",
+    "cameraDistanceBounds",
+    "cameraPanLimit",
+    "cameraTranslationLimit",
+  ];
+  const restrictedKey = forbiddenRestrictionKeys.find(
+    (key) => container.dataset[key] !== undefined,
+  );
+  if (restrictedKey !== undefined) {
+    throw new Error(`restricted camera pose controls: ${restrictedKey}`);
+  }
+  const rotationLimit = container.dataset.cameraRotationLimit;
+  if (lockRoll === null) {
+    if (rotationLimit !== undefined) {
+      throw new Error(
+        `restricted camera pose controls: cameraRotationLimit=${rotationLimit}`,
+      );
     }
-    try {
-      result.applyCameraState(JSON.parse(raw) as CameraState);
-    } catch {
-      // ignore unparseable dataset values
+    return;
+  }
+  if (
+    rotationLimit !== undefined &&
+    rotationLimit !== "roll-locked-to-supplied-axis"
+  ) {
+    throw new Error(
+      `roll lock must cost only the roll axis: cameraRotationLimit=${rotationLimit}`,
+    );
+  }
+}
+
+// Asserts roll is held about lockRoll when one is supplied and left free when
+// none is, this module owning no axis of its own.
+//
+// Args:
+//   container: the display container carrying the constructed controls' wiring.
+//   lockRoll: the world-space axis the controls were asked to lock roll about;
+//     null asserts the camera right axis is constrained against no axis at all.
+//
+// Returns:
+//   void.
+function assertRollLock({
+  container,
+  lockRoll,
+}: {
+  container: HTMLElement;
+  lockRoll: THREE.Vector3 | null;
+}): void {
+  const rightAxisConstraint = container.dataset.cameraRightAxisConstraint;
+  if (lockRoll !== null) {
+    if (rightAxisConstraint !== "perpendicular-to-roll-lock-axis") {
+      throw new Error(
+        "roll-locked camera controls must keep the camera right axis perpendicular to the supplied axis",
+      );
     }
-  });
-  observer.observe(container, {
-    attributeFilter: ["data-camera-state"],
-    attributes: true,
-  });
-  return result;
+    return;
+  }
+  if (rightAxisConstraint !== undefined) {
+    throw new Error(
+      "free trackball camera controls must leave camera roll unconstrained",
+    );
+  }
 }
 
 function buildThreeTrackballCameraState({
@@ -250,309 +506,4 @@ function isQuaternionRecord(value: unknown): value is {
     isVectorRecord(value) &&
     typeof (value as { w?: unknown }).w === "number"
   );
-}
-
-function createRendererTrackballCameraControls(args: {
-  targetElement: HTMLElement;
-  initialCameraState: CameraState | null;
-}): RendererTrackballCameraControls {
-  const { targetElement, initialCameraState } = args;
-  let currentCameraState = initialCameraState;
-  let internallyWrittenCameraStateToken: string | null | undefined = undefined;
-  const listeners: CameraStateListener[] = [];
-
-  const setInternallyWrittenCameraStateToken = (
-    token: string | null,
-  ): void => {
-    internallyWrittenCameraStateToken = token;
-  };
-
-  const applyCameraState = (cameraState: CameraState | null): void => {
-    currentCameraState = cameraState;
-    writeInternalCameraStateToTargetElement({
-      targetElement,
-      cameraState,
-      setInternallyWrittenCameraStateToken,
-    });
-    postCameraStateToEmbeddedRenderer({
-      targetElement,
-      cameraState,
-    });
-  };
-
-  const emitCameraStateChange = (cameraState: CameraState): void => {
-    currentCameraState = cameraState;
-    writeInternalCameraStateToTargetElement({
-      targetElement,
-      cameraState,
-      setInternallyWrittenCameraStateToken,
-    });
-    for (const listener of listeners) {
-      listener(cameraState);
-    }
-    targetElement.dispatchEvent(
-      new CustomEvent<CameraState>("camera-pose-change", {
-        bubbles: true,
-        detail: cameraState,
-      }),
-    );
-  };
-
-  const mutationObserver = new MutationObserver(() => {
-    const targetElementCameraStateToken =
-      readCameraStateTokenFromTargetElement(targetElement);
-    if (
-      internallyWrittenCameraStateToken !== undefined &&
-      targetElementCameraStateToken === internallyWrittenCameraStateToken
-    ) {
-      internallyWrittenCameraStateToken = undefined;
-      return;
-    }
-    internallyWrittenCameraStateToken = undefined;
-    applyExternalCameraState(readCameraStateFromTargetElement(targetElement));
-  });
-  mutationObserver.observe(targetElement, {
-    attributeFilter: ["data-camera-state"],
-    attributes: true,
-  });
-
-  window.addEventListener("message", (event: MessageEvent<unknown>) => {
-    if (!isEmbeddedRendererMessageSource({ targetElement, source: event.source })) {
-      return;
-    }
-    if (event.origin !== window.location.origin) {
-      return;
-    }
-    const message = event.data;
-    if (!isTrackballCameraStateChangeMessage(message)) {
-      return;
-    }
-    emitCameraStateChange(message.cameraState);
-  });
-  if (targetElement instanceof HTMLIFrameElement) {
-    targetElement.addEventListener("load", () => {
-      postCameraStateToEmbeddedRenderer({
-        targetElement,
-        cameraState: currentCameraState,
-      });
-    });
-  }
-
-  targetElement.dataset.cameraControlMode = "trackball";
-  targetElement.dataset.trackballMouseMapping =
-    "left-drag-rotate/right-drag-pan/wheel-zoom";
-  targetElement.dataset.contextMenuBehavior = "suppressed-for-trackball-pan";
-  if (currentCameraState !== null) {
-    applyCameraState(currentCameraState);
-  }
-
-  function applyExternalCameraState(cameraState: CameraState | null): void {
-    currentCameraState = cameraState;
-    postCameraStateToEmbeddedRenderer({
-      targetElement,
-      cameraState,
-    });
-  }
-
-  return {
-    targetElement,
-    getCameraState: () => currentCameraState,
-    applyCameraState,
-    subscribeCameraStateChange: (listener: CameraStateListener) => {
-      if (typeof listener !== "function") {
-        throw new Error("camera state listener must be a function");
-      }
-      listeners.push(listener);
-      return () => {
-        const index = listeners.indexOf(listener);
-        if (index >= 0) {
-          listeners.splice(index, 1);
-        }
-      };
-    },
-  };
-}
-
-function assertTrackballCameraControls(
-  controls: RendererTrackballCameraControls,
-): void {
-  assertTrackballMouseMapping(controls);
-  assertNoOrbitCameraControls(controls);
-  assertNoCameraPoseClamps(controls);
-}
-
-function assertTrackballMouseMapping(
-  controls: RendererTrackballCameraControls,
-): void {
-  const mapping = controls.targetElement.dataset.trackballMouseMapping;
-  if (mapping !== "left-drag-rotate/right-drag-pan/wheel-zoom") {
-    throw new Error("invalid trackball camera controls");
-  }
-  if (
-    controls.targetElement.dataset.contextMenuBehavior !==
-    "suppressed-for-trackball-pan"
-  ) {
-    throw new Error("context menu blocks trackball panning");
-  }
-}
-
-function assertNoOrbitCameraControls(
-  controls: RendererTrackballCameraControls,
-): void {
-  const mode = controls.targetElement.dataset.cameraControlMode;
-  const family = controls.targetElement.dataset.cameraControlFamily;
-  if (mode === "orbit" || family === "orbit") {
-    throw new Error("orbit-style camera controls are forbidden");
-  }
-}
-
-function assertNoCameraPoseClamps(
-  controls: RendererTrackballCameraControls,
-): void {
-  const forbiddenRestrictionKeys = [
-    "cameraPolarAngleLimit",
-    "cameraAzimuthAngleLimit",
-    "cameraTargetLock",
-    "cameraDistanceBounds",
-    "cameraPanLimit",
-    "cameraTranslationLimit",
-    "cameraRotationLimit",
-  ];
-  const restrictedKey = forbiddenRestrictionKeys.find(
-    (key) => controls.targetElement.dataset[key] !== undefined,
-  );
-  if (restrictedKey !== undefined) {
-    throw new Error(`restricted camera pose controls: ${restrictedKey}`);
-  }
-}
-
-function readCameraStateFromTargetElement(
-  targetElement: HTMLElement,
-): CameraState | null {
-  const serializedCameraState = targetElement.dataset.cameraState;
-  if (serializedCameraState === undefined) {
-    return null;
-  }
-  const parsedCameraState: unknown = JSON.parse(serializedCameraState);
-  if (!isCameraState(parsedCameraState)) {
-    throw new Error("target camera state does not match CameraState");
-  }
-  return parsedCameraState;
-}
-
-function readCameraStateTokenFromTargetElement(
-  targetElement: HTMLElement,
-): string | null {
-  return targetElement.dataset.cameraState ?? null;
-}
-
-function serializeCameraState(cameraState: CameraState | null): string | null {
-  if (cameraState === null) {
-    return null;
-  }
-  return JSON.stringify(cameraState);
-}
-
-function writeInternalCameraStateToTargetElement(args: {
-  targetElement: HTMLElement;
-  cameraState: CameraState | null;
-  setInternallyWrittenCameraStateToken: (token: string | null) => void;
-}): void {
-  const {
-    targetElement,
-    cameraState,
-    setInternallyWrittenCameraStateToken,
-  } = args;
-  const serializedCameraState = serializeCameraState(cameraState);
-  if (
-    writeCameraStateToTargetElement({
-      targetElement,
-      cameraState,
-      serializedCameraState,
-    })
-  ) {
-    setInternallyWrittenCameraStateToken(serializedCameraState);
-  }
-}
-
-function writeCameraStateToTargetElement(args: {
-  targetElement: HTMLElement;
-  cameraState: CameraState | null;
-  serializedCameraState: string | null;
-}): boolean {
-  const { targetElement, cameraState, serializedCameraState } = args;
-  if (
-    readCameraStateTokenFromTargetElement(targetElement) ===
-    serializedCameraState
-  ) {
-    return false;
-  }
-  if (cameraState === null) {
-    delete targetElement.dataset.cameraState;
-    return true;
-  }
-  if (serializedCameraState === null) {
-    throw new Error("serialized camera state is unexpectedly null");
-  }
-  targetElement.dataset.cameraState = serializedCameraState;
-  return true;
-}
-
-function postCameraStateToEmbeddedRenderer(args: {
-  targetElement: HTMLElement;
-  cameraState: CameraState | null;
-}): void {
-  const { targetElement, cameraState } = args;
-  if (!(targetElement instanceof HTMLIFrameElement)) {
-    return;
-  }
-  const targetWindow = targetElement.contentWindow;
-  if (targetWindow === null) {
-    return;
-  }
-  targetWindow.postMessage(
-    {
-      cameraState,
-      type: "trackball-camera-state",
-    },
-    window.location.origin,
-  );
-}
-
-function isEmbeddedRendererMessageSource(args: {
-  targetElement: HTMLElement;
-  source: MessageEventSource | null;
-}): boolean {
-  const { targetElement, source } = args;
-  return (
-    targetElement instanceof HTMLIFrameElement &&
-    source !== null &&
-    source === targetElement.contentWindow
-  );
-}
-
-function isTrackballCameraStateChangeMessage(
-  value: unknown,
-): value is { type: "trackball-camera-state-change"; cameraState: CameraState } {
-  return (
-    isRecord(value) &&
-    value.type === "trackball-camera-state-change" &&
-    isCameraState(value.cameraState)
-  );
-}
-
-function isCameraState(value: unknown): value is CameraState {
-  return (
-    isRecord(value) &&
-    isRecord(value.intrinsics) &&
-    isRecord(value.extrinsics) &&
-    typeof value.intr_convention === "string" &&
-    typeof value.extr_convention === "string" &&
-    (value.name === null || typeof value.name === "string") &&
-    (value.id === null || typeof value.id === "string")
-  );
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object";
 }

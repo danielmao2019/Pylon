@@ -7,13 +7,14 @@ exercises the Dash Gaussian path, so the Dash entry points expose the
 skeleton-declared signatures without a concrete renderer.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 
 def create_dash_gaussians_display(
     gaussian_path: Optional[str],
     title: str,
     meta_info: Optional[Dict[str, Any]] = None,
+    lock_roll: Optional[Tuple[float, float, float]] = None,
 ) -> Any:
     """Create a Dash Gaussian-splat display object.
 
@@ -21,6 +22,9 @@ def create_dash_gaussians_display(
         gaussian_path: Gaussian-splat artifact path.
         title: Display panel title.
         meta_info: Optional renderer metadata.
+        lock_roll: Optional axis to lock camera roll about, as an `(x, y, z)`
+            world-space direction in the Gaussian model's own world frame; when
+            None the camera controls are the free trackball.
 
     Returns:
         Dash Gaussian-splat display component.
@@ -31,6 +35,15 @@ def create_dash_gaussians_display(
     assert isinstance(title, str), "Title must be a string. title=%r" % title
     assert meta_info is None or isinstance(meta_info, dict), (
         "Meta info must be None or a dict. meta_info=%r" % meta_info
+    )
+    assert lock_roll is None or (
+        isinstance(lock_roll, tuple)
+        and len(lock_roll) == 3
+        and all(isinstance(component, float) for component in lock_roll)
+        and any(component != 0.0 for component in lock_roll)
+    ), (
+        "Roll lock axis must be None or a non-zero 3-tuple of floats. "
+        "lock_roll=%r" % (lock_roll,)
     )
     raise NotImplementedError(
         "Dash Gaussian display is declared by the skeleton but not exercised "
