@@ -19,7 +19,9 @@ point_cloud.py
     │   ├── # Builds a point cloud from in-memory fields, deriving the record each field's source defines and applying over it whatever the meta data override states.
     │   ├── def _validate_inputs [local]
     │   │   ├── assert xyz is None or xyz is an np.ndarray or a torch.Tensor
+    │   │   ├── assert xyz is None or CONCEPTUAL_NAME[the dtype of xyz] is not 'uint64'  # uint64 is unsupported as a source dtype whatever the values are
     │   │   ├── assert data is None or data is a dict whose keys are all str
+    │   │   ├── assert data is None or no value of data carries a uint64 dtype  # the same refusal for the fields handed in through data
     │   │   ├── if xyz is None
     │   │   │   ├── assert data is not None
     │   │   │   └── assert data carries 'xyz'  # coordinates arrive either on their own arg or inside data, and a construction naming them in neither is not a point cloud
@@ -44,7 +46,6 @@ point_cloud.py
     │   │   ├── for each name, value in data
     │   │   │   ├── impls entry = meta_data[name] when meta_data names this field, else an empty dict
     │   │   │   ├── impls source_dtype = CONCEPTUAL_NAME[the dtype of value]  # read before any cast, and kept whatever dtype the override states, since the record is what the source held
-    │   │   │   ├── assert source_dtype is not 'uint64'  # uint64 is unsupported as a source dtype whatever the values are
     │   │   │   ├── impls layout = the 'layout' entry states, else a one-entry tuple of name  # an in-memory field is its own source and gets the identity mapping
     │   │   │   └── impls derived[name] = {'dtype': source_dtype, 'layout': layout}
     │   │   └── return derived
