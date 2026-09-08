@@ -15,6 +15,9 @@ from PIL import Image
 from data.structures.three_d.camera.camera import Camera
 from data.structures.three_d.camera.cameras import Cameras
 from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
+from data.structures.three_d.camera.intrinsics.camera_intrinsics import (
+    build_camera_intrinsics,
+)
 from data.structures.three_d.nerfstudio.nerfstudio_data import NerfStudio_Data
 from data.structures.three_d.point_cloud.io.save_point_cloud import save_point_cloud
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
@@ -187,9 +190,25 @@ def _create_nerfstudio(cameras: List[Camera], output_root: Path) -> None:
         ],
         dtype=np.float32,
     )
+    batched_intrinsics = build_camera_intrinsics(
+        model=camera_intrinsics.model,
+        params={
+            key: torch.stack(
+                [camera.intrinsics.params[key] for camera in cameras], dim=0
+            )
+            for key in camera_intrinsics.params
+        },
+        intr_convention=camera_intrinsics.intr_convention,
+    )
+    batched_extrinsics = CameraExtrinsics(
+        extrinsics=torch.stack(
+            [camera.extrinsics.extrinsics for camera in cameras], dim=0
+        ),
+        extr_convention=cameras[0].extrinsics.extr_convention,
+    )
     nerfstudio_cameras = Cameras(
-        intrinsics=[camera.intrinsics for camera in cameras],
-        extrinsics=[camera.extrinsics for camera in cameras],
+        intrinsics=batched_intrinsics,
+        extrinsics=batched_extrinsics,
         names=camera_names,
         ids=[camera.id for camera in cameras],
         device=cameras[0].device,

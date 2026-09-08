@@ -143,11 +143,9 @@ class CameraExtrinsics:
             None.
 
         Returns:
-            The camera center ``extrinsics[:3, 3]`` as a length-3 torch.Tensor.
+            The camera center ``extrinsics[..., :3, 3]`` as a ``[..., 3]`` torch.Tensor, one per camera the matrix carries.
         """
-        center = self._extrinsics[:3, 3]
-        assert center.shape == (3,), f"{center.shape=}"
-        return center
+        return self._extrinsics[..., :3, 3]
 
     @property
     def right(self) -> torch.Tensor:
@@ -157,27 +155,27 @@ class CameraExtrinsics:
             None.
 
         Returns:
-            The unit right-axis length-3 torch.Tensor.
+            The unit right axis as a ``[..., 3]`` torch.Tensor, one per camera the matrix carries.
         """
         if self._extr_convention == "standard":
-            vec = self._extrinsics[:3, 0]
+            vec = self._extrinsics[..., :3, 0]
         elif self._extr_convention == "opengl":
-            vec = self._extrinsics[:3, 0]
+            vec = self._extrinsics[..., :3, 0]
         elif self._extr_convention == "opencv":
-            vec = self._extrinsics[:3, 0]
+            vec = self._extrinsics[..., :3, 0]
         elif self._extr_convention == "pytorch3d":
-            vec = -self._extrinsics[:3, 0]
+            vec = -self._extrinsics[..., :3, 0]
         elif self._extr_convention == "arkit":
-            vec = -self._extrinsics[:3, 1]
+            vec = -self._extrinsics[..., :3, 1]
         else:
             assert False, f"Unsupported extr_convention: {self._extr_convention}"
-        norm = torch.norm(vec)
-        assert torch.isclose(
+        norm = torch.linalg.norm(vec, dim=-1)
+        assert torch.allclose(
             norm,
-            torch.tensor(1.0, dtype=vec.dtype, device=vec.device),
+            torch.ones_like(norm),
             atol=1.0e-05,
             rtol=0.0,
-        ), f"Right vector must be unit, got norm {float(norm)}"
+        ), f"Right vector must be unit, got norm {norm}"
         return vec
 
     @property
@@ -188,27 +186,27 @@ class CameraExtrinsics:
             None.
 
         Returns:
-            The unit forward-axis length-3 torch.Tensor.
+            The unit forward axis as a ``[..., 3]`` torch.Tensor, one per camera the matrix carries.
         """
         if self._extr_convention == "standard":
-            vec = self._extrinsics[:3, 1]
+            vec = self._extrinsics[..., :3, 1]
         elif self._extr_convention == "opengl":
-            vec = -self._extrinsics[:3, 2]
+            vec = -self._extrinsics[..., :3, 2]
         elif self._extr_convention == "opencv":
-            vec = self._extrinsics[:3, 2]
+            vec = self._extrinsics[..., :3, 2]
         elif self._extr_convention == "pytorch3d":
-            vec = self._extrinsics[:3, 2]
+            vec = self._extrinsics[..., :3, 2]
         elif self._extr_convention == "arkit":
-            vec = self._extrinsics[:3, 2]
+            vec = self._extrinsics[..., :3, 2]
         else:
             assert False, f"Unsupported extr_convention: {self._extr_convention}"
-        norm = torch.norm(vec)
-        assert torch.isclose(
+        norm = torch.linalg.norm(vec, dim=-1)
+        assert torch.allclose(
             norm,
-            torch.tensor(1.0, dtype=vec.dtype, device=vec.device),
+            torch.ones_like(norm),
             atol=1.0e-05,
             rtol=0.0,
-        ), f"Forward vector must be unit, got norm {float(norm)}"
+        ), f"Forward vector must be unit, got norm {norm}"
         return vec
 
     @property
@@ -219,27 +217,27 @@ class CameraExtrinsics:
             None.
 
         Returns:
-            The unit up-axis length-3 torch.Tensor.
+            The unit up axis as a ``[..., 3]`` torch.Tensor, one per camera the matrix carries.
         """
         if self._extr_convention == "standard":
-            vec = self._extrinsics[:3, 2]
+            vec = self._extrinsics[..., :3, 2]
         elif self._extr_convention == "opengl":
-            vec = self._extrinsics[:3, 1]
+            vec = self._extrinsics[..., :3, 1]
         elif self._extr_convention == "opencv":
-            vec = -self._extrinsics[:3, 1]
+            vec = -self._extrinsics[..., :3, 1]
         elif self._extr_convention == "pytorch3d":
-            vec = self._extrinsics[:3, 1]
+            vec = self._extrinsics[..., :3, 1]
         elif self._extr_convention == "arkit":
-            vec = -self._extrinsics[:3, 0]
+            vec = -self._extrinsics[..., :3, 0]
         else:
             assert False, f"Unsupported extr_convention: {self._extr_convention}"
-        norm = torch.norm(vec)
-        assert torch.isclose(
+        norm = torch.linalg.norm(vec, dim=-1)
+        assert torch.allclose(
             norm,
-            torch.tensor(1.0, dtype=vec.dtype, device=vec.device),
+            torch.ones_like(norm),
             atol=1.0e-05,
             rtol=0.0,
-        ), f"Up vector must be unit, got norm {float(norm)}"
+        ), f"Up vector must be unit, got norm {norm}"
         return vec
 
     def to(
@@ -455,19 +453,27 @@ class CameraExtrinsics:
             translation=translation,
         )
 
-        rotation_c2w = self._extrinsics[:3, :3]
-        translation_c2w = self._extrinsics[:3, 3]
+        rotation_c2w = self._extrinsics[..., :3, :3]
+        translation_c2w = self._extrinsics[..., :3, 3]
         rotation_c2w_new = rotation @ rotation_c2w
-        translation_c2w_new = scale * (rotation @ translation_c2w) + translation
-
-        extrinsics_new = torch.eye(
-            4,
-            dtype=self._dtype,
-            device=self._device,
+        translation_c2w_new = (
+            scale * (rotation @ translation_c2w.unsqueeze(-1)).squeeze(-1) + translation
         )
-        extrinsics_new[:3, :3] = rotation_c2w_new
-        extrinsics_new[:3, 3] = translation_c2w_new
-        extrinsics_new[:3, :3] = _stabilize_rotation_matrix(extrinsics_new[:3, :3])
+
+        extrinsics_new = (
+            torch.eye(
+                4,
+                dtype=self._dtype,
+                device=self._device,
+            )
+            .expand(self._extrinsics.shape)
+            .clone()
+        )
+        extrinsics_new[..., :3, :3] = rotation_c2w_new
+        extrinsics_new[..., :3, 3] = translation_c2w_new
+        extrinsics_new[..., :3, :3] = _stabilize_rotation_matrix(
+            extrinsics_new[..., :3, :3]
+        )
 
         return CameraExtrinsics(
             extrinsics=extrinsics_new,
@@ -476,20 +482,20 @@ class CameraExtrinsics:
 
 
 def _stabilize_rotation_matrix(rotation: torch.Tensor) -> torch.Tensor:
-    """Project a near-orthogonal (3, 3) rotation onto the nearest proper rotation.
+    """Project near-orthogonal (..., 3, 3) rotations onto the nearest proper rotations.
 
     Args:
-        rotation: A near-orthogonal 3x3 rotation as a float32 or float64 torch.Tensor.
+        rotation: Near-orthogonal ``(..., 3, 3)`` rotations as a float32 or float64 torch.Tensor, the leading dims being the camera batch a single pose leaves empty.
 
     Returns:
-        The nearest proper rotation matrix, in the received dtype.
+        The nearest proper rotation matrices, in the received shape and dtype.
     """
     # Input validations
     assert isinstance(rotation, torch.Tensor), (
         "Expected rotation matrix to be a torch.Tensor. " f"{type(rotation)=}"
     )
-    assert rotation.shape == (3, 3), (
-        "Expected rotation matrix shape to be 3x3. " f"{rotation.shape=}"
+    assert rotation.shape[-2:] == (3, 3), (
+        "Expected rotation matrix trailing dims to be 3x3. " f"{rotation.shape=}"
     )
     assert rotation.dtype in (torch.float32, torch.float64), (
         "Expected rotation matrix dtype to be float32 or float64. " f"{rotation.dtype=}"
@@ -498,7 +504,7 @@ def _stabilize_rotation_matrix(rotation: torch.Tensor) -> torch.Tensor:
     identity = torch.eye(3, dtype=rotation.dtype, device=rotation.device)
     should_be_identity = rotation @ rotation.transpose(-1, -2)
     orthogonality_residual = float(torch.max(torch.abs(should_be_identity - identity)))
-    determinant_residual = abs(float(torch.linalg.det(rotation)) - 1.0)
+    determinant_residual = float(torch.max(torch.abs(torch.linalg.det(rotation) - 1.0)))
     assert (
         max(orthogonality_residual, determinant_residual) <= _ORTHOGONALITY_REPAIR_ATOL
     ), (
@@ -508,8 +514,12 @@ def _stabilize_rotation_matrix(rotation: torch.Tensor) -> torch.Tensor:
 
     u, _, v_h = torch.linalg.svd(rotation)
     rotation_fixed = u @ v_h
-    if float(torch.linalg.det(rotation_fixed)) < 0.0:
-        u[:, -1] = -u[:, -1]
-        rotation_fixed = u @ v_h
+    column_scales = torch.ones_like(u[..., 0, :])
+    column_scales[..., -1] = torch.where(
+        torch.linalg.det(rotation_fixed) < 0.0,
+        -column_scales[..., -1],
+        column_scales[..., -1],
+    )
+    rotation_fixed = (u * column_scales.unsqueeze(-2)) @ v_h
     validate_rotation_matrix(rotation_fixed)
     return rotation_fixed

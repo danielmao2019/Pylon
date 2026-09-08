@@ -180,9 +180,20 @@ def serialize_cameras(
     ) -> Tuple["Cameras", bool]:
         was_single = isinstance(cameras, Camera)
         if was_single:
+            # A leading axis of one, not a one-element list.
             cameras = Cameras(
-                intrinsics=[cameras.intrinsics],
-                extrinsics=[cameras.extrinsics],
+                intrinsics=build_camera_intrinsics(
+                    model=cameras.intrinsics.model,
+                    params={
+                        key: value[None]
+                        for key, value in cameras.intrinsics.params.items()
+                    },
+                    intr_convention=cameras.intrinsics.intr_convention,
+                ),
+                extrinsics=CameraExtrinsics(
+                    extrinsics=cameras.extrinsics.extrinsics[None],
+                    extr_convention=cameras.extrinsics.extr_convention,
+                ),
                 names=[cameras.name],
                 ids=[cameras.id],
                 device=cameras.device,
@@ -417,41 +428,66 @@ def _deserialize_cameras_json(
 
     _validate_inputs()
 
-    intrinsics_list: List[Any] = []
-    extrinsics_list: List[CameraExtrinsics] = []
-    names: List[Optional[str]] = []
-    ids: List[Optional[int]] = []
-    for per_camera_dict in per_camera_dicts:
-        params = _deserialize_intrinsics_params(
-            params=per_camera_dict["params"],
-            device=device,
-        )
-        extrinsics = torch.as_tensor(
-            per_camera_dict["extrinsics"],
+    # The batch shares one projection expression, so it shares one model and one
+    # frame per half.
+    model = per_camera_dicts[0]["model"]
+    intr_convention = per_camera_dicts[0]["intr_convention"]
+    extr_convention = per_camera_dicts[0]["extr_convention"]
+    assert all(
+        per_camera_dict["model"] == model for per_camera_dict in per_camera_dicts
+    ), (
+        "Expected every json camera payload to name one shared camera model. "
+        f"{model=} {[per_camera_dict['model'] for per_camera_dict in per_camera_dicts]=}"
+    )
+    assert all(
+        per_camera_dict["intr_convention"] == intr_convention
+        for per_camera_dict in per_camera_dicts
+    ), (
+        "Expected every json camera payload to name one shared image-plane frame. "
+        f"{intr_convention=} "
+        f"{[per_camera_dict['intr_convention'] for per_camera_dict in per_camera_dicts]=}"
+    )
+    assert all(
+        per_camera_dict["extr_convention"] == extr_convention
+        for per_camera_dict in per_camera_dicts
+    ), (
+        "Expected every json camera payload to name one shared pose frame. "
+        f"{extr_convention=} "
+        f"{[per_camera_dict['extr_convention'] for per_camera_dict in per_camera_dicts]=}"
+    )
+
+    # json stores a row per camera where npz stores a column per field.
+    params_columns: Dict[str, List[Union[int, float]]] = {
+        key: [per_camera_dict["params"][key] for per_camera_dict in per_camera_dicts]
+        for key in per_camera_dicts[0]["params"]
+    }
+    names: List[Optional[str]] = [
+        per_camera_dict["name"] for per_camera_dict in per_camera_dicts
+    ]
+    ids: List[Optional[int]] = [
+        per_camera_dict["id"] for per_camera_dict in per_camera_dicts
+    ]
+
+    tensor_params = _deserialize_intrinsics_params(params=params_columns, device=device)
+    intrinsics = build_camera_intrinsics(
+        model=model,
+        params=tensor_params,
+        intr_convention=intr_convention,
+        device=device,
+    )
+    extrinsics_batched = CameraExtrinsics(
+        extrinsics=torch.as_tensor(
+            [per_camera_dict["extrinsics"] for per_camera_dict in per_camera_dicts],
             dtype=torch.float32,
             device=device,
-        )
-        intrinsics_list.append(
-            build_camera_intrinsics(
-                model=per_camera_dict["model"],
-                params=params,
-                intr_convention=per_camera_dict["intr_convention"],
-                device=device,
-            )
-        )
-        extrinsics_list.append(
-            CameraExtrinsics(
-                extrinsics=extrinsics,
-                extr_convention=per_camera_dict["extr_convention"],
-                device=device,
-            )
-        )
-        names.append(per_camera_dict["name"])
-        ids.append(per_camera_dict["id"])
+        ),
+        extr_convention=extr_convention,
+        device=device,
+    )
 
     return Cameras(
-        intrinsics=intrinsics_list,
-        extrinsics=extrinsics_list,
+        intrinsics=intrinsics,
+        extrinsics=extrinsics_batched,
         names=names,
         ids=ids,
         device=device,
@@ -470,43 +506,47 @@ def _serialize_cameras_npz(cameras: "Cameras") -> Dict[str, Any]:
         `[N, 4, 4]`, per-camera `intr_convention` / `extr_convention` / `name` / `id` arrays of length N with
         `has_name` / `has_id` flag arrays and a `-1` id sentinel for absent ids.
     """
-    models: List[str] = []
-    params: List[str] = []
-    intr_conventions: List[str] = []
-    extrinsics_list: List[np.ndarray] = []
-    extr_conventions: List[str] = []
-    names: List[str] = []
-    has_names: List[bool] = []
-    ids: List[int] = []
-    has_ids: List[bool] = []
-    for camera in cameras:
-        models.append(camera.intrinsics.model)
-        params.append(
-            json.dumps(_serialize_intrinsics_params(params=camera.intrinsics.params))
-        )
-        intr_conventions.append(camera.intrinsics.intr_convention)
-        extrinsics_list.append(
-            np.asarray(
-                camera.extrinsics.extrinsics.detach().cpu().tolist(),
-                dtype=np.float32,
-            )
-        )
-        extr_conventions.append(camera.extrinsics.extr_convention)
-        names.append("" if camera.name is None else camera.name)
-        has_names.append(camera.name is not None)
-        ids.append(-1 if camera.id is None else camera.id)
-        has_ids.append(camera.id is not None)
+    # The params are already [N] columns, which is the shape npz stores.
+    serialized_params = _serialize_intrinsics_params(params=cameras.intrinsics.params)
+    batch_size = len(cameras)
+
+    # The format keeps a column per camera where the batch keeps one value.
+    models = np.array([cameras.intrinsics.model] * batch_size)
+    intr_conventions = np.array([cameras.intrinsics.intr_convention] * batch_size)
+    extr_conventions = np.array([cameras.extrinsics.extr_convention] * batch_size)
+
+    extrinsics = cameras.extrinsics.extrinsics.detach().cpu()
+    assert extrinsics.is_floating_point(), (
+        "Expected the batch's cam2world matrices to be floating point before the npz "
+        f"float32 cast. {extrinsics.dtype=}"
+    )
+    extrinsics = extrinsics.to(torch.float32).numpy()
+
+    names = np.array(["" if name is None else name for name in cameras.names])
+    has_names = np.array([name is not None for name in cameras.names])
+    ids = np.array(
+        [-1 if id is None else id for id in cameras.ids],
+        dtype=np.int64,
+    )
+    has_ids = np.array([id is not None for id in cameras.ids])
 
     return {
-        "model": np.array(models),
-        "params": np.array(params),
-        "intr_convention": np.array(intr_conventions),
-        "extrinsics": np.stack(extrinsics_list, axis=0),
-        "extr_convention": np.array(extr_conventions),
-        "name": np.array(names),
-        "has_name": np.array(has_names),
-        "id": np.array(ids, dtype=np.int64),
-        "has_id": np.array(has_ids),
+        "model": models,
+        "params": np.array(
+            [
+                json.dumps(
+                    {key: column[index] for key, column in serialized_params.items()}
+                )
+                for index in range(batch_size)
+            ]
+        ),
+        "intr_convention": intr_conventions,
+        "extrinsics": extrinsics,
+        "extr_convention": extr_conventions,
+        "name": names,
+        "has_name": has_names,
+        "id": ids,
+        "has_id": has_ids,
     }
 
 
@@ -584,45 +624,56 @@ def _deserialize_cameras_npz(
     id_array = payload["id"]
     has_id_array = payload["has_id"]
 
-    intrinsics_list: List[Any] = []
-    extrinsics_list: List[CameraExtrinsics] = []
-    names: List[Optional[str]] = []
-    ids: List[Optional[int]] = []
-    for index in range(batch_size):
-        model = str(model_array[index].item())
-        params = json.loads(str(params_array[index].item()))
-        params = _deserialize_intrinsics_params(params=params, device=device)
-        intrinsics_list.append(
-            build_camera_intrinsics(
-                model=model,
-                params=params,
-                intr_convention=str(intr_convention_array[index].item()),
-                device=device,
-            )
-        )
-        extrinsics_list.append(
-            CameraExtrinsics(
-                extrinsics=torch.as_tensor(
-                    extrinsics[index],
-                    dtype=torch.float32,
-                    device=device,
-                ),
-                extr_convention=str(extr_convention_array[index].item()),
-                device=device,
-            )
-        )
+    # One model and one frame pair is what lets the batch share a single projection
+    # expression.
+    model = str(model_array[0].item())
+    intr_convention = str(intr_convention_array[0].item())
+    extr_convention = str(extr_convention_array[0].item())
+    assert bool(np.all(model_array == model_array[0])), (
+        "Expected the Cameras NPZ model column to be constant over the batch. "
+        f"{model_array=}"
+    )
+    assert bool(np.all(intr_convention_array == intr_convention_array[0])), (
+        "Expected the Cameras NPZ intr_convention column to be constant over the "
+        f"batch. {intr_convention_array=}"
+    )
+    assert bool(np.all(extr_convention_array == extr_convention_array[0])), (
+        "Expected the Cameras NPZ extr_convention column to be constant over the "
+        f"batch. {extr_convention_array=}"
+    )
 
-        has_name = bool(has_name_array[index].item())
-        name = str(name_array[index].item()) if has_name else None
-        names.append(name)
+    names: List[Optional[str]] = [
+        str(name_array[index].item()) if bool(has_name_array[index].item()) else None
+        for index in range(batch_size)
+    ]
+    ids: List[Optional[int]] = [
+        int(id_array[index].item()) if bool(has_id_array[index].item()) else None
+        for index in range(batch_size)
+    ]
 
-        has_id = bool(has_id_array[index].item())
-        camera_id = int(id_array[index].item()) if has_id else None
-        ids.append(camera_id)
+    # The npz params column spells one camera's params per entry, gathered into the
+    # columns the batch is built from.
+    params_rows = [json.loads(str(entry.item())) for entry in params_array]
+    params_columns: Dict[str, List[Union[int, float]]] = {
+        key: [params_row[key] for params_row in params_rows] for key in params_rows[0]
+    }
+
+    tensor_params = _deserialize_intrinsics_params(params=params_columns, device=device)
+    intrinsics = build_camera_intrinsics(
+        model=model,
+        params=tensor_params,
+        intr_convention=intr_convention,
+        device=device,
+    )
+    extrinsics_batched = CameraExtrinsics(
+        extrinsics=torch.as_tensor(extrinsics, dtype=torch.float32, device=device),
+        extr_convention=extr_convention,
+        device=device,
+    )
 
     return Cameras(
-        intrinsics=intrinsics_list,
-        extrinsics=extrinsics_list,
+        intrinsics=intrinsics,
+        extrinsics=extrinsics_batched,
         names=names,
         ids=ids,
         device=device,
@@ -631,51 +682,59 @@ def _deserialize_cameras_npz(
 
 def _serialize_intrinsics_params(
     params: Dict[str, torch.Tensor],
-) -> Dict[str, Union[int, float]]:
-    """Map scalar tensor intrinsics params to numeric scalar values.
+) -> Dict[str, Union[int, float, List[int], List[float]]]:
+    """Map tensor intrinsics params to numeric values at the camera I/O boundary.
 
     Args:
-        params: Named scalar tensor intrinsics params.
+        params: Named tensor intrinsics params, every value sharing one leading batch
+            shape: `[]` for a single camera, `[N]` for a batch of them.
 
     Returns:
-        A numeric params dict suitable for JSON and NPZ payloads.
+        A numeric params dict suitable for JSON and NPZ payloads: a scalar per key for
+        a scalar param, a length-N list per key for a batched one.
     """
-    serialized_params: Dict[str, Union[int, float]] = {}
+    serialized_params: Dict[str, Union[int, float, List[int], List[float]]] = {}
     for key, value in params.items():
         assert isinstance(value, torch.Tensor), (
             "Expected serialized intrinsics params to be tensor-valued. "
             f"{key=} {type(value)=}"
         )
-        assert value.shape == (), (
-            "Expected serialized intrinsics params to be scalar tensors. "
-            f"{key=} {value.shape=}"
+        assert value.ndim <= 1, (
+            "Expected serialized intrinsics params to be scalar or one-axis batched "
+            f"tensors. {key=} {value.shape=}"
         )
-        scalar = value.detach().cpu().item()
+        column = value.detach().cpu().numpy()
+        assert np.issubdtype(column.dtype, np.number), (
+            "Expected serialized intrinsics params to be numeric before the payload "
+            f"cast. {key=} {column.dtype=}"
+        )
         if key in {"h", "w"}:
-            assert float(scalar).is_integer(), (
+            assert bool(np.all(column == np.round(column))), (
                 "Expected serialized resolution params to be integer-valued. "
-                f"{key=} {scalar=}"
+                f"{key=} {column=}"
             )
-            serialized_params[key] = int(scalar)
+            serialized_params[key] = column.astype(np.int64).tolist()
         else:
-            serialized_params[key] = float(scalar)
+            serialized_params[key] = column.astype(np.float64).tolist()
     return serialized_params
 
 
 def _deserialize_intrinsics_params(
-    params: Dict[str, Union[int, float]],
+    params: Dict[str, Union[int, float, List[int], List[float]]],
     device: torch.device,
     dtype: torch.dtype = torch.float32,
 ) -> Dict[str, torch.Tensor]:
-    """Map serialized numeric scalar intrinsics params back to scalar tensors.
+    """Map serialized numeric intrinsics params back to tensors at the I/O boundary.
 
     Args:
-        params: Serialized numeric scalar intrinsics params.
-        device: Target device for the scalar tensors.
-        dtype: Target floating dtype for the scalar tensors.
+        params: Serialized numeric intrinsics params, every value either a scalar for a
+            single camera or a length-N column for a batch of them.
+        device: Target device for the param tensors.
+        dtype: Target floating dtype for the param tensors.
 
     Returns:
-        A tensor-valued params dict on the requested device and dtype.
+        A tensor-valued params dict on the requested device and dtype, every value
+        shaped `[]` for a scalar param and `[N]` for a column.
     """
     tensor_params: Dict[str, torch.Tensor] = {}
     for key, value in params.items():

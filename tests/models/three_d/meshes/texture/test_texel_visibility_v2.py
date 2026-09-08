@@ -28,28 +28,24 @@ def _build_one_camera() -> Cameras:
     """
 
     return Cameras(
-        intrinsics=[
-            build_camera_intrinsics(
-                model="pinhole",
-                params={
-                    "fx": 1.0,
-                    "fy": 1.0,
-                    "cx": 0.0,
-                    "cy": 0.0,
-                    "h": 2,
-                    "w": 2,
-                },
-                intr_convention="standard",
-                device="cpu",
-            )
-        ],
-        extrinsics=[
-            CameraExtrinsics(
-                extrinsics=torch.eye(4, dtype=torch.float32),
-                extr_convention="opencv",
-                device="cpu",
-            )
-        ],
+        intrinsics=build_camera_intrinsics(
+            model="pinhole",
+            params={
+                "fx": torch.tensor([1.0]),
+                "fy": torch.tensor([1.0]),
+                "cx": torch.tensor([0.0]),
+                "cy": torch.tensor([0.0]),
+                "h": torch.tensor([2.0]),
+                "w": torch.tensor([2.0]),
+            },
+            intr_convention="standard",
+            device="cpu",
+        ),
+        extrinsics=CameraExtrinsics(
+            extrinsics=torch.eye(4, dtype=torch.float32)[None],
+            extr_convention="opencv",
+            device="cpu",
+        ),
         device="cpu",
     )
 

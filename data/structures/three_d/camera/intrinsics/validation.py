@@ -19,7 +19,7 @@ def validate_camera_intrinsics_attributes(
     Args:
         model: Camera-model identifier string.
         intr_convention: Candidate image-plane convention the params are stated in.
-        params: Candidate named scalar tensor intrinsics params for the model.
+        params: Candidate named tensor intrinsics params for the model, each ``[]`` or ``[B]``.
         device: Candidate device, expected to be None or a torch device spec.
         dtype: Candidate dtype, expected to be None or a floating torch dtype.
 
@@ -94,7 +94,7 @@ def validate_camera_intrinsics_params(
     intr_convention: str,
     params: Any,
 ) -> Dict[str, torch.Tensor]:
-    """Validate the named scalar tensor intrinsics params for a camera model.
+    """Validate the named tensor intrinsics params for a camera model.
 
     Validates the resolution keys every model carries, the tensor state every param
     is stated as, the projection keys that model's own dispatch owns, and the
@@ -103,7 +103,7 @@ def validate_camera_intrinsics_params(
     Args:
         model: Validated camera-model identifier string.
         intr_convention: Validated image-plane convention the params are stated in.
-        params: Candidate named scalar tensor intrinsics params for the model.
+        params: Candidate named tensor intrinsics params for the model, each ``[]`` or ``[B]``.
 
     Returns:
         The validated named intrinsics params.
@@ -116,19 +116,24 @@ def validate_camera_intrinsics_params(
             "Expected every intrinsics param value to be a torch.Tensor. "
             f"{key=} {type(value)=}"
         )
-        assert value.shape == (), (
-            "Expected every intrinsics param value to be a scalar tensor. "
-            f"{key=} {value.shape=}"
+        assert value.ndim <= 1, (
+            "Expected every intrinsics param value to be a scalar or a one-axis "
+            f"batch. {key=} {value.shape=}"
         )
         assert value.is_floating_point(), (
             "Expected every intrinsics param value to be a floating tensor. "
             f"{key=} {value.dtype=}"
         )
+    batch_shapes = {key: value.shape for key, value in params.items()}
+    assert len(set(batch_shapes.values())) == 1, (
+        "Expected every intrinsics param to share one leading batch shape, a scalar "
+        f"param being the empty-batch case. {batch_shapes=}"
+    )
     assert {"h", "w"}.issubset(params.keys()), (
         "Expected intrinsics params to carry the resolution keys h and w. "
         f"{sorted(params.keys())=}"
     )
-    assert params["h"] > 0 and params["w"] > 0, (
+    assert torch.all(params["h"] > 0) and torch.all(params["w"] > 0), (
         "Expected intrinsics params h and w to be positive. "
         f"{params['h']=} {params['w']=}"
     )
@@ -157,7 +162,7 @@ def _validate_camera_intrinsics_params_simple_pinhole(
     """Validate simple_pinhole params: shared focal length f plus principal point.
 
     Args:
-        params: Candidate simple_pinhole scalar tensor params.
+        params: Candidate simple_pinhole tensor params, each ``[]`` or ``[B]``.
 
     Returns:
         The validated simple_pinhole params.
@@ -166,10 +171,12 @@ def _validate_camera_intrinsics_params_simple_pinhole(
         "Expected simple_pinhole params to have exactly keys {f, cx, cy, h, w}. "
         f"{set(params.keys())=}"
     )
-    assert params["f"] > 0, (
+    assert torch.all(params["f"] > 0), (
         "Expected simple_pinhole focal length f to be positive. " f"{params['f']=}"
     )
-    assert torch.isfinite(params["cx"]) and torch.isfinite(params["cy"]), (
+    assert torch.all(torch.isfinite(params["cx"])) and torch.all(
+        torch.isfinite(params["cy"])
+    ), (
         "Expected simple_pinhole principal point cx / cy to be finite. "
         f"{params['cx']=} {params['cy']=}"
     )
@@ -182,7 +189,7 @@ def _validate_camera_intrinsics_params_pinhole(
     """Validate pinhole params: independent focal lengths fx / fy plus principal point.
 
     Args:
-        params: Candidate pinhole scalar tensor params.
+        params: Candidate pinhole tensor params, each ``[]`` or ``[B]``.
 
     Returns:
         The validated pinhole params.
@@ -191,11 +198,13 @@ def _validate_camera_intrinsics_params_pinhole(
         "Expected pinhole params to have exactly keys {fx, fy, cx, cy, h, w}. "
         f"{set(params.keys())=}"
     )
-    assert params["fx"] > 0 and params["fy"] > 0, (
+    assert torch.all(params["fx"] > 0) and torch.all(params["fy"] > 0), (
         "Expected pinhole focal lengths fx / fy to be positive. "
         f"{params['fx']=} {params['fy']=}"
     )
-    assert torch.isfinite(params["cx"]) and torch.isfinite(params["cy"]), (
+    assert torch.all(torch.isfinite(params["cx"])) and torch.all(
+        torch.isfinite(params["cy"])
+    ), (
         "Expected pinhole principal point cx / cy to be finite. "
         f"{params['cx']=} {params['cy']=}"
     )
@@ -208,7 +217,7 @@ def _validate_camera_intrinsics_params_ortho(
     """Validate ortho (weak-perspective) params: focal scales fx / fy plus offset.
 
     Args:
-        params: Candidate ortho scalar tensor params.
+        params: Candidate ortho tensor params, each ``[]`` or ``[B]``.
 
     Returns:
         The validated ortho params.
@@ -217,11 +226,13 @@ def _validate_camera_intrinsics_params_ortho(
         "Expected ortho params to have exactly keys {fx, fy, cx, cy, h, w}. "
         f"{set(params.keys())=}"
     )
-    assert params["fx"] > 0 and params["fy"] > 0, (
+    assert torch.all(params["fx"] > 0) and torch.all(params["fy"] > 0), (
         "Expected ortho focal scales fx / fy to be positive. "
         f"{params['fx']=} {params['fy']=}"
     )
-    assert torch.isfinite(params["cx"]) and torch.isfinite(params["cy"]), (
+    assert torch.all(torch.isfinite(params["cx"])) and torch.all(
+        torch.isfinite(params["cy"])
+    ), (
         "Expected ortho principal-point offset cx / cy to be finite. "
         f"{params['cx']=} {params['cy']=}"
     )
@@ -281,14 +292,18 @@ def _validate_principal_point_within_image(
     height = params["h"]
     width = params["w"]
     if intr_convention == "standard":
-        assert 0.0 <= cx <= width and 0.0 <= cy <= height, (
+        assert torch.all((cx >= 0.0) & (cx <= width)) and torch.all(
+            (cy >= 0.0) & (cy <= height)
+        ), (
             "Expected the principal point to fall within the pixel raster running "
             "corner to corner. "
             f"{cx=} {cy=} {height=} {width=}"
         )
         return
     if intr_convention in {"opengl", "vulkan"}:
-        assert -1.0 <= cx <= 1.0 and -1.0 <= cy <= 1.0, (
+        assert torch.all((cx >= -1.0) & (cx <= 1.0)) and torch.all(
+            (cy >= -1.0) & (cy <= 1.0)
+        ), (
             "Expected the principal point to fall within the device frame, each "
             "axis normalized by its own side. "
             f"{cx=} {cy=} {intr_convention=}"
@@ -296,9 +311,8 @@ def _validate_principal_point_within_image(
         return
     if intr_convention == "pytorch3d":
         shorter_side = torch.minimum(height, width)
-        assert (
-            torch.abs(cx) <= width / shorter_side
-            and torch.abs(cy) <= height / shorter_side
+        assert torch.all(torch.abs(cx) <= width / shorter_side) and torch.all(
+            torch.abs(cy) <= height / shorter_side
         ), (
             "Expected the principal point to fall within the pytorch3d device "
             "frame, whose shorter side alone reaches 1. "

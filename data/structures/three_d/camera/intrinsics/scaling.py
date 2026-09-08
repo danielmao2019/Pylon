@@ -83,16 +83,18 @@ def resolve_target_resolution(
             torch.Tensor,
         ]
     ] = None,
-) -> Tuple[int, int]:
+) -> Tuple[Union[int, torch.Tensor], Union[int, torch.Tensor]]:
     """Resolve the two ways a caller names a target resolution into the single form a rescale reads.
 
     Args:
-        params: The model's named intrinsics params, carrying scalar ``h`` / ``w`` values the current resolution is read off.
+        params: The model's named intrinsics params, carrying the ``h`` / ``w`` values the current resolution is read off, scalar for one camera and ``[B]`` for a batch.
         resolution: Optional target image resolution as one integer side or ``(height, width)``.
         scale: Optional uniform factor, or a per-axis ``(sx, sy)`` pair, on the resolution the params already carry.
 
     Returns:
-        The target image resolution as an ``(height, width)`` pair of positive ints.
+        The target image resolution as a ``(height, width)`` pair of positive
+        ints, or of ``[B]`` int64 torch.Tensors when a factor is applied to
+        batched params, one side per camera.
     """
 
     def _validate_inputs() -> None:
@@ -255,17 +257,19 @@ def resolve_target_resolution(
     if resolution is not None:
         return resolution
     if scale is not None:
-        height = round(
-            float(torch.as_tensor(params["h"]).detach().cpu())
-            * float(torch.as_tensor(scale[1]).detach().cpu())
-        )
-        width = round(
-            float(torch.as_tensor(params["w"]).detach().cpu())
-            * float(torch.as_tensor(scale[0]).detach().cpu())
-        )
-        assert height > 0 and width > 0, (
+        height = torch.round(
+            torch.as_tensor(params["h"]).detach().cpu().double()
+            * torch.as_tensor(scale[1]).detach().cpu().double()
+        ).long()
+        width = torch.round(
+            torch.as_tensor(params["w"]).detach().cpu().double()
+            * torch.as_tensor(scale[0]).detach().cpu().double()
+        ).long()
+        assert bool(torch.all(height > 0)) and bool(torch.all(width > 0)), (
             "Expected a scale that keeps both image sides positive. "
             f"{height=} {width=} {scale=}"
         )
+        if height.ndim == 0:
+            return int(height), int(width)
         return height, width
     assert 0, "Should not reach here. " f"{resolution=} {scale=}"
