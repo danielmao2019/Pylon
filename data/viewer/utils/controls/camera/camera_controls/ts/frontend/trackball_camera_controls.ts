@@ -23,6 +23,12 @@ export interface TrackballCameraControls {
 
 export interface ThreeTrackballCameraControls extends TrackballCameraControls {
   target: THREE.Vector3;
+  noRotate: boolean;
+  noZoom: boolean;
+  noPan: boolean;
+  minDistance: number;
+  maxDistance: number;
+  rollLockAxis: THREE.Vector3 | null;
   addEventListener: (type: "change", listener: () => void) => void;
   handleResize: () => void;
   update: () => void;
@@ -33,14 +39,13 @@ export interface ThreeTrackballCameraControls extends TrackballCameraControls {
 // for external sync.
 //
 // Args:
-//   container: the display container the controls stamp their wiring onto and
-//     observe data-camera-state on.
+//   container: the display container the controls observe data-camera-state on.
 //   camera: the perspective camera the controls drive.
 //   renderer: the WebGL renderer whose canvas receives the pointer events.
 //   initialCameraState: initial framing (camera-to-world extrinsics + intrinsics);
 //     null uses the camera's default framing.
 //   lockRoll: the world-space axis to lock camera roll about, in the scene's own
-//     world frame; null is the free trackball whose camera roll follows the drag.
+//     world frame; null leaves the controls exactly as three constructed them.
 //     This module owns no axis of its own, so the axis is always the caller's.
 //
 // Returns:
@@ -59,12 +64,11 @@ export function createTrackballCameraControls({
   lockRoll?: THREE.Vector3 | null;
 }): ThreeTrackballCameraControls {
   const controls = createRendererTrackballCameraControls({
-    container,
     camera,
     renderer,
     lockRoll,
   });
-  assertTrackballCameraControls({ container, lockRoll });
+  assertTrackballCameraControls({ controls, renderer, lockRoll });
   if (initialCameraState !== null) {
     controls.applyCameraState(initialCameraState);
   }
@@ -86,27 +90,26 @@ export function createTrackballCameraControls({
 // right-drag pan, wheel zoom, and context-menu suppression.
 //
 // Args:
-//   container: the display container the constructed wiring is stamped onto.
 //   camera: the perspective camera the controls drive.
 //   renderer: the WebGL renderer whose canvas receives the pointer events.
-//   lockRoll: the world-space axis to lock camera roll about; null wires the free
-//     trackball rotation that carries camera.up along with the drag.
+//   lockRoll: the world-space axis to lock camera roll about; null leaves the
+//     controls exactly as three constructed them, so a caller naming no axis
+//     renders what it rendered before this argument existed.
 //
 // Returns:
 //   The renderer-specific trackball controls.
 function createRendererTrackballCameraControls({
-  container,
   camera,
   renderer,
   lockRoll,
 }: {
-  container: HTMLElement;
   camera: THREE.PerspectiveCamera;
   renderer: THREE.WebGLRenderer;
   lockRoll: THREE.Vector3 | null;
 }): ThreeTrackballCameraControls {
   const threeControls = new ThreeTrackballControlsImpl(camera, renderer.domElement);
   const listeners = new Set<CameraStateListener>();
+  const rollLockAxis = lockRoll === null ? null : lockRoll.clone().normalize();
   threeControls.rotateSpeed = 3;
   threeControls.zoomSpeed = 1.5;
   threeControls.panSpeed = 0.8;
@@ -114,24 +117,12 @@ function createRendererTrackballCameraControls({
   renderer.domElement.addEventListener("contextmenu", (event: MouseEvent) => {
     event.preventDefault();
   });
-  container.dataset.cameraControlMode = "trackball";
-  container.dataset.trackballMouseMapping =
-    "left-drag-rotate/right-drag-pan/wheel-zoom";
-  container.dataset.contextMenuBehavior = "suppressed-for-trackball-pan";
 
-  if (lockRoll !== null) {
-    const rollLockAxis = lockRoll.clone().normalize();
+  if (rollLockAxis !== null) {
     // Three's own rotation is the free trackball that carries camera.up along
     // with the drag; the roll-locked left-drag below replaces it, leaving three's
     // right-drag pan and wheel zoom untouched.
     threeControls.noRotate = true;
-    container.dataset.cameraRollLock = JSON.stringify({
-      x: rollLockAxis.x,
-      y: rollLockAxis.y,
-      z: rollLockAxis.z,
-    });
-    container.dataset.cameraRightAxisConstraint = "perpendicular-to-roll-lock-axis";
-    container.dataset.cameraRotationLimit = "roll-locked-to-supplied-axis";
 
     const cameraRightAxis = new THREE.Vector3().crossVectors(
       threeControls.target.clone().sub(camera.position),
@@ -214,6 +205,7 @@ function createRendererTrackballCameraControls({
     }
   });
   return Object.assign(threeControls, {
+    rollLockAxis,
     getCameraState: () =>
       buildThreeTrackballCameraState({
         camera,
@@ -242,47 +234,62 @@ function createRendererTrackballCameraControls({
 // the mouse-mapping, no-orbit, no-pose-clamp, and roll-lock assertions.
 //
 // Args:
-//   container: the display container carrying the constructed controls' wiring.
+//   controls: the constructed trackball controls.
+//   renderer: the WebGL renderer whose canvas the controls listen on.
 //   lockRoll: the world-space axis the controls were asked to lock roll about;
 //     null asserts the free trackball.
 //
 // Returns:
 //   void.
 function assertTrackballCameraControls({
-  container,
+  controls,
+  renderer,
   lockRoll,
 }: {
-  container: HTMLElement;
+  controls: ThreeTrackballCameraControls;
+  renderer: THREE.WebGLRenderer;
   lockRoll: THREE.Vector3 | null;
 }): void {
-  assertTrackballMouseMapping({ container });
-  assertNoOrbitCameraControls({ container });
-  assertNoCameraPoseClamps({ container, lockRoll });
-  assertRollLock({ container, lockRoll });
+  assertTrackballMouseMapping({ controls, renderer });
+  assertNoOrbitCameraControls({ controls });
+  assertNoCameraPoseClamps({ controls, lockRoll });
+  assertRollLock({ controls, lockRoll });
 }
 
 // Asserts the controls map left-drag to rotate, right-drag to pan, and wheel to
 // zoom, and that the canvas suppresses its context menu.
 //
 // Args:
-//   container: the display container carrying the constructed controls' wiring.
+//   controls: the constructed trackball controls.
+//   renderer: the WebGL renderer whose canvas the controls listen on.
 //
 // Returns:
 //   void.
 function assertTrackballMouseMapping({
-  container,
+  controls,
+  renderer,
 }: {
-  container: HTMLElement;
+  controls: ThreeTrackballCameraControls;
+  renderer: THREE.WebGLRenderer;
 }): void {
-  if (
-    container.dataset.trackballMouseMapping !==
-    "left-drag-rotate/right-drag-pan/wheel-zoom"
-  ) {
-    throw new Error("invalid trackball camera controls");
+  // Three's trackball fixes left-drag to rotation, right-drag to pan, and the
+  // wheel to zoom, so each mapping is live exactly when its disable flag is off;
+  // a roll-locked construction hands the left-drag to its own rotation instead.
+  const leftDragRotates = !controls.noRotate || controls.rollLockAxis !== null;
+  if (!leftDragRotates || controls.noPan || controls.noZoom) {
+    throw new Error(
+      `invalid trackball camera controls: noRotate=${controls.noRotate} noPan=${controls.noPan} noZoom=${controls.noZoom}`,
+    );
   }
-  if (
-    container.dataset.contextMenuBehavior !== "suppressed-for-trackball-pan"
-  ) {
+  // Context-menu suppression lives in a listener, so the only way to read it back
+  // is to put a cancelable contextmenu event through the canvas; every listener on
+  // it does nothing but preventDefault, so the probe leaves no state behind.
+  const contextMenuProbe = new MouseEvent("contextmenu", {
+    bubbles: false,
+    cancelable: true,
+  });
+  renderer.domElement.dispatchEvent(contextMenuProbe);
+  if (!contextMenuProbe.defaultPrevented) {
     throw new Error("context menu blocks trackball panning");
   }
 }
@@ -291,19 +298,16 @@ function assertTrackballMouseMapping({
 // semantics.
 //
 // Args:
-//   container: the display container carrying the constructed controls' wiring.
+//   controls: the constructed trackball controls.
 //
 // Returns:
 //   void.
 function assertNoOrbitCameraControls({
-  container,
+  controls,
 }: {
-  container: HTMLElement;
+  controls: ThreeTrackballCameraControls;
 }): void {
-  if (
-    container.dataset.cameraControlMode === "orbit" ||
-    container.dataset.cameraControlFamily === "orbit"
-  ) {
+  if (!(controls instanceof ThreeTrackballControlsImpl)) {
     throw new Error("orbit-style camera controls are forbidden");
   }
 }
@@ -312,48 +316,40 @@ function assertNoOrbitCameraControls({
 // angle, target lock, distance, pan, translation, or rotation.
 //
 // Args:
-//   container: the display container carrying the constructed controls' wiring.
+//   controls: the constructed trackball controls.
 //   lockRoll: the world-space axis the controls were asked to lock roll about;
 //     null forbids every rotation restriction.
 //
 // Returns:
 //   void.
 function assertNoCameraPoseClamps({
-  container,
+  controls,
   lockRoll,
 }: {
-  container: HTMLElement;
+  controls: ThreeTrackballCameraControls;
   lockRoll: THREE.Vector3 | null;
 }): void {
-  const forbiddenRestrictionKeys = [
-    "cameraPolarAngleLimit",
-    "cameraAzimuthAngleLimit",
-    "cameraTargetLock",
-    "cameraDistanceBounds",
-    "cameraPanLimit",
-    "cameraTranslationLimit",
-  ];
-  const restrictedKey = forbiddenRestrictionKeys.find(
-    (key) => container.dataset[key] !== undefined,
-  );
-  if (restrictedKey !== undefined) {
-    throw new Error(`restricted camera pose controls: ${restrictedKey}`);
+  // Three's trackball has no polar, azimuth, target-lock, or translation clamp to
+  // read: its whole pose-restriction surface is the pan flag and the distance
+  // bounds, which stay at the unbounded defaults.
+  if (
+    controls.noPan ||
+    controls.minDistance !== 0 ||
+    controls.maxDistance !== Infinity
+  ) {
+    throw new Error(
+      `restricted camera pose controls: noPan=${controls.noPan} minDistance=${controls.minDistance} maxDistance=${controls.maxDistance}`,
+    );
   }
-  const rotationLimit = container.dataset.cameraRotationLimit;
   if (lockRoll === null) {
-    if (rotationLimit !== undefined) {
-      throw new Error(
-        `restricted camera pose controls: cameraRotationLimit=${rotationLimit}`,
-      );
+    if (controls.noRotate) {
+      throw new Error("restricted camera pose controls: noRotate=true");
     }
     return;
   }
-  if (
-    rotationLimit !== undefined &&
-    rotationLimit !== "roll-locked-to-supplied-axis"
-  ) {
+  if (controls.noRotate && controls.rollLockAxis === null) {
     throw new Error(
-      `roll lock must cost only the roll axis: cameraRotationLimit=${rotationLimit}`,
+      "roll lock must cost only the roll axis: three's rotation is off and no roll-locked rotation replaced it",
     );
   }
 }
@@ -362,29 +358,31 @@ function assertNoCameraPoseClamps({
 // none is, this module owning no axis of its own.
 //
 // Args:
-//   container: the display container carrying the constructed controls' wiring.
+//   controls: the constructed trackball controls.
 //   lockRoll: the world-space axis the controls were asked to lock roll about;
 //     null asserts the camera right axis is constrained against no axis at all.
 //
 // Returns:
 //   void.
 function assertRollLock({
-  container,
+  controls,
   lockRoll,
 }: {
-  container: HTMLElement;
+  controls: ThreeTrackballCameraControls;
   lockRoll: THREE.Vector3 | null;
 }): void {
-  const rightAxisConstraint = container.dataset.cameraRightAxisConstraint;
   if (lockRoll !== null) {
-    if (rightAxisConstraint !== "perpendicular-to-roll-lock-axis") {
+    if (
+      controls.rollLockAxis === null ||
+      !controls.rollLockAxis.equals(lockRoll.clone().normalize())
+    ) {
       throw new Error(
         "roll-locked camera controls must keep the camera right axis perpendicular to the supplied axis",
       );
     }
     return;
   }
-  if (rightAxisConstraint !== undefined) {
+  if (controls.rollLockAxis !== null) {
     throw new Error(
       "free trackball camera controls must leave camera roll unconstrained",
     );

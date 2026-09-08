@@ -24,7 +24,7 @@ def create_dash_gaussians_display(
         meta_info: Optional renderer metadata.
         lock_roll: Optional axis to lock camera roll about, as an `(x, y, z)`
             world-space direction in the Gaussian model's own world frame; when
-            None the camera controls are the free trackball.
+            None the display renders no camera configuration at all.
 
     Returns:
         Dash Gaussian-splat display component.

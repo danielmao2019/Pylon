@@ -90,7 +90,7 @@ def expected_camera_up(lock_roll: Tuple[float, float, float]) -> Dict[str, float
 
 
 def test_no_axis_means_free_trackball() -> None:
-    """A caller that names no lock_roll gets the free-roll Plotly dragmode, identical to an explicit lock_roll=None construction."""
+    """A caller that names no lock_roll gets no camera configuration at all, identical to an explicit lock_roll=None construction."""
     defaulted_controls = create_dash_trackball_camera_controls()
     explicit_controls = create_dash_trackball_camera_controls(lock_roll=None)
 
@@ -99,12 +99,10 @@ def test_no_axis_means_free_trackball() -> None:
         "lock_roll=None construction. "
         f"{defaulted_controls=} {explicit_controls=}"
     )
-    assert defaulted_controls["dragmode"] == "orbit", (
-        "Free-roll controls must select the Plotly gl3d dragmode that carries the "
-        f"camera up vector along with the drag. {defaulted_controls=}"
-    )
-    assert "camera" not in defaulted_controls, (
-        "Free-roll controls must pin no camera up vector. " f"{defaulted_controls=}"
+    assert defaulted_controls == {}, (
+        "Naming no roll-lock axis must add no camera configuration, so the display "
+        "renders the camera it rendered before this argument existed. "
+        f"{defaulted_controls=}"
     )
 
 

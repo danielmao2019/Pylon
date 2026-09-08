@@ -2,7 +2,7 @@
 
 The camera controls a caller names through `lock_roll` are inert unless they reach
 the layout of the figure the display factory actually returns, so every assertion
-here reads `figure.layout.scene` rather than the factory's inputs.
+here reads the rendered `figure.layout` rather than the factory's inputs.
 """
 
 import math
@@ -97,29 +97,17 @@ def expected_camera_up(lock_roll: Tuple[float, float, float]) -> Dict[str, float
     DASH_3D_DISPLAY_FACTORIES,
     ids=[display_kind for display_kind, _ in DASH_3D_DISPLAY_FACTORIES],
 )
-def test_no_axis_renders_a_free_roll_camera(
+def test_no_axis_renders_no_camera_configuration(
     display_kind: str,
     build_display: Callable[..., dcc.Graph],
 ) -> None:
-    """A display given no lock_roll renders the free-roll dragmode and pins no camera up vector."""
+    """A display given no lock_roll renders no scene configuration at all, so it renders the camera it rendered before this argument existed."""
     display = build_display(lock_roll=None)
 
-    scene = display.figure.layout.scene
-    assert scene.dragmode == "orbit", (
-        "A display given no roll-lock axis must render the Plotly dragmode whose "
-        f"rotation is unrestricted. {display_kind=} {scene.dragmode=}"
-    )
-    assert scene.camera.up.x is None, (
-        "A display given no roll-lock axis must pin no camera up vector. "
-        f"{display_kind=} {scene.camera.up=}"
-    )
-    assert scene.camera.up.y is None, (
-        "A display given no roll-lock axis must pin no camera up vector. "
-        f"{display_kind=} {scene.camera.up=}"
-    )
-    assert scene.camera.up.z is None, (
-        "A display given no roll-lock axis must pin no camera up vector. "
-        f"{display_kind=} {scene.camera.up=}"
+    layout = display.figure.layout.to_plotly_json()
+    assert "scene" not in layout, (
+        "A display given no roll-lock axis must add no scene entry to the rendered "
+        f"layout. {display_kind=} {sorted(layout)=}"
     )
 
 

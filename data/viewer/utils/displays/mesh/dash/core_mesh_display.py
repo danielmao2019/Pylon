@@ -1103,7 +1103,7 @@ def create_dash_mesh_display(
             `DEFAULT_MESH_OPACITY` is used.
         mesh_side: Optional side mode override; when None `DEFAULT_MESH_SIDE`
             is used.
-        lock_roll: Optional axis to lock camera roll about, as an `(x, y, z)` world-space direction in the mesh's own world frame. When supplied, the rendered camera uses Plotly gl3d `dragmode="turntable"` with `camera.up` pinned to the normalized axis, so left-drag rotation never changes camera roll. When None, the camera controls are the free trackball: `dragmode="orbit"`, which carries the up vector along with the left-drag and leaves camera roll free; `"orbit"` is not Plotly's own gl3d default of `"turntable"`, so a caller that passes nothing gets left-drag roll that the same call did not produce before this version.
+        lock_roll: Optional axis to lock camera roll about, as an `(x, y, z)` world-space direction in the mesh's own world frame. When supplied, the rendered camera uses Plotly gl3d `dragmode="turntable"` with `camera.up` pinned to the normalized axis, so left-drag rotation never changes camera roll. When None, the display renders no camera configuration at all, so it renders exactly the camera it rendered before this argument existed.
 
     Returns:
         Dash `dcc.Graph` wrapping the mesh scene.
