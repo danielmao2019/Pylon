@@ -33,12 +33,8 @@ point_cloud.py
     │   │   ├── if xyz is None
     │   │   │   └── impls xyz = data['xyz']
     │   │   ├── impls data = xyz under the name 'xyz' followed by every other entry of data in its own order, or by nothing when data is None  # coordinates enter first, so field_names() reads coordinates-first without a splice
-    │   │   ├── def _build_meta_data [local]
-    │   │   │   ├── if meta_data is not None
-    │   │   │   │   └── return meta_data  # a record handed over is already resolved, and deriving a second one from the tensors would lose what an int32 tensor holding a uint16 colour means
-    │   │   │   └── return  # one entry per field of data, each holding CONCEPTUAL_NAME of that field's own dtype beside a one-entry tuple of its name, an in-memory field being its own source and getting the identity mapping
-    │   │   ├── calls _build_meta_data()
-    │   │   ├── impls meta_data = the record it built
+    │   │   ├── if meta_data is None
+    │   │   │   └── impls meta_data = one entry per field of data, each holding CONCEPTUAL_NAME of that field's own dtype beside a one-entry tuple of its name  # an in-memory field is its own source and gets the identity mapping, while a record handed over is already resolved and deriving a second one from the tensors would lose what an int32 tensor holding a uint16 colour means
     │   │   ├── impls device = device when it is given, else the device of data['xyz'] when it is a torch.Tensor, else the cpu device
     │   │   └── return data, meta_data, device
     │   ├── calls _normalize_inputs(xyz=xyz, data=data, meta_data=meta_data, device=device)
