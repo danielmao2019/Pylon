@@ -16,7 +16,7 @@ point_cloud.py
     ├── # The four underscore names below — _fields, _meta_data, _length, _device — are this class's own slots, and a bare one in any node means the slot on self; __setattr__ routes exactly those to the base setter and everything else to a validated field.
     ├── # What a field MEANS is the dtype its meta data entry holds, since that is the conceptual dtype its source held and is what a uint16 colour parked in an int32 tensor still is. A field the meta data does not name arrived after construction as a torch tensor, and torch holds no width it cannot name, so there its own dtype is exact.
     ├── def __init__(self, xyz: Optional[Union[np.ndarray, torch.Tensor]] = None, data: Optional[Dict[str, Union[np.ndarray, torch.Tensor]]] = None, meta_data: Optional[Dict[str, Dict[str, Any]]] = None, device: Optional[Union[str, torch.device]] = None) -> None
-    │   ├── # Builds a point cloud from in-memory fields under the meta data it is handed, or under the meta data it derives from those fields when it is handed none.
+    │   ├── # Builds a point cloud from in-memory fields under the meta data it applies over what those fields' own source defines.
     │   ├── def _validate_inputs [local]
     │   │   ├── assert xyz is None or xyz is an np.ndarray or a torch.Tensor
     │   │   ├── assert data is None or data is a dict whose keys are all str
@@ -25,7 +25,7 @@ point_cloud.py
     │   │   │   └── assert data carries 'xyz'  # coordinates arrive either on their own arg or inside data, and a construction naming them in neither is not a point cloud
     │   │   ├── else
     │   │   │   └── assert data is None or data carries no 'xyz'  # naming them in both leaves which one wins to the reader
-    │   │   ├── assert meta_data is None or every value of it is a dict carrying both 'dtype' and 'layout'  # the meta data is one whole record, so a half-stated entry is refused here rather than half-derived
+    │   │   ├── assert meta_data is None or every value of it is a non-empty dict whose keys sit in ('dtype', 'layout')  # an entry states one half or both, the half it leaves out being the one the source defines
     │   │   ├── assert every 'layout' meta_data states is a non-empty tuple of distinct str
     │   │   └── assert device is None or device names a torch device
     │   ├── calls _validate_inputs()
@@ -33,15 +33,23 @@ point_cloud.py
     │   │   ├── if xyz is None
     │   │   │   └── impls xyz = data['xyz']
     │   │   ├── impls data = xyz under the name 'xyz' followed by every other entry of data in its own order, or by nothing when data is None  # coordinates enter first, so field_names() reads coordinates-first without a splice
-    │   │   ├── if meta_data is None
-    │   │   │   └── impls meta_data = one entry per field of data, each holding CONCEPTUAL_NAME of that field's own dtype beside a one-entry tuple of its name  # an in-memory field is its own source and gets the identity mapping, while a record handed over is already resolved and deriving a second one from the tensors would lose what an int32 tensor holding a uint16 colour means
+    │   │   ├── def _apply_meta_data [local]
+    │   │   │   ├── impls applied = an empty dict
+    │   │   │   ├── for each name, value in data
+    │   │   │   │   ├── impls entry = meta_data[name] when meta_data names this field, else an empty dict
+    │   │   │   │   ├── impls dtype = the 'dtype' entry states, else CONCEPTUAL_NAME[the dtype of value]  # the source defines this half whenever the caller leaves it out
+    │   │   │   │   ├── impls layout = the 'layout' entry states, else a one-entry tuple of name  # an in-memory field is its own source and gets the identity mapping
+    │   │   │   │   └── impls applied[name] = {'dtype': dtype, 'layout': layout}
+    │   │   │   └── return applied
+    │   │   ├── calls _apply_meta_data()
+    │   │   ├── impls meta_data = the record it built  # one whole record from here on, the override having been applied over what the source defines, so no branch on absence survives into the core logic
     │   │   ├── impls device = device when it is given, else the device of data['xyz'] when it is a torch.Tensor, else the cpu device
     │   │   └── return data, meta_data, device
     │   ├── calls _normalize_inputs(xyz=xyz, data=data, meta_data=meta_data, device=device)
     │   ├── impls data, meta_data, device = the values it returned
     │   ├── impls _device = device
     │   ├── impls _length = the row count of data['xyz']
-    │   ├── impls _meta_data = meta_data  # resolved whole before the loop, since the rgb check below reads what a field means off it
+    │   ├── impls _meta_data = meta_data  # applied whole before the loop, since the rgb check below reads what a field means off it
     │   ├── impls _fields = an empty dict
     │   └── for each name, value in data
     │       ├── calls self._assert_field_name_valid(name=name)
