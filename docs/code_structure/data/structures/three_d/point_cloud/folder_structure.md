@@ -17,7 +17,7 @@ data/structures/three_d/point_cloud/
 tests/data/structures/three_d/
 ├── test_point_cloud.py  # the PointCloud class: construction, field access, field validation
 └── point_cloud/
-    ├── test_point_cloud_meta_data.py  # the meta data a PointCloud builds, takes from the override, and holds unchanged across an overwrite, an addition and a deletion
+    ├── test_point_cloud_meta_data.py  # the meta data a PointCloud derives, the meta data it is handed instead, and the record holding unchanged across an overwrite, an addition and a deletion
     └── test_select_random_select.py  # Select and RandomSelect over a PointCloud, including the meta datas Select carries across
 ```
 
