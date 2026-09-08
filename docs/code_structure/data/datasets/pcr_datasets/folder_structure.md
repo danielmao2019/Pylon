@@ -8,8 +8,8 @@ data/datasets/pcr_datasets/
 ├── base_pcr_dataset.py                 # BasePCRDataset: the shared input/label names and the whole viewer display for a registration pair
 ├── kitti_dataset.py                    # KITTI: velodyne scan pairs, their ground truth refined by ICP and cached per pair
 ├── modelnet40_dataset.py               # ModelNet40: OFF meshes self-registered through the synthetic-transform base, cropped by RandomPointCrop
-├── synthetic_transform_pcr_dataset.py  # SyntheticTransformPCRDataset: one cloud posed against a sampled transform, searched by trial until the overlap lands in range
-└── threedmatch_dataset.py              # 3DMatch and 3DLoMatch: annotated .ply fragment pairs, split by the overlap band each names
+├── synthetic_transform_pcr_dataset.py  # SyntheticTransformPCRDataset: one cloud posed against a sampled transform, searched by trial until the overlap lands in range, at the width that transform carries
+└── threedmatch_dataset.py              # 3DMatch and 3DLoMatch: annotated .ply fragment pairs, split by the overlap band each names, at the width their registration transforms carry
 ```
 
 ## Tests folder structure
