@@ -40,9 +40,13 @@ point_cloud.py
     │   │   ├── impls derived = an empty dict
     │   │   ├── for each name, entry in meta_data
     │   │   │   ├── impls layout = the 'layout' entry states, else a one-entry tuple of name  # a column the override names no layout for stands for itself
-    │   │   │   ├── assert every column of layout sits in data
-    │   │   │   ├── assert CONCEPTUAL_NAME names one dtype across those columns  # columns that disagree abort rather than being promoted to a dtype that covers them all
-    │   │   │   └── impls derived[name] = {'dtype': that dtype, 'layout': layout}  # the record keeps what the source held whatever dtype the override goes on to ask for
+    │   │   │   ├── if name sits in data and some column of layout is absent from data
+    │   │   │   │   ├── assert entry states a dtype  # a field arriving already assembled brings its whole record with it, since its source columns are gone and nothing here can read them back
+    │   │   │   │   └── impls derived[name] = entry  # the record crosses whole, which is how a selection or a transform carries what a field means forward
+    │   │   │   └── else
+    │   │   │       ├── assert every column of layout sits in data
+    │   │   │       ├── assert CONCEPTUAL_NAME names one dtype across those columns  # columns that disagree abort rather than being promoted to a dtype that covers them all
+    │   │   │       └── impls derived[name] = {'dtype': that dtype, 'layout': layout}  # the record keeps what the source held whatever dtype the override goes on to ask for
     │   │   ├── impls claimed = every column name appearing in any layout derived states
     │   │   ├── for each name, value in data
     │   │   │   └── if name sits in neither claimed nor derived
@@ -55,7 +59,10 @@ point_cloud.py
     │   │   ├── # Applies the record to the source columns, assembling each field and then every change the override asks of it, so each leaves here as the torch tensor this class stores.
     │   │   ├── impls fields = an empty dict
     │   │   ├── for each name, entry in self._meta_data
-    │   │   │   ├── impls value = the columns entry's layout names, each raised to two dimensions and joined along the column axis, in the system they arrived in  # a one-dimensional column becomes one column wide and a block that is already two-dimensional keeps the width it has, which is what lets three ply columns and one pcd attribute reach the same [N, 3]
+    │   │   │   ├── if every column of entry's layout sits in data
+    │   │   │   │   └── impls value = those columns each raised to two dimensions and joined along the column axis, in the system they arrived in  # a one-dimensional column becomes one column wide and a block that is already two-dimensional keeps the width it has, which is what lets three ply columns and one pcd attribute reach the same [N, 3]
+    │   │   │   ├── else
+    │   │   │   │   └── impls value = data[name]  # the field arrived already assembled, its record naming source columns this construction never saw
     │   │   │   ├── if meta_data states a dtype for name
     │   │   │   │   └── impls value = value cast to that dtype, in the system it arrived in  # the caller asked for it, so it converts as asked and whatever resolution it loses is the caller's own
     │   │   │   ├── impls value_dtype = CONCEPTUAL_NAME[the dtype of value]  # what the value is carried as once the override has moved it, which is the storage question rather than what the record says the field means
