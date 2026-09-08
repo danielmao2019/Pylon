@@ -12,46 +12,69 @@ if TYPE_CHECKING:
 
 
 def validate_cameras_attributes(
-    intrinsics: List["CameraIntrinsics"],
-    extrinsics: List["CameraExtrinsics"],
+    intrinsics: "CameraIntrinsics",
+    extrinsics: "CameraExtrinsics",
     names: List[Optional[str]],
     ids: List[Optional[int]],
     device: Optional[Union[str, torch.device]],
-    dtype: Optional[torch.dtype] = None,
+    dtype: Optional[torch.dtype],
 ) -> None:
-    """Validate the parallel per-camera lists, names / ids, device, and dtype for Cameras.
+    """Validate the batched component pair, its parallel metadata, device, and dtype for Cameras.
 
-    Single-entry validation for ``Cameras.__init__``; also validates the
-    inter-relationship that all four per-camera lists are equal length.
+    Single-entry validation for ``Cameras.__init__``; the component checks are
+    shape-agnostic, so the batched pair takes the same ones a single camera does,
+    plus the cross-component agreement on the leading batch axis.
 
     Args:
-        intrinsics: Per-camera list of CameraIntrinsics.
-        extrinsics: Per-camera list of CameraExtrinsics.
-        names: Per-camera list of optional names.
-        ids: Per-camera list of optional ids.
-        device: Optional device target for the cameras, a string or torch.device.
-        dtype: Optional floating dtype target for the cameras.
+        intrinsics: Candidate batched CameraIntrinsics whose params are each ``[B]`` torch.Tensor.
+        extrinsics: Candidate batched CameraExtrinsics whose cam2world matrix is a ``[B, 4, 4]`` torch.Tensor.
+        names: Per-camera list of optional names, parallel to the batch axis.
+        ids: Per-camera list of optional ids, parallel to the batch axis.
+        device: Optional device target for the batch, a string or torch.device.
+        dtype: Optional floating dtype target for the batch.
 
     Returns:
         None.
     """
-    assert len(intrinsics) == len(extrinsics) == len(names) == len(ids), (
-        "Expected the per-camera intrinsics / extrinsics / names / ids lists to be "
-        f"equal length. {len(intrinsics)=} {len(extrinsics)=} {len(names)=} {len(ids)=}"
+    validate_camera_attributes(
+        intrinsics=intrinsics,
+        extrinsics=extrinsics,
+        name=None,
+        id=None,
+        device=device,
+        dtype=dtype,
     )
-    for intrinsic, extrinsic, name, id in zip(intrinsics, extrinsics, names, ids):
-        validate_camera_attributes(
-            intrinsics=intrinsic,
-            extrinsics=extrinsic,
-            name=name,
-            id=id,
-            device=device,
-            dtype=dtype,
+
+    assert extrinsics.extrinsics.ndim == 3, (
+        "Expected the batched CameraExtrinsics cam2world matrix to carry exactly one "
+        f"leading batch axis, i.e. shape [B, 4, 4]. {extrinsics.extrinsics.shape=}"
+    )
+    batch_size = extrinsics.extrinsics.shape[0]
+    assert len(intrinsics.params) > 0, (
+        "Expected the batched CameraIntrinsics to carry at least one param. "
+        f"{list(intrinsics.params.keys())=}"
+    )
+    for key, value in intrinsics.params.items():
+        assert value.shape == (batch_size,), (
+            "Expected every batched CameraIntrinsics param to carry the same leading "
+            f"batch axis as the CameraExtrinsics. {key=} {value.shape=} {batch_size=}"
         )
+
+    assert len(names) == batch_size, (
+        "Expected the per-camera names to be parallel to the batch axis. "
+        f"{len(names)=} {batch_size=}"
+    )
+
+    assert len(ids) == batch_size, (
+        "Expected the per-camera ids to be parallel to the batch axis. "
+        f"{len(ids)=} {batch_size=}"
+    )
+
     assert device is None or isinstance(device, (str, torch.device)), (
         "Expected Cameras device to be None, a string, or torch.device. "
         f"{type(device)=}"
     )
+
     assert dtype is None or isinstance(dtype, torch.dtype), (
         "Expected Cameras dtype to be None or a torch dtype. " f"{type(dtype)=}"
     )
@@ -67,7 +90,7 @@ def validate_camera_attributes(
     name: Optional[str],
     id: Optional[int],
     device: Optional[Union[str, torch.device]],
-    dtype: Optional[torch.dtype] = None,
+    dtype: Optional[torch.dtype],
 ) -> None:
     """Validate the parts and the name / id / device / dtype for a Camera.
 
