@@ -216,6 +216,57 @@ class SLPCCDDataset(Base2DCDDataset):
 
         return hierarchy
 
+    def _load_datapoint(
+        self, idx: int
+    ) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
+        """Load a datapoint from the dataset.
+
+        Args:
+            idx: Index of the datapoint to load
+
+        Returns:
+            Tuple containing:
+            - inputs: Dictionary of input tensors
+            - labels: Dictionary of label tensors
+            - meta_info: Dictionary of metadata
+        """
+        # Step 1: Load point cloud files
+        pc_data = self._load_point_cloud_files(idx)
+
+        # Step 2: Extract positions and features
+        extracted_data = self._extract_positions_and_features(pc_data)
+
+        # Step 3: Extract change map
+        change_map = self._extract_change_map(pc_data, extracted_data['pc_2_xyz'])
+
+        # Combine data for processing
+        data_for_processing = {**extracted_data, 'change_map': change_map}
+
+        # Step 4: Process point clouds (normalize and subsample)
+        processed_data = self._process_point_clouds(data_for_processing)
+
+        # Combine data for neighborhood computation
+        data_for_neighborhood = {
+            **processed_data,
+            'pc_1_raw_length': extracted_data['pc_1_raw_length'],
+            'pc_2_raw_length': extracted_data['pc_2_raw_length'],
+        }
+
+        # Step 5: Compute neighborhood information
+        neighborhood_data = self._compute_neighborhood_info(data_for_neighborhood)
+
+        # Combine all data for input structure
+        all_data = {**data_for_neighborhood, **neighborhood_data}
+
+        # Step 6: Build final input structure
+        inputs = self._build_input_structure(all_data)
+
+        # Step 7: Prepare labels and metadata
+        labels = {'change_map': processed_data['change_map']}
+        meta_info = self._prepare_meta_info(idx, pc_data)
+
+        return inputs, labels, meta_info
+
     def _load_point_cloud_files(self, idx: int) -> Dict[str, Any]:
         """Load point cloud files for a given datapoint.
         Args:
@@ -490,57 +541,6 @@ class SLPCCDDataset(Base2DCDDataset):
             'file_name_1': os.path.basename(pc_data['pc_1_filepath']),
             'file_name_2': os.path.basename(pc_data['pc_2_filepath']),
         }
-
-    def _load_datapoint(
-        self, idx: int
-    ) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
-        """Load a datapoint from the dataset.
-
-        Args:
-            idx: Index of the datapoint to load
-
-        Returns:
-            Tuple containing:
-            - inputs: Dictionary of input tensors
-            - labels: Dictionary of label tensors
-            - meta_info: Dictionary of metadata
-        """
-        # Step 1: Load point cloud files
-        pc_data = self._load_point_cloud_files(idx)
-
-        # Step 2: Extract positions and features
-        extracted_data = self._extract_positions_and_features(pc_data)
-
-        # Step 3: Extract change map
-        change_map = self._extract_change_map(pc_data, extracted_data['pc_2_xyz'])
-
-        # Combine data for processing
-        data_for_processing = {**extracted_data, 'change_map': change_map}
-
-        # Step 4: Process point clouds (normalize and subsample)
-        processed_data = self._process_point_clouds(data_for_processing)
-
-        # Combine data for neighborhood computation
-        data_for_neighborhood = {
-            **processed_data,
-            'pc_1_raw_length': extracted_data['pc_1_raw_length'],
-            'pc_2_raw_length': extracted_data['pc_2_raw_length'],
-        }
-
-        # Step 5: Compute neighborhood information
-        neighborhood_data = self._compute_neighborhood_info(data_for_neighborhood)
-
-        # Combine all data for input structure
-        all_data = {**data_for_neighborhood, **neighborhood_data}
-
-        # Step 6: Build final input structure
-        inputs = self._build_input_structure(all_data)
-
-        # Step 7: Prepare labels and metadata
-        labels = {'change_map': processed_data['change_map']}
-        meta_info = self._prepare_meta_info(idx, pc_data)
-
-        return inputs, labels, meta_info
 
     def _get_cache_version_dict(self) -> Dict[str, Any]:
         """Return parameters that affect dataset content for cache versioning."""

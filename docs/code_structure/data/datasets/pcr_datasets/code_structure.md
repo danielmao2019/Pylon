@@ -108,25 +108,78 @@ modelnet40_dataset.py
 ```text
 synthetic_transform_pcr_dataset.py
 ├── from abc import ABC
-├── from typing import Any, Dict, Tuple
+├── from typing import Any, Dict, Optional, Tuple
 ├── import torch
 ├── from data.datasets.pcr_datasets.base_pcr_dataset import BasePCRDataset
+├── from data.structures.three_d.point_cloud import load_point_cloud
 ├── from data.structures.three_d.point_cloud.point_cloud import PointCloud
+├── from models.three_d.point_cloud.ops.set_ops.intersection import compute_registration_overlap
+├── from utils.determinism.hash_utils import deterministic_hash
 └── class SyntheticTransformPCRDataset(BasePCRDataset, ABC)
     ├── # Builds a registration pair out of one cloud by posing and cropping it, trying sampled transforms until the overlap lands in the range asked for.
-    └── def _load_datapoint(self, idx: int) -> Tuple[Dict[str, PointCloud], Dict[str, Any], Dict[str, Any]] [override]
-        ├── # Loads one synthetic pair, which is whichever trial of this index first produced an overlap in range.
-        ├── impls annotation = self.annotations[idx]
-        ├── assert annotation is to name both source paths
-        ├── assert this subclass implements _apply_crop
-        ├── impls t1_pc_filepath, t2_pc_filepath = the two paths that annotation names
-        ├── calls self._search_or_generate(t1_pc_filepath=t1_pc_filepath, t2_pc_filepath=t2_pc_filepath, idx=idx)
-        ├── impls src_pc, tgt_pc, overlap_ratio, transform_matrix, trial_idx = what it settled on
-        ├── if src_pc carries no feat
-        │   └── impls src_pc.feat = a float32 ones column of one entry per point
-        ├── if tgt_pc carries no feat
-        │   └── impls tgt_pc.feat = a float32 ones column of one entry per point
-        └── return  # the two clouds, transform_matrix as the label, and the two paths, the trial index, the transform and the overlap as meta info
+    ├── def _load_datapoint(self, idx: int) -> Tuple[Dict[str, PointCloud], Dict[str, Any], Dict[str, Any]] [override]
+    │   ├── # Loads one synthetic pair, which is whichever trial of this index first produced an overlap in range.
+    │   ├── impls annotation = self.annotations[idx]
+    │   ├── assert annotation is to name both source paths
+    │   ├── assert this subclass implements _apply_crop
+    │   ├── impls t1_pc_filepath, t2_pc_filepath = the two paths that annotation names
+    │   ├── calls self._search_or_generate(t1_pc_filepath=t1_pc_filepath, t2_pc_filepath=t2_pc_filepath, idx=idx)
+    │   ├── impls src_pc, tgt_pc, overlap_ratio, transform_matrix, trial_idx = what it settled on
+    │   ├── if src_pc carries no feat
+    │   │   └── impls src_pc.feat = a float32 ones column of one entry per point
+    │   ├── if tgt_pc carries no feat
+    │   │   └── impls tgt_pc.feat = a float32 ones column of one entry per point
+    │   └── return  # the two clouds, transform_matrix as the label, and the two paths, the trial index, the transform and the overlap as meta info
+    ├── def _search_or_generate(self, t1_pc_filepath: str, t2_pc_filepath: str, idx: int) -> Tuple[PointCloud, PointCloud, float, torch.Tensor, int]
+    │   ├── # Walks this index's trials in order and settles on the first transform whose overlap lands in the range asked for.
+    │   ├── impls idx_key = idx as a string  # the trials cache is keyed by dataset index
+    │   ├── with self.cache_lock
+    │   │   ├── if idx_key is absent from self.trials_cache
+    │   │   │   └── impls self.trials_cache[idx_key] = an empty list
+    │   │   └── impls cached_overlaps = a copy of that list  # the loop reads the copy, so a concurrent append cannot move it underfoot
+    │   ├── for each trial_idx below self.max_trials
+    │   │   ├── calls deterministic_hash((idx, trial_idx))
+    │   │   ├── impls trial_seed = the seed it derived
+    │   │   ├── calls self._sample_transform(trial_seed)
+    │   │   ├── impls transform_matrix = the pose that seed samples
+    │   │   ├── if trial_idx is within cached_overlaps
+    │   │   │   ├── impls cached_overlap = cached_overlaps[trial_idx]
+    │   │   │   └── if cached_overlap is not None and falls in self.overlap_range, its low end exclusive
+    │   │   │       ├── calls self._generate(t1_pc_filepath=t1_pc_filepath, t2_pc_filepath=t2_pc_filepath, transform_matrix=transform_matrix, idx=idx)
+    │   │   │       ├── impls src_pc, tgt_pc, generated_overlap = the pair that trial rebuilds
+    │   │   │       ├── assert generated_overlap is not None
+    │   │   │       ├── assert generated_overlap matches cached_overlap to within a hundred-thousandth  # the cache stores overlaps, so replaying a trial has to reproduce the one it stored
+    │   │   │       ├── impls the cached trial printed for this datapoint
+    │   │   │       └── return  # that pair, generated_overlap, transform_matrix and trial_idx
+    │   │   └── else
+    │   │       ├── calls self._generate(t1_pc_filepath=t1_pc_filepath, t2_pc_filepath=t2_pc_filepath, transform_matrix=transform_matrix, idx=idx)
+    │   │       ├── impls src_pc, tgt_pc, overlap_ratio = the pair that trial builds
+    │   │       ├── with self.cache_lock
+    │   │       │   ├── impls cache_list = self.trials_cache[idx_key]
+    │   │       │   ├── assert cache_list holds exactly trial_idx entries
+    │   │       │   ├── impls cache_list gains overlap_ratio
+    │   │       │   └── if self.cache_filepath is not None
+    │   │       │       └── calls self._save_trials_cache()
+    │   │       └── if overlap_ratio is not None and falls in self.overlap_range, its low end exclusive
+    │   │           ├── impls the newly generated trial printed for this datapoint
+    │   │           └── return  # that pair, overlap_ratio, transform_matrix and trial_idx
+    │   └── raise RuntimeError  # no trial under self.max_trials produced an overlap in range
+    └── def _generate(self, t1_pc_filepath: str, t2_pc_filepath: str, transform_matrix: torch.Tensor, idx: int) -> Tuple[PointCloud, PointCloud, Optional[float]]
+        ├── # Runs one trial of that search, which is this transform posing the pair apart, the crop, and the overlap that survives it.
+        ├── calls load_point_cloud(t1_pc_filepath, device=self.device, dtype=torch.float32)
+        ├── calls load_point_cloud(t2_pc_filepath, device=self.device, dtype=torch.float32)
+        ├── impls t1_pc_data, t2_pc_data = the two clouds it loaded
+        ├── calls self._apply_transform(t1_pc_data, t2_pc_data, transform_matrix)
+        ├── impls src_pc_transformed, tgt_pc_original = the first cloud carried by the inverse pose and the second left where it was  # impls-node-one-step:skip — one step; the "and" names what it is made of
+        ├── calls self._apply_crop(idx, src_pc_transformed)
+        ├── calls self._apply_crop(idx, tgt_pc_original)
+        ├── impls src_pc, tgt_pc = the two cropped clouds
+        ├── if either cropped cloud has no points
+        │   └── impls overlap_ratio = None
+        ├── else
+        │   ├── calls compute_registration_overlap(ref_points=tgt_pc.xyz, src_points=src_pc.xyz, transform=transform_matrix, positive_radius=self.matching_radius * 2)
+        │   └── impls overlap_ratio = the overlap it measured
+        └── return  # the two cropped clouds and overlap_ratio
 ```
 
 `data/datasets/pcr_datasets/threedmatch_dataset.py`

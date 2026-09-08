@@ -262,60 +262,6 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
 
         return inputs, labels, meta_info
 
-    def _generate(
-        self,
-        t1_pc_filepath: str,
-        t2_pc_filepath: str,
-        transform_matrix: torch.Tensor,
-        idx: int,
-    ) -> Tuple[PointCloud, PointCloud, Optional[float]]:
-        """Generate processed point clouds and overlap ratio for given parameters.
-
-        Args:
-            t1_pc_filepath: Path to first point cloud file
-            t2_pc_filepath: Path to second point cloud file
-            transform_matrix: 4x4 transformation matrix
-            idx: Dataset index for annotation access
-
-        Returns:
-            Tuple of (src_pc, tgt_pc, overlap_ratio)
-        """
-        # Load the two point clouds
-        t1_pc_data = load_point_cloud(
-            t1_pc_filepath,
-            device=self.device,
-            dtype=torch.float32,
-        )
-        t2_pc_data = load_point_cloud(
-            t2_pc_filepath,
-            device=self.device,
-            dtype=torch.float32,
-        )
-
-        # Apply inverse transform to PC1 and keep PC2 original
-        src_pc_transformed, tgt_pc_original = self._apply_transform(
-            t1_pc_data,
-            t2_pc_data,
-            transform_matrix,
-        )
-
-        # Apply crop to both point clouds (build and apply in one step)
-        src_pc = self._apply_crop(idx, src_pc_transformed)
-        tgt_pc = self._apply_crop(idx, tgt_pc_original)
-
-        # Check if crops resulted in empty point clouds
-        if src_pc.num_points == 0 or tgt_pc.num_points == 0:
-            overlap_ratio = None
-        else:
-            overlap_ratio = compute_registration_overlap(
-                ref_points=tgt_pc.xyz,
-                src_points=src_pc.xyz,
-                transform=transform_matrix,
-                positive_radius=self.matching_radius * 2,
-            )
-
-        return src_pc, tgt_pc, overlap_ratio
-
     def _search_or_generate(
         self,
         t1_pc_filepath: str,
@@ -424,6 +370,60 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
             f"Failed to find valid transform after {self.max_trials} trials. "
             f"Overlap range: {self.overlap_range}, idx: {idx}, annotation: {self.annotations[idx]}"
         )
+
+    def _generate(
+        self,
+        t1_pc_filepath: str,
+        t2_pc_filepath: str,
+        transform_matrix: torch.Tensor,
+        idx: int,
+    ) -> Tuple[PointCloud, PointCloud, Optional[float]]:
+        """Generate processed point clouds and overlap ratio for given parameters.
+
+        Args:
+            t1_pc_filepath: Path to first point cloud file
+            t2_pc_filepath: Path to second point cloud file
+            transform_matrix: 4x4 transformation matrix
+            idx: Dataset index for annotation access
+
+        Returns:
+            Tuple of (src_pc, tgt_pc, overlap_ratio)
+        """
+        # Load the two point clouds
+        t1_pc_data = load_point_cloud(
+            t1_pc_filepath,
+            device=self.device,
+            dtype=torch.float32,
+        )
+        t2_pc_data = load_point_cloud(
+            t2_pc_filepath,
+            device=self.device,
+            dtype=torch.float32,
+        )
+
+        # Apply inverse transform to PC1 and keep PC2 original
+        src_pc_transformed, tgt_pc_original = self._apply_transform(
+            t1_pc_data,
+            t2_pc_data,
+            transform_matrix,
+        )
+
+        # Apply crop to both point clouds (build and apply in one step)
+        src_pc = self._apply_crop(idx, src_pc_transformed)
+        tgt_pc = self._apply_crop(idx, tgt_pc_original)
+
+        # Check if crops resulted in empty point clouds
+        if src_pc.num_points == 0 or tgt_pc.num_points == 0:
+            overlap_ratio = None
+        else:
+            overlap_ratio = compute_registration_overlap(
+                ref_points=tgt_pc.xyz,
+                src_points=src_pc.xyz,
+                transform=transform_matrix,
+                positive_radius=self.matching_radius * 2,
+            )
+
+        return src_pc, tgt_pc, overlap_ratio
 
     def _sample_transform(self, seed: int) -> torch.Tensor:
         """Sample SE(3) transformation matrix directly.
