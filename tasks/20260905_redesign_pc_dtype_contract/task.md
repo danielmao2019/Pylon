@@ -31,7 +31,7 @@ goal: re-design pc dtype contract/provenance
       1. ply's subset is i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer and no boolean.
       2. torch 2.2.2 has no uint16, uint32, uint64 or float128, and bfloat16 is its alone.
       3. numpy 1.26.4 has uint64 and float128, and has no bfloat16.
-2. every dtype cast `__init__`, load point cloud and save point cloud decide on their own must be lossless: it never changes a value, in the mathematical sense.
+2. every dtype cast `__init__`, load point cloud and save point cloud make must be lossless: it never changes a value, in the mathematical sense. a cast that would change one hard-asserts and the program aborts.
    1. each dtype is a set of values, and one dtype's set may sit inside another's. float32's sits inside float64's. every casting decision reads those sets and the values a field holds, never the dtype names alone.
    2. when a system lacks a conceptual dtype but has one whose set contains its entire set, the smallest such dtype is used, and the cast converts whichever values are present in the data.
       1. in torch storage, ply u2 and numpy uint16 both go to int32, and ply u4 and numpy uint32 both go to int64.
