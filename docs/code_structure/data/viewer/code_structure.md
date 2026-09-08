@@ -195,7 +195,6 @@ layered_display_response.ts
 
 ```text
 layered_display_container.ts
-├── import * as THREE from "three";
 ├── import { reconcileInto } from "web/reconcile/reconcile";
 ├── import type { LeafVNode } from "web/reconcile/reconcile";
 ├── import type { CameraState } from "data/viewer/utils/controls/camera/camera_state/ts/frontend/types";
@@ -204,18 +203,18 @@ layered_display_container.ts
 ├── import "data/viewer/utils/displays/utils/ts/frontend/register_layer_renderers";  # side-effect: eager-glob-loads every modality so its self-registration populates the registry before any render
 ├── import { createSpatialDisplayScene, startThreeSceneRenderLoop, attachThreeScenePickSeam } from "data/viewer/utils/displays/utils/ts/frontend/three_scene_helpers";
 ├── import { createTrackballCameraControls } from "data/viewer/utils/controls/camera/camera_controls/ts/frontend/trackball_camera_controls";
-├── function renderLayeredDisplay({ layeredDisplayResponse, initialCameraState }: { layeredDisplayResponse: LayeredDisplayResponse; initialCameraState: CameraState | null }): LeafVNode
+├── function renderLayeredDisplay({ layeredDisplayResponse, initialCameraState, lockRoll = null }: { layeredDisplayResponse: LayeredDisplayResponse; initialCameraState: CameraState | null; lockRoll?: THREE.Vector3 | null }): LeafVNode
 │   ├── # Composes one layered display response into a shared spatial WebGL scene or a stacked raster DOM container per cell, routing on the backend-stamped layer_class.
 │   ├── if layeredDisplayResponse.layer_class == "spatial"
-│   │   └── return renderLayeredSpatialDisplay({ layeredDisplayResponse, initialCameraState })
+│   │   └── return renderLayeredSpatialDisplay({ layeredDisplayResponse, initialCameraState, lockRoll })
 │   └── if layeredDisplayResponse.layer_class == "raster"
 │       └── return renderLayeredRasterDisplay({ layeredDisplayResponse })
-├── function renderLayeredSpatialDisplay({ layeredDisplayResponse, initialCameraState }: { layeredDisplayResponse: LayeredDisplayResponse; initialCameraState: CameraState | null }): LeafVNode
+├── function renderLayeredSpatialDisplay({ layeredDisplayResponse, initialCameraState, lockRoll = null }: { layeredDisplayResponse: LayeredDisplayResponse; initialCameraState: CameraState | null; lockRoll?: THREE.Vector3 | null }): LeafVNode
 │   ├── # Renders the base + aux spatial layers into one shared scene/camera as a slot_id-keyed LeafVNode, the shared camera owning the framing and the additive pick seam.
 │   ├── calls createSpatialDisplayScene({ initialCameraState })                                     → { container, scene, camera, renderer }
 │   ├── calls createLayerObjects({ layeredDisplayResponse })                                        → layerObjects
 │   ├── impls layerObjects.forEach(object => scene.add(object))
-│   ├── calls createTrackballCameraControls({ container, camera, renderer, initialCameraState })    → controls  # the one shared camera owns the controls
+│   ├── calls createTrackballCameraControls({ container, camera, renderer, initialCameraState, lockRoll })    → controls  # the one shared camera owns the controls
 │   ├── calls _syncCameraState({ container, controls })                         # publish this cell's shared-camera pose now and on every change for cross-cell sync
 │   ├── calls attachThreeScenePickSeam({ container, camera, scenes: [scene] })  # augment the container with the pickAt seam over the one shared scene
 │   ├── calls renderLayeredSpatialScene({ scene, camera, renderer, controls })
@@ -420,10 +419,10 @@ core_points_display.py
 ├── DEFAULT_POINT_SIZE_FLOOR = 0.005  # absolute floor for visibility at typical canonical-world camera framings; used by the bounding-sphere heuristic when point_size is not supplied
 ├── DEFAULT_POINT_SIZE_RATIO = 0.002  # fraction of point-cloud bounding-sphere radius used as the heuristic default size; lib-owned default, documented + overridable
 ├── DEFAULT_POINT_COLOR = "#cccccc"   # uniform fallback color used when the point cloud has no per-point colors AND the caller does not supply point_color; lib-owned default, overridable
-├── def create_dash_points_display(point_cloud: PointCloud, point_size: Optional[float] = None, point_color: Optional[str] = None) -> dcc.Graph
+├── def create_dash_points_display(point_cloud: PointCloud, point_size: Optional[float] = None, point_color: Optional[str] = None, lock_roll: Optional[Tuple[float, float, float]] = None) -> dcc.Graph
 │   ├── # Renders a Dash point-cloud display element; point_size and point_color overrides are opt-in. point_color when supplied replaces per-point colors with a uniform color so the consumer can override the rendered look without rebuilding the data.
 │   ├── calls create_dash_points_scene(point_cloud=point_cloud, point_size=point_size, point_color=point_color)
-│   ├── calls create_dash_trackball_camera_controls
+│   ├── calls create_dash_trackball_camera_controls(lock_roll=lock_roll)
 │   ├── calls create_dash_points_component
 │   └── return
 ├── def create_dash_points_scene(point_cloud: PointCloud, point_size: Optional[float] = None, point_color: Optional[str] = None) -> go.Scatter3d
@@ -596,7 +595,7 @@ core_points_display.ts
 │   ├── calls createSpatialDisplayScene({ initialCameraState })
 │   ├── calls createPointsObject({ displayResponse, pointSize, pointColor })   → object
 │   ├── impls scene.add(object)
-│   ├── calls createTrackballCameraControls({ container, camera, renderer, initialCameraState })
+│   ├── calls createTrackballCameraControls({ container, camera, renderer, initialCameraState, lockRoll })
 │   ├── calls renderPointsScene({ scene, camera, renderer, controls })
 │   └── return LeafVNode keyed by displayResponse.url
 ├── function createPointsObject({ displayResponse, pointSize, pointColor }: { displayResponse: PointDisplayResponse; pointSize?: number; pointColor?: string }): THREE.Object3D
@@ -1390,7 +1389,7 @@ scene_graph_display.ts
 │   ├── calls createSpatialDisplayScene({ initialCameraState })
 │   ├── calls createSceneGraphObject({ container, displayResponse, nodeSize, edgeColor, edgeWidth, labelFontSize, labelColor })   → { object, labels, labelOverlay }
 │   ├── impls scene.add(object)
-│   ├── calls createTrackballCameraControls({ container, camera, renderer, initialCameraState })
+│   ├── calls createTrackballCameraControls({ container, camera, renderer, initialCameraState, lockRoll })
 │   ├── calls renderSceneGraphScene({ scene, camera, renderer, controls, labels, labelOverlay, labelFontSize, labelColor })
 │   └── return LeafVNode keyed by displayResponse.url
 ├── function createSceneGraphObject({ container, displayResponse, nodeSize, edgeColor, edgeWidth, labelFontSize, labelColor }: { container: HTMLDivElement; displayResponse: SceneGraphDisplayResponse; nodeSize?: number; edgeColor?: string; edgeWidth?: number; labelFontSize?: number; labelColor?: string }): { object: THREE.Object3D; labels: object[]; labelOverlay: HTMLDivElement }
@@ -1493,10 +1492,10 @@ core_mesh_display.py
 ├── DEFAULT_MESH_COLOR = "#cccccc"  # uniform fallback color used when geometry has no texture AND has no per-vertex colors AND the caller does not supply mesh_color; lib-owned default, overridable
 ├── DEFAULT_MESH_OPACITY = 1.0      # opaque default applied when the caller does not supply mesh_opacity; lib-owned default, overridable
 ├── DEFAULT_MESH_SIDE = "double"    # fallback side mode for visibility under arbitrary camera framings when the caller does not supply mesh_side; lib-owned default, overridable
-├── def create_dash_mesh_display(mesh: Any, mesh_color: Optional[str] = None, mesh_opacity: Optional[float] = None, mesh_side: Optional[str] = None) -> dcc.Graph
+├── def create_dash_mesh_display(mesh: Any, mesh_color: Optional[str] = None, mesh_opacity: Optional[float] = None, mesh_side: Optional[str] = None, lock_roll: Optional[Tuple[float, float, float]] = None) -> dcc.Graph
 │   ├── # Renders a Dash mesh display element with trackball camera controls; mesh_color, mesh_opacity, and mesh_side overrides are opt-in.
 │   ├── calls create_dash_mesh_scene(mesh=mesh, mesh_color=mesh_color, mesh_opacity=mesh_opacity, mesh_side=mesh_side)
-│   ├── calls create_dash_trackball_camera_controls
+│   ├── calls create_dash_trackball_camera_controls(lock_roll=lock_roll)
 │   ├── calls create_dash_mesh_component
 │   └── return
 ├── def create_dash_mesh_scene(mesh: Any, mesh_color: Optional[str] = None, mesh_opacity: Optional[float] = None, mesh_side: Optional[str] = None) -> go.Mesh3d
@@ -1758,7 +1757,7 @@ core_mesh_display.ts
 │   ├── calls createSpatialDisplayScene({ initialCameraState })
 │   ├── calls createMeshObject({ displayResponse, meshColor, meshOpacity, meshSide })   → object
 │   ├── impls scene.add(object)
-│   ├── calls createTrackballCameraControls({ container, camera, renderer, initialCameraState })
+│   ├── calls createTrackballCameraControls({ container, camera, renderer, initialCameraState, lockRoll })
 │   ├── calls renderMeshScene({ scene, camera, renderer, controls })
 │   └── return LeafVNode keyed by displayResponse.url
 ├── function createMeshObject({ displayResponse, meshColor, meshOpacity, meshSide }: { displayResponse: MeshDisplayResponse; meshColor?: string; meshOpacity?: number; meshSide?: THREE.Side }): THREE.Object3D
@@ -1850,10 +1849,10 @@ apis.py
 ```text
 core_gaussians_display.py
 ├── from data.viewer.utils.controls.camera.camera_controls.dash.trackball_camera_controls import create_dash_trackball_camera_controls
-├── def create_dash_gaussians_display
+├── def create_dash_gaussians_display(lock_roll=None)
 │   ├── # Renders a Dash Gaussian-splat display element with trackball camera controls.
 │   ├── calls create_dash_gaussians_scene
-│   ├── calls create_dash_trackball_camera_controls
+│   ├── calls create_dash_trackball_camera_controls(lock_roll=lock_roll)
 │   ├── calls create_dash_gaussians_component
 │   └── return
 ├── def create_dash_gaussians_scene
@@ -2188,7 +2187,7 @@ types.ts
 
 ```text
 trackball_camera_controls.py
-├── def create_dash_trackball_camera_controls
+├── def create_dash_trackball_camera_controls(lock_roll=None)
 │   ├── # Builds and validates the Dash trackball controls that every 3D Dash spatial display must use.
 │   ├── calls create_dash_renderer_trackball_camera_controls
 │   ├── calls assert_dash_trackball_camera_controls
@@ -2196,12 +2195,21 @@ trackball_camera_controls.py
 ├── def create_dash_renderer_trackball_camera_controls
 │   ├── # Constructs the Dash renderer-specific trackball controls wiring left-drag rotate, right-drag pan, wheel zoom, and context-menu suppression.
 │   ├── impls Dash renderer-specific trackball camera controls with left-button rotation, right-button panning, mouse-wheel zoom, and suppressed canvas context menu  # impls-node-one-step:skip
+│   ├── if lock_roll is not None
+│   │   ├── impls resolves the left-drag delta as yaw about the caller-supplied lock_roll plus pitch about the camera right axis
+│   │   ├── impls re-derives the camera up vector each drag step from the view direction and lock_roll, holding the camera right axis perpendicular to it
+│   │   ├── if the view direction runs parallel to lock_roll
+│   │   │   └── impls carries the camera right axis from the previous drag step through the degeneracy, so the polar angle keeps the unbounded range assert_dash_no_camera_pose_clamps demands
+│   │   └── return
+│   ├── else
+│   │   └── impls resolves the left-drag delta as free trackball rotation, carrying the camera up vector along with the drag
 │   └── return
 ├── def assert_dash_trackball_camera_controls
-│   ├── # Validates the constructed Dash controls satisfy every trackball contract by running the mouse-mapping, no-orbit, and no-pose-clamp assertions.
+│   ├── # Validates the constructed Dash controls satisfy every trackball contract by running the mouse-mapping, no-orbit, no-pose-clamp, and roll-lock assertions.
 │   ├── calls assert_dash_trackball_mouse_mapping
 │   ├── calls assert_dash_no_orbit_camera_controls
 │   ├── calls assert_dash_no_camera_pose_clamps
+│   ├── calls assert_dash_roll_lock
 │   └── return
 ├── def assert_dash_trackball_mouse_mapping
 │   ├── # Asserts the Dash controls map left-drag to rotate, right-drag to pan, and wheel to zoom, and that the canvas suppresses its context menu.
@@ -2215,10 +2223,21 @@ trackball_camera_controls.py
 │   ├── if controls use orbit-style target-locked camera semantics
 │   │   └── raise orbit-style camera controls are forbidden
 │   └── return
-└── def assert_dash_no_camera_pose_clamps
-    ├── # Asserts the Dash controls impose no camera-pose restriction on polar angle, azimuth angle, target lock, distance, pan, translation, or rotation.
-    ├── if controls restrict polar angle, azimuth angle, target lock, distance bounds, pan, translation, or rotation
-    │   └── raise restricted camera pose controls
+├── def assert_dash_no_camera_pose_clamps
+│   ├── # Asserts the Dash controls impose no camera-pose restriction on polar angle, azimuth angle, target lock, distance, pan, translation, or rotation.
+│   ├── if controls restrict polar angle, azimuth angle, target lock, distance bounds, pan, or translation
+│   │   └── raise restricted camera pose controls
+│   ├── if lock_roll is None and controls restrict rotation
+│   │   └── raise restricted camera pose controls
+│   ├── if lock_roll is not None and controls restrict rotation beyond the roll axis assert_dash_roll_lock owns
+│   │   └── raise roll lock must cost only the roll axis
+│   └── return
+└── def assert_dash_roll_lock
+    ├── # Asserts roll is held about lock_roll when one is supplied and left free when none is, this module owning no axis of its own.
+    ├── if lock_roll is not None and controls let the camera right axis tilt away from perpendicular to lock_roll
+    │   └── raise roll-locked camera controls must keep the camera right axis perpendicular to the supplied axis
+    ├── if lock_roll is None and controls constrain the camera right axis against any axis
+    │   └── raise free trackball camera controls must leave camera roll unconstrained
     └── return
 ```
 
@@ -2226,6 +2245,7 @@ trackball_camera_controls.py
 
 ```text
 trackball_camera_controls.ts
+├── import * as THREE from "three";
 ├── import type { CameraState } from "data/viewer/utils/controls/camera/camera_state/ts/frontend/types";
 ├── export const DEFAULT_TRACKBALL_PERSPECTIVE_CAMERA_FOV: number = 45
 │   └── # Shared vertical-FOV (degrees) every TS spatial display must construct its THREE.PerspectiveCamera with — 45° is the standard 50mm-equivalent lens FOV, trading perspective realism against off-center foreshortening for the orbit-around-near-scene-content use case this lib targets.
@@ -2235,7 +2255,7 @@ trackball_camera_controls.ts
 │   ├── applyCameraState
 │   │   └── # applies the entire CameraState (every field — both intrinsics and extrinsics) to the underlying camera and controls
 │   └── subscribeCameraStateChange
-├── function createTrackballCameraControls
+├── function createTrackballCameraControls({ container, camera, renderer, initialCameraState, lockRoll = null })
 │   ├── # Builds, validates, and returns the trackball controls, seeding them from initialCameraState and observing the container's data-camera-state attribute for external sync.
 │   ├── calls createRendererTrackballCameraControls
 │   ├── calls assertTrackballCameraControls
@@ -2246,12 +2266,21 @@ trackball_camera_controls.ts
 ├── function createRendererTrackballCameraControls
 │   ├── # Constructs the renderer-specific trackball controls wiring left-drag rotate, right-drag pan, wheel zoom, and context-menu suppression.
 │   ├── impls renderer-specific trackball camera controls with left-button rotation, right-button panning, mouse-wheel zoom, and suppressed canvas context menu  # impls-node-one-step:skip
+│   ├── if lockRoll is not null
+│   │   ├── impls resolves the left-drag delta as yaw about the caller-supplied lockRoll plus pitch about the camera right axis
+│   │   ├── impls re-derives camera.up each drag step from the view direction and lockRoll, holding the camera right axis perpendicular to it
+│   │   ├── if the view direction runs parallel to lockRoll
+│   │   │   └── impls carries the camera right axis from the previous drag step through the degeneracy, so the polar angle keeps the unbounded range assertNoCameraPoseClamps demands
+│   │   └── return
+│   ├── else
+│   │   └── impls resolves the left-drag delta as free trackball rotation, carrying camera.up along with the drag
 │   └── return
 ├── function assertTrackballCameraControls
-│   ├── # Validates the constructed controls satisfy every trackball contract by running the mouse-mapping, no-orbit, and no-pose-clamp assertions.
+│   ├── # Validates the constructed controls satisfy every trackball contract by running the mouse-mapping, no-orbit, no-pose-clamp, and roll-lock assertions.
 │   ├── calls assertTrackballMouseMapping
 │   ├── calls assertNoOrbitCameraControls
 │   ├── calls assertNoCameraPoseClamps
+│   ├── calls assertRollLock
 │   └── return
 ├── function assertTrackballMouseMapping
 │   ├── # Asserts the controls map left-drag to rotate, right-drag to pan, and wheel to zoom, and that the canvas suppresses its context menu.
@@ -2265,10 +2294,21 @@ trackball_camera_controls.ts
 │   ├── if controls use orbit-style target-locked camera semantics
 │   │   └── throw orbit-style camera controls are forbidden
 │   └── return
-└── function assertNoCameraPoseClamps
-    ├── # Asserts the controls impose no camera-pose restriction on polar angle, azimuth angle, target lock, distance, pan, translation, or rotation.
-    ├── if controls restrict polar angle, azimuth angle, target lock, distance bounds, pan, translation, or rotation
-    │   └── throw restricted camera pose controls
+├── function assertNoCameraPoseClamps
+│   ├── # Asserts the controls impose no camera-pose restriction on polar angle, azimuth angle, target lock, distance, pan, translation, or rotation.
+│   ├── if controls restrict polar angle, azimuth angle, target lock, distance bounds, pan, or translation
+│   │   └── throw restricted camera pose controls
+│   ├── if lockRoll is null and controls restrict rotation
+│   │   └── throw restricted camera pose controls
+│   ├── if lockRoll is not null and controls restrict rotation beyond the roll axis assertRollLock owns
+│   │   └── throw roll lock must cost only the roll axis
+│   └── return
+└── function assertRollLock
+    ├── # Asserts roll is held about lockRoll when one is supplied and left free when none is, this module owning no axis of its own.
+    ├── if lockRoll is not null and controls let the camera right axis tilt away from perpendicular to lockRoll
+    │   └── throw roll-locked camera controls must keep the camera right axis perpendicular to the supplied axis
+    ├── if lockRoll is null and controls constrain the camera right axis against any axis
+    │   └── throw free trackball camera controls must leave camera roll unconstrained
     └── return
 ```
 
@@ -2549,7 +2589,7 @@ apis.ts
 │   ├── calls createSpatialDisplayScene({ initialCameraState })   → { container, scene, camera, renderer }
 │   ├── calls createAabb3dObject({ displayResponse })             → object
 │   ├── impls scene.add(object)
-│   ├── calls createTrackballCameraControls({ container, camera, renderer, initialCameraState })   → controls
+│   ├── calls createTrackballCameraControls({ container, camera, renderer, initialCameraState, lockRoll })   → controls
 │   ├── calls renderAabb3dScene({ scene, camera, renderer, controls })
 │   └── return LeafVNode keyed by displayResponse.url
 ├── function createAabb3dObject({ displayResponse }: { displayResponse: Aabb3dDisplayResponse }): THREE.Object3D

@@ -223,6 +223,11 @@ tests/data/viewer/
 ├── dataset/          # dataset-app integration tests
 ├── fixtures/         # shared mock-dataset fixtures
 ├── utils/            # viewer-utils tests + per-display-modality test packages mirroring the displays code modules above
+│   └── controls/
+│       └── camera/
+│           └── camera_controls/
+│               └── dash/
+│                   └── test_trackball_camera_controls.py  # Dash trackball roll-lock tests: the free-trackball default, the caller-supplied lock axis, the degrees of freedom roll lock leaves alone, and both assert_dash_roll_lock rejections
 └── test_debounce.py  # debounce helper test
 ```
 
