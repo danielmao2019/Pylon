@@ -85,8 +85,10 @@ point_cloud.py
     │   └── impls _fields[name] = value  # the meta data is left exactly as construction wrote it, and what the field now means follows from the two
     ├── def __delattr__(self, name: str) -> None
     │   ├── # Removes a field, leaving the meta data exactly as construction wrote it.
-    │   ├── assert name is not 'xyz'  # a point cloud without coordinates is not one
-    │   ├── assert name sits in self._fields
+    │   ├── def _validate_inputs [local]
+    │   │   ├── assert name is not 'xyz'  # a point cloud without coordinates is not one
+    │   │   └── assert name sits in self._fields
+    │   ├── calls _validate_inputs()
     │   └── impls the entry under name leaves self._fields  # the meta data goes on naming the departed field, and save simply writes no column for one the obj no longer holds
     ├── def __getstate__(self) -> dict
     │   ├── # Hands the four private slots to pickle, so a point cloud and its meta data survive a round trip across a process boundary.
@@ -94,8 +96,10 @@ point_cloud.py
     │   └── return state
     ├── def __setstate__(self, state: dict) -> None
     │   ├── # Restores the four private slots from a pickled state dict.
-    │   ├── assert state is a dict
-    │   ├── assert state carries each of '_fields', '_meta_data', '_length' and '_device'  # a payload written before the meta data existed carries no such slot and is refused here, to be regenerated rather than accepted through a shim
+    │   ├── def _validate_inputs [local]
+    │   │   ├── assert state is a dict
+    │   │   └── assert state carries each of '_fields', '_meta_data', '_length' and '_device'  # a payload written before the meta data existed carries no such slot and is refused here, to be regenerated rather than accepted through a shim
+    │   ├── calls _validate_inputs()
     │   ├── impls _fields = state['_fields']
     │   ├── impls _meta_data = state['_meta_data']
     │   ├── impls _length = state['_length']
