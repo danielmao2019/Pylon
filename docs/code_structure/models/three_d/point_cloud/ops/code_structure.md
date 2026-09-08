@@ -79,8 +79,8 @@ world_to_camera_transform.py
 ├── import torch
 ├── from models.three_d.point_cloud.ops.apply_transform import apply_transform
 └── def world_to_camera_transform(points: torch.Tensor, extrinsics: torch.Tensor, inplace: bool = False, max_divide: int = 0, num_divide: Optional[int] = None) -> torch.Tensor
-    ├── # High-level API mapping world-frame points into the camera frame: builds the world-to-camera 4x4 matrix from the inverse camera-to-world extrinsic and applies it via apply_transform.
-    ├── impls world_to_camera = the inverse of the camera-to-world extrinsics, a 4x4 matrix
+    ├── # High-level API mapping world-frame points into the camera frame: inverts the camera-to-world extrinsics and applies them via apply_transform, any leading axes on the extrinsics flowing through onto the result.
+    ├── impls world_to_camera = the inverse of the [..., 4, 4] camera-to-world extrinsics, inverted over the trailing two axes
     ├── calls apply_transform(points=points, transform=world_to_camera, inplace=inplace, max_divide=max_divide, num_divide=num_divide)
-    └── return  # the [N, 3] camera-frame points (the same tensor when inplace)
+    └── return  # the [..., N, 3] camera-frame points (the same tensor when inplace); [4, 4] in gives [N, 3] out, [B, 4, 4] gives [B, N, 3]
 ```
