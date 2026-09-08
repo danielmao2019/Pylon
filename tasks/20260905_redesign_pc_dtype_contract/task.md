@@ -130,7 +130,7 @@ goal: re-design pc dtype contract/provenance
       1. no canonicalization: `PointCloud` does not canonicalize any field, color included.
          1. rgb enters and is held exactly as it arrived, like every other field.
          2. fields keep their own names.
-      2. both `__init__` and load point cloud apply Type Casting to the target dtype supplied by New Meta Data API, apply Color Data Convention Conversion to rgb where that target names another convention, and refuse a lossy one of either.
+      2. both `__init__` and load point cloud apply Type Casting to the target dtype supplied by New Meta Data API, and apply Color Data Convention Conversion to rgb where that target names another convention, refusing a lossy conversion.
    2. validation:
       1. the columns a field is assembled from must all hold one dtype. disagreeing column dtypes hard-assert and abort rather than being promoted to a dtype covering them all.
       2. `PointCloud` keeps validating xyz and rgb by field name.
@@ -153,10 +153,10 @@ goal: re-design pc dtype contract/provenance
       2. save point cloud
          1. strictly follows the meta data. it does not need to be aware of the dtype mismatch at all.
             1. save point cloud recovers both halves of the record as specified by New Meta Data API, and its dtype casts follow Type Casting.
-         2. save's color convention conversion is keyed on rgb and is the only such branch in the I/O layer.
-            1. rgb is the one field with convention conversion between color representations.
+         2. save converts colors between conventions.
+            1. rgb is the one field it converts, and every other field reaches its target by a dtype cast alone.
             2. save applies Color Data Convention Conversion from the field's current color convention to the convention defined by the target conceptual dtype.
-            3. save refuses a lossy one: a conversion whose result does not convert back to the source values exactly hard-asserts and the program aborts, so a rounded color never reaches the file.
+            3. save refuses a lossy one: it hard-asserts and the program aborts, so a rounded color never reaches the file.
 
 #### 1.1.6. What Becomes Stale Design
 
