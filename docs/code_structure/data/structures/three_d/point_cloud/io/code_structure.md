@@ -21,8 +21,8 @@ load_point_cloud.py
 │   │   └── assert the extension of filepath is one of the supported formats
 │   ├── calls _validate_inputs()
 │   ├── def _normalize_inputs [local]
-│   │   ├── impls filepath = filepath normalized with its separators rewritten to forward slashes
-│   │   ├── assert filepath names an existing file
+│   │   ├── impls filepath = filepath with its separators rewritten to forward slashes
+│   │   ├── assert filepath names an existing file  # output validation of the rewrite: the normalized path is the one that has to exist
 │   │   └── return filepath
 │   ├── calls _normalize_inputs(filepath=filepath)
 │   ├── impls filepath = the returned value from _normalize_inputs
