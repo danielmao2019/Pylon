@@ -278,7 +278,7 @@ test_conventions.py
     ├── calls CameraExtrinsics(extrinsics=a valid cam2world tensor with tensor-valued translation, extr_convention="standard")
     ├── calls Camera
     ├── calls camera.to(device=the current device, dtype=a floating torch dtype, extr_convention="pytorch3d")
-    ├── calls Cameras(intrinsics=[intrinsics], extrinsics=[extrinsics])
+    ├── calls Cameras(intrinsics=intrinsics[None], extrinsics=extrinsics[None])
     ├── calls cameras.to(device=the current device, dtype=a floating torch dtype, extr_convention="pytorch3d")
     ├── impls loss = moved_camera.intrinsics.project(points).sum() + moved_cameras.center.sum()
     ├── calls loss.backward

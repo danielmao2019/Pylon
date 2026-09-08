@@ -164,7 +164,7 @@ test_texel_visibility_v2.py
 │   ├── # Build one identity OpenCV CPU camera for the focused v2 visibility tests.
 │   ├── calls build_camera_intrinsics(model="pinhole", params=that camera's focal lengths, principal point and its own h and w, intr_convention="standard", device="cpu")
 │   ├── calls CameraExtrinsics(extrinsics=the identity 4x4, extr_convention="opencv", device="cpu")
-│   ├── calls Cameras(intrinsics=[camera_intrinsics], extrinsics=[camera_extrinsics], device="cpu")
+│   ├── calls Cameras(intrinsics=camera_intrinsics[None], extrinsics=camera_extrinsics[None], device="cpu")
 │   └── return the built camera  # one identity-extrinsic Cameras
 └── def _build_texel_face_map_with_three_texels(face_index: int, occupied_positions: tuple) -> Dict[str, torch.Tensor]
     ├── # Build a [2, 2] texel_face_map assigning the given (row, col) positions to the given face with centroid barycentrics.
@@ -198,6 +198,6 @@ test_vertex_visibility.py
     ├── # Build one identity OpenCV CUDA camera for the focused vertex-visibility tests.
     ├── calls build_camera_intrinsics(model="pinhole", params=that camera's focal lengths, principal point and its own h and w, intr_convention="standard", device="cuda")
     ├── calls CameraExtrinsics(extrinsics=the identity 4x4, extr_convention="opencv", device="cuda")
-    ├── calls Cameras(intrinsics=[camera_intrinsics], extrinsics=[camera_extrinsics], device="cuda")
+    ├── calls Cameras(intrinsics=camera_intrinsics[None], extrinsics=camera_extrinsics[None], device="cuda")
     └── return the built camera  # one identity-extrinsic Cameras
 ```
