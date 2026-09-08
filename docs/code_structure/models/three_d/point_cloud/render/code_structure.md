@@ -2,6 +2,22 @@
 
 ## Code implementation structure
 
+`models/three_d/point_cloud/render/common/create_circular_kernel_offsets.py`
+
+```text
+create_circular_kernel_offsets.py
+├── import torch
+└── def create_circular_kernel_offsets(point_size: float, device: torch.device) -> torch.Tensor
+    ├── # Enumerates the (y, x) offsets of those cells of the kernel_size x kernel_size grid that lie within point_size / 2 of the origin.
+    ├── impls kernel_size = int(torch.ceil(torch.tensor(point_size)))  # torch.tensor narrows a python float to float32 before the ceil
+    ├── impls kernel_radius = point_size / 2.0
+    ├── impls y_kernel, x_kernel = the ij-indexed meshgrid of two arange(kernel_size) axes on device, each shifted by subtracting kernel_size // 2
+    ├── impls kernel_distances = the euclidean distance from the origin over the float-cast y_kernel, x_kernel grids
+    ├── impls circular_mask = the elementwise kernel_distances <= kernel_radius boolean grid
+    ├── impls kernel_offsets = y_kernel, x_kernel selected by circular_mask, stacked along dim 1
+    └── return  # kernel_offsets [num_grid_cells_within_radius, 2] int64 on device as (y, x)
+```
+
 `models/three_d/point_cloud/render/common/prepare_points_for_rendering.py`
 
 ```text
@@ -53,6 +69,36 @@ prepare_points_for_rendering.py
 └── def _frustum_cull(current_points: torch.Tensor, bounds_mask: torch.Tensor, render_height: int, render_width: int) -> None
     ├── # Writes into bounds_mask whether each projected point lies within the image bounds (0 <= x < render_width, 0 <= y < render_height).
     └── impls set bounds_mask to the in-bounds test over current_points columns 0/1 against render_width / render_height
+```
+
+`models/three_d/point_cloud/render/render_depth.py`
+
+```text
+render_depth.py
+├── from typing import Tuple, Union
+├── import torch
+├── from data.structures.three_d.camera.camera import Camera
+├── from data.structures.three_d.point_cloud.point_cloud import PointCloud
+├── from models.three_d.point_cloud.render.common.prepare_points_for_rendering import prepare_points_for_rendering
+├── from models.three_d.point_cloud.render.common.validate_rendering_inputs import validate_rendering_inputs
+├── from models.three_d.point_cloud.render.render_mask import render_mask_from_rendering_points
+├── def render_depth_from_point_cloud(pc: PointCloud, camera: Camera, resolution: Tuple[int, int], ignore_value: float = -1.0, return_mask: bool = False, point_size: float = 1.0) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]
+│   ├── # Renders a point cloud through the camera to a depth map, chaining validation, projection, and rasterization.
+│   ├── assert isinstance(pc, PointCloud)  # f"{type(pc)=}"
+│   ├── calls validate_rendering_inputs(pc=pc, camera=camera, resolution=resolution, ignore_value=ignore_value, return_mask=return_mask, point_size=point_size)
+│   ├── calls prepare_points_for_rendering(pc=pc, camera=camera, resolution=resolution)  # -> rendered_points, the first of the (points, indices) pair
+│   ├── calls render_depth_from_rendering_points(rendering_points=rendered_points, resolution=resolution, ignore_value=ignore_value, return_mask=return_mask)
+│   └── return  # the render_depth_from_rendering_points result, returned directly
+└── def render_depth_from_rendering_points(rendering_points: torch.Tensor, resolution: Tuple[int, int], ignore_value: float = float('inf'), return_mask: bool = False) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]
+    ├── # Rasterizes already-projected points into a depth map by writing each point's depth at its pixel.
+    ├── impls render_height, render_width = resolution
+    ├── impls depth_map = a [render_height, render_width] float32 tensor filled with ignore_value on the rendering_points device
+    ├── impls assign rendering_points column 2 float-cast into depth_map by advanced indexing at rows from its long-cast column 1, cols from its long-cast column 0
+    ├── if return_mask
+    │   ├── calls render_mask_from_rendering_points(rendering_points=rendering_points, resolution=resolution, device=rendering_points.device)  # -> valid_mask
+    │   └── return  # (depth_map, valid_mask)
+    └── else
+        └── return  # depth_map
 ```
 
 `models/three_d/point_cloud/render/render_rgb_volumetric.py`

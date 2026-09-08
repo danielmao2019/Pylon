@@ -17,53 +17,6 @@ from models.three_d.point_cloud.render.render_mask import (
 )
 
 
-def render_depth_from_rendering_points(
-    rendering_points: torch.Tensor,
-    resolution: Tuple[int, int],
-    ignore_value: float = float('inf'),
-    return_mask: bool = False,
-) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
-    """Render depth map from pre-processed rendered points.
-
-    Args:
-        rendering_points: Pre-processed points [M, 3] with (x, y, depth).
-        resolution: Target resolution as (height, width) tuple.
-        ignore_value: Fill value for pixels with no point projections (default: inf).
-        return_mask: If True, also return valid pixel mask (default: False).
-
-    Returns:
-        If return_mask is False:
-            Depth map tensor of shape [H, W] with depth values.
-        If return_mask is True:
-            Tuple of (depth map tensor, valid mask tensor of shape [H, W]).
-    """
-    render_height, render_width = resolution
-
-    # Allocate depth map
-    depth_map = torch.full(
-        (render_height, render_width),
-        ignore_value,
-        dtype=torch.float32,
-        device=rendering_points.device,
-    )
-
-    # Render pixels
-    depth_map[rendering_points[:, 1].long(), rendering_points[:, 0].long()] = (
-        rendering_points[:, 2].float()
-    )
-
-    # Handle mask creation if requested
-    if return_mask:
-        valid_mask = render_mask_from_rendering_points(
-            rendering_points=rendering_points,
-            resolution=resolution,
-            device=rendering_points.device,
-        )
-        return depth_map, valid_mask
-    else:
-        return depth_map
-
-
 def render_depth_from_point_cloud(
     pc: PointCloud,
     camera: Camera,
@@ -122,3 +75,50 @@ def render_depth_from_point_cloud(
         ignore_value=ignore_value,
         return_mask=return_mask,
     )
+
+
+def render_depth_from_rendering_points(
+    rendering_points: torch.Tensor,
+    resolution: Tuple[int, int],
+    ignore_value: float = float('inf'),
+    return_mask: bool = False,
+) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+    """Render depth map from pre-processed rendered points.
+
+    Args:
+        rendering_points: Pre-processed points [M, 3] with (x, y, depth).
+        resolution: Target resolution as (height, width) tuple.
+        ignore_value: Fill value for pixels with no point projections (default: inf).
+        return_mask: If True, also return valid pixel mask (default: False).
+
+    Returns:
+        If return_mask is False:
+            Depth map tensor of shape [H, W] with depth values.
+        If return_mask is True:
+            Tuple of (depth map tensor, valid mask tensor of shape [H, W]).
+    """
+    render_height, render_width = resolution
+
+    # Allocate depth map
+    depth_map = torch.full(
+        (render_height, render_width),
+        ignore_value,
+        dtype=torch.float32,
+        device=rendering_points.device,
+    )
+
+    # Render pixels
+    depth_map[rendering_points[:, 1].long(), rendering_points[:, 0].long()] = (
+        rendering_points[:, 2].float()
+    )
+
+    # Handle mask creation if requested
+    if return_mask:
+        valid_mask = render_mask_from_rendering_points(
+            rendering_points=rendering_points,
+            resolution=resolution,
+            device=rendering_points.device,
+        )
+        return depth_map, valid_mask
+    else:
+        return depth_map
