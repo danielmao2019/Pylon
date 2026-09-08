@@ -6,7 +6,6 @@ from typing import Any, Dict
 import pytest
 import torch
 
-from data.datasets.pcr_datasets.kitti_dataset import KITTIDataset
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from utils.builders.builder import build_from_config
 

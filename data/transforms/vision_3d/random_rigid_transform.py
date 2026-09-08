@@ -44,6 +44,110 @@ class RandomRigidTransform(BaseTransform):
         self.method = method
         self.num_axis = num_axis
 
+    def __call__(
+        self,
+        src_pc: PointCloud,
+        tgt_pc: PointCloud,
+        transform: torch.Tensor,
+        seed: Optional[Any] = None,
+    ) -> Tuple[PointCloud, PointCloud, torch.Tensor]:
+        """
+        Apply random rigid transformation to the source point cloud and adjust the transformation matrix.
+
+        Args:
+            src_pc: Source point cloud
+            tgt_pc: Target point cloud
+            transform: Original transformation matrix from source to target, shape (4, 4)
+            seed: The seed to use for the random rigid transform.
+
+        Returns:
+            A tuple containing:
+            - Transformed source point cloud
+            - Unchanged target point cloud
+            - Adjusted transformation matrix
+        """
+        assert isinstance(src_pc, PointCloud), f"{type(src_pc)=}"
+        assert isinstance(tgt_pc, PointCloud), f"{type(tgt_pc)=}"
+        assert src_pc.xyz.ndim == 2 and src_pc.xyz.shape[1] == 3, f"{src_pc.xyz.shape=}"
+        assert tgt_pc.xyz.ndim == 2 and tgt_pc.xyz.shape[1] == 3, f"{tgt_pc.xyz.shape=}"
+        assert src_pc.xyz.dtype == torch.float32, f"{src_pc.xyz.dtype=}"
+        assert tgt_pc.xyz.dtype == torch.float32, f"{tgt_pc.xyz.dtype=}"
+
+        assert isinstance(transform, torch.Tensor), f"{type(transform)=}"
+        assert transform.shape == (4, 4), f"{transform.shape=}"
+        assert transform.dtype == torch.float32, f"{transform.dtype=}"
+
+        # Sample a random transformation
+        generator = self._get_generator(g_type='torch', seed=seed)
+        random_transform = self._sample_rigid_transform(transform.device, generator)
+
+        # Apply random transformation to the source point cloud
+        transformed_src_xyz = apply_transform(
+            points=src_pc.xyz, transform=random_transform
+        )
+        src_fields = {
+            name: getattr(src_pc, name)
+            for name in src_pc.field_names()
+            if name != 'xyz'
+        }
+        new_src_pc = PointCloud(xyz=transformed_src_xyz, data=src_fields)
+        tgt_fields = {
+            name: getattr(tgt_pc, name)
+            for name in tgt_pc.field_names()
+            if name != 'xyz'
+        }
+        new_tgt_pc = PointCloud(xyz=tgt_pc.xyz, data=tgt_fields)
+
+        # Adjust the transformation matrix
+        # The new transformation is: new_transform = transform @ random_transform^(-1)
+        # This is because we want the new transformation to map from the randomly transformed
+        # source point cloud to the target point cloud
+        random_transform_inv = torch.inverse(random_transform)
+        # the following assertions are disabled because of numerical errors
+        # assert torch.equal(random_transform_inv[-1, :], torch.tensor([0, 0, 0, 1], device=random_transform_inv.device))
+        # assert torch.allclose(random_transform_inv[:3, :3], random_transform[:3, :3].T), f"{random_transform_inv[:3, :3]=}\n{random_transform[:3, :3].T=}"
+        # assert torch.allclose(random_transform_inv[:3, 3], -random_transform[:3, :3].T @ random_transform[:3, 3])
+
+        new_transform = transform @ random_transform_inv
+
+        return new_src_pc, new_tgt_pc, new_transform
+
+    def _sample_rigid_transform(
+        self, device: torch.device, generator: torch.Generator
+    ) -> torch.Tensor:
+        """
+        Sample a random rigid transformation.
+
+        Args:
+            device: Device to create tensors on
+
+        Returns:
+            A 4x4 transformation matrix
+        """
+        # Generate rotation matrix using the specified method
+        if self.method == 'Rodrigues':
+            R = self._sample_rotation_Rodrigues(device, generator)
+        else:  # method == 'Euler'
+            R = self._sample_rotation_Euler(device, generator)
+
+        # Generate random translation
+        # Generate random direction (unit vector)
+        trans_dir = torch.randn(3, device=device, generator=generator)
+        trans_dir = trans_dir / torch.norm(trans_dir)
+
+        # Generate random magnitude within limit
+        trans_mag = torch.rand(1, device=device, generator=generator) * self.trans_mag
+
+        # Compute final translation vector
+        trans = trans_dir * trans_mag
+
+        # Create 4x4 transformation matrix
+        transform = torch.eye(4, device=device)
+        transform[:3, :3] = R
+        transform[:3, 3] = trans
+
+        return transform
+
     def _sample_rotation_Rodrigues(
         self, device: torch.device, generator: torch.Generator
     ) -> torch.Tensor:
@@ -126,107 +230,3 @@ class RandomRigidTransform(BaseTransform):
         if self.num_axis == 1:
             return Rz
         return Rx @ Ry @ Rz
-
-    def _sample_rigid_transform(
-        self, device: torch.device, generator: torch.Generator
-    ) -> torch.Tensor:
-        """
-        Sample a random rigid transformation.
-
-        Args:
-            device: Device to create tensors on
-
-        Returns:
-            A 4x4 transformation matrix
-        """
-        # Generate rotation matrix using the specified method
-        if self.method == 'Rodrigues':
-            R = self._sample_rotation_Rodrigues(device, generator)
-        else:  # method == 'Euler'
-            R = self._sample_rotation_Euler(device, generator)
-
-        # Generate random translation
-        # Generate random direction (unit vector)
-        trans_dir = torch.randn(3, device=device, generator=generator)
-        trans_dir = trans_dir / torch.norm(trans_dir)
-
-        # Generate random magnitude within limit
-        trans_mag = torch.rand(1, device=device, generator=generator) * self.trans_mag
-
-        # Compute final translation vector
-        trans = trans_dir * trans_mag
-
-        # Create 4x4 transformation matrix
-        transform = torch.eye(4, device=device)
-        transform[:3, :3] = R
-        transform[:3, 3] = trans
-
-        return transform
-
-    def __call__(
-        self,
-        src_pc: PointCloud,
-        tgt_pc: PointCloud,
-        transform: torch.Tensor,
-        seed: Optional[Any] = None,
-    ) -> Tuple[PointCloud, PointCloud, torch.Tensor]:
-        """
-        Apply random rigid transformation to the source point cloud and adjust the transformation matrix.
-
-        Args:
-            src_pc: Source point cloud
-            tgt_pc: Target point cloud
-            transform: Original transformation matrix from source to target, shape (4, 4)
-            seed: The seed to use for the random rigid transform.
-
-        Returns:
-            A tuple containing:
-            - Transformed source point cloud
-            - Unchanged target point cloud
-            - Adjusted transformation matrix
-        """
-        assert isinstance(src_pc, PointCloud), f"{type(src_pc)=}"
-        assert isinstance(tgt_pc, PointCloud), f"{type(tgt_pc)=}"
-        assert src_pc.xyz.ndim == 2 and src_pc.xyz.shape[1] == 3, f"{src_pc.xyz.shape=}"
-        assert tgt_pc.xyz.ndim == 2 and tgt_pc.xyz.shape[1] == 3, f"{tgt_pc.xyz.shape=}"
-        assert src_pc.xyz.dtype == torch.float32, f"{src_pc.xyz.dtype=}"
-        assert tgt_pc.xyz.dtype == torch.float32, f"{tgt_pc.xyz.dtype=}"
-
-        assert isinstance(transform, torch.Tensor), f"{type(transform)=}"
-        assert transform.shape == (4, 4), f"{transform.shape=}"
-        assert transform.dtype == torch.float32, f"{transform.dtype=}"
-
-        # Sample a random transformation
-        generator = self._get_generator(g_type='torch', seed=seed)
-        random_transform = self._sample_rigid_transform(transform.device, generator)
-
-        # Apply random transformation to the source point cloud
-        transformed_src_xyz = apply_transform(
-            points=src_pc.xyz, transform=random_transform
-        )
-        src_fields = {
-            name: getattr(src_pc, name)
-            for name in src_pc.field_names()
-            if name != 'xyz'
-        }
-        new_src_pc = PointCloud(xyz=transformed_src_xyz, data=src_fields)
-        tgt_fields = {
-            name: getattr(tgt_pc, name)
-            for name in tgt_pc.field_names()
-            if name != 'xyz'
-        }
-        new_tgt_pc = PointCloud(xyz=tgt_pc.xyz, data=tgt_fields)
-
-        # Adjust the transformation matrix
-        # The new transformation is: new_transform = transform @ random_transform^(-1)
-        # This is because we want the new transformation to map from the randomly transformed
-        # source point cloud to the target point cloud
-        random_transform_inv = torch.inverse(random_transform)
-        # the following assertions are disabled because of numerical errors
-        # assert torch.equal(random_transform_inv[-1, :], torch.tensor([0, 0, 0, 1], device=random_transform_inv.device))
-        # assert torch.allclose(random_transform_inv[:3, :3], random_transform[:3, :3].T), f"{random_transform_inv[:3, :3]=}\n{random_transform[:3, :3].T=}"
-        # assert torch.allclose(random_transform_inv[:3, 3], -random_transform[:3, :3].T @ random_transform[:3, 3])
-
-        new_transform = transform @ random_transform_inv
-
-        return new_src_pc, new_tgt_pc, new_transform

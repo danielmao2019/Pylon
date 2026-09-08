@@ -14,40 +14,6 @@ from models.three_d.point_cloud.render import (
 )
 
 
-def _build_camera(focal: float, principal_point: float) -> Camera:
-    """Build an identity-pose OpenGL pinhole camera on the CPU.
-
-    Args:
-        focal: Shared focal length used for both fx and fy.
-        principal_point: Shared principal-point coordinate used for both cx and cy.
-
-    Returns:
-        A Camera whose pinhole intrinsics are (fx, fy, cx, cy) and whose
-        extrinsics are the identity cam2world matrix in the opengl convention.
-    """
-    return Camera(
-        intrinsics=build_camera_intrinsics(
-            model="pinhole",
-            params={
-                "fx": focal,
-                "fy": focal,
-                "cx": principal_point,
-                "cy": principal_point,
-                "h": int(round(2.0 * principal_point)),
-                "w": int(round(2.0 * principal_point)),
-            },
-            intr_convention="standard",
-            device=torch.device("cpu"),
-        ),
-        extrinsics=CameraExtrinsics(
-            extrinsics=torch.eye(4, dtype=torch.float32),
-            extr_convention="opengl",
-            device=torch.device("cpu"),
-        ),
-        device=torch.device("cpu"),
-    )
-
-
 def test_render_depth_basic() -> None:
     """Test basic depth rendering without mask."""
     pc_data = PointCloud(
@@ -280,3 +246,37 @@ def test_render_depth_invalid_inputs() -> None:
             camera=valid_camera,
             resolution=(0, 100),
         )
+
+
+def _build_camera(focal: float, principal_point: float) -> Camera:
+    """Build an identity-pose OpenGL pinhole camera on the CPU.
+
+    Args:
+        focal: Shared focal length used for both fx and fy.
+        principal_point: Shared principal-point coordinate used for both cx and cy.
+
+    Returns:
+        A Camera whose pinhole intrinsics are (fx, fy, cx, cy) and whose
+        extrinsics are the identity cam2world matrix in the opengl convention.
+    """
+    return Camera(
+        intrinsics=build_camera_intrinsics(
+            model="pinhole",
+            params={
+                "fx": focal,
+                "fy": focal,
+                "cx": principal_point,
+                "cy": principal_point,
+                "h": int(round(2.0 * principal_point)),
+                "w": int(round(2.0 * principal_point)),
+            },
+            intr_convention="standard",
+            device=torch.device("cpu"),
+        ),
+        extrinsics=CameraExtrinsics(
+            extrinsics=torch.eye(4, dtype=torch.float32),
+            extr_convention="opengl",
+            device=torch.device("cpu"),
+        ),
+        device=torch.device("cpu"),
+    )

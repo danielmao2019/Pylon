@@ -5,10 +5,6 @@ from typing import Any, Dict
 import pytest
 import torch
 
-from data.datasets.pcr_datasets.threedmatch_dataset import (
-    ThreeDLoMatchDataset,
-    ThreeDMatchDataset,
-)
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from utils.builders.builder import build_from_config
 

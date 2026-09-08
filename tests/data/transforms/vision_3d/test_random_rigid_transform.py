@@ -12,49 +12,6 @@ from models.three_d.point_cloud.ops import apply_transform
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
-def create_random_point_cloud(num_points=1000):
-    """Create a random point cloud."""
-    return torch.randn(size=(num_points, 3), dtype=torch.float32, device=DEVICE)
-
-
-def create_random_transform():
-    """Create a random 4x4 transformation matrix."""
-    # Create a random rotation using Rodrigues representation
-    angle = np.random.rand() * 2 * np.pi
-    axis = np.random.rand(3).astype(np.float32)
-    axis = axis / np.linalg.norm(axis)  # Normalize to unit vector
-
-    # Convert to torch tensors
-    axis_torch = torch.tensor(axis, dtype=torch.float32, device=DEVICE)
-    angle_torch = torch.tensor(angle, dtype=torch.float32, device=DEVICE)
-
-    # Create rotation matrix using rodrigues_to_matrix utility
-    R = rodrigues_to_matrix(axis_torch, angle_torch)
-
-    # Create a random translation vector
-    t = np.random.rand(3).astype(np.float32) * 10.0
-    t_torch = torch.tensor(t, dtype=torch.float32, device=DEVICE)
-
-    # Combine into a 4x4 transformation matrix
-    transform = torch.eye(4, dtype=torch.float32)
-    transform[:3, :3] = R
-    transform[:3, 3] = t_torch
-
-    return transform.to(DEVICE)
-
-
-def create_point_cloud(points: torch.Tensor) -> PointCloud:
-    """Create a PointCloud with a feature field."""
-    return PointCloud(
-        xyz=points,
-        data={
-            'feat': torch.ones(
-                (points.shape[0], 1), dtype=points.dtype, device=points.device
-            )
-        },
-    )
-
-
 def test_random_rigid_transform():
     """Test the RandomRigidTransform by validating the transformed triplet."""
     # 1. Create a random source point cloud
@@ -148,3 +105,46 @@ def test_random_rigid_transform_deterministic():
     assert torch.allclose(
         new_transform1, new_transform2, atol=1e-6
     ), "Transforms are not deterministic with the same seed"
+
+
+def create_random_point_cloud(num_points=1000):
+    """Create a random point cloud."""
+    return torch.randn(size=(num_points, 3), dtype=torch.float32, device=DEVICE)
+
+
+def create_random_transform():
+    """Create a random 4x4 transformation matrix."""
+    # Create a random rotation using Rodrigues representation
+    angle = np.random.rand() * 2 * np.pi
+    axis = np.random.rand(3).astype(np.float32)
+    axis = axis / np.linalg.norm(axis)  # Normalize to unit vector
+
+    # Convert to torch tensors
+    axis_torch = torch.tensor(axis, dtype=torch.float32, device=DEVICE)
+    angle_torch = torch.tensor(angle, dtype=torch.float32, device=DEVICE)
+
+    # Create rotation matrix using rodrigues_to_matrix utility
+    R = rodrigues_to_matrix(axis_torch, angle_torch)
+
+    # Create a random translation vector
+    t = np.random.rand(3).astype(np.float32) * 10.0
+    t_torch = torch.tensor(t, dtype=torch.float32, device=DEVICE)
+
+    # Combine into a 4x4 transformation matrix
+    transform = torch.eye(4, dtype=torch.float32)
+    transform[:3, :3] = R
+    transform[:3, 3] = t_torch
+
+    return transform.to(DEVICE)
+
+
+def create_point_cloud(points: torch.Tensor) -> PointCloud:
+    """Create a PointCloud with a feature field."""
+    return PointCloud(
+        xyz=points,
+        data={
+            'feat': torch.ones(
+                (points.shape[0], 1), dtype=points.dtype, device=points.device
+            )
+        },
+    )

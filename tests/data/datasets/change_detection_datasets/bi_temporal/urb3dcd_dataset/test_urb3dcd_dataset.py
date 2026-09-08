@@ -12,6 +12,29 @@ from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from utils.builders.builder import build_from_config
 
 
+def validate_point_count_consistency(pc1: PointCloud, change_map: torch.Tensor) -> None:
+    """Validate that pc_1 and change_map have the same number of points."""
+    assert pc1.num_points == change_map.size(0), \
+        f"Number of points in pc_1 ({pc1.num_points}) does not match " \
+        f"number of points in change_map ({change_map.size(0)})"
+
+
+def validate_inputs(inputs: Dict[str, Any]) -> None:
+    """Validate the inputs of a datapoint."""
+    assert isinstance(inputs, dict)
+    assert set(inputs.keys()) == {'pc_1', 'pc_2'}
+    validate_point_cloud(inputs['pc_1'], 'pc_1')
+    validate_point_cloud(inputs['pc_2'], 'pc_2')
+
+
+def validate_labels(labels: Dict[str, Any]) -> None:
+    """Validate the labels of a datapoint."""
+    assert isinstance(labels, dict)
+    assert 'change_map' in labels
+    assert isinstance(labels['change_map'], torch.Tensor)
+    validate_change_map(labels['change_map'])
+
+
 def validate_point_cloud(pc: PointCloud, name: str) -> None:
     """Validate a point cloud."""
     assert isinstance(pc, PointCloud), f"{name} should be PointCloud"
@@ -34,29 +57,6 @@ def validate_change_map(change_map: torch.Tensor) -> None:
     unique_values = torch.unique(change_map)
     assert all(val in range(Urb3DCDDataset.NUM_CLASSES) for val in unique_values), \
         f"Unexpected values in change_map: {unique_values}"
-
-
-def validate_point_count_consistency(pc1: PointCloud, change_map: torch.Tensor) -> None:
-    """Validate that pc_1 and change_map have the same number of points."""
-    assert pc1.num_points == change_map.size(0), \
-        f"Number of points in pc_1 ({pc1.num_points}) does not match " \
-        f"number of points in change_map ({change_map.size(0)})"
-
-
-def validate_inputs(inputs: Dict[str, Any]) -> None:
-    """Validate the inputs of a datapoint."""
-    assert isinstance(inputs, dict)
-    assert set(inputs.keys()) == {'pc_1', 'pc_2'}
-    validate_point_cloud(inputs['pc_1'], 'pc_1')
-    validate_point_cloud(inputs['pc_2'], 'pc_2')
-
-
-def validate_labels(labels: Dict[str, Any]) -> None:
-    """Validate the labels of a datapoint."""
-    assert isinstance(labels, dict)
-    assert 'change_map' in labels
-    assert isinstance(labels['change_map'], torch.Tensor)
-    validate_change_map(labels['change_map'])
 
 
 def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:

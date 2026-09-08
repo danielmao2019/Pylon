@@ -54,3 +54,35 @@ prepare_points_for_rendering.py
     ├── # Writes into bounds_mask whether each projected point lies within the image bounds (0 <= x < render_width, 0 <= y < render_height).
     └── impls set bounds_mask to the in-bounds test over current_points columns 0/1 against render_width / render_height
 ```
+
+`models/three_d/point_cloud/render/render_rgb_volumetric.py`
+
+```text
+render_rgb_volumetric.py
+├── import itertools
+├── from typing import List
+├── import torch
+├── from data.structures.three_d.camera.camera import Camera
+├── from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
+└── def gen_auxiliary_cameras(points: torch.Tensor, camera: Camera) -> List[Camera]
+    ├── # Rings the primary view with offset cameras, so one input view still gives a volumetric fit a spread of poses to train against.
+    ├── impls device = points.device
+    ├── impls center = the mean of points over its point axis, as float32 on device
+    ├── calls camera.to(device=device, extr_convention='standard')
+    ├── impls extrinsics_standard = the extrinsics matrix of the camera it returned
+    ├── impls camera_position = the translation column of extrinsics_standard
+    ├── impls distance = the norm of camera_position minus center
+    ├── assert distance is positive  # a camera sitting on the centre names no direction to step away along
+    ├── impls step = half of distance
+    ├── impls direction_specs = the normalized float32 vectors over itertools.product of minus one, zero and one taken three at a time, the all-zero one dropped  # impls-node-one-step:skip — one step; the "and" names what it is made of
+    ├── impls auxiliary_cameras = an empty list
+    ├── for each direction_unit in direction_specs
+    │   ├── assert direction_unit is a 3-vector
+    │   ├── impls position = camera_position stepped along direction_unit by step
+    │   ├── impls aux_standard = a [4, 4] float32 block carrying the rotation of extrinsics_standard, position in its translation column, and one in its corner  # impls-node-one-step:skip — one step; the "and" names what it is made of
+    │   ├── calls CameraExtrinsics(extrinsics=aux_standard, extr_convention='standard', device=device)
+    │   ├── impls aux_extrinsics = the extrinsics it built
+    │   ├── calls Camera(intrinsics=camera.intrinsics, extrinsics=aux_extrinsics, device=device)
+    │   └── impls auxiliary_cameras gains that camera brought to the convention camera now carries, which the rebinding above left standard
+    └── return auxiliary_cameras
+```
