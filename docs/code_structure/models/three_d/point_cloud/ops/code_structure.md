@@ -11,6 +11,7 @@ apply_transform.py
 ├── from typing import Optional, Tuple, Union
 ├── from utils.ops.chunked_matmul import chunked_matmul
 ├── def apply_transform(points: Union[np.ndarray, torch.Tensor], transform: Union[list, np.ndarray, torch.Tensor], inplace: bool = False, max_divide: int = 0, num_divide: Optional[int] = None) -> Union[np.ndarray, torch.Tensor]
+│   ├── # A transform carrying a leading batch axis broadcasts over it, so [..., 4, 4] against [N, 3] yields [..., N, 3] and a single [4, 4] still yields [N, 3].
 │   ├── # Applies a 4x4 transform to points in homogeneous coordinates, preserving the input's type and batch shape, writing the result back into points when inplace.
 │   ├── calls _normalize_points
 │   ├── calls _normalize_transform
