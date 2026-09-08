@@ -9,7 +9,6 @@ convert.py
 ├── from pathlib import Path
 ├── from typing import Dict
 ├── import numpy as np
-├── import torch
 ├── from data.structures.three_d.colmap.colmap_data import COLMAP_Data
 ├── from data.structures.three_d.colmap.load import ColmapPoint3D
 ├── from data.structures.three_d.nerfstudio.nerfstudio_data import NerfStudio_Data
@@ -25,7 +24,8 @@ convert.py
 │   └── return  # the record it built
 └── def _build_colmap_points(point_cloud_path: Path) -> Dict[int, ColmapPoint3D]
     ├── # Builds one COLMAP point per point of the cloud a NerfStudio capture ships beside its frames.
-    ├── calls load_point_cloud(filepath=str(point_cloud_path), device='cpu', dtype=torch.float32)
+    ├── impls meta = {'xyz': {'dtype': 'float32'}}  # COLMAP records a point's coordinates as float32, so the narrowing the retired dtype argument used to make is asked for here, where it is checked against the values
+    ├── calls load_point_cloud(filepath=str(point_cloud_path), meta=meta, device='cpu')
     ├── impls pc = the PointCloud it loaded
     ├── assert pc carries an rgb field  # a COLMAP point has a color, and a cloud without one cannot make the record
     ├── impls positions = the coordinates of pc as a numpy array
