@@ -52,25 +52,26 @@ point_cloud.py
     │   ├── calls _derive_meta_data()
     │   ├── impls _meta_data = the record it derived  # resolved whole before the loop, since the rgb check below reads what a field means off it
     │   ├── def _apply_meta_data [local]
-    │   │   ├── # Applies the override to the source data, casting each field the override states a dtype for.
-    │   │   ├── for each name, entry in meta_data
-    │   │   │   └── if entry states a dtype
-    │   │   │       └── impls data[name] = data[name] cast to that dtype, in the system it arrived in  # the caller asked for it, so it converts as asked and whatever resolution it loses is the caller's own
+    │   │   ├── # Applies to the source data every change the meta data asks of it, so each field leaves here as the torch tensor this class stores.
+    │   │   ├── for each name, value in data
+    │   │   │   ├── impls entry = meta_data[name] when meta_data names this field, else an empty dict
+    │   │   │   ├── if entry states a dtype
+    │   │   │   │   └── impls value = value cast to that dtype, in the system it arrived in  # the caller asked for it, so it converts as asked and whatever resolution it loses is the caller's own
+    │   │   │   ├── impls value_dtype = CONCEPTUAL_NAME[the dtype of value]  # what the value is carried as once the override has moved it, which is the storage question rather than what the record says the field means
+    │   │   │   ├── if value is an np.ndarray
+    │   │   │   │   ├── calls cast_lossless(value, NUMPY_DTYPE[value_dtype])
+    │   │   │   │   └── impls value = the array it cast, handed to torch  # the crossing into torch is this class's own decision rather than any caller's, so uint16 widens to int32 and a float128 field needing its width aborts here
+    │   │   │   └── impls data[name] = value moved to device
     │   │   └── return data
     │   ├── calls _apply_meta_data()
-    │   ├── impls data = the fields it applied the override to
+    │   ├── impls data = the fields it applied the meta data to
     │   ├── impls _device = device
     │   ├── impls _length = the row count of data['xyz']
     │   ├── impls _fields = an empty dict
     │   └── for each name, value in data
     │       ├── calls self._assert_field_name_valid(name=name)
-    │       ├── impls value_dtype = CONCEPTUAL_NAME[the dtype of value]  # what the value is carried as after the override, which is the storage question and not what the record says the field means
-    │       ├── if value is an np.ndarray
-    │       │   ├── calls cast_lossless(value, NUMPY_DTYPE[value_dtype])
-    │       │   └── impls value = the array it cast, handed to torch  # the crossing into torch is this class's own decision rather than any caller's, so uint16 widens to int32 and a float128 column needing its width aborts here
-    │       ├── impls tensor = value moved to self._device
-    │       ├── calls self._validate_field(name=name, value=tensor)
-    │       └── impls _fields[name] = tensor
+    │       ├── calls self._validate_field(name=name, value=value)
+    │       └── impls _fields[name] = value
     ├── @property def device(self) -> torch.device
     │   ├── # Hands back the one device every field of this point cloud sits on.
     │   └── return self._device
