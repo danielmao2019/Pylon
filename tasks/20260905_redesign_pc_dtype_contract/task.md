@@ -67,7 +67,7 @@ goal: re-design pc dtype contract/provenance
    2. target representation:
       1. a floating point target uses $y$ without integer rounding.
       2. an integer target rounds $y$ to the nearest integer.
-   3. losslessness: a conversion is lossless when the source values are exactly recoverable by converting the result back to the source convention, and lossy otherwise. a lossy one still proceeds for a caller outside these modules, because tolerating the loss belongs to whoever asked for the target convention, and `__init__`, load point cloud and save point cloud all refuse it.
+   3. losslessness: a conversion is lossless when the source values are exactly recoverable by converting the result back to the source convention, and lossy otherwise. the conversion performs either one, because tolerating the loss belongs to whoever asked for the target convention.
       1. 0 to 65535 into 0 to 255: a value of 1 rounds to 0 and converts back to 0, so the conversion is lossy.
       2. 0 to 65535 into 0 to 255: a value of 257 converts to 1 and back to 257, so the conversion is lossless.
 3. naming conventions by dtype: the conventions are told apart by dtype and never by inspecting the values, the same way `validate_vertex_color` tells mesh vertex colors apart. the naming dtype is the data's own conceptual dtype, not the dtype of the tensor holding it, so uint16 color data held in an int32 tensor is named uint16. integer conventions span their dtype's full range.
