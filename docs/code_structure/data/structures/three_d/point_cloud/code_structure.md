@@ -32,24 +32,29 @@ point_cloud.py
     │   ├── def _normalize_inputs [local]
     │   │   ├── if xyz is None
     │   │   │   └── impls xyz = data['xyz']
-    │   │   ├── impls data = xyz under the name 'xyz' followed by every other entry of data in its own order, or by nothing when data is None
-    │   │   └── return data
-    │   ├── calls _normalize_inputs(xyz=xyz, data=data)
-    │   ├── impls data = the value it returned  # the two ways coordinates arrive are one coordinates-first dict from here on, so field_names() reads coordinates-first without a splice
-    │   ├── impls _device = device when it is given, else the device of data['xyz'] when it is a torch.Tensor, else the cpu device
+    │   │   ├── impls data = xyz under the name 'xyz' followed by every other entry of data in its own order, or by nothing when data is None  # coordinates enter first, so field_names() reads coordinates-first without a splice
+    │   │   ├── def _build_meta_data [local]
+    │   │   │   ├── if meta_data is not None
+    │   │   │   │   └── return meta_data  # a record handed over is already resolved, and deriving a second one from the tensors would lose what an int32 tensor holding a uint16 colour means
+    │   │   │   └── return  # one entry per field of data, each holding CONCEPTUAL_NAME of that field's own dtype beside a one-entry tuple of its name, an in-memory field being its own source and getting the identity mapping
+    │   │   ├── calls _build_meta_data()
+    │   │   ├── impls meta_data = the record it built
+    │   │   ├── impls device = device when it is given, else the device of data['xyz'] when it is a torch.Tensor, else the cpu device
+    │   │   └── return data, meta_data, device
+    │   ├── calls _normalize_inputs(xyz=xyz, data=data, meta_data=meta_data, device=device)
+    │   ├── impls data, meta_data, device = the values it returned
+    │   ├── impls _device = device
     │   ├── impls _length = the row count of data['xyz']
+    │   ├── impls _meta_data = meta_data  # resolved whole before the loop, since the rgb check below reads what a field means off it
     │   ├── impls _fields = an empty dict
-    │   ├── impls _meta_data = meta_data when it is given, else an empty dict  # a record handed over lands before the loop, since the rgb check below reads what a field means off it
     │   └── for each name, value in data
     │       ├── calls self._assert_field_name_valid(name=name)
-    │       ├── impls source_dtype = CONCEPTUAL_NAME[the dtype of value]
-    │       ├── assert source_dtype is not 'uint64'  # a derived value rather than an arg, so it is checked where it is derived: uint64 is unsupported as a source dtype whatever the values are
+    │       ├── impls value_dtype = CONCEPTUAL_NAME[the dtype of value]  # what the value is carried as right now, which is the storage question, and not what the record says the field means
+    │       ├── assert value_dtype is not 'uint64'  # a derived value rather than an arg, so it is checked where it is derived: uint64 is unsupported as a source dtype whatever the values are
     │       ├── if value is an np.ndarray
-    │       │   ├── calls cast_lossless(value, NUMPY_DTYPE[source_dtype])
+    │       │   ├── calls cast_lossless(value, NUMPY_DTYPE[value_dtype])
     │       │   └── impls value = the array it cast, handed to torch  # the crossing into torch is this class's own decision rather than any caller's, so uint16 widens to int32 and a float128 column needing its width aborts here
     │       ├── impls tensor = value moved to self._device  # nothing else is cast: a caller wanting another dtype hands the field over in it, and load point cloud is the one that casts because it is the one holding the source
-    │       ├── if meta_data is None
-    │       │   └── impls _meta_data[name] = {'dtype': source_dtype, 'layout': a one-entry tuple of name}  # an in-memory field is its own source and gets the identity mapping
     │       ├── calls self._validate_field(name=name, value=tensor)
     │       └── impls _fields[name] = tensor
     ├── @property def device(self) -> torch.device
