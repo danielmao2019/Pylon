@@ -40,7 +40,7 @@ goal: re-design pc dtype contract/provenance
       1. in torch storage, a float128 source with no override uses float64. float32 and smaller dtypes are not considered.
       2. in a ply column, an int64 target goes to i4 and a uint64 target goes to u4.
    4. no field name changes the decision. xyz, rgb, indices, feat, colors and normals cast by the same rules as any other field.
-   5. a cast a dtype override asks for is the caller's decision rather than the module's, so it converts as asked. a float32 override on float64 coordinates narrows them and the resolution they lose is the caller's own.
+   5. a lossy cast belongs to the caller of these modules and never to the modules themselves. a caller wanting float32 coordinates out of a float64 source narrows them itself and hands the narrowed values in.
 3. determining the dtype from the source, one rule per source:
    1. an in-memory variable defines the dtype its tensor or array carries.
    2. a .pth defines the dtype the stored tensor or array carries.
@@ -67,7 +67,7 @@ goal: re-design pc dtype contract/provenance
    2. target representation:
       1. a floating point target uses $y$ without integer rounding.
       2. an integer target rounds $y$ to the nearest integer.
-   3. losslessness: a conversion is lossless when the source values are exactly recoverable by converting the result back to the source convention, and lossy otherwise. a lossy one still proceeds, because tolerating the loss belongs to the caller that asked for the target convention, and save point cloud is the caller that refuses it.
+   3. losslessness: a conversion is lossless when the source values are exactly recoverable by converting the result back to the source convention, and lossy otherwise. a lossy one still proceeds for a caller outside these modules, because tolerating the loss belongs to whoever asked for the target convention, and `__init__`, load point cloud and save point cloud all refuse it.
       1. 0 to 65535 into 0 to 255: a value of 1 rounds to 0 and converts back to 0, so the conversion is lossy.
       2. 0 to 65535 into 0 to 255: a value of 257 converts to 1 and back to 257, so the conversion is lossless.
 3. naming conventions by dtype: the conventions are told apart by dtype and never by inspecting the values, the same way `validate_vertex_color` tells mesh vertex colors apart. the naming dtype is the data's own conceptual dtype, not the dtype of the tensor holding it, so uint16 color data held in an int32 tensor is named uint16. integer conventions span their dtype's full range.
@@ -130,7 +130,7 @@ goal: re-design pc dtype contract/provenance
       1. no canonicalization: `PointCloud` does not canonicalize any field, color included.
          1. rgb enters and is held exactly as it arrived, like every other field.
          2. fields keep their own names.
-      2. both `__init__` and load point cloud apply Type Casting to the target dtype supplied by New Meta Data API.
+      2. both `__init__` and load point cloud apply Type Casting to the target dtype supplied by New Meta Data API, and Color Data Convention Conversion with it wherever that target dtype names a different color convention for rgb than the one the field is on.
    2. validation:
       1. the columns a field is assembled from must all hold one dtype. disagreeing column dtypes hard-assert and abort rather than being promoted to a dtype covering them all.
       2. `PointCloud` keeps validating xyz and rgb by field name.
