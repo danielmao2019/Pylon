@@ -2201,9 +2201,7 @@ trackball_camera_controls.py
 │   │   ├── if the view direction runs parallel to lock_roll
 │   │   │   └── impls carries the camera right axis from the previous drag step through the degeneracy, so the polar angle keeps the unbounded range assert_dash_no_camera_pose_clamps demands
 │   │   └── return
-│   ├── else
-│   │   └── impls resolves the left-drag delta as free trackball rotation, carrying the camera up vector along with the drag
-│   └── return
+│   └── return  # the controls exactly as they arrived, so a caller naming no axis renders what it rendered before this argument existed
 ├── def assert_dash_trackball_camera_controls
 │   ├── # Validates the constructed Dash controls satisfy every trackball contract by running the mouse-mapping, no-orbit, no-pose-clamp, and roll-lock assertions.
 │   ├── calls assert_dash_trackball_mouse_mapping
@@ -2272,9 +2270,7 @@ trackball_camera_controls.ts
 │   │   ├── if the view direction runs parallel to lockRoll
 │   │   │   └── impls carries the camera right axis from the previous drag step through the degeneracy, so the polar angle keeps the unbounded range assertNoCameraPoseClamps demands
 │   │   └── return
-│   ├── else
-│   │   └── impls resolves the left-drag delta as free trackball rotation, carrying camera.up along with the drag
-│   └── return
+│   └── return  # the controls exactly as they arrived, so a caller naming no axis renders what it rendered before this argument existed
 ├── function assertTrackballCameraControls
 │   ├── # Validates the constructed controls satisfy every trackball contract by running the mouse-mapping, no-orbit, no-pose-clamp, and roll-lock assertions.
 │   ├── calls assertTrackballMouseMapping
