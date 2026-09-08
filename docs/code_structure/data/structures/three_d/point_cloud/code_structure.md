@@ -16,55 +16,56 @@ point_cloud.py
     ├── # The four underscore names below — _fields, _meta_data, _length, _device — are this class's own slots, and a bare one in any node means the slot on self; __setattr__ routes exactly those to the base setter and everything else to a validated field.
     ├── # What a field MEANS is the dtype its meta data entry holds, since that is the conceptual dtype its source held and is what a uint16 colour parked in an int32 tensor still is. A field the meta data does not name arrived after construction as a torch tensor, and torch holds no width it cannot name, so there its own dtype is exact.
     ├── def __init__(self, xyz: Optional[Union[np.ndarray, torch.Tensor]] = None, data: Optional[Dict[str, Union[np.ndarray, torch.Tensor]]] = None, meta_data: Optional[Dict[str, Dict[str, Any]]] = None, device: Optional[Union[str, torch.device]] = None) -> None
-    │   ├── # Builds a point cloud from in-memory fields, deriving the record each field's source defines and applying over it whatever the meta data override states.
+    │   ├── # Builds a point cloud from the source's own columns, deriving the record they define under whatever layout the meta data override states and assembling the fields that record names.
     │   ├── def _validate_inputs [local]
     │   │   ├── assert xyz is None or xyz is an np.ndarray or a torch.Tensor
     │   │   ├── assert xyz is None or CONCEPTUAL_NAME[the dtype of xyz] is not 'uint64'  # uint64 is unsupported as a source dtype whatever the values are
     │   │   ├── assert data is None or data is a dict whose keys are all str
-    │   │   ├── assert data is None or no value of data carries a uint64 dtype  # the same refusal for the fields handed in through data
-    │   │   ├── if xyz is None
-    │   │   │   ├── assert data is not None
-    │   │   │   └── assert data carries 'xyz'  # coordinates arrive either on their own arg or inside data, and a construction naming them in neither is not a point cloud
-    │   │   ├── else
-    │   │   │   └── assert data is None or data carries no 'xyz'  # naming them in both leaves which one wins to the reader
+    │   │   ├── assert data is None or no value of data carries a uint64 dtype  # the same refusal for the columns handed in through data
+    │   │   ├── assert xyz is not None or data is not None
     │   │   ├── assert meta_data is None or every value of it is a non-empty dict whose keys sit in ('dtype', 'layout')  # an entry states one half or both, the half it leaves out being the one the source defines
     │   │   ├── assert every 'layout' meta_data states is a non-empty tuple of distinct str
     │   │   └── assert device is None or device names a torch device
     │   ├── calls _validate_inputs()
     │   ├── def _normalize_inputs [local]
-    │   │   ├── if xyz is None
-    │   │   │   └── impls xyz = data['xyz']
-    │   │   ├── impls data = xyz under the name 'xyz' followed by every other entry of data in its own order, or by nothing when data is None  # coordinates enter first, so field_names() reads coordinates-first without a splice
+    │   │   ├── if xyz is not None
+    │   │   │   └── impls data = xyz under the name 'xyz' followed by every entry of data in its own order, or by nothing when data is None  # the coordinates arg is one more source column, so the two ways of handing them in are one dict from here on
     │   │   ├── impls meta_data = meta_data when it is given, else an empty dict
-    │   │   ├── impls device = device when it is given, else the device of data['xyz'] when it is a torch.Tensor, else the cpu device
+    │   │   ├── impls device = device when it is given, else the device of the first value of data when it is a torch.Tensor, else the cpu device
     │   │   └── return data, meta_data, device
     │   ├── calls _normalize_inputs(xyz=xyz, data=data, meta_data=meta_data, device=device)
     │   ├── impls data, meta_data, device = the values it returned
     │   ├── def _derive_meta_data [local]
-    │   │   ├── # Derives the record each field's own source defines and checks the override against it, producing the final meta data.
+    │   │   ├── # Derives the record the source columns define, under the layout the override states over them.
     │   │   ├── impls derived = an empty dict
+    │   │   ├── for each name, entry in meta_data
+    │   │   │   ├── impls layout = the 'layout' entry states, else a one-entry tuple of name  # a column the override names no layout for stands for itself
+    │   │   │   ├── assert every column of layout sits in data
+    │   │   │   ├── assert CONCEPTUAL_NAME names one dtype across those columns  # columns that disagree abort rather than being promoted to a dtype that covers them all
+    │   │   │   └── impls derived[name] = {'dtype': that dtype, 'layout': layout}  # the record keeps what the source held whatever dtype the override goes on to ask for
+    │   │   ├── impls claimed = every column name appearing in any layout derived states
     │   │   ├── for each name, value in data
-    │   │   │   ├── impls entry = meta_data[name] when meta_data names this field, else an empty dict
-    │   │   │   ├── impls source_dtype = CONCEPTUAL_NAME[the dtype of value]  # read before any cast, and kept whatever dtype the override states, since the record is what the source held
-    │   │   │   ├── impls layout = the 'layout' entry states, else a one-entry tuple of name  # an in-memory field is its own source and gets the identity mapping
-    │   │   │   └── impls derived[name] = {'dtype': source_dtype, 'layout': layout}
+    │   │   │   └── if name sits in neither claimed nor derived
+    │   │   │       └── impls derived[name] = {'dtype': CONCEPTUAL_NAME[the dtype of value], 'layout': a one-entry tuple of name}  # a column no field of the override claims becomes a field of its own under the identity mapping
+    │   │   ├── assert derived carries 'xyz'  # a cloud whose columns assemble into no coordinate field is not one
     │   │   └── return derived
     │   ├── calls _derive_meta_data()
-    │   ├── impls _meta_data = the record it derived  # resolved whole before the loop, since the rgb check below reads what a field means off it
+    │   ├── impls _meta_data = the record it derived  # resolved whole before the fields are built, since the rgb check below reads what a field means off it
     │   ├── def _apply_meta_data [local]
-    │   │   ├── # Applies to the source data every change the meta data asks of it, so each field leaves here as the torch tensor this class stores.
-    │   │   ├── for each name, value in data
-    │   │   │   ├── impls entry = meta_data[name] when meta_data names this field, else an empty dict
-    │   │   │   ├── if entry states a dtype
+    │   │   ├── # Applies the record to the source columns, assembling each field and then every change the override asks of it, so each leaves here as the torch tensor this class stores.
+    │   │   ├── impls fields = an empty dict
+    │   │   ├── for each name, entry in self._meta_data
+    │   │   │   ├── impls value = the columns entry's layout names, each raised to two dimensions and joined along the column axis, in the system they arrived in  # a one-dimensional column becomes one column wide and a block that is already two-dimensional keeps the width it has, which is what lets three ply columns and one pcd attribute reach the same [N, 3]
+    │   │   │   ├── if meta_data states a dtype for name
     │   │   │   │   └── impls value = value cast to that dtype, in the system it arrived in  # the caller asked for it, so it converts as asked and whatever resolution it loses is the caller's own
     │   │   │   ├── impls value_dtype = CONCEPTUAL_NAME[the dtype of value]  # what the value is carried as once the override has moved it, which is the storage question rather than what the record says the field means
     │   │   │   ├── if value is an np.ndarray
     │   │   │   │   ├── calls cast_lossless(value, NUMPY_DTYPE[value_dtype])
     │   │   │   │   └── impls value = the array it cast, handed to torch  # the crossing into torch is this class's own decision rather than any caller's, so uint16 widens to int32 and a float128 field needing its width aborts here
-    │   │   │   └── impls data[name] = value moved to device
-    │   │   └── return data
+    │   │   │   └── impls fields[name] = value moved to device
+    │   │   └── return fields
     │   ├── calls _apply_meta_data()
-    │   ├── impls data = the fields it applied the meta data to
+    │   ├── impls data = the fields it built
     │   ├── impls _device = device
     │   ├── impls _length = the row count of data['xyz']
     │   ├── impls _fields = an empty dict
