@@ -4,8 +4,8 @@
 
 ```text
 data/structures/three_d/point_cloud/io/
-├── __init__.py          # io package API surface
-├── load_point_cloud.py  # any supported point cloud file -> PointCloud: the per-format readers plus device/dtype placement
+├── __init__.py          # package marker; re-exports nothing, since the two entry points are already on the parent package's API surface
+├── load_point_cloud.py  # any supported point cloud file -> PointCloud: the per-format readers, the layout each format defines, and the dtype each field enters under
 └── save_point_cloud.py  # PointCloud -> file
 ```
 
