@@ -16,7 +16,7 @@ point_cloud.py
     ├── # The four underscore names below — _fields, _meta_data, _length, _device — are this class's own slots, and a bare one in any node means the slot on self; __setattr__ routes exactly those to the base setter and everything else to a validated field.
     ├── # What a field MEANS is the dtype its meta data entry holds, since that is the conceptual dtype its source held and is what a uint16 colour parked in an int32 tensor still is. A field the meta data does not name arrived after construction as a torch tensor, and torch holds no width it cannot name, so there its own dtype is exact.
     ├── def __init__(self, xyz: Optional[Union[np.ndarray, torch.Tensor]] = None, data: Optional[Dict[str, Union[np.ndarray, torch.Tensor]]] = None, meta_data: Optional[Dict[str, Dict[str, Any]]] = None, device: Optional[Union[str, torch.device]] = None) -> None
-    │   ├── # Builds a point cloud from in-memory fields under the meta data it applies over what those fields' own source defines.
+    │   ├── # Builds a point cloud from in-memory fields, deriving the record each field's source defines and applying over it whatever the meta data override states.
     │   ├── def _validate_inputs [local]
     │   │   ├── assert xyz is None or xyz is an np.ndarray or a torch.Tensor
     │   │   ├── assert data is None or data is a dict whose keys are all str
@@ -33,32 +33,41 @@ point_cloud.py
     │   │   ├── if xyz is None
     │   │   │   └── impls xyz = data['xyz']
     │   │   ├── impls data = xyz under the name 'xyz' followed by every other entry of data in its own order, or by nothing when data is None  # coordinates enter first, so field_names() reads coordinates-first without a splice
-    │   │   ├── def _apply_meta_data [local]
-    │   │   │   ├── impls applied = an empty dict
-    │   │   │   ├── for each name, value in data
-    │   │   │   │   ├── impls entry = meta_data[name] when meta_data names this field, else an empty dict
-    │   │   │   │   ├── impls dtype = the 'dtype' entry states, else CONCEPTUAL_NAME[the dtype of value]  # the source defines this half whenever the caller leaves it out
-    │   │   │   │   ├── impls layout = the 'layout' entry states, else a one-entry tuple of name  # an in-memory field is its own source and gets the identity mapping
-    │   │   │   │   └── impls applied[name] = {'dtype': dtype, 'layout': layout}
-    │   │   │   └── return applied
-    │   │   ├── calls _apply_meta_data()
-    │   │   ├── impls meta_data = the record it built  # one whole record from here on, the override having been applied over what the source defines, so no branch on absence survives into the core logic
+    │   │   ├── impls meta_data = meta_data when it is given, else an empty dict
     │   │   ├── impls device = device when it is given, else the device of data['xyz'] when it is a torch.Tensor, else the cpu device
     │   │   └── return data, meta_data, device
     │   ├── calls _normalize_inputs(xyz=xyz, data=data, meta_data=meta_data, device=device)
     │   ├── impls data, meta_data, device = the values it returned
+    │   ├── def _derive_meta_data [local]
+    │   │   ├── # Derives the record each field's own source defines and checks the override against it, producing the final meta data.
+    │   │   ├── impls derived = an empty dict
+    │   │   ├── for each name, value in data
+    │   │   │   ├── impls entry = meta_data[name] when meta_data names this field, else an empty dict
+    │   │   │   ├── impls source_dtype = CONCEPTUAL_NAME[the dtype of value]  # read before any cast, and kept whatever dtype the override states, since the record is what the source held
+    │   │   │   ├── assert source_dtype is not 'uint64'  # uint64 is unsupported as a source dtype whatever the values are
+    │   │   │   ├── impls layout = the 'layout' entry states, else a one-entry tuple of name  # an in-memory field is its own source and gets the identity mapping
+    │   │   │   └── impls derived[name] = {'dtype': source_dtype, 'layout': layout}
+    │   │   └── return derived
+    │   ├── calls _derive_meta_data()
+    │   ├── impls _meta_data = the record it derived  # resolved whole before the loop, since the rgb check below reads what a field means off it
+    │   ├── def _apply_meta_data [local]
+    │   │   ├── # Applies the override to the source data, casting each field the override states a dtype for.
+    │   │   ├── for each name, entry in meta_data
+    │   │   │   └── if entry states a dtype
+    │   │   │       └── impls data[name] = data[name] cast to that dtype, in the system it arrived in  # the caller asked for it, so it converts as asked and whatever resolution it loses is the caller's own
+    │   │   └── return data
+    │   ├── calls _apply_meta_data()
+    │   ├── impls data = the fields it applied the override to
     │   ├── impls _device = device
     │   ├── impls _length = the row count of data['xyz']
-    │   ├── impls _meta_data = meta_data  # applied whole before the loop, since the rgb check below reads what a field means off it
     │   ├── impls _fields = an empty dict
     │   └── for each name, value in data
     │       ├── calls self._assert_field_name_valid(name=name)
-    │       ├── impls value_dtype = CONCEPTUAL_NAME[the dtype of value]  # what the value is carried as right now, which is the storage question, and not what the record says the field means
-    │       ├── assert value_dtype is not 'uint64'  # a derived value rather than an arg, so it is checked where it is derived: uint64 is unsupported as a source dtype whatever the values are
+    │       ├── impls value_dtype = CONCEPTUAL_NAME[the dtype of value]  # what the value is carried as after the override, which is the storage question and not what the record says the field means
     │       ├── if value is an np.ndarray
     │       │   ├── calls cast_lossless(value, NUMPY_DTYPE[value_dtype])
     │       │   └── impls value = the array it cast, handed to torch  # the crossing into torch is this class's own decision rather than any caller's, so uint16 widens to int32 and a float128 column needing its width aborts here
-    │       ├── impls tensor = value moved to self._device  # nothing else is cast: a caller wanting another dtype hands the field over in it, and load point cloud is the one that casts because it is the one holding the source
+    │       ├── impls tensor = value moved to self._device
     │       ├── calls self._validate_field(name=name, value=tensor)
     │       └── impls _fields[name] = tensor
     ├── @property def device(self) -> torch.device
