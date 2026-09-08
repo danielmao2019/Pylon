@@ -36,7 +36,7 @@ validation.py
 │   └── return intr_convention
 ├── def validate_camera_intrinsics_params(model: str, intr_convention: str, params: Any) -> Dict[str, torch.Tensor]
 │   ├── # Validate the named tensor intrinsics params: the resolution keys every model carries, the projection keys that model's own dispatch owns, and the invariants holding only across those keys together.
-│   ├── impls assert params carries h and w, both positive scalar tensors  # impls-node-one-step:skip; the resolution, named the way every resolution in this repo is ordered: h first
+│   ├── impls assert params carries h and w, both positive and all params sharing one leading batch shape  # impls-node-one-step:skip; the resolution, named the way every resolution in this repo is ordered: h first, and a scalar param is the empty-batch case
 │   ├── def _validate_projection_params() -> Dict[str, torch.Tensor] [local]
 │   │   ├── # Dispatches the projection keys onto the model that owns them, every model being a structurally equivalent sibling here.
 │   │   ├── if model == "simple_pinhole"
@@ -309,7 +309,7 @@ camera_intrinsics.py
 │   ├── def fy(self) -> torch.Tensor  # @property [abstract]
 │   │   └── # Abstract: the vertical focal length / scale, whose params key differs per model.
 │   ├── def project(self, points_camera: torch.Tensor, inplace: bool = False) -> torch.Tensor   [abstract]
-│   │   └── # Abstract: map camera-space 3D points [..., 3] to 2D image points [..., 2] under this model.
+│   │   └── # Abstract: map camera-space 3D points [..., 3] to 2D image points [..., 2] under this model, each param unsqueezed against the point axis so a batch of cameras projects in one op.
 │   ├── def to(self, device: Optional[Union[str, torch.device]] = None, dtype: Optional[torch.dtype] = None, non_blocking: bool = False, copy: bool = False, intr_convention: Optional[str] = None) -> "CameraIntrinsics"
 │   │   ├── # Return this CameraIntrinsics with Tensor.to-style placement / copy semantics plus optional image-plane frame conversion.
 │   │   ├── def _validate_inputs [local]

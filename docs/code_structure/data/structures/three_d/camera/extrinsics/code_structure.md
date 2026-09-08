@@ -147,8 +147,8 @@ camera_extrinsics.py
 │   │   ├── impls w2c = the matrix inverse of self._extrinsics
 │   │   └── return w2c
 │   ├── def center(self) -> torch.Tensor  # @property
-│   │   ├── # The camera center extrinsics[:3, 3].
-│   │   └── return self._extrinsics[:3, 3]
+│   │   ├── # The camera center extrinsics[..., :3, 3], one per camera the matrix carries.
+│   │   └── return self._extrinsics[..., :3, 3]
 │   ├── def right(self) -> torch.Tensor  # @property
 │   │   ├── # The extr_convention-dispatched physical right axis.
 │   │   ├── impls select the right axis per extr_convention
