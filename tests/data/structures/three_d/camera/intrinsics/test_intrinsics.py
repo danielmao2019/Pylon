@@ -455,7 +455,7 @@ def test_intrinsics_constructor_normalizes_scalar_compatible_params_to_tensors()
             "fx": fx,
             "fy": np.array(410.0, dtype=np.float64),
             "cx": 160.0,
-            "cy": np.array([120.0], dtype=np.float64),
+            "cy": np.array(120.0, dtype=np.float64),
             "h": 240,
             "w": 320,
         },

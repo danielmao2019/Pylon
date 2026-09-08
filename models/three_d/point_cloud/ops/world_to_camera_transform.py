@@ -14,15 +14,17 @@ def world_to_camera_transform(
 ) -> torch.Tensor:
     """Map world-frame points into the camera local frame.
 
-    High-level API that builds the world-to-camera 4x4 matrix by inverting the
-    camera-to-world extrinsic and applies it to the points via apply_transform.
+    High-level API that builds the world-to-camera matrix by inverting the
+    camera-to-world extrinsics and applies it to the points via apply_transform,
+    any leading axes on the extrinsics flowing through onto the result.
 
     Args:
         points: Float torch.Tensor of shape [N, 3] in world coordinates, on the
             same device as extrinsics.
-        extrinsics: Float torch.Tensor of shape [4, 4] representing the
+        extrinsics: Float torch.Tensor of shape [..., 4, 4] representing the
             camera-to-world (pose) transform in the OpenCV convention, on the same
-            device as points.
+            device as points; the leading axes carry one matrix per camera and are
+            inverted over the trailing two axes.
         inplace: If True, the camera-frame coordinates are written back into
             points and points is returned; if False, a new tensor is returned.
         max_divide: Maximum number of times the matmul may halve its row batch on
@@ -31,8 +33,10 @@ def world_to_camera_transform(
             batch (forwarded to apply_transform).
 
     Returns:
-        Float torch.Tensor of shape [N, 3] in the camera local frame (OpenCV:
-        +Z forward). The same tensor as points when inplace.
+        Float torch.Tensor of shape [..., N, 3] in the camera local frame
+        (OpenCV: +Z forward), carrying the extrinsics' leading axes: [4, 4] in
+        gives [N, 3] out and [B, 4, 4] gives [B, N, 3]. The same tensor as points
+        when inplace.
     """
 
     def _validate_inputs() -> None:
@@ -45,8 +49,9 @@ def world_to_camera_transform(
         assert isinstance(extrinsics, torch.Tensor), (
             "Expected extrinsics to be a torch.Tensor. " f"{type(extrinsics)=}"
         )
-        assert extrinsics.shape == (4, 4), (
-            "Expected extrinsics to be a [4, 4] matrix. " f"{extrinsics.shape=}"
+        assert extrinsics.ndim >= 2 and tuple(extrinsics.shape[-2:]) == (4, 4), (
+            "Expected extrinsics to be a [..., 4, 4] stack of matrices. "
+            f"{extrinsics.shape=}"
         )
         assert points.device == extrinsics.device, (
             "Expected points and extrinsics on the same device. "

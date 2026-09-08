@@ -8,7 +8,6 @@ import torch
 from data.structures.three_d.camera.cameras import Cameras
 from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
 from data.structures.three_d.camera.intrinsics.camera_intrinsics import (
-    CameraIntrinsics,
     build_camera_intrinsics,
 )
 from data.structures.three_d.camera.intrinsics.validation import (
@@ -161,27 +160,25 @@ def load_cameras(
         "h": int(data["h"]),
         "w": int(data["w"]),
     }
-    intrinsics: List[CameraIntrinsics] = [
-        build_camera_intrinsics(
-            model="pinhole",
-            params=intrinsics_params,
-            intr_convention="standard",
+    # One transform block governs every frame, so its params broadcast to the batch.
+    intrinsics = build_camera_intrinsics(
+        model="pinhole",
+        params={
+            key: torch.full((len(frames),), value, dtype=torch.float32, device=device)
+            for key, value in intrinsics_params.items()
+        },
+        intr_convention="standard",
+        device=device,
+    )
+    extrinsics = CameraExtrinsics(
+        extrinsics=torch.tensor(
+            [frame["transform_matrix"] for frame in frames],
+            dtype=torch.float32,
             device=device,
-        )
-        for _ in frames
-    ]
-    extrinsics: List[CameraExtrinsics] = [
-        CameraExtrinsics(
-            extrinsics=torch.tensor(
-                frame["transform_matrix"],
-                dtype=torch.float32,
-                device=device,
-            ),
-            extr_convention="opengl",
-            device=device,
-        )
-        for frame in frames
-    ]
+        ),
+        extr_convention="opengl",
+        device=device,
+    )
     names: List[Optional[str]] = [Path(frame["file_path"]).stem for frame in frames]
     ids: List[Optional[int]] = [
         frame["colmap_im_id"] if "colmap_im_id" in frame else None for frame in frames
@@ -209,7 +206,7 @@ def load_filenames(data: Dict[str, Any]) -> List[str]:
 
 def load_split_filenames(
     data: Dict[str, Any],
-) -> Tuple[List[str] | None, List[str] | None, List[str] | None]:
+) -> Tuple[Optional[List[str]], Optional[List[str]], Optional[List[str]]]:
     if "train_filenames" not in data:
         return None, None, None
     return (
