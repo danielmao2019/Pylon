@@ -15,7 +15,7 @@ load_point_cloud.py
 ├── from plyfile import PlyData
 ├── from data.structures.three_d.point_cloud.point_cloud import PointCloud
 ├── def load_point_cloud(filepath: str, meta_data: Optional[Dict[str, Dict[str, Any]]] = None, device: Union[str, torch.device] = 'cuda') -> PointCloud
-│   ├── # Loads one point cloud file of any supported format as a raw cloud of the source's own columns, then applies the meta data to it.
+│   ├── # Loads one point cloud file of any supported format as the cloud its own columns define, then applies the meta data over the halves that source leaves for the caller.
 │   ├── def _validate_inputs [local]
 │   │   └── assert the extension of filepath is one of the supported formats
 │   ├── calls _validate_inputs()
@@ -26,7 +26,7 @@ load_point_cloud.py
 │   ├── calls _normalize_inputs(filepath=filepath)
 │   ├── impls filepath = the value it returned
 │   ├── calls _load_by_format(filepath=filepath, device=device)
-│   ├── impls pc = the raw cloud it read, whose fields are the source's own columns under the names the source gives them
+│   ├── impls pc = the cloud it read, assembled as far as the source's own column names go and no further
 │   ├── calls pc.apply_meta_data(meta_data=meta_data)
 │   ├── assert pc carries an xyz field  # a raw cloud without coordinates is legal, a loaded one is not, so this is where a positional source that named no layout aborts
 │   └── return pc
