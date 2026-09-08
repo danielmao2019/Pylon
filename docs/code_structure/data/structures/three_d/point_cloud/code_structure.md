@@ -12,45 +12,44 @@ point_cloud.py
 ├── from utils.dtypes import COLOR_RANGE, CONCEPTUAL_NAME, NUMPY_DTYPE, TORCH_DTYPE, cast_lossless
 └── class PointCloud
     ├── # One point cloud: named per-point fields, every one a torch tensor of the same length on one device, over one meta data record of what the construction source held.
-    ├── # The meta data is a dict of one dict per field name, and so is the meta data override: an override entry states 'dtype', 'layout' or both, and a meta data entry holds both. The meta data is built once, at construction, and never again.
+    ├── # The meta data is a dict of one dict per field name, each holding both halves: the conceptual dtype that field's source held and the source columns it was assembled from. It is handed over whole or derived whole, once, at construction, and never again.
     ├── # The four underscore names below — _fields, _meta_data, _length, _device — are this class's own slots, and a bare one in any node means the slot on self; __setattr__ routes exactly those to the base setter and everything else to a validated field.
     ├── # What a field MEANS is the dtype its meta data entry holds, since that is the conceptual dtype its source held and is what a uint16 colour parked in an int32 tensor still is. A field the meta data does not name arrived after construction as a torch tensor, and torch holds no width it cannot name, so there its own dtype is exact.
-    ├── def __init__(self, xyz: Optional[Union[np.ndarray, torch.Tensor]] = None, data: Optional[Dict[str, Union[np.ndarray, torch.Tensor]]] = None, inherited_meta_data: Optional[Dict[str, Dict[str, Any]]] = None, meta_data: Optional[Dict[str, Dict[str, Any]]] = None, device: Optional[Union[str, torch.device]] = None) -> None
-    │   ├── # Builds a point cloud from in-memory fields, either noting what each field's source held under a meta data record it derives, or adopting whole the record another obj already carries.
-    │   ├── assert xyz is None or xyz is an np.ndarray or a torch.Tensor
-    │   ├── assert data is None or data is a dict whose keys are all str
-    │   ├── assert inherited_meta_data is None or meta_data is None  # a record inherited from another obj is already resolved, so a meta data stated over it would have nothing left to state
-    │   ├── assert inherited_meta_data is None or every value of it is a dict carrying both 'dtype' and 'layout'  # the inherited record arrives whole, so it may name a field that has since left and omit one that has since arrived
-    │   ├── assert meta_data is None or every value of it is a non-empty dict whose keys sit in ('dtype', 'layout')
-    │   ├── assert every 'layout' meta_data states is a non-empty tuple of distinct str
-    │   ├── assert device is None or device names a torch device
-    │   ├── if xyz is None
-    │   │   ├── assert data is not None
-    │   │   ├── assert data carries 'xyz'
-    │   │   └── impls xyz = data['xyz']
-    │   ├── else
-    │   │   └── assert data is None or data carries no 'xyz'
-    │   ├── impls incoming = xyz under the name 'xyz' followed by every other entry of data in its own order, or by nothing when data is None  # coordinates enter first, so field_names() reads coordinates-first without a splice
-    │   ├── if meta_data is not None
-    │   │   └── assert every key of meta_data names a field of incoming  # the override is the only way a caller states a dtype or a column name, so a misspelling aborts rather than being silently ignored
-    │   ├── impls _device = device when it is given, else the device of xyz when xyz is a torch.Tensor, else the cpu device
-    │   ├── impls _length = the row count of xyz
+    ├── def __init__(self, xyz: Optional[Union[np.ndarray, torch.Tensor]] = None, data: Optional[Dict[str, Union[np.ndarray, torch.Tensor]]] = None, meta_data: Optional[Dict[str, Dict[str, Any]]] = None, device: Optional[Union[str, torch.device]] = None) -> None
+    │   ├── # Builds a point cloud from in-memory fields under the meta data it is handed, or under the meta data it derives from those fields when it is handed none.
+    │   ├── def _validate_inputs [local]
+    │   │   ├── assert xyz is None or xyz is an np.ndarray or a torch.Tensor
+    │   │   ├── assert data is None or data is a dict whose keys are all str
+    │   │   ├── if xyz is None
+    │   │   │   ├── assert data is not None
+    │   │   │   └── assert data carries 'xyz'  # coordinates arrive either on their own arg or inside data, and a construction naming them in neither is not a point cloud
+    │   │   ├── else
+    │   │   │   └── assert data is None or data carries no 'xyz'  # naming them in both leaves which one wins to the reader
+    │   │   ├── assert meta_data is None or every value of it is a dict carrying both 'dtype' and 'layout'  # the meta data is one whole record, so a half-stated entry is refused here rather than half-derived
+    │   │   ├── assert every 'layout' meta_data states is a non-empty tuple of distinct str
+    │   │   └── assert device is None or device names a torch device
+    │   ├── calls _validate_inputs()
+    │   ├── def _normalize_inputs [local]
+    │   │   ├── if xyz is None
+    │   │   │   └── impls xyz = data['xyz']
+    │   │   ├── impls data = xyz under the name 'xyz' followed by every other entry of data in its own order, or by nothing when data is None
+    │   │   └── return data
+    │   ├── calls _normalize_inputs(xyz=xyz, data=data)
+    │   ├── impls data = the value it returned  # the two ways coordinates arrive are one coordinates-first dict from here on, so field_names() reads coordinates-first without a splice
+    │   ├── impls _device = device when it is given, else the device of data['xyz'] when it is a torch.Tensor, else the cpu device
+    │   ├── impls _length = the row count of data['xyz']
     │   ├── impls _fields = an empty dict
-    │   ├── impls _meta_data = inherited_meta_data when it is given, else an empty dict  # an inherited record lands before the loop, since the rgb check below reads what a field means off it
-    │   └── for each name, value in incoming
+    │   ├── impls _meta_data = meta_data when it is given, else an empty dict  # a record handed over lands before the loop, since the rgb check below reads what a field means off it
+    │   └── for each name, value in data
     │       ├── calls self._assert_field_name_valid(name=name)
     │       ├── impls source_dtype = CONCEPTUAL_NAME[the dtype of value]
-    │       ├── assert source_dtype is not 'uint64'  # uint64 is unsupported as a source dtype whatever the values are
-    │       ├── impls target_dtype = the 'dtype' meta_data states for name, else source_dtype
-    │       ├── assert target_dtype is not 'uint64'  # and an override naming it does not make one acceptable either
+    │       ├── assert source_dtype is not 'uint64'  # a derived value rather than an arg, so it is checked where it is derived: uint64 is unsupported as a source dtype whatever the values are
     │       ├── if value is an np.ndarray
     │       │   ├── calls cast_lossless(value, NUMPY_DTYPE[source_dtype])
-    │       │   └── impls value = the array it cast, handed to torch  # the crossing into torch is this class's own decision, so uint16 widens to int32 and a float128 column needing its width aborts here
-    │       ├── if target_dtype is not source_dtype
-    │       │   └── impls value = value cast to TORCH_DTYPE[target_dtype]  # an override is the caller's decision, so it converts as asked and whatever resolution it loses is the caller's own
-    │       ├── impls tensor = value moved to self._device
-    │       ├── if inherited_meta_data is None
-    │       │   └── impls _meta_data[name] = {'dtype': source_dtype, 'layout': the 'layout' meta_data states for name, else a one-entry tuple of name}  # the record keeps the source dtype however the override redirects the value, and an in-memory field with no layout stated gets the identity mapping
+    │       │   └── impls value = the array it cast, handed to torch  # the crossing into torch is this class's own decision rather than any caller's, so uint16 widens to int32 and a float128 column needing its width aborts here
+    │       ├── impls tensor = value moved to self._device  # nothing else is cast: a caller wanting another dtype hands the field over in it, and load point cloud is the one that casts because it is the one holding the source
+    │       ├── if meta_data is None
+    │       │   └── impls _meta_data[name] = {'dtype': source_dtype, 'layout': a one-entry tuple of name}  # an in-memory field is its own source and gets the identity mapping
     │       ├── calls self._validate_field(name=name, value=tensor)
     │       └── impls _fields[name] = tensor
     ├── @property def device(self) -> torch.device
@@ -151,10 +150,17 @@ select.py
     ├── # Indexes a point cloud down to the points a fixed index list or index tensor names.
     ├── def __init__(self, indices: Union[torch.Tensor, List[int]]) -> None
     │   ├── # Holds the indices this selection will take, in the list or tensor form it was given.
+    │   ├── def _validate_inputs [local]
+    │   │   ├── assert indices is a torch.Tensor or a list
+    │   │   └── if indices is a list
+    │   │       └── assert every entry of indices is an int  # a tensor's dtype and device are checked where the point cloud's device is known, which is not here
+    │   ├── calls _validate_inputs()
     │   └── impls self.indices = indices
     ├── def __call__(self, pc: PointCloud) -> PointCloud
     │   ├── # Builds a new point cloud carrying every field of pc indexed down to the selected points, the meta data travelling across whole and each field's current dtype with it.
-    │   ├── assert pc is a PointCloud
+    │   ├── def _validate_inputs [local]
+    │   │   └── assert pc is a PointCloud  # a reusable door, so it asserts what it needs whoever calls it
+    │   ├── calls _validate_inputs()
     │   ├── calls self._materialize_indices(device=pc.device)
     │   ├── impls indices = the materialized index tensor
     │   ├── assert every entry of indices is below pc.num_points
@@ -162,8 +168,8 @@ select.py
     │   ├── for each name in pc.field_names()
     │   │   └── impls fields[name] = the field of pc under that name, indexed by indices  # an indices field the cloud already carries is data like any other here, since the indices this selection takes are its own
     │   ├── if 'indices' does not sit in fields
-    │   │   └── impls fields['indices'] = indices  # this selection made the field, so no source column stands behind it and the inherited meta data names it nowhere
-    │   ├── calls PointCloud(data=fields, inherited_meta_data=pc.meta_data)  # a selection is not a source, so the record crosses whole rather than being derived again from the indexed tensors
+    │   │   └── impls fields['indices'] = indices  # this selection made the field, so no source column stands behind it and the meta data crossing over names it nowhere
+    │   ├── calls PointCloud(data=fields, meta_data=pc.meta_data)  # a selection is not a source, so the record crosses whole rather than being derived again from the indexed tensors
     │   └── return  # the point cloud it built
     ├── def __str__(self) -> str
     │   ├── # Renders the selection, spelling the indices out only while there are at most five of them.
@@ -196,21 +202,27 @@ random_select.py
     ├── # Draws a random subset of a point cloud's points, sized either as a fraction of the cloud or as a fixed count.
     ├── def __init__(self, percentage: Optional[float] = None, count: Optional[int] = None) -> None
     │   ├── # Holds exactly one of the two sizing modes and leaves the other empty.
-    │   ├── assert exactly one of percentage and count is given
+    │   ├── def _validate_inputs [local]
+    │   │   ├── assert exactly one of percentage and count is given
+    │   │   ├── if percentage is not None
+    │   │   │   ├── assert percentage is an int or a float
+    │   │   │   └── assert percentage lies in (0, 1]
+    │   │   └── else
+    │   │       ├── assert count is an int
+    │   │       └── assert count is positive
+    │   ├── calls _validate_inputs()
     │   ├── if percentage is not None
-    │   │   ├── assert percentage is an int or a float
-    │   │   ├── assert percentage lies in (0, 1]
     │   │   ├── impls self.percentage = percentage as a float
     │   │   └── impls self.count = None
     │   └── else
-    │       ├── assert count is an int
-    │       ├── assert count is positive
     │       ├── impls self.count = count
     │       └── impls self.percentage = None
     ├── def __call__(self, pc: PointCloud, seed: Optional[Any] = None, generator: Optional[torch.Generator] = None) -> PointCloud
     │   ├── # Takes the sized random subset of pc, through a Select over the head of a random permutation of its point indices.
-    │   ├── assert exactly one of seed and generator is given
-    │   ├── assert pc is a PointCloud
+    │   ├── def _validate_inputs [local]
+    │   │   ├── assert pc is a PointCloud
+    │   │   └── assert exactly one of seed and generator is given  # the two randomness sources are one arg apiece, so the pair is checked once the second of them is reached
+    │   ├── calls _validate_inputs()
     │   ├── impls device = pc.device
     │   ├── impls num_points = pc.num_points
     │   ├── if generator is not None
