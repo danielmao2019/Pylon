@@ -10,76 +10,72 @@ point_cloud.py
 ├── import numpy as np
 ├── import torch
 ├── from utils.dtypes import COLOR_RANGE, CONCEPTUAL_NAME, NUMPY_DTYPE, TORCH_DTYPE, cast_lossless
+├── COORDINATE_COLUMN_NAMES  # the column-name groups a source calls its coordinates: ('x', 'y', 'z') as ply, las and off name them, and ('positions',) as open3d does
+├── COLOR_COLUMN_NAMES  # the column-name groups a source calls its colours: ('red', 'green', 'blue') as ply and las name them, and ('colors',) as open3d does
 └── class PointCloud
-    ├── # One point cloud: named per-point fields, every one a torch tensor of the same length on one device, over one meta data record of what the construction source held.
-    ├── # The meta data is a dict of one dict per field name, each holding both halves: the conceptual dtype that field's source held and the source columns it was assembled from. It is handed over whole or derived whole, once, at construction, and never again.
+    ├── # One point cloud: named per-point fields, every one a torch tensor of the same length on one device, over one meta data entry per field of what that field's source held.
+    ├── # A cloud is constructed RAW — its fields are the source's own columns and its meta data the identity record over them — and becomes the cloud a caller wanted only once apply_meta_data has run, which is what lets a reader build one and the load API state the override on it afterwards.
     ├── # The four underscore names below — _fields, _meta_data, _length, _device — are this class's own slots, and a bare one in any node means the slot on self; __setattr__ routes exactly those to the base setter and everything else to a validated field.
-    ├── # What a field MEANS is the dtype its meta data entry holds, since that is the conceptual dtype its source held and is what a uint16 colour parked in an int32 tensor still is. A field the meta data does not name arrived after construction as a torch tensor, and torch holds no width it cannot name, so there its own dtype is exact.
     ├── def __init__(self, xyz: Optional[Union[np.ndarray, torch.Tensor]] = None, data: Optional[Dict[str, Union[np.ndarray, torch.Tensor]]] = None, meta_data: Optional[Dict[str, Dict[str, Any]]] = None, device: Optional[Union[str, torch.device]] = None) -> None
-    │   ├── # Builds a point cloud from the source's own columns, deriving the record they define under whatever layout the meta data override states and assembling the fields that record names.
+    │   ├── # Builds a point cloud from the source's own columns, recording what each column held and then applying the meta data over it.
     │   ├── def _validate_inputs [local]
     │   │   ├── assert xyz is None or xyz is an np.ndarray or a torch.Tensor
     │   │   ├── assert xyz is None or CONCEPTUAL_NAME[the dtype of xyz] is not 'uint64'  # uint64 is unsupported as a source dtype whatever the values are
     │   │   ├── assert data is None or data is a dict whose keys are all str
     │   │   ├── assert data is None or no value of data carries a uint64 dtype  # the same refusal for the columns handed in through data
     │   │   ├── assert xyz is not None or data is not None
-    │   │   ├── assert meta_data is None or every value of it is a non-empty dict whose keys sit in ('dtype', 'layout')  # an entry states one half or both, the half it leaves out being the one the source defines
-    │   │   ├── assert every 'layout' meta_data states is a non-empty tuple of distinct str
     │   │   └── assert device is None or device names a torch device
     │   ├── calls _validate_inputs()
     │   ├── def _normalize_inputs [local]
     │   │   ├── if xyz is not None
     │   │   │   └── impls data = xyz under the name 'xyz' followed by every entry of data in its own order, or by nothing when data is None  # the coordinates arg is one more source column, so the two ways of handing them in are one dict from here on
-    │   │   ├── impls meta_data = meta_data when it is given, else an empty dict
     │   │   ├── impls device = device when it is given, else the device of the first value of data when it is a torch.Tensor, else the cpu device
-    │   │   └── return data, meta_data, device
-    │   ├── calls _normalize_inputs(xyz=xyz, data=data, meta_data=meta_data, device=device)
-    │   ├── impls data, meta_data, device = the values it returned
-    │   ├── def _derive_meta_data [local]
-    │   │   ├── # Derives the record the source columns define, under the layout the override states over them.
-    │   │   ├── impls derived = an empty dict
-    │   │   ├── for each name, entry in meta_data
-    │   │   │   ├── impls layout = the 'layout' entry states, else a one-entry tuple of name  # a column the override names no layout for stands for itself
-    │   │   │   ├── if name sits in data and some column of layout is absent from data
-    │   │   │   │   ├── assert entry states a dtype  # a field arriving already assembled brings its whole record with it, since its source columns are gone and nothing here can read them back
-    │   │   │   │   └── impls derived[name] = entry  # the record crosses whole, which is how a selection or a transform carries what a field means forward
-    │   │   │   └── else
-    │   │   │       ├── assert every column of layout sits in data
-    │   │   │       ├── assert CONCEPTUAL_NAME names one dtype across those columns  # columns that disagree abort rather than being promoted to a dtype that covers them all
-    │   │   │       └── impls derived[name] = {'dtype': that dtype, 'layout': layout}  # the record keeps what the source held whatever dtype the override goes on to ask for
-    │   │   ├── impls claimed = every column name appearing in any layout derived states
-    │   │   ├── for each name, value in data
-    │   │   │   └── if name sits in neither claimed nor derived
-    │   │   │       └── impls derived[name] = {'dtype': CONCEPTUAL_NAME[the dtype of value], 'layout': a one-entry tuple of name}  # a column no field of the override claims becomes a field of its own under the identity mapping
-    │   │   ├── assert derived carries 'xyz'  # a cloud whose columns assemble into no coordinate field is not one
-    │   │   └── return derived
-    │   ├── calls _derive_meta_data()
-    │   ├── impls _meta_data = the record it derived  # resolved whole before the fields are built, since the rgb check below reads what a field means off it
-    │   ├── def _apply_meta_data [local]
-    │   │   ├── # Applies the record to the source columns, assembling each field and then every change the override asks of it, so each leaves here as the torch tensor this class stores.
-    │   │   ├── impls fields = an empty dict
-    │   │   ├── for each name, entry in self._meta_data
-    │   │   │   ├── if every column of entry's layout sits in data
-    │   │   │   │   └── impls value = those columns each raised to two dimensions and joined along the column axis, in the system they arrived in  # a one-dimensional column becomes one column wide and a block that is already two-dimensional keeps the width it has, which is what lets three ply columns and one pcd attribute reach the same [N, 3]
-    │   │   │   ├── else
-    │   │   │   │   └── impls value = data[name]  # the field arrived already assembled, its record naming source columns this construction never saw
-    │   │   │   ├── if meta_data states a dtype for name
-    │   │   │   │   └── impls value = value cast to that dtype, in the system it arrived in  # the caller asked for it, so it converts as asked and whatever resolution it loses is the caller's own
-    │   │   │   ├── impls value_dtype = CONCEPTUAL_NAME[the dtype of value]  # what the value is carried as once the override has moved it, which is the storage question rather than what the record says the field means
-    │   │   │   ├── if value is an np.ndarray
-    │   │   │   │   ├── calls cast_lossless(value, NUMPY_DTYPE[value_dtype])
-    │   │   │   │   └── impls value = the array it cast, handed to torch  # the crossing into torch is this class's own decision rather than any caller's, so uint16 widens to int32 and a float128 field needing its width aborts here
-    │   │   │   └── impls fields[name] = value moved to device
-    │   │   └── return fields
-    │   ├── calls _apply_meta_data()
-    │   ├── impls data = the fields it built
+    │   │   └── return data, device
+    │   ├── calls _normalize_inputs(xyz=xyz, data=data, device=device)
+    │   ├── impls data, device = the values it returned
     │   ├── impls _device = device
-    │   ├── impls _length = the row count of data['xyz']
-    │   ├── impls _fields = an empty dict
-    │   └── for each name, value in data
+    │   ├── impls _length = the row count of the first value of data
+    │   ├── impls _fields = each column of data raised to two dimensions and handed to torch on self._device, under its own name  # the source's columns, not yet the fields a record names
+    │   ├── def _build_meta_data [local]
+    │   │   ├── impls record = one entry per column of self._fields, holding CONCEPTUAL_NAME of that column's own dtype beside a one-entry tuple of its name
+    │   │   └── impls _meta_data = record  # what the source literally held, column by column, which is the record every later derivation starts from
+    │   ├── calls _build_meta_data()
+    │   └── calls self.apply_meta_data(meta_data=meta_data)
+    ├── def apply_meta_data(self, meta_data: Optional[Dict[str, Dict[str, Any]]] = None) -> None
+    │   ├── # Derives the meta data this cloud should carry from the one it records and the override, then makes the cloud match it.
+    │   ├── def _derive_target_meta_data [local]
+    │   │   ├── impls named = an empty dict
+    │   │   ├── for each group in COORDINATE_COLUMN_NAMES
+    │   │   │   └── if every name in group sits in self._meta_data
+    │   │   │       └── impls named['xyz'] = {'layout': group}  # what a source calls its coordinates is a fact about column names, so it is read here rather than told to this class by whoever loaded the file
+    │   │   ├── for each group in COLOR_COLUMN_NAMES
+    │   │   │   └── if every name in group sits in self._meta_data
+    │   │   │       └── impls named['rgb'] = {'layout': group}
+    │   │   ├── for each name in self._meta_data
+    │   │   │   └── if named names this field nowhere and name sits in no layout named states
+    │   │   │       └── impls named[name] = {'layout': a one-entry tuple of name}  # a column neither group claims stands for itself
+    │   │   ├── impls target = named with every entry meta_data states written over it, half by half  # the override outranks the naming rule, which is how a multi-element ply or a positional .pth names its own fields
+    │   │   ├── for each name, entry in target
+    │   │   │   ├── assert every column of entry's layout sits in self._meta_data
+    │   │   │   ├── assert the recorded dtypes of those columns are all one dtype  # columns that disagree abort rather than being promoted to a dtype that covers them all
+    │   │   │   └── impls entry gains that dtype when it states none  # a half the override leaves out is the one the record defines
+    │   │   └── return target  # a cloud whose columns assemble into no coordinate field is legal here, a reader building one from a positional source having no coordinates to name yet
+    │   ├── calls _derive_target_meta_data()
+    │   ├── impls target = the meta data it derived
+    │   ├── def _apply_target_meta_data [local]
+    │   │   ├── impls fields = an empty dict
+    │   │   ├── for each name, entry in target
+    │   │   │   ├── impls value = the fields entry's layout names, joined along the column axis  # a one-dimensional column becomes one column wide and a block that is already two-dimensional keeps the width it has, which is what lets three ply columns and one pcd attribute reach the same [N, 3]
+    │   │   │   ├── impls value_dtype = CONCEPTUAL_NAME[the dtype of value]
+    │   │   │   ├── if entry's dtype is not value_dtype
+    │   │   │   │   └── impls value = value cast to TORCH_DTYPE[entry's dtype]  # the override asked for it, so it converts as asked and whatever resolution it loses is the caller's own
+    │   │   │   └── impls fields[name] = value
+    │   │   ├── impls _fields = fields
+    │   │   └── impls _meta_data = target  # the cloud now IS what the meta data says, so the record it carries forward is the one it was made to match
+    │   ├── calls _apply_target_meta_data()
+    │   └── for each name, value in self._fields
     │       ├── calls self._assert_field_name_valid(name=name)
-    │       ├── calls self._validate_field(name=name, value=value)
-    │       └── impls _fields[name] = value
+    │       └── calls self._validate_field(name=name, value=value)
     ├── @property def device(self) -> torch.device
     │   ├── # Hands back the one device every field of this point cloud sits on.
     │   └── return self._device
@@ -87,7 +83,7 @@ point_cloud.py
     │   ├── # Hands back the number of points every field carries.
     │   └── return self._length
     ├── @property def meta_data(self) -> Dict[str, Dict[str, Any]]
-    │   ├── # Hands back the meta data this point cloud was constructed with: one entry per source field, each holding the conceptual dtype that field's source held and the source columns it was assembled from.
+    │   ├── # Hands back the meta data this point cloud carries: one entry per field, each holding the conceptual dtype that field's source held and the source columns it was assembled from.
     │   └── return self._meta_data
     ├── def field_names(self) -> Tuple[str, ...]
     │   ├── # Hands back every field name this point cloud carries, coordinates first because they entered first.
@@ -103,16 +99,16 @@ point_cloud.py
     │   │   └── return self._fields[name]
     │   └── raise AttributeError  # the name is no field this point cloud carries
     ├── def __setattr__(self, name: str, value: object) -> None
-    │   ├── # Routes an assignment to the private slot for an underscore name, and to a validated field otherwise, leaving the meta data exactly as construction wrote it.
+    │   ├── # Routes an assignment to the private slot for an underscore name, and to a validated field otherwise, leaving the meta data exactly as it stands.
     │   ├── # The value is only a tensor on the field branch; the slot branch carries the dicts, the length and the device this class stores about itself.
     │   ├── if name starts with '_'
     │   │   ├── impls the value goes to the slot through the base class attribute setter
     │   │   └── return
     │   ├── calls self._assert_field_name_valid(name=name)
     │   ├── calls self._validate_field(name=name, value=value)
-    │   └── impls _fields[name] = value  # the meta data is left exactly as construction wrote it, and what the field now means follows from the two
+    │   └── impls _fields[name] = value  # the meta data is left exactly as it stands, and what the field now means follows from the two
     ├── def __delattr__(self, name: str) -> None
-    │   ├── # Removes a field, leaving the meta data exactly as construction wrote it.
+    │   ├── # Removes a field, leaving the meta data exactly as it stands.
     │   ├── def _validate_inputs [local]
     │   │   ├── assert name is not 'xyz'  # a point cloud without coordinates is not one
     │   │   └── assert name sits in self._fields
@@ -142,10 +138,7 @@ point_cloud.py
     │   ├── if name == 'xyz'
     │   │   └── calls self.validate_xyz_tensor(value)
     │   └── elif name == 'rgb'
-    │       ├── if name sits in self._meta_data
-    │       │   └── impls colour_dtype = the 'dtype' of self._meta_data[name]  # the meta data is what says an int32 tensor holds a uint16 colour
-    │       ├── else
-    │       │   └── impls colour_dtype = CONCEPTUAL_NAME[the dtype of value]  # a colour assigned after construction is a torch tensor, and torch holds no width it cannot name
+    │       ├── impls colour_dtype = the 'dtype' of self._meta_data[name] when the meta data names it, else CONCEPTUAL_NAME[the dtype of value]  # the meta data is what says an int32 tensor holds a uint16 colour, and a colour assigned after construction is a torch tensor whose own dtype is exact
     │       └── calls self.validate_rgb_tensor(value, colour_dtype)
     ├── @staticmethod def validate_xyz_tensor(xyz: torch.Tensor) -> None
     │   ├── # Checks coordinates are an [N, 3] floating point tensor of any width, free of NaN and Inf.
@@ -168,7 +161,7 @@ point_cloud.py
         ├── # Checks a field name is a str, is not underscore-prefixed, and collides with none of the reserved attribute names.
         ├── assert name is a str
         ├── assert name does not start with '_'
-        └── assert name is none of 'device', 'num_points', 'meta_data', 'field_names', 'validate_xyz_tensor' and 'validate_rgb_tensor'  # a field under a name the class already binds would be written and then never readable
+        └── assert name is none of 'device', 'num_points', 'meta_data', 'field_names', 'apply_meta_data', 'validate_xyz_tensor' and 'validate_rgb_tensor'  # a field under a name the class already binds would be written and then never readable
 ```
 
 `data/structures/three_d/point_cloud/select.py`
