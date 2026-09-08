@@ -144,108 +144,86 @@ cameras.py
 ├── import torch
 ├── from data.structures.three_d.camera.camera import Camera
 ├── from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
-├── from data.structures.three_d.camera.extrinsics.validation import validate_extr_convention
 ├── from data.structures.three_d.camera.intrinsics.camera_intrinsics import CameraIntrinsics
-├── from data.structures.three_d.camera.intrinsics.validation import validate_intr_convention
 ├── from data.structures.three_d.camera.validation import validate_cameras_attributes
 └── class Cameras
-    ├── # A batch of cameras held as parallel per-camera intrinsics / extrinsics lists, addressable by position or by name.
-    ├── def __init__(self, intrinsics: List[CameraIntrinsics], extrinsics: List[CameraExtrinsics], names: Optional[List[Optional[str]]] = None, ids: Optional[List[Optional[int]]] = None, device: Optional[Union[str, torch.device]] = None, dtype: Optional[torch.dtype] = None) -> None
-    │   ├── # Construct a Cameras from parallel tensor-backed CameraIntrinsics and CameraExtrinsics lists.
+    ├── # A batch of cameras: one CameraIntrinsics and one CameraExtrinsics carrying a leading batch axis, so every method they already have operates on the whole batch.
+    ├── def __init__(self, intrinsics: CameraIntrinsics, extrinsics: CameraExtrinsics, names: Optional[List[Optional[str]]] = None, ids: Optional[List[Optional[int]]] = None, device: Optional[Union[str, torch.device]] = None, dtype: Optional[torch.dtype] = None) -> None
+    │   ├── # Construct a Cameras from a batched CameraIntrinsics whose params are [B] and a batched CameraExtrinsics whose matrix is [B, 4, 4].
     │   ├── calls validate_cameras_attributes(intrinsics=intrinsics, extrinsics=extrinsics, names=names, ids=ids, device=device, dtype=dtype)
     │   ├── if device is not None or dtype is not None
-    │   │   ├── impls replace intrinsics with the list of CameraIntrinsics.to results
-    │   │   └── impls replace extrinsics with the list of CameraExtrinsics.to results
-    │   ├── impls self._intrinsics = intrinsics
-    │   ├── impls self._extrinsics = extrinsics
+    │   │   ├── calls intrinsics.to(device=device, dtype=dtype)
+    │   │   └── calls extrinsics.to(device=device, dtype=dtype)
+    │   ├── impls self._intrinsics = intrinsics  # params each [B]
+    │   ├── impls self._extrinsics = extrinsics  # matrix [B, 4, 4]
     │   ├── impls self._names = names
     │   ├── impls self._ids = ids
-    │   ├── impls self._device = the common component device
-    │   ├── impls self._dtype = the common component dtype
-    │   └── impls self._name_to_index = the name → index map
-    ├── def __len__(self) -> int
-    │   ├── # The number of cameras in the collection.
-    │   ├── impls length = len(self._intrinsics)
-    │   └── return length
-    ├── def __getitem__(self, index: Union[int, slice, List[int], str]) -> Union["Camera", "Cameras"]
-    │   ├── # Index the collection.
-    │   ├── if isinstance(index, str)
-    │   │   ├── impls camera_index = self._name_to_index[index]
-    │   │   ├── impls camera = Camera(...)
-    │   │   └── return camera
-    │   ├── if isinstance(index, (slice, list))
-    │   │   ├── impls cameras = Cameras(...)
-    │   │   └── return cameras
-    │   ├── if isinstance(index, int)
-    │   │   ├── impls camera = Camera(...)
-    │   │   └── return camera
-    │   └── assert 0, "Should not reach here."
-    ├── def __iter__(self) -> Iterator["Camera"]
-    │   ├── # Iterate the collection one Camera at a time.
-    │   └── for each index in range(len(self))
-    │       └── yield  # self[index]
+    │   └── impls self._name_to_index = the name -> index map
+    ├── def intrinsics(self) -> CameraIntrinsics  # @property
+    │   ├── # The batch's intrinsics, whose params carry the batch axis so its own project / scale_intrinsics cover every camera at once.
+    │   └── return self._intrinsics
+    ├── def extrinsics(self) -> CameraExtrinsics  # @property
+    │   ├── # The batch's extrinsics, whose [B, 4, 4] matrix every pose op broadcasts over.
+    │   └── return self._extrinsics
     ├── def to(self, device: Optional[Union[str, torch.device]] = None, dtype: Optional[torch.dtype] = None, non_blocking: bool = False, copy: bool = False, intr_convention: Optional[str] = None, extr_convention: Optional[str] = None) -> "Cameras"
-    │   ├── # Return this Cameras with Tensor.to-style placement / copy semantics plus optional image-plane and pose-frame conversions.
-    │   ├── def _validate_inputs [local]
-    │   │   ├── impls assert device is None, str, or torch.device
-    │   │   ├── impls assert dtype is None or a floating torch dtype
-    │   │   ├── impls assert non_blocking is a bool
-    │   │   ├── impls assert copy is a bool
-    │   │   ├── impls assert intr_convention is None or a str
-    │   │   ├── if intr_convention is not None
-    │   │   │   └── calls validate_intr_convention(intr_convention)
-    │   │   ├── impls assert extr_convention is None or a str
-    │   │   └── if extr_convention is not None
-    │   │       └── calls validate_extr_convention(extr_convention)
-    │   ├── calls _validate_inputs
-    │   ├── def _normalize_inputs [local]
-    │   │   ├── impls device = torch.device(device) if device is not None else self._device
-    │   │   ├── impls dtype = dtype if dtype is not None else self._dtype
-    │   │   └── return device, dtype
-    │   ├── calls _normalize_inputs(device=device, dtype=dtype)
-    │   ├── impls device, dtype = the returned values from _normalize_inputs
-    │   ├── if device == self._device and dtype == self._dtype and (intr_convention is None or all(intrinsic.intr_convention == intr_convention for intrinsic in self._intrinsics)) and (extr_convention is None or all(extrinsic.extr_convention == extr_convention for extrinsic in self._extrinsics)) and copy is False
-    │   │   └── return self
-    │   ├── for each camera in self
-    │   │   └── calls camera.to(device=device, dtype=dtype, non_blocking=non_blocking, copy=copy, intr_convention=intr_convention, extr_convention=extr_convention)
+    │   ├── # Return this batch with Tensor.to-style placement / copy semantics plus optional frame conversions, each delegated to the component that owns it.
+    │   ├── calls self._intrinsics.to(device=device, dtype=dtype, non_blocking=non_blocking, copy=copy, intr_convention=intr_convention)
+    │   ├── calls self._extrinsics.to(device=device, dtype=dtype, non_blocking=non_blocking, copy=copy, extr_convention=extr_convention)
+    │   ├── impls cameras = Cameras(...)
+    │   └── return cameras
+    ├── def scale_intrinsics(self, resolution: Optional[Union[int, Tuple[int, int], List[int], np.ndarray, torch.Tensor]] = None, scale: Optional[Union[int, float, Tuple[Union[int, float], Union[int, float]], List[Union[int, float]], np.ndarray, torch.Tensor]] = None) -> "Cameras"
+    │   ├── # Return this batch restated against a different resolution, the rescale being elementwise on the [B] params its intrinsics already holds.
+    │   ├── calls self._intrinsics.scale_intrinsics(resolution=resolution, scale=scale)
+    │   ├── impls cameras = Cameras(...)
+    │   └── return cameras
+    ├── def transform_intrinsics(self, transform: torch.Tensor, resolution: Tuple[int, int]) -> "Cameras"
+    │   ├── # Return this batch with its intrinsics restated by a pixel-frame affine, broadcast over the batch axis.
+    │   ├── calls self._intrinsics.transform_intrinsics(transform=transform, resolution=resolution)
     │   ├── impls cameras = Cameras(...)
     │   └── return cameras
     ├── def transform_extrinsics(self, scale: Union[int, float, np.ndarray, torch.Tensor], rotation: Union[np.ndarray, torch.Tensor, List[List[Union[int, float]]]], translation: Union[np.ndarray, torch.Tensor, Tuple[Union[int, float], Union[int, float], Union[int, float]], List[Union[int, float]]]) -> "Cameras"
-    │   ├── # Return this Cameras under array-like scale, rotation, and translation inputs applied to each CameraExtrinsics pose.
-    │   ├── for each camera in self
-    │   │   └── calls camera.transform_extrinsics(scale=scale, rotation=rotation, translation=translation)
+    │   ├── # Return this batch under array-like scale, rotation and translation applied to every pose at once.
+    │   ├── calls self._extrinsics.transform_extrinsics(scale=scale, rotation=rotation, translation=translation)
     │   ├── impls cameras = Cameras(...)
     │   └── return cameras
-    ├── def intrinsics(self) -> Sequence[CameraIntrinsics]  # @property
-    │   ├── # The per-camera intrinsics, positionally parallel to extrinsics so index i names the same camera in both.
-    │   └── return self._intrinsics
-    ├── def extrinsics(self) -> Sequence[CameraExtrinsics]  # @property
-    │   ├── # The per-camera extrinsics, positionally parallel to intrinsics so index i names the same camera in both.
-    │   └── return self._extrinsics
+    ├── def __len__(self) -> int
+    │   ├── # The number of cameras in the batch, the extent of the leading axis.
+    │   └── return  # self._extrinsics.extrinsics.shape[0]
+    ├── def __getitem__(self, index: Union[int, slice, List[int], str]) -> Union["Camera", "Cameras"]
+    │   ├── # Index the batch by slicing the leading axis of both components, never by selecting from stored per-camera objects.
+    │   ├── if isinstance(index, str)
+    │   │   └── impls index = self._name_to_index[index]
+    │   ├── if isinstance(index, int)
+    │   │   └── return  # Camera(intrinsics=self._intrinsics[index], extrinsics=self._extrinsics[index], name=..., id=...)
+    │   └── return  # Cameras(intrinsics=self._intrinsics[index], extrinsics=self._extrinsics[index], ...)
+    ├── def __iter__(self) -> Iterator["Camera"]
+    │   ├── # Iterate one Camera at a time, for callers that genuinely need a single camera rather than the batch.
+    │   └── for each index in range(len(self))
+    │       └── yield  # self[index]
     ├── def names(self) -> Sequence[Optional[str]]  # @property
-    │   ├── # The per-camera names, the keys __getitem__ resolves a string index through.
+    │   ├── # The per-camera labels, metadata that never enters a tensor op.
     │   └── return self._names
     ├── def ids(self) -> Sequence[Optional[int]]  # @property
-    │   ├── # The per-camera ids, carried through serialization alongside a flag marking which cameras have one.
+    │   ├── # The per-camera integer identities that survive a serialize / deserialize round trip.
     │   └── return self._ids
     ├── def device(self) -> torch.device  # @property
-    │   ├── # The single device the whole collection is held on, fixed at construction for every camera in it.
-    │   └── return self._device
+    │   ├── # The device the component tensors live on.
+    │   └── return self._extrinsics.device
     ├── def dtype(self) -> torch.dtype  # @property
-    │   ├── # The dtype shared by the cameras' tensor state.
-    │   └── return self._dtype
+    │   ├── # The dtype shared by the component tensors.
+    │   └── return self._extrinsics.dtype
     ├── def center(self) -> torch.Tensor  # @property
-    │   ├── # The [N, 3] stack of per-camera centers.
-    │   └── impls stacks each CameraExtrinsics center into [N, 3]
+    │   ├── # The [B, 3] camera centers, its extrinsics' own center under the batch axis.
+    │   └── return self._extrinsics.center
     ├── def right(self) -> torch.Tensor  # @property
-    │   ├── # The [N, 3] stack of per-camera physical right axes.
-    │   └── impls stacks each CameraExtrinsics right axis into [N, 3]
+    │   ├── # The [B, 3] physical right axes, its extrinsics' own right under the batch axis.
+    │   └── return self._extrinsics.right
     ├── def forward(self) -> torch.Tensor  # @property
-    │   ├── # The [N, 3] stack of per-camera physical forward axes.
-    │   └── impls stacks each CameraExtrinsics forward axis into [N, 3]
+    │   ├── # The [B, 3] physical forward axes, its extrinsics' own forward under the batch axis.
+    │   └── return self._extrinsics.forward
     └── def up(self) -> torch.Tensor  # @property
-        ├── # The [N, 3] stack of per-camera physical up axes.
-        └── impls stacks each CameraExtrinsics up axis into [N, 3]
+        ├── # The [B, 3] physical up axes, its extrinsics' own up under the batch axis.
+        └── return self._extrinsics.up
 ```
 
 `data/structures/three_d/camera/camera_vis.py`
