@@ -103,11 +103,11 @@ def _prepare_points_for_rendering(
     return current_points, valid
 
 
-def _prepare_points_for_rendering_batched(
+def _prepare_points_for_rendering_chunked(
     points: torch.Tensor,
     camera: Union[Camera, Cameras],
     resolution: Tuple[int, int],
-    batch_size: int = 2048,
+    chunk_size: int = 2048,
     cull_func: Callable[
         [torch.Tensor, torch.Tensor, int, int],
         None,
@@ -122,7 +122,7 @@ def _prepare_points_for_rendering_batched(
         camera: The Camera or Cameras to render through, already brought to the
             OpenCV pose frame and scaled to resolution.
         resolution: Target image resolution as an (H, W) tuple.
-        batch_size: Number of points preprocessed per chunk.
+        chunk_size: Number of points preprocessed per chunk.
         cull_func: Callable writing the image-bounds test of its projected points
             into its bounds_mask in place.
 
@@ -141,8 +141,8 @@ def _prepare_points_for_rendering_batched(
 
     points_chunks = []
     valid_chunks = []
-    for i in range(0, N, batch_size):
-        j = min(N, i + batch_size)
+    for i in range(0, N, chunk_size):
+        j = min(N, i + chunk_size)
         chunk_points, chunk_valid = _prepare_points_for_rendering(
             points=points[i:j],
             render_intrinsics=render_intrinsics,
@@ -155,7 +155,7 @@ def _prepare_points_for_rendering_batched(
 
     if not any(bool(chunk_valid.any()) for chunk_valid in valid_chunks):
         raise AssertionError(
-            "No points remained after culling in all batches. "
+            "No points remained after culling in all chunks. "
             f"{N=} {resolution=} {extrinsics.shape=} {len(valid_chunks)=}"
         )
 
@@ -218,28 +218,28 @@ def prepare_points_for_rendering(
         device=points.device, extr_convention="opencv"
     ).scale_intrinsics(resolution=resolution)
 
-    # If `num_divide` is set, derive batch size from N / 2**num_divide.
+    # If `num_divide` is set, derive chunk size from N / 2**num_divide.
     N = points.shape[0]
     if num_divide is not None:
-        batch_size = max(1, math.ceil(N / (2**num_divide)))
-        return _prepare_points_for_rendering_batched(
+        chunk_size = max(1, math.ceil(N / (2**num_divide)))
+        return _prepare_points_for_rendering_chunked(
             points=points,
             camera=camera_prepared,
             resolution=resolution,
-            batch_size=batch_size,
+            chunk_size=chunk_size,
             cull_func=cull_func,
         )
 
-    # Otherwise, progressively halve batch size on CUDA OOM up to `max_divide`.
+    # Otherwise, progressively halve chunk size on CUDA OOM up to `max_divide`.
     n = 0
     while n <= max_divide:
-        batch_size = max(1, math.ceil(N / (2**n)))
+        chunk_size = max(1, math.ceil(N / (2**n)))
         try:
-            return _prepare_points_for_rendering_batched(
+            return _prepare_points_for_rendering_chunked(
                 points=points,
                 camera=camera_prepared,
                 resolution=resolution,
-                batch_size=batch_size,
+                chunk_size=chunk_size,
                 cull_func=cull_func,
             )
         except torch.cuda.OutOfMemoryError:
