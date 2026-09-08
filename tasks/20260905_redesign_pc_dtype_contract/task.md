@@ -180,9 +180,18 @@ goal: re-design pc dtype contract/provenance
 ### 1.2. Solution Constraints
 
 1. You must use "meta_data" as the name of the new arg of init, load, and save. nothing else accepted.
-2. There must be one local helper under `PointCloud.__init__` that infers/derives the meta data from the source and checks the meta_data override arg to produce the final meta_data. note that this is outside of `_normalize_inputs` (a sibling of it).
-3. There must be one local helper under `PointCloud.__init__` that applies changes to the source data when a meta data override is provided.
-4. load point cloud gets the source data and passes the source data loaded from disk to RAM and the meta data override and pass down to `PointCloud` to construct it.
+2. `PointCloud` should expose a public method `apply_meta_data`, which also takes a `meta_data` arg as override.
+   1. `apply_meta_data` must have a local helper that infers/derives the meta data from the recorded meta data and checks the override meta data to produce the target meta data.
+   2. `apply_meta_data` must have a local helper that applies the target meta data to self.
+3. `PointCloud.__init__`
+   1. must have a local function to build meta data from provided source data and set class attr.
+   2. must use `self.apply_meta_data` to apply meta data.
+4. load point cloud
+   1. the helpers of load point cloud each constructs a `PointCloud` obj without applying meta data.
+   2. the load point cloud API takes the raw `PointCloud` from the helpers and calls `apply_meta_data` on it.
+5. save point cloud
+   1. the helpers of save point cloud each takes a `PointCloud` obj without applying meta data.
+   2. the save point cloud API takes the given `PointCloud` from the caller and calls `apply_meta_data` on it.
 
 ## 2. Definition of Done
 
