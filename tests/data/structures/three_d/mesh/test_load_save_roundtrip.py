@@ -99,6 +99,48 @@ def test_load_save_obj_with_seam_face_is_byte_identical(tmp_path: Path) -> None:
     )
 
 
+def test_save_writes_the_mtl_and_the_png_under_the_obj_s_own_stem(
+    tmp_path: Path,
+) -> None:
+    """The OBJ, the MTL and the texture PNG a save writes share the OBJ's stem, and each artifact names the next by bare filename.
+
+    Args:
+        tmp_path: Pytest-provided temporary directory.
+
+    Returns:
+        None.
+    """
+    source_obj_path = _write_seamed_uv_obj(directory=tmp_path / "source")
+    mesh = Mesh.load(path=source_obj_path)
+
+    saved_obj_path = tmp_path / "saved" / "seam.obj"
+    mesh.save(path=saved_obj_path)
+
+    saved_mtl_path = saved_obj_path.with_suffix(".mtl")
+    saved_png_path = saved_obj_path.with_suffix(".png")
+    assert saved_mtl_path.is_file(), (
+        "Expected the saved OBJ's MTL sibling to sit under the OBJ's own stem. "
+        f"{saved_mtl_path=} {sorted(saved_obj_path.parent.iterdir())=}"
+    )
+    assert saved_png_path.is_file(), (
+        "Expected the saved OBJ's texture PNG sibling to sit under the OBJ's own "
+        "stem. "
+        f"{saved_png_path=} {sorted(saved_obj_path.parent.iterdir())=}"
+    )
+
+    obj_text = saved_obj_path.read_text(encoding="utf-8")
+    assert f"mtllib {saved_mtl_path.name}\n" in obj_text, (
+        "Expected the saved OBJ's mtllib line to name the MTL by bare filename. "
+        f"{saved_mtl_path.name=} {obj_text.splitlines()[:2]=}"
+    )
+
+    mtl_text = saved_mtl_path.read_text(encoding="utf-8")
+    assert f"map_Kd {saved_png_path.name}\n" in mtl_text, (
+        "Expected the saved MTL's map_Kd line to name the PNG by bare filename. "
+        f"{saved_png_path.name=} {mtl_text=}"
+    )
+
+
 def test_load_promotes_seam_crossing_face_to_seam_safe_canonical(
     tmp_path: Path,
 ) -> None:

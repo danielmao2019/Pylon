@@ -726,6 +726,7 @@ save_obj.py
 ├── from typing import Union
 ├── import numpy as np
 ├── import torch
+├── from PIL import Image
 ├── from data.structures.three_d.mesh.mesh import Mesh
 ├── from data.structures.three_d.mesh.texture.canonicalize import collapse_seam_shifted_uv_rows
 ├── from data.structures.three_d.mesh.texture.conventions import transform_uv_convention
@@ -761,9 +762,27 @@ save_obj.py
 │   └── calls _normalize_vertex_color_for_obj
 ├── def _save_uv_texture_map_obj(mesh: Mesh, obj_path: Path) -> None
 │   ├── # Writes the OBJ plus a sibling MTL and texture PNG.
-│   ├── calls _normalize_uv_texture_map_for_png
-│   ├── calls transform_uv_convention(verts_uvs=mesh.texture.verts_uvs.detach().cpu(), source_uv_convention=mesh.texture.uv_convention, target_uv_convention="obj")  # the convention the vt lines are written in
-│   └── calls collapse_seam_shifted_uv_rows  # seam-safe canonical -> OBJ vt structure
+│   ├── impls mtl_path, png_path = obj_path's own stem under the .mtl and .png suffixes  # the three artifacts of one mesh share one stem, so a caller registers them from the OBJ path it chose rather than knowing a suffix this writer invented
+│   ├── def _write_png() -> None [local]
+│   │   ├── # Writes the texture image the material's map_Kd line names.
+│   │   ├── calls _normalize_uv_texture_map_for_png
+│   │   └── impls write the normalized texture map to png_path as a PNG image
+│   ├── def _write_mtl() -> None [local]
+│   │   ├── # Writes the material the OBJ's mtllib line names.
+│   │   ├── impls write the "material0" newmtl header and its Ka / Kd / Ks / d / illum lines to mtl_path
+│   │   └── impls write the map_Kd line naming png_path by bare filename  # bare, so the trio resolves wherever it is moved to as a whole
+│   ├── def _write_obj() -> None [local]
+│   │   ├── # Writes the mesh itself, against that material.
+│   │   ├── calls transform_uv_convention(verts_uvs=mesh.texture.verts_uvs.detach().cpu(), source_uv_convention=mesh.texture.uv_convention, target_uv_convention="obj")  # the convention the vt lines are written in
+│   │   ├── calls collapse_seam_shifted_uv_rows  # seam-safe canonical -> OBJ vt structure
+│   │   ├── impls write the mtllib line naming mtl_path by bare filename, then the "usemtl material0" line
+│   │   ├── impls write one "v x y z" line per verts row, each coordinate to six decimals
+│   │   ├── impls write one "vt u v" line per collapsed verts_uvs row, each coordinate to six decimals
+│   │   └── impls write one "f v/vt v/vt v/vt" line per face, its vertex and vt indices 1-based
+│   ├── calls _write_png
+│   ├── calls _write_mtl
+│   ├── calls _write_obj
+│   └── return
 ├── def _normalize_vertex_color_for_obj(vertex_color: torch.Tensor) -> torch.Tensor
 │   ├── # Normalizes vertex color to float32 [0,1] for OBJ export.
 │   ├── if vertex_color's dtype is torch.uint8

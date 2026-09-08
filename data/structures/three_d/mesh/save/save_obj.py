@@ -137,63 +137,94 @@ def _save_uv_texture_map_obj(mesh: Mesh, obj_path: Path) -> None:
         None.
     """
 
-    output_mtl_path = obj_path.with_suffix(".mtl")
-    output_texture_path = obj_path.with_name(f"{obj_path.stem}_texture.png")
+    mtl_path = obj_path.with_suffix(".mtl")
+    png_path = obj_path.with_suffix(".png")
 
-    texture_uint8 = _normalize_uv_texture_map_for_png(
-        uv_texture_map=mesh.texture.uv_texture_map
-    )
-    Image.fromarray(texture_uint8).save(str(output_texture_path))
+    def _write_png() -> None:
+        """Write the texture image the material's map_Kd line names.
 
-    with output_mtl_path.open("w", encoding="utf-8") as handle:
-        handle.write("newmtl material0\n")
-        handle.write("Ka 0.000000 0.000000 0.000000\n")
-        handle.write("Kd 1.000000 1.000000 1.000000\n")
-        handle.write("Ks 0.000000 0.000000 0.000000\n")
-        handle.write("d 1.000000\n")
-        handle.write("illum 1\n")
-        handle.write(f"map_Kd {output_texture_path.name}\n")
+        Args:
+            None.
 
-    verts_np = mesh.verts.detach().cpu().numpy()
-    faces_np = mesh.faces.detach().cpu().numpy()
-    obj_convention_verts_uvs = transform_uv_convention(
-        verts_uvs=mesh.texture.verts_uvs.detach().cpu(),
-        source_uv_convention=mesh.texture.uv_convention,
-        target_uv_convention="obj",
-    )
-    obj_verts_uvs, obj_faces_uvs = collapse_seam_shifted_uv_rows(
-        verts_uvs=obj_convention_verts_uvs,
-        faces_uvs=mesh.texture.faces_uvs.detach().cpu(),
-    )
-    verts_uvs_np = obj_verts_uvs.numpy()
-    faces_uvs_np = obj_faces_uvs.numpy()
+        Returns:
+            None.
+        """
+        texture_uint8 = _normalize_uv_texture_map_for_png(
+            uv_texture_map=mesh.texture.uv_texture_map
+        )
+        Image.fromarray(texture_uint8).save(str(png_path))
 
-    with obj_path.open("w", encoding="utf-8") as handle:
-        handle.write(f"mtllib {output_mtl_path.name}\n")
-        handle.write("usemtl material0\n")
-        for vertex_row in verts_np:
-            handle.write(
-                "v {:.6f} {:.6f} {:.6f}\n".format(
-                    float(vertex_row[0]),
-                    float(vertex_row[1]),
-                    float(vertex_row[2]),
+    def _write_mtl() -> None:
+        """Write the material the OBJ's mtllib line names.
+
+        Args:
+            None.
+
+        Returns:
+            None.
+        """
+        with mtl_path.open("w", encoding="utf-8") as handle:
+            handle.write("newmtl material0\n")
+            handle.write("Ka 0.000000 0.000000 0.000000\n")
+            handle.write("Kd 1.000000 1.000000 1.000000\n")
+            handle.write("Ks 0.000000 0.000000 0.000000\n")
+            handle.write("d 1.000000\n")
+            handle.write("illum 1\n")
+            handle.write(f"map_Kd {png_path.name}\n")
+
+    def _write_obj() -> None:
+        """Write the mesh itself, against that material.
+
+        Args:
+            None.
+
+        Returns:
+            None.
+        """
+        obj_convention_verts_uvs = transform_uv_convention(
+            verts_uvs=mesh.texture.verts_uvs.detach().cpu(),
+            source_uv_convention=mesh.texture.uv_convention,
+            target_uv_convention="obj",
+        )
+        obj_verts_uvs, obj_faces_uvs = collapse_seam_shifted_uv_rows(
+            verts_uvs=obj_convention_verts_uvs,
+            faces_uvs=mesh.texture.faces_uvs.detach().cpu(),
+        )
+        verts_np = mesh.verts.detach().cpu().numpy()
+        faces_np = mesh.faces.detach().cpu().numpy()
+        verts_uvs_np = obj_verts_uvs.numpy()
+        faces_uvs_np = obj_faces_uvs.numpy()
+
+        with obj_path.open("w", encoding="utf-8") as handle:
+            handle.write(f"mtllib {mtl_path.name}\n")
+            handle.write("usemtl material0\n")
+            for vertex_row in verts_np:
+                handle.write(
+                    "v {:.6f} {:.6f} {:.6f}\n".format(
+                        float(vertex_row[0]),
+                        float(vertex_row[1]),
+                        float(vertex_row[2]),
+                    )
                 )
-            )
-        for uv_row in verts_uvs_np:
-            handle.write(
-                "vt {:.6f} {:.6f}\n".format(float(uv_row[0]), float(uv_row[1]))
-            )
-        for face_row, face_uv_row in zip(faces_np, faces_uvs_np, strict=True):
-            handle.write(
-                "f {}/{} {}/{} {}/{}\n".format(
-                    int(face_row[0]) + 1,
-                    int(face_uv_row[0]) + 1,
-                    int(face_row[1]) + 1,
-                    int(face_uv_row[1]) + 1,
-                    int(face_row[2]) + 1,
-                    int(face_uv_row[2]) + 1,
+            for uv_row in verts_uvs_np:
+                handle.write(
+                    "vt {:.6f} {:.6f}\n".format(float(uv_row[0]), float(uv_row[1]))
                 )
-            )
+            for face_row, face_uv_row in zip(faces_np, faces_uvs_np, strict=True):
+                handle.write(
+                    "f {}/{} {}/{} {}/{}\n".format(
+                        int(face_row[0]) + 1,
+                        int(face_uv_row[0]) + 1,
+                        int(face_row[1]) + 1,
+                        int(face_uv_row[1]) + 1,
+                        int(face_row[2]) + 1,
+                        int(face_uv_row[2]) + 1,
+                    )
+                )
+
+    _write_png()
+    _write_mtl()
+    _write_obj()
 
 
 def _resolve_output_obj_path(output_path: Union[str, Path]) -> Path:

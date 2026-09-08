@@ -182,6 +182,14 @@ test_load_save_roundtrip.py
 │   ├── impls assert the saved vt lines are byte-identical to the source OBJ's
 │   ├── impls assert the saved f lines are byte-identical to the source OBJ's
 │   └── return
+├── def test_save_writes_the_mtl_and_the_png_under_the_obj_s_own_stem
+│   ├── # The OBJ, the MTL and the texture PNG a save writes share the OBJ's stem, and each artifact names the next by bare filename.
+│   ├── calls Mesh.load(path=a hand-written seamed UV OBJ)
+│   ├── calls mesh.save
+│   ├── impls assert the ".mtl" and ".png" siblings under the saved OBJ's own stem both exist
+│   ├── impls assert the saved OBJ's mtllib line names the MTL's bare filename
+│   ├── impls assert the saved MTL's map_Kd line names the PNG's bare filename
+│   └── return
 ├── def test_load_promotes_seam_crossing_face_to_seam_safe_canonical
 │   ├── # After load, every face of a seamed mesh is non-wrapping (its largest cyclic gap over verts_uvs[faces_uvs[f]] is the wraparound gap), the seam-safe canonical form.
 │   ├── calls Mesh.load
