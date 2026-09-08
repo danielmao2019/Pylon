@@ -79,25 +79,25 @@ prepare_points_for_rendering.py
 │   ├── impls camera_prepared = camera.to(device=points.device, extr_convention="opencv").scale_intrinsics(resolution=resolution)
 │   ├── impls N = points.shape[0]
 │   ├── if num_divide is not None
-│   │   ├── impls batch_size = max(1, math.ceil(N / 2 ** num_divide))
-│   │   ├── calls _prepare_points_for_rendering_batched(points=points, camera=camera_prepared, batch_size=batch_size)
-│   │   └── return  # the batched, depth-sorted result
+│   │   ├── impls chunk_size = max(1, math.ceil(N / 2 ** num_divide))
+│   │   ├── calls _prepare_points_for_rendering_chunked(points=points, camera=camera_prepared, chunk_size=chunk_size)
+│   │   └── return  # the chunked, depth-sorted result
 │   ├── while n <= max_divide
 │   │   ├── try
-│   │   │   ├── calls _prepare_points_for_rendering_batched(points=points, camera=camera_prepared, batch_size=ceil(N / 2 ** n))
-│   │   │   └── return  # the batched, depth-sorted result
+│   │   │   ├── calls _prepare_points_for_rendering_chunked(points=points, camera=camera_prepared, chunk_size=ceil(N / 2 ** n))
+│   │   │   └── return  # the chunked, depth-sorted result
 │   │   └── except torch.cuda.OutOfMemoryError
-│   │       └── impls increment n to retry with a halved batch
+│   │       └── impls increment n to retry with a halved chunk
 │   └── raise  # torch.cuda.OutOfMemoryError once max_divide halvings are exhausted
-├── def _prepare_points_for_rendering_batched(points: torch.Tensor, camera: Union[Camera, Cameras], resolution: Tuple[int, int], batch_size: int = 2048, cull_func: Callable[[torch.Tensor, torch.Tensor, int, int], None] = _frustum_cull) -> Tuple[torch.Tensor, torch.Tensor]
-│   ├── # Runs _prepare_points_for_rendering over fixed-size point batches, then concatenates and globally back-to-front depth-sorts the survivors.
+├── def _prepare_points_for_rendering_chunked(points: torch.Tensor, camera: Union[Camera, Cameras], resolution: Tuple[int, int], chunk_size: int = 2048, cull_func: Callable[[torch.Tensor, torch.Tensor, int, int], None] = _frustum_cull) -> Tuple[torch.Tensor, torch.Tensor]
+│   ├── # Runs _prepare_points_for_rendering over fixed-size point chunks, then concatenates and depth-sorts the survivors along the point axis so every camera sorts independently.
 │   ├── impls render_intrinsics = camera.intrinsics      # the CameraIntrinsics carries the camera-to-image projection
 │   ├── impls extrinsics = camera.extrinsics.extrinsics  # the [..., 4, 4] cam2world matrix, one per camera the batch carries
-│   ├── for each batch [i:j] of points
+│   ├── for each chunk [i:j] of points  # chunked over points for memory; the camera batch axis passes through whole
 │   │   └── calls _prepare_points_for_rendering(render_intrinsics=render_intrinsics, extrinsics=extrinsics, cull_func=cull_func)
 │   ├── if no point of any camera survived
-│   │   └── raise AssertionError  # no points remained after culling in all batches
-│   ├── impls concatenate the per-batch points and their validity along the point axis  # impls-node-one-step:skip
+│   │   └── raise AssertionError  # no points remained after culling in all chunks
+│   ├── impls concatenate the per-chunk points and their validity along the point axis  # impls-node-one-step:skip
 │   └── impls depth-sort the concatenated points back-to-front by column 2, along the point axis so every camera sorts independently
 ├── def _prepare_points_for_rendering(points: torch.Tensor, render_intrinsics: CameraIntrinsics, extrinsics: torch.Tensor, resolution: Tuple[int, int], cull_func: Callable[[torch.Tensor, torch.Tensor, int, int], None] = _frustum_cull) -> Tuple[torch.Tensor, torch.Tensor]
 │   ├── # Preprocesses one chunk of world-space points: world-to-camera transform, positive-depth filter, camera-to-image projection, then image-bounds cull, each survivor marked rather than compacted out.
@@ -154,7 +154,7 @@ render_depth.py
 ├── def render_depth_from_point_cloud(pc: PointCloud, camera: Union[Camera, Cameras], resolution: Tuple[int, int], ignore_value: float = -1.0, return_mask: bool = False, point_size: float = 1.0) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]
 │   ├── # Renders a point cloud through the camera to a depth map, chaining validation, projection, and rasterization; a Camera gives [H, W] and a Cameras gives [B, H, W] down the same path.
 │   ├── assert isinstance(pc, PointCloud)  # f"{type(pc)=}"
-│   ├── calls validate_rendering_inputs(pc=pc, camera=camera, resolution=resolution, ignore_value=ignore_value, return_mask=return_mask, point_size=point_size)
+│   ├── calls validate_rendering_inputs(pc=pc, camera=camera, resolution=resolution, ignore_value=ignore_value, return_mask=return_mask, point_size=point_size)  # camera is whichever of Camera / Cameras the caller passed, so the shared preconditions are checked over either
 │   ├── calls prepare_points_for_rendering(pc=pc, camera=camera, resolution=resolution)  # -> rendered_points, the first of the (points, valid) pair
 │   ├── calls render_depth_from_rendering_points(rendering_points=rendered_points, resolution=resolution, ignore_value=ignore_value, return_mask=return_mask, valid=valid)
 │   └── return  # the render_depth_from_rendering_points result, returned directly
