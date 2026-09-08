@@ -57,10 +57,10 @@ def _normalize_transform(
     else:
         raise ValueError(f"Unsupported target type: {target_type}")
     transform = transform.squeeze()
-    assert transform.shape == (
+    assert transform.ndim >= 2 and tuple(transform.shape[-2:]) == (
         4,
         4,
-    ), f"Transform must be of shape [4, 4], got {transform.shape}"
+    ), f"Transform must be of shape [4, 4], optionally with leading batch axes, got {transform.shape}"
     return transform
 
 
@@ -100,8 +100,10 @@ def apply_transform(
             or batched [1, N, 3], any float dtype. The type, dtype, and (for
             tensors) device of the output match this input.
         transform: 4x4 transformation matrix as a list, numpy.ndarray, or
-            torch.Tensor of shape [4, 4] or batched [1, 4, 4]. Normalized to the
-            type, dtype, and device of points.
+            torch.Tensor of shape [4, 4], batched [1, 4, 4], or a stack
+            [..., 4, 4] carrying leading batch axes. Normalized to the type,
+            dtype, and device of points. A stack broadcasts over its leading
+            axes, so every matrix it carries transforms the same [N, 3] points.
         inplace: If True, the transformed coordinates are copied back into points
             and points is returned; if False, a new array/tensor is returned.
         max_divide: Maximum number of times the torch matmul may halve its row
@@ -112,8 +114,10 @@ def apply_transform(
 
     Returns:
         Transformed points as the same type as points, numpy.ndarray or
-        torch.Tensor of shape [N, 3] or [1, N, 3]. When inplace, this is the same
-        object as points.
+        torch.Tensor of shape [N, 3] or [1, N, 3], gaining the transform's
+        leading batch axes as [..., N, 3] when the transform carries any. When
+        inplace, this is the same object as points, which a transform carrying
+        leading batch axes therefore cannot be.
     """
     # Normalize points to unbatched format
     points_normalized, points_was_batched = _normalize_points(points)
@@ -146,7 +150,7 @@ def apply_transform(
         points_h = np.hstack([points_normalized, ones_column])
 
         # Apply transformation and remove homogeneous coordinate
-        result = np.dot(points_h, transform_normalized.T)[:, :3]
+        result = np.matmul(points_h, np.swapaxes(transform_normalized, -1, -2))[..., :3]
 
         # Restore batch dimension if needed
         if points_was_batched:
@@ -166,12 +170,51 @@ def apply_transform(
         points_h = torch.cat([points_normalized, ones_column], dim=1)
 
         # Apply transformation and remove homogeneous coordinate
-        result = chunked_matmul(
-            points_h,
-            transform_normalized.t(),
-            max_divide=max_divide,
-            num_divide=num_divide,
-        )[:, :3]
+        if transform_normalized.ndim == 2:
+            result = chunked_matmul(
+                points_h,
+                transform_normalized.t(),
+                max_divide=max_divide,
+                num_divide=num_divide,
+            )[:, :3]
+        else:
+            # A transform carrying leading batch axes makes this a broadcast
+            # matmul, whose operands chunked_matmul (2D only) cannot take, so the
+            # point rows are chunked here under the same max_divide / num_divide
+            # policy: a fixed chunk when num_divide is set, otherwise one chunk
+            # halved on each CUDA OOM up to max_divide times, resuming from the
+            # first not-yet-written chunk.
+            num_points = points_h.shape[0]
+            transform_t = transform_normalized.transpose(-1, -2)
+            result = torch.empty(
+                tuple(transform_normalized.shape[:-2]) + (num_points, 4),
+                dtype=points_h.dtype,
+                device=points_h.device,
+            )
+            chunk_size = (
+                max(1, -(-num_points // 2**num_divide))  # ceil division
+                if num_divide is not None
+                else max(1, num_points)
+            )
+            i = 0
+            divides = 0
+            while i < num_points:
+                j = min(num_points, i + chunk_size)
+                try:
+                    result[..., i:j, :] = points_h[i:j] @ transform_t
+                except torch.cuda.OutOfMemoryError:
+                    if (
+                        num_divide is not None
+                        or divides >= max_divide
+                        or chunk_size <= 1
+                    ):
+                        raise
+                    divides += 1
+                    chunk_size = max(1, chunk_size // 2)
+                    torch.cuda.empty_cache()
+                    continue
+                i = j
+            result = result[..., :3]
 
         # Restore batch dimension if needed
         if points_was_batched:

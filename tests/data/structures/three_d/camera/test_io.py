@@ -94,61 +94,35 @@ def _make_single_camera() -> Camera:
 
 
 def _make_multi_cameras() -> Cameras:
-    """Build a multi-camera Cameras fixture spanning all three models.
+    """Build a multi-camera Cameras fixture whose per-camera params and poses all differ.
 
     Args:
         None.
 
     Returns:
-        A Cameras of three CPU cameras with mixed models, pose frames, names (one
-        absent), and ids (one absent), exercising the has_name / has_id / sentinel
-        paths.
+        A Cameras of three CPU cameras carrying one batched CameraIntrinsics and one batched CameraExtrinsics, so the batch names one model and one pose frame while every projection param, pose, name (one absent) and id (one absent) still varies per camera, exercising the has_name / has_id / sentinel paths.
     """
-    intrinsics = [
-        build_camera_intrinsics(
-            model="pinhole",
-            params={
-                "fx": 400.0,
-                "fy": 410.0,
-                "cx": 160.0,
-                "cy": 120.0,
-                "h": 240,
-                "w": 320,
-            },
-            intr_convention="standard",
-            device="cpu",
-        ),
-        build_camera_intrinsics(
-            model="simple_pinhole",
-            params={
-                "f": 405.0,
-                "cx": 161.0,
-                "cy": 121.0,
-                "h": 242,
-                "w": 322,
-            },
-            intr_convention="standard",
-            device="cpu",
-        ),
-        build_camera_intrinsics(
-            model="ortho",
-            params={
-                "fx": 402.0,
-                "fy": 412.0,
-                "cx": 162.0,
-                "cy": 122.0,
-                "h": 244,
-                "w": 324,
-            },
-            intr_convention="standard",
-            device="cpu",
-        ),
-    ]
-    extrinsics = [
-        _make_extrinsics(translation=[0.3, -0.2, 1.1], extr_convention="opengl"),
-        _make_extrinsics(translation=[1.3, 0.8, 2.1], extr_convention="opencv"),
-        _make_extrinsics(translation=[2.3, 1.8, 3.1], extr_convention="standard"),
-    ]
+    intrinsics = build_camera_intrinsics(
+        model="pinhole",
+        params={
+            "fx": torch.tensor([400.0, 405.0, 402.0]),
+            "fy": torch.tensor([410.0, 415.0, 412.0]),
+            "cx": torch.tensor([160.0, 161.0, 162.0]),
+            "cy": torch.tensor([120.0, 121.0, 122.0]),
+            "h": torch.tensor([240.0, 242.0, 244.0]),
+            "w": torch.tensor([320.0, 322.0, 324.0]),
+        },
+        intr_convention="standard",
+        device="cpu",
+    )
+    matrices = torch.eye(4, dtype=torch.float32).repeat(3, 1, 1)
+    matrices[:, :3, 3] = torch.tensor(
+        [[0.3, -0.2, 1.1], [1.3, 0.8, 2.1], [2.3, 1.8, 3.1]],
+        dtype=torch.float32,
+    )
+    extrinsics = CameraExtrinsics(
+        extrinsics=matrices, extr_convention="opengl", device="cpu"
+    )
     names: List[Optional[str]] = ["frame_0", None, "frame_2"]
     ids: List[Optional[int]] = [7, 8, None]
     return Cameras(

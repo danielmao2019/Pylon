@@ -8,9 +8,10 @@ import torch
 
 from data.structures.three_d.camera.cameras import Cameras
 from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
-from data.structures.three_d.camera.extrinsics.rotation.quaternion import qvec2rotmat
+from data.structures.three_d.camera.extrinsics.rotation.quaternion import (
+    quat_to_rotmat,
+)
 from data.structures.three_d.camera.intrinsics.camera_intrinsics import (
-    CameraIntrinsics,
     build_camera_intrinsics,
 )
 from data.structures.three_d.colmap.load import ColmapCamera, ColmapImage
@@ -121,43 +122,58 @@ def _extract_cameras_from_colmap(
         "h": int(intrinsic_params["h"]),
         "w": int(intrinsic_params["w"]),
     }
-    intrinsics_list: List[CameraIntrinsics] = []
-    extrinsics_list: List[CameraExtrinsics] = []
-    camera_names: List[str] = []
-    camera_ids: List[int] = []
-    for image_id, image in sorted(colmap_images.items()):
-        rotation = qvec2rotmat(image.qvec)
-        translation = image.tvec.reshape(3, 1)
-        world_to_camera = np.concatenate([rotation, translation], axis=1)
-        world_to_camera = np.concatenate(
-            [world_to_camera, np.array([[0.0, 0.0, 0.0, 1.0]])], axis=0
-        )
-        camera_to_world = np.linalg.inv(world_to_camera)
-        extrinsics_opencv = torch.from_numpy(camera_to_world).to(torch.float32)
-        intrinsics_list.append(
-            build_camera_intrinsics(
-                model="pinhole",
-                params=intrinsics_params,
-                intr_convention="standard",
+    sorted_images = sorted(colmap_images.items())
+    camera_ids: List[int] = [image_id for image_id, _ in sorted_images]
+    camera_names: List[str] = [Path(image.name).stem for _, image in sorted_images]
+
+    # The whole batch's pose stack is built in one op, never a matrix per camera.
+    quaternions = np.stack([image.qvec for _, image in sorted_images], axis=0)
+    translations = np.stack([image.tvec for _, image in sorted_images], axis=0)
+    assert np.issubdtype(quaternions.dtype, np.floating), (
+        "Expected the COLMAP quaternions to be floating point before the float64 "
+        f"cast. {quaternions.dtype=}"
+    )
+    assert np.issubdtype(translations.dtype, np.floating), (
+        "Expected the COLMAP translations to be floating point before the float64 "
+        f"cast. {translations.dtype=}"
+    )
+    # COLMAP states the pose world-to-camera, so cam2world is its rigid inverse:
+    # the transposed rotation, and that rotation applied to the negated translation.
+    rotation = quat_to_rotmat(
+        torch.from_numpy(quaternions).to(torch.float64)
+    ).transpose(-2, -1)
+    translation = torch.from_numpy(translations).to(torch.float64)
+    camera_to_world = torch.eye(4, dtype=torch.float64).repeat(len(sorted_images), 1, 1)
+    camera_to_world[:, :3, :3] = rotation
+    camera_to_world[:, :3, 3] = -(rotation @ translation.unsqueeze(-1)).squeeze(-1)
+    extrinsics_opencv = camera_to_world.to(torch.float32)
+
+    # One COLMAP camera governs every image, so its params broadcast to the batch.
+    intrinsics = build_camera_intrinsics(
+        model="pinhole",
+        params={
+            key: torch.full(
+                (len(sorted_images),),
+                value,
+                dtype=torch.float32,
                 device=extrinsics_opencv.device,
             )
-        )
-        extrinsics_list.append(
-            CameraExtrinsics(
-                extrinsics=extrinsics_opencv,
-                extr_convention="opencv",
-                device=extrinsics_opencv.device,
-            )
-        )
-        camera_names.append(Path(image.name).stem)
-        camera_ids.append(image_id)
-    assert extrinsics_list, "No cameras extracted from COLMAP images"
+            for key, value in intrinsics_params.items()
+        },
+        intr_convention="standard",
+        device=extrinsics_opencv.device,
+    )
+    extrinsics = CameraExtrinsics(
+        extrinsics=extrinsics_opencv,
+        extr_convention="opencv",
+        device=extrinsics_opencv.device,
+    )
     cameras = Cameras(
-        intrinsics=intrinsics_list,
-        extrinsics=extrinsics_list,
+        intrinsics=intrinsics,
+        extrinsics=extrinsics,
         names=camera_names,
         ids=camera_ids,
-        device=extrinsics_list[0].device,
+        device=extrinsics_opencv.device,
     )
     return cameras.to(extr_convention="opengl")
 

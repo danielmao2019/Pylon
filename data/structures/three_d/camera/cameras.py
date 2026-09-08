@@ -5,7 +5,10 @@ import torch
 
 from data.structures.three_d.camera.camera import Camera
 from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
-from data.structures.three_d.camera.intrinsics.camera_intrinsics import CameraIntrinsics
+from data.structures.three_d.camera.intrinsics.camera_intrinsics import (
+    CameraIntrinsics,
+    build_camera_intrinsics,
+)
 from data.structures.three_d.camera.validation import validate_cameras_attributes
 
 
@@ -248,7 +251,7 @@ class Cameras:
     ) -> Union["Camera", "Cameras"]:
         """Index the batch by slicing the leading axis of both components.
 
-        A name / int yields one Camera, a slice / int-list yields a sub-Cameras.
+        Never by selecting from stored per-camera objects: a name / int yields one Camera, a slice / int-list yields a sub-Cameras.
 
         Args:
             index: A name string, an int, a slice, or a list of ints.
@@ -262,10 +265,21 @@ class Cameras:
                 f"{index=} {list(self._name_to_index.keys())=}"
             )
             index = self._name_to_index[index]
+        # a pass over the model's few param names, never over the cameras
+        params = {key: value[index] for key, value in self._intrinsics.params.items()}
+        intrinsics = build_camera_intrinsics(
+            model=self._intrinsics.model,
+            params=params,
+            intr_convention=self._intrinsics.intr_convention,
+        )
+        extrinsics = CameraExtrinsics(
+            extrinsics=self._extrinsics.extrinsics[index],
+            extr_convention=self._extrinsics.extr_convention,
+        )
         if isinstance(index, int):
             return Camera(
-                intrinsics=self._intrinsics[index],
-                extrinsics=self._extrinsics[index],
+                intrinsics=intrinsics,
+                extrinsics=extrinsics,
                 name=self._names[index],
                 id=self._ids[index],
             )
@@ -280,8 +294,8 @@ class Cameras:
             else [self._ids[item] for item in index]
         )
         return Cameras(
-            intrinsics=self._intrinsics[index],
-            extrinsics=self._extrinsics[index],
+            intrinsics=intrinsics,
+            extrinsics=extrinsics,
             names=names,
             ids=ids,
         )

@@ -31,13 +31,13 @@ class CameraIntrinsics(ABC):
         device: Optional[Union[str, torch.device]] = None,
         dtype: Optional[torch.dtype] = None,
     ) -> None:
-        """Construct a CameraIntrinsics from tensor-compatible named scalar params.
+        """Construct a CameraIntrinsics from tensor-compatible named params.
 
         Args:
-            params: The model's named scalar intrinsics parameters; carries the resolution keys ``h`` / ``w`` alongside the projection keys.
+            params: The model's named intrinsics parameters, every one of them sharing one leading batch shape — ``[]`` for a single camera, ``[B]`` for a batch of them; carries the resolution keys ``h`` / ``w`` alongside the projection keys.
             intr_convention: Image-plane frame the params are stated in, one of ``standard`` / ``opengl`` / ``pytorch3d`` / ``vulkan``.
-            device: Optional target device for the scalar tensor params.
-            dtype: Optional target floating dtype for the scalar tensor params.
+            device: Optional target device for the tensor params.
+            dtype: Optional target floating dtype for the tensor params.
 
         Returns:
             None.
@@ -57,18 +57,18 @@ class CameraIntrinsics(ABC):
                     f"{key=} {type(value)=}"
                 )
                 if isinstance(value, np.ndarray):
-                    assert value.size == 1, (
-                        "Expected every numpy intrinsics param to contain one value. "
-                        f"{key=} {value.shape=}"
+                    assert value.ndim <= 1, (
+                        "Expected every numpy intrinsics param to be a scalar or a "
+                        f"one-axis batch. {key=} {value.shape=}"
                     )
                     assert np.issubdtype(value.dtype, np.number), (
                         "Expected every numpy intrinsics param to be numeric. "
                         f"{key=} {value.dtype=}"
                     )
                 if isinstance(value, torch.Tensor):
-                    assert value.numel() == 1, (
-                        "Expected every tensor intrinsics param to contain one value. "
-                        f"{key=} {value.shape=}"
+                    assert value.ndim <= 1, (
+                        "Expected every tensor intrinsics param to be a scalar or a "
+                        f"one-axis batch. {key=} {value.shape=}"
                     )
                     assert not value.is_complex(), (
                         "Expected every tensor intrinsics param to be real-valued. "
@@ -111,16 +111,15 @@ class CameraIntrinsics(ABC):
                     break
 
             params = {
-                key: torch.as_tensor(value)
-                .reshape(())
-                .to(device=target_device, dtype=target_dtype)
+                key: torch.as_tensor(value).to(device=target_device, dtype=target_dtype)
                 for key, value in params.items()
             }
+            batch_shapes = {key: value.shape for key, value in params.items()}
+            assert len(set(batch_shapes.values())) == 1, (
+                "Expected every normalized intrinsics param to share one leading batch "
+                f"shape, a scalar param being the empty-batch case. {batch_shapes=}"
+            )
             for key, value in params.items():
-                assert value.shape == (), (
-                    "Expected every normalized intrinsics param to be scalar. "
-                    f"{key=} {value.shape=}"
-                )
                 assert value.device == target_device, (
                     "Expected every normalized intrinsics param to share device. "
                     f"{key=} {value.device=} {target_device=}"
@@ -220,7 +219,7 @@ class CameraIntrinsics(ABC):
             None.
 
         Returns:
-            The scalar tensor ``params["cx"]``.
+            The ``[]`` (unbatched) or ``[B]`` (batched) tensor ``params["cx"]``.
         """
         return self._params["cx"]
 
@@ -232,7 +231,7 @@ class CameraIntrinsics(ABC):
             None.
 
         Returns:
-            The scalar tensor ``params["cy"]``.
+            The ``[]`` (unbatched) or ``[B]`` (batched) tensor ``params["cy"]``.
         """
         return self._params["cy"]
 
@@ -244,7 +243,7 @@ class CameraIntrinsics(ABC):
             None.
 
         Returns:
-            The ``(height, width)`` scalar tensor pair read off the two params that
+            The ``(height, width)`` tensor pair, each ``[]`` or ``[B]``, read off the two params that
             carry it, since a principal point in pixels names a location only
             against them.
         """
@@ -259,7 +258,7 @@ class CameraIntrinsics(ABC):
             None.
 
         Returns:
-            The horizontal focal length / scale as a scalar tensor.
+            The horizontal focal length / scale as a ``[]`` or ``[B]`` tensor.
         """
         raise NotImplementedError
 
@@ -272,7 +271,7 @@ class CameraIntrinsics(ABC):
             None.
 
         Returns:
-            The vertical focal length / scale as a scalar tensor.
+            The vertical focal length / scale as a ``[]`` or ``[B]`` tensor.
         """
         raise NotImplementedError
 
@@ -282,8 +281,10 @@ class CameraIntrinsics(ABC):
     ) -> torch.Tensor:
         """Map camera-space 3D points to 2D image points under this model.
 
+        Each param is unsqueezed against the point axis, so a ``[B]`` param batch projects a ``[B, N, 3]`` point batch in one op.
+
         Args:
-            points_camera: Camera-space points, a ``[..., 3]`` torch.Tensor.
+            points_camera: Camera-space points, a ``[..., 3]`` torch.Tensor whose leading axes carry the params' own batch shape.
             inplace: If True, project in place — write the image points over the
                 first two columns of ``points_camera`` and return a ``[..., 2]``
                 view aliasing that input (its depth column is left intact). If
@@ -388,8 +389,8 @@ class CameraIntrinsics(ABC):
         of its own.
 
         Args:
-            transform: Pixel-frame affine as a ``(3, 3)`` float32 torch.Tensor whose last row is ``[0, 0, 1]``.
-            resolution: The target image's own resolution as ``(height, width)`` integer values or scalar integer-valued tensors.
+            transform: Pixel-frame affine as a ``(..., 3, 3)`` floating torch.Tensor whose last row is ``[0, 0, 1]``, the leading dims being the camera batch a single affine leaves empty.
+            resolution: The target image's own resolution as ``(height, width)`` integer values, scalar integer-valued tensors, or ``[B]`` integer-valued tensors naming one side per camera.
 
         Returns:
             A new CameraIntrinsics of the same model, on this intrinsics' own
@@ -401,19 +402,23 @@ class CameraIntrinsics(ABC):
                 "Expected the intrinsics transform to be a torch.Tensor. "
                 f"{type(transform)=}"
             )
-            assert transform.shape == (3, 3), (
-                "Expected the intrinsics transform to be (3, 3). " f"{transform.shape=}"
+            assert transform.shape[-2:] == (3, 3), (
+                "Expected the intrinsics transform trailing dims to be (3, 3). "
+                f"{transform.shape=}"
             )
             assert transform.is_floating_point(), (
                 "Expected the intrinsics transform dtype to be floating. "
                 f"{transform.dtype=}"
             )
+            last_row = transform[..., 2, :].detach().cpu()
             assert torch.equal(
-                transform[2].detach().cpu(),
-                torch.tensor([0.0, 0.0, 1.0], dtype=transform.dtype),
+                last_row,
+                torch.tensor([0.0, 0.0, 1.0], dtype=transform.dtype).expand(
+                    last_row.shape
+                ),
             ), (
                 "Expected the intrinsics transform last row to be [0, 0, 1]. "
-                f"{transform[2]=}"
+                f"{last_row=}"
             )
             assert isinstance(resolution, tuple) and len(resolution) == 2, (
                 "Expected resolution to be a (height, width) tuple of length 2. "
@@ -421,19 +426,19 @@ class CameraIntrinsics(ABC):
             )
             for value in resolution:
                 assert isinstance(value, (int, torch.Tensor)), (
-                    "Expected resolution values to be integers or scalar tensors. "
+                    "Expected resolution values to be integers or tensors. "
                     f"{type(value)=} {resolution=}"
                 )
                 if isinstance(value, torch.Tensor):
-                    assert value.numel() == 1, (
-                        "Expected tensor resolution values to contain one value. "
-                        f"{value.shape=}"
+                    assert value.ndim <= 1, (
+                        "Expected tensor resolution values to be scalar or to carry "
+                        f"one entry per camera. {value.shape=}"
                     )
                     assert torch.equal(value, torch.round(value)), (
                         "Expected tensor resolution values to be integer-valued. "
                         f"{value=}"
                     )
-                    assert value > 0, (
+                    assert bool(torch.all(value > 0)), (
                         "Expected tensor resolution values to be positive. " f"{value=}"
                     )
                 else:
@@ -447,14 +452,10 @@ class CameraIntrinsics(ABC):
         def _normalize_inputs(
             transform: torch.Tensor,
             resolution: Tuple[Union[int, torch.Tensor], Union[int, torch.Tensor]],
-        ) -> Tuple[torch.Tensor, Tuple[int, int]]:
+        ) -> Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
             transform = transform.to(device=self._device, dtype=self._dtype)
             resolution = tuple(
-                (
-                    int(value.detach().cpu().item())
-                    if isinstance(value, torch.Tensor)
-                    else value
-                )
+                torch.as_tensor(value, device=self._device, dtype=self._dtype)
                 for value in resolution
             )
             return transform, resolution
@@ -475,41 +476,38 @@ class CameraIntrinsics(ABC):
             intr_convention="standard",
         )
         source_matrix = torch.zeros(
-            (3, 3),
+            standard.fx.shape + (3, 3),
             dtype=self._dtype,
             device=self._device,
         )
-        source_matrix[0, 0] = standard.fx
-        source_matrix[1, 1] = standard.fy
-        source_matrix[0, 2] = standard.cx
-        source_matrix[1, 2] = standard.cy
-        source_matrix[2, 2] = 1.0
+        source_matrix[..., 0, 0] = standard.fx
+        source_matrix[..., 1, 1] = standard.fy
+        source_matrix[..., 0, 2] = standard.cx
+        source_matrix[..., 1, 2] = standard.cy
+        source_matrix[..., 2, 2] = 1.0
         target_matrix = transform @ source_matrix
         if type(self).MODEL == "simple_pinhole":
-            assert torch.isclose(target_matrix[0, 0], target_matrix[1, 1]), (
+            assert bool(
+                torch.all(
+                    torch.isclose(target_matrix[..., 0, 0], target_matrix[..., 1, 1])
+                )
+            ), (
                 "Expected the affine to scale both image axes alike for "
                 "simple_pinhole, whose one shared f holds one ratio. "
-                f"{target_matrix[0, 0]=} {target_matrix[1, 1]=}"
+                f"{target_matrix[..., 0, 0]=} {target_matrix[..., 1, 1]=}"
             )
         if type(self).MODEL == "simple_pinhole":
-            params = {"f": target_matrix[0, 0]}
+            params = {"f": target_matrix[..., 0, 0]}
         else:
             params = {
-                "fx": target_matrix[0, 0],
-                "fy": target_matrix[1, 1],
+                "fx": target_matrix[..., 0, 0],
+                "fy": target_matrix[..., 1, 1],
             }
-        params["cx"] = target_matrix[0, 2]
-        params["cy"] = target_matrix[1, 2]
-        params["h"] = torch.as_tensor(
-            resolution[0],
-            dtype=self._dtype,
-            device=self._device,
-        )
-        params["w"] = torch.as_tensor(
-            resolution[1],
-            dtype=self._dtype,
-            device=self._device,
-        )
+        params["cx"] = target_matrix[..., 0, 2]
+        params["cy"] = target_matrix[..., 1, 2]
+        batch_shape = target_matrix.shape[:-2]
+        params["h"] = torch.broadcast_to(resolution[0], batch_shape)
+        params["w"] = torch.broadcast_to(resolution[1], batch_shape)
         params = transform_intr_convention(
             params=params,
             model=type(self).MODEL,
@@ -581,7 +579,7 @@ class CameraIntrinsics(ABC):
                 ]
             ],
         ) -> Tuple[
-            Tuple[int, int],
+            Tuple[Union[int, torch.Tensor], Union[int, torch.Tensor]],
             Optional[Tuple[torch.Tensor, torch.Tensor]],
         ]:
             resolution = resolve_target_resolution(
@@ -623,14 +621,15 @@ class CameraIntrinsics(ABC):
             )
         else:
             scale_x, scale_y = scale
-        zero = torch.zeros((), dtype=self._dtype, device=self._device)
-        one = torch.ones((), dtype=self._dtype, device=self._device)
+        zero = torch.zeros_like(scale_x)
+        one = torch.ones_like(scale_x)
         transform = torch.stack(
             [
-                torch.stack([scale_x, zero, zero]),
-                torch.stack([zero, scale_y, zero]),
-                torch.stack([zero, zero, one]),
-            ]
+                torch.stack([scale_x, zero, zero], dim=-1),
+                torch.stack([zero, scale_y, zero], dim=-1),
+                torch.stack([zero, zero, one], dim=-1),
+            ],
+            dim=-2,
         )
         return self.transform_intrinsics(transform=transform, resolution=resolution)
 
@@ -648,7 +647,7 @@ class CameraIntrinsicsSimplePinhole(CameraIntrinsics):
             None.
 
         Returns:
-            The scalar tensor ``params["f"]``.
+            The ``[]`` (unbatched) or ``[B]`` (batched) tensor ``params["f"]``.
         """
         return self._params["f"]
 
@@ -660,7 +659,7 @@ class CameraIntrinsicsSimplePinhole(CameraIntrinsics):
             None.
 
         Returns:
-            The scalar tensor ``params["f"]``.
+            The ``[]`` (unbatched) or ``[B]`` (batched) tensor ``params["f"]``.
         """
         return self._params["f"]
 
@@ -698,7 +697,8 @@ class CameraIntrinsicsSimplePinhole(CameraIntrinsics):
 
         out = points_camera[..., :2] if inplace else points_camera[..., :2].clone()
         z = points_camera[..., 2]
-        f, cx, cy = self.fx, self.cx, self.cy
+        # each param unsqueezed against the point axis so a [B] param batch aligns with [B, N] points
+        f, cx, cy = self.fx[..., None], self.cx[..., None], self.cy[..., None]
         out[..., 0].div_(z).mul_(f).add_(cx)
         out[..., 1].div_(z).mul_(f).add_(cy)
         return out
@@ -711,7 +711,7 @@ class CameraIntrinsicsSimplePinhole(CameraIntrinsics):
             None.
 
         Returns:
-            The ``(horizontal, vertical)`` field of view in degrees as scalar tensors.
+            The ``(horizontal, vertical)`` field of view in degrees, each a ``[]`` or ``[B]`` tensor.
         """
         horizontal_fov = 2.0 * torch.atan(self.cx / self.fx) * 180.0 / math.pi
         vertical_fov = 2.0 * torch.atan(self.cy / self.fy) * 180.0 / math.pi
@@ -731,7 +731,7 @@ class CameraIntrinsicsPinhole(CameraIntrinsics):
             None.
 
         Returns:
-            The scalar tensor ``params["fx"]``.
+            The ``[]`` (unbatched) or ``[B]`` (batched) tensor ``params["fx"]``.
         """
         return self._params["fx"]
 
@@ -743,7 +743,7 @@ class CameraIntrinsicsPinhole(CameraIntrinsics):
             None.
 
         Returns:
-            The scalar tensor ``params["fy"]``.
+            The ``[]`` (unbatched) or ``[B]`` (batched) tensor ``params["fy"]``.
         """
         return self._params["fy"]
 
@@ -781,7 +781,13 @@ class CameraIntrinsicsPinhole(CameraIntrinsics):
 
         out = points_camera[..., :2] if inplace else points_camera[..., :2].clone()
         z = points_camera[..., 2]
-        fx, fy, cx, cy = self.fx, self.fy, self.cx, self.cy
+        # each param unsqueezed against the point axis so a [B] param batch aligns with [B, N] points
+        fx, fy, cx, cy = (
+            self.fx[..., None],
+            self.fy[..., None],
+            self.cx[..., None],
+            self.cy[..., None],
+        )
         out[..., 0].div_(z).mul_(fx).add_(cx)
         out[..., 1].div_(z).mul_(fy).add_(cy)
         return out
@@ -794,7 +800,7 @@ class CameraIntrinsicsPinhole(CameraIntrinsics):
             None.
 
         Returns:
-            The ``(horizontal, vertical)`` field of view in degrees as scalar tensors.
+            The ``(horizontal, vertical)`` field of view in degrees, each a ``[]`` or ``[B]`` tensor.
         """
         horizontal_fov = 2.0 * torch.atan(self.cx / self.fx) * 180.0 / math.pi
         vertical_fov = 2.0 * torch.atan(self.cy / self.fy) * 180.0 / math.pi
@@ -814,7 +820,7 @@ class CameraIntrinsicsOrtho(CameraIntrinsics):
             None.
 
         Returns:
-            The scalar tensor ``params["fx"]``.
+            The ``[]`` (unbatched) or ``[B]`` (batched) tensor ``params["fx"]``.
         """
         return self._params["fx"]
 
@@ -826,7 +832,7 @@ class CameraIntrinsicsOrtho(CameraIntrinsics):
             None.
 
         Returns:
-            The scalar tensor ``params["fy"]``.
+            The ``[]`` (unbatched) or ``[B]`` (batched) tensor ``params["fy"]``.
         """
         return self._params["fy"]
 
@@ -863,7 +869,13 @@ class CameraIntrinsicsOrtho(CameraIntrinsics):
         _validate_inputs()
 
         out = points_camera[..., :2] if inplace else points_camera[..., :2].clone()
-        fx, fy, cx, cy = self.fx, self.fy, self.cx, self.cy
+        # each param unsqueezed against the point axis so a [B] param batch aligns with [B, N] points
+        fx, fy, cx, cy = (
+            self.fx[..., None],
+            self.fy[..., None],
+            self.cx[..., None],
+            self.cy[..., None],
+        )
         out[..., 0].mul_(fx).add_(cx)
         out[..., 1].mul_(fy).add_(cy)
         return out
@@ -882,10 +894,10 @@ def build_camera_intrinsics(
 
     Args:
         model: Camera-model identifier string.
-        params: The model's named scalar intrinsics parameters; carries the resolution keys ``h`` / ``w`` alongside the projection keys.
+        params: The model's named intrinsics parameters, every one of them sharing one leading batch shape — ``[]`` for a single camera, ``[B]`` for a batch of them; carries the resolution keys ``h`` / ``w`` alongside the projection keys.
         intr_convention: Image-plane frame the params are stated in, one of ``standard`` / ``opengl`` / ``pytorch3d`` / ``vulkan``.
-        device: Optional target device for the scalar tensor params.
-        dtype: Optional target floating dtype for the scalar tensor params.
+        device: Optional target device for the tensor params.
+        dtype: Optional target floating dtype for the tensor params.
 
     Returns:
         The CameraIntrinsics subclass instance for the model.
