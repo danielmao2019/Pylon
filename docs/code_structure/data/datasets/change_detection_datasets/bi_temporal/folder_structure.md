@@ -10,9 +10,9 @@ data/datasets/change_detection_datasets/bi_temporal/
 ├── kc_3d_dataset.py
 ├── levir_cd_dataset.py
 ├── oscd_dataset.py
-├── slpccd_dataset.py  # SLPCCD: paired street-level .txt clouds, subsampled to a fixed size and given a KNN hierarchy
+├── slpccd_dataset.py  # SLPCCD: paired street-level .txt clouds, subsampled to a fixed size and given a KNN hierarchy; the dataset names the columns because the text format does not
 ├── sysu_cd_dataset.py
-├── urb3dcd_dataset.py  # URB3DCD: paired multi-element .ply clouds, patched by cylinder sampling around chosen centers
+├── urb3dcd_dataset.py  # URB3DCD: paired multi-element .ply clouds, patched by cylinder sampling around chosen centers; the dataset names the element because a multi-element file does not
 └── xview2_dataset.py
 ```
 
