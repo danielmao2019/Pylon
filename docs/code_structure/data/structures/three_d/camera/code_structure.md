@@ -193,9 +193,12 @@ cameras.py
     │   ├── # Index the batch by slicing the leading axis of both components, never by selecting from stored per-camera objects.
     │   ├── if isinstance(index, str)
     │   │   └── impls index = self._name_to_index[index]
+    │   ├── impls params = every param of self._intrinsics indexed along its leading axis  # a pass over the model's few param names, never over the cameras
+    │   ├── calls build_camera_intrinsics(model=self._intrinsics.model, params=params, intr_convention=self._intrinsics.intr_convention)
+    │   ├── calls CameraExtrinsics(extrinsics=self._extrinsics.extrinsics[index], extr_convention=self._extrinsics.extr_convention)
     │   ├── if isinstance(index, int)
-    │   │   └── return  # Camera(intrinsics=self._intrinsics[index], extrinsics=self._extrinsics[index], name=..., id=...)
-    │   └── return  # Cameras(intrinsics=self._intrinsics[index], extrinsics=self._extrinsics[index], ...)
+    │   │   └── return  # Camera(intrinsics=intrinsics, extrinsics=extrinsics, name=..., id=...)
+    │   └── return  # Cameras(intrinsics=intrinsics, extrinsics=extrinsics, ...)
     ├── def __iter__(self) -> Iterator["Camera"]
     │   ├── # Iterate one Camera at a time, for callers that genuinely need a single camera rather than the batch.
     │   └── for each index in range(len(self))
