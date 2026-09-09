@@ -284,9 +284,9 @@ test_conventions.py
 │   ├── impls assert source extrinsics receive gradients
 │   └── return
 └── def _batch_one_camera(camera: Camera) -> Cameras
-    ├── # Widens one Camera into a length-one Cameras, which the components cannot do themselves since neither is subscriptable.
-    ├── impls widened_params = each of the camera's intrinsics params under a leading axis of one
-    ├── calls build_camera_intrinsics(model=camera.intrinsics.model, params=widened_params, intr_convention=camera.intrinsics.intr_convention)
+    ├── # Makes one Camera into a length-one Cameras, which the components cannot do themselves since neither is subscriptable.
+    ├── impls batched_params = each of the camera's intrinsics params under a leading axis of one
+    ├── calls build_camera_intrinsics(model=camera.intrinsics.model, params=batched_params, intr_convention=camera.intrinsics.intr_convention)
     ├── calls CameraExtrinsics(extrinsics=the cam2world matrix under a leading axis of one, extr_convention=camera.extrinsics.extr_convention)
     ├── calls Cameras(intrinsics=the intrinsics it built, extrinsics=the extrinsics it built, names=[camera.name], ids=[camera.id])
     └── return  # that length-one batch
