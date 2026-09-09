@@ -14,11 +14,11 @@ point_cloud.py
 ├── COLOR_COLUMN_NAMES  # the column-name groups a source calls its colours, in the order they are tried: ('red', 'green', 'blue') as ply and las name them, ('colors',) as open3d does, and ('rgb',) as a caller handing one in-memory block in does
 └── class PointCloud
     ├── # One point cloud: named per-point fields, every one a torch tensor of the same length on one device, over one meta data entry per field of what that field's source held.
-    ├── # A cloud is constructed out of the source's own columns under the Layout Mapping that source defines, and becomes the cloud a caller wanted only once apply_meta_data has run over the halves that source left for the caller to state.
+    ├── # A cloud is constructed out of the source's own columns under the Layout Mapping that source defines, or out of another cloud's fields under the record that comes with them, and becomes the cloud a caller wanted only once a load or a save has run apply_meta_data over the halves that source left for the caller to state.
     ├── # apply_meta_data runs once inside every construction and again on each load and save, so it names the source columns back out of the fields it has already assembled rather than assuming it meets them unassembled.
     ├── # The four underscore names below — _fields, _meta_data, _length, _device — are this class's own slots, and a bare one in any node means the slot on self; __setattr__ routes exactly those to the base setter and everything else to a validated field.
     ├── def __init__(self, xyz: Optional[Union[np.ndarray, torch.Tensor]] = None, data: Optional[Dict[str, Union[np.ndarray, torch.Tensor]]] = None, meta_data: Optional[Dict[str, Dict[str, Any]]] = None, device: Optional[Union[str, torch.device]] = None) -> None
-    │   ├── # Builds a point cloud from the source's own columns, recording what each column held and then applying the meta data over it.
+    │   ├── # Builds a point cloud from the source's own columns, recording what each column held or standing the record it is handed in place of that, and then bringing the fields onto it.
     │   ├── def _validate_inputs [local]
     │   │   ├── assert xyz is None or xyz is an np.ndarray or a torch.Tensor
     │   │   ├── assert xyz is None or CONCEPTUAL_NAME[the dtype of xyz] is not 'uint64'  # uint64 is unsupported as a source dtype whatever the values are
@@ -26,6 +26,10 @@ point_cloud.py
     │   │   ├── assert data is None or no value of data carries a uint64 dtype  # the same refusal for the columns handed in through data
     │   │   ├── assert xyz is not None or data is not None
     │   │   ├── assert xyz is None or data is None or 'xyz' does not sit in data  # the coordinates arg becomes one more column under that name, so a data entry already holding it would be overwritten without a word
+    │   │   ├── assert meta_data is None or meta_data is a dict whose keys are all str
+    │   │   ├── assert every entry meta_data holds is a dict whose keys are exactly 'dtype' and 'layout'  # a record arrives resolved rather than half-stated, so a misspelled key, a lone half and an entry stating nothing are all refused here rather than read past
+    │   │   ├── assert every dtype meta_data holds sits in TORCH_DTYPE and is not 'uint64'
+    │   │   ├── assert every layout meta_data holds is a tuple of at least one str naming no column twice
     │   │   └── assert device is None or device names a torch device
     │   ├── calls _validate_inputs()
     │   ├── def _normalize_inputs [local]
@@ -55,9 +59,16 @@ point_cloud.py
     │   │   │   └── impls entry gains that dtype
     │   │   └── impls _meta_data = record  # the Layout Mapping over the source's own columns beside the dtype each column held, which is the record every later derivation reads and no field mutation ever rewrites
     │   ├── calls _build_meta_data()
-    │   └── calls self.apply_meta_data(meta_data=meta_data)
-    ├── def apply_meta_data(self, meta_data: Optional[Dict[str, Dict[str, Any]]] = None) -> None
-    │   ├── # Derives the meta data this cloud should carry from the one it records and the override, and makes the cloud match it, so what the cloud says about itself afterwards is what a writer writes it out by.
+    │   └── calls self.apply_meta_data()  # the record is already what this cloud means, so the construction applies it with nothing written over it
+    ├── def apply_meta_data(self, meta_data: Optional[Dict[str, Dict[str, Any]]] = None) -> Dict[str, Dict[str, Any]]
+    │   ├── # Derives the meta data this cloud should carry from the one it records and the override, makes the cloud match it, and hands the target back for the writer that has to write the file at it.
+    │   ├── def _validate_inputs [local]
+    │   │   ├── assert meta_data is None or meta_data is a dict whose keys are all str
+    │   │   ├── assert every entry meta_data states is a dict whose keys all sit in ('dtype', 'layout')  # an override states one half or both, so a misspelled key names a half the design has no slot for
+    │   │   ├── assert every entry meta_data states carries at least one of the two halves  # an entry asking for nothing would leave the record silently in force under a name the caller believes it changed
+    │   │   ├── assert every dtype meta_data states sits in TORCH_DTYPE and is not 'uint64'
+    │   │   └── assert every layout meta_data states is a tuple of at least one str naming no column twice  # a caller-stated layout never passes through a record, so its own emptiness and distinctness are checked at the door it comes in by
+    │   ├── calls _validate_inputs()
     │   ├── def _name_source_columns [local]
     │   │   ├── # Names every source column the cloud still holds beside what that column means, so a target layout regroups columns whatever field the record has already assembled them into.
     │   │   ├── impls table = an empty dict
@@ -79,24 +90,27 @@ point_cloud.py
     │   │   │   └── impls target = each entry meta_data states  # a caller writing the layout by hand over such a source has chosen which columns become fields, so a column none of them names is simply absent
     │   │   ├── else
     │   │   │   ├── impls target = each entry of self._meta_data with the entry meta_data states for that field written over it, half by half  # the override outranks the record, which is how a ply caller restates one field and leaves the file's own layout standing for the rest
-    │   │   │   └── for each name, entry meta_data states that self._meta_data does not name
-    │   │   │       ├── assert entry states a layout  # a field the record never saw defines neither half, so the caller supplies the one that says which columns it is
-    │   │   │       └── impls target[name] = entry
-    │   │   ├── for each name, entry in target
+    │   │   │   ├── for each name, entry meta_data states that self._meta_data does not name
+    │   │   │   │   ├── assert entry states a layout  # a field the record never saw defines neither half, so the caller supplies the one that says which columns it is
+    │   │   │   │   └── impls target[name] = entry
+    │   │   │   └── for each name, entry of self._meta_data that meta_data does not name
+    │   │   │       └── if a layout meta_data states names any column of entry's layout
+    │   │   │           └── impls that entry leaves target  # a caller-stated layout CONSUMES the source columns it names, so a column assembled into the field the caller asked for does not also survive under the field the record had assembled it into
+    │   │   ├── for each name, entry of target that self._meta_data names and meta_data does not
     │   │   │   └── if table names no column of entry's layout and self._fields holds no field under name
     │   │   │       └── impls that entry leaves target  # the field was deleted, and save writes no column for one the obj no longer holds
     │   │   ├── for each name, value in the fields self._fields holds that target names nowhere
-    │   │   │   └── impls target[name] = {'layout': a one-entry tuple of name, 'dtype': CONCEPTUAL_NAME[the dtype of value]}  # a field assigned after construction takes both halves from itself
+    │   │   │   └── if no layout target states names name
+    │   │   │       └── impls target[name] = {'layout': a one-entry tuple of name, 'dtype': CONCEPTUAL_NAME[the dtype of value]}  # a field assigned after construction takes both halves from itself, while a column another entry's layout already assembles is that field's column rather than a field of its own
     │   │   ├── for each name, entry in target
-    │   │   │   ├── assert entry's layout names at least one column
-    │   │   │   ├── assert entry's layout names no column twice
     │   │   │   ├── if table names every column of entry's layout
     │   │   │   │   ├── assert the columns entry's layout names mean one dtype between them in table  # columns that disagree abort rather than being promoted to a dtype that covers them all
     │   │   │   │   └── impls entry gains that dtype when it states none  # a half the override leaves out is the one the record defines
     │   │   │   ├── elif table names no column of entry's layout
-    │   │   │   │   ├── assert self._fields holds a field under name  # a layout naming none of the cloud's own columns names the ones this field is WRITTEN under, and a field that does not exist has no columns to name
-    │   │   │   │   ├── assert entry's layout names exactly as many columns as that field carries  # the reverse mapping writes one output column per name, so a count that disagrees leaves the writer with no name for a column
-    │   │   │   │   └── impls entry gains the dtype self._meta_data holds for name when it states none
+    │   │   │   │   ├── assert self._fields holds a field under name  # an entry reaching neither the cloud's own columns nor a field it holds names nothing at all, which is a misspelling rather than a field to drop in silence
+    │   │   │   │   ├── if meta_data states a layout for name
+    │   │   │   │   │   └── assert entry's layout names exactly as many columns as that field carries  # the reverse mapping writes one output column per name, so a count that disagrees leaves the writer with no name for a column
+    │   │   │   │   └── impls entry gains the dtype self._meta_data holds for name, or the one its own field carries where the record names it nowhere, when it states none
     │   │   │   └── else
     │   │   │       └── assert 0  # a layout is either the source columns a field is assembled from or the names its columns are written out under, never a mixture, and a half-matching one is a misspelling rather than either
     │   │   └── return target  # a cloud whose columns assemble into no coordinate field is legal here, a reader building one from a positional source having no coordinates to name yet
@@ -105,29 +119,33 @@ point_cloud.py
     │   ├── def _apply_target_meta_data [local]
     │   │   ├── # Rebuilds every field the target names out of the columns its layout names, on the convention and at the width that entry states.
     │   │   ├── impls fields = an empty dict
-    │   │   ├── impls record = an empty dict
+    │   │   ├── impls record = self._meta_data  # what the source held is rewritten only where the target speaks for a field the record already names or the caller names, so a departed field goes on being named and a field made after construction enters no record
     │   │   ├── for each name, entry in target
     │   │   │   ├── if table names every column of entry's layout
-    │   │   │   │   └── impls value = the table columns entry's layout names, joined along the column axis  # a one-dimensional column becomes one column wide and a block that is already two-dimensional keeps the width it has, which is what lets three ply columns and one pcd attribute reach the same [N, 3]
+    │   │   │   │   ├── impls value = the table columns entry's layout names, joined along the column axis  # a one-dimensional column becomes one column wide and a block that is already two-dimensional keeps the width it has, which is what lets three ply columns and one pcd attribute reach the same [N, 3]
+    │   │   │   │   └── impls source_dtype = the one dtype those table columns mean between them  # the dtype the source held, which the record keeps whatever the target asks the values to become
     │   │   │   ├── else
-    │   │   │   │   └── impls value = the field self._fields holds under name  # the layout is naming this field's output columns rather than selecting the cloud's own, so nothing is regrouped
-    │   │   │   ├── impls source_dtype = the 'dtype' of self._meta_data[name] when the record names name, else entry's dtype  # the dtype the source held, which the record keeps whatever the target asks the values to become
-    │   │   │   ├── if name == 'rgb' and entry's dtype is not source_dtype
-    │   │   │   │   ├── calls convert_color_convention(values=value, source_dtype=source_dtype, target_dtype=entry's dtype)
-    │   │   │   │   ├── impls converted = the colours it mapped onto the target convention
-    │   │   │   │   ├── calls convert_color_convention(values=converted, source_dtype=entry's dtype, target_dtype=source_dtype)
-    │   │   │   │   ├── assert what it mapped back equals value  # tolerating a rounded colour belongs to a display converting its own copy, never to the cloud these colours are the record of
-    │   │   │   │   └── impls value = converted
-    │   │   │   ├── calls cast_lossless(values=value, dtype=TORCH_DTYPE[entry's dtype])
-    │   │   │   ├── impls value = the tensor it cast  # a narrowing the target cannot hold exactly aborts inside the cast, a caller wanting one narrowing its own values before handing them in
-    │   │   │   ├── impls fields[name] = value
+    │   │   │   │   ├── impls value = the field self._fields holds under name  # the layout is naming this field's output columns rather than selecting the cloud's own, so nothing is regrouped
+    │   │   │   │   └── impls source_dtype = the 'dtype' of self._meta_data[name] when the record names name, else CONCEPTUAL_NAME[the dtype of value]
+    │   │   │   ├── if meta_data states a dtype for name
+    │   │   │   │   ├── if name == 'rgb' and entry's dtype is not source_dtype
+    │   │   │   │   │   ├── calls convert_color_convention(values=value, source_dtype=source_dtype, target_dtype=entry's dtype)
+    │   │   │   │   │   ├── impls converted = the colours it mapped onto the target convention
+    │   │   │   │   │   ├── calls convert_color_convention(values=converted, source_dtype=entry's dtype, target_dtype=source_dtype)
+    │   │   │   │   │   ├── assert what it mapped back equals value  # tolerating a rounded colour belongs to a display converting its own copy, never to the cloud these colours are the record of
+    │   │   │   │   │   ├── impls value = converted
+    │   │   │   │   │   └── impls source_dtype = entry's dtype  # the colours sit on the target's range now, so that is the convention they MEAN and the one the record has to name for the next reader to read them by
+    │   │   │   │   ├── calls cast_lossless(values=value, dtype=TORCH_DTYPE[entry's dtype])
+    │   │   │   │   └── impls value = the tensor it cast  # a narrowing the target cannot hold exactly aborts inside the cast, a caller wanting one narrowing its own values before handing them in
+    │   │   │   ├── impls fields[name] = value  # a target dtype the caller did not state is what the field already means, so nothing is cast on the record's account and a record naming one width over a tensor of another leaves that tensor where it is
     │   │   │   └── impls record[name] = entry  # the cloud now IS what the target says, so the record it carries forward is the one it was made to match and the one a save reads its columns and its ply dtype off
     │   │   ├── impls _fields = fields
     │   │   └── impls _meta_data = record
     │   ├── calls _apply_target_meta_data(table=table, target=target)
-    │   └── for each name, value in self._fields
-    │       ├── calls self._assert_field_name_valid(name=name)
-    │       └── calls self._validate_field(name=name, value=value)  # both slots are assigned by now, so a colour is bounded by the convention the record it was just made to match names
+    │   ├── for each name, value in self._fields
+    │   │   ├── calls self._assert_field_name_valid(name=name)
+    │   │   └── calls self._validate_field(name=name, value=value)  # both slots are assigned by now, so a colour is bounded by the convention the record it was just made to match names
+    │   └── return target  # the dtype half a caller states never reaches the record, so the target is handed back for the writer that has to write the file at it
     ├── @property def device(self) -> torch.device
     │   ├── # Hands back the one device every field of this point cloud sits on.
     │   └── return self._device
