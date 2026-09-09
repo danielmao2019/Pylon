@@ -192,7 +192,7 @@ goal: re-design pc dtype contract/provenance
    1. the helpers of load point cloud each constructs a `PointCloud` obj without applying meta data.
    2. the load point cloud API takes the raw `PointCloud` from the helpers and calls `apply_meta_data` on it.
 5. save point cloud
-   1. the helpers of save point cloud each takes a `PointCloud` obj without applying meta data.
+   1. the helpers of save point cloud each takes a `PointCloud` obj and no meta data, and neither applies meta data nor reads any.
    2. the save point cloud API takes the given `PointCloud` from the caller and calls `apply_meta_data` on it.
 
 ## 2. Definition of Done
