@@ -327,13 +327,13 @@ camera_intrinsics.py
 │   ├── def transform_intrinsics(self, transform: torch.Tensor, resolution: Tuple[int, int]) -> "CameraIntrinsics"
 │   │   ├── # Return this CameraIntrinsics restated onto another image by a pixel-frame affine, the raster that image is named alongside it because a 3x3 carries no size of its own.
 │   │   ├── def _validate_inputs [local]
-│   │   │   ├── impls assert transform is a (3, 3) float32 whose last row is [0, 0, 1]
+│   │   │   ├── impls assert transform is a [..., 3, 3] float32 whose last row is [0, 0, 1], its leading axes broadcasting against the params' own
 │   │   │   └── impls assert resolution is an (h, w) pair of positive ints
 │   │   ├── calls _validate_inputs
 │   │   ├── calls transform_intr_convention(params=self._params, model=type(self).MODEL, source_intr_convention=self._intr_convention, target_intr_convention="standard")  # -> params, in pixels; an affine between two rasters composes only with a K stated in them
-│   │   ├── impls K = transform @ the [3, 3] assembled from self.fx, self.fy and params' cx, cy  # impls-node-one-step:skip; the per-model accessors, since simple_pinhole states its two focals as one f
+│   │   ├── impls K = transform @ the [..., 3, 3] assembled from self.fx, self.fy and params' cx, cy  # impls-node-one-step:skip; the per-model accessors, since simple_pinhole states its two focals as one f
 │   │   ├── if type(self).MODEL == "simple_pinhole"
-│   │   │   └── impls assert K[0][0] == K[1][1]  # one shared f holds one ratio, so an affine scaling the axes apart leaves this model nothing to state the second in
+│   │   │   └── impls assert K[..., 0, 0] == K[..., 1, 1]  # one shared f holds one ratio, so an affine scaling the axes apart leaves this model nothing to state the second in
 │   │   ├── impls params = this model's own focal and cx / cy params read back off K, with h, w = resolution  # impls-node-one-step:skip
 │   │   ├── calls transform_intr_convention(params=params, model=type(self).MODEL, source_intr_convention="standard", target_intr_convention=self._intr_convention)  # -> params, back on the frame this intrinsics states them in
 │   │   ├── impls intrinsics = type(self)(params=params, intr_convention=self._intr_convention)
@@ -347,7 +347,7 @@ camera_intrinsics.py
 │       │   └── calls resolve_target_resolution(params=self._params, resolution=resolution, scale=scale)  # -> resolution; the two forms a caller names a target resolution in, reduced to the one a transform is built from
 │       ├── calls _normalize_inputs
 │       ├── impls sx, sy = resolution[1] / self._params["w"], resolution[0] / self._params["h"]  # the size the params are already stated against is two of those params, the one place every model states it
-│       ├── impls transform = [[sx, 0, 0], [0, sy, 0], [0, 0, 1]]                                # a resize scales both axes about the pixel frame's own origin, its top-left corner, which is what makes it diagonal
+│       ├── impls transform = the [..., 3, 3] diagonal carrying sx, sy and a one, its leading axes those of sx and sy  # a resize scales both axes about the pixel frame's own origin, its top-left corner, which is what makes it diagonal
 │       ├── impls intrinsics = self.transform_intrinsics(transform=transform, resolution=resolution)
 │       └── return intrinsics
 ├── class CameraIntrinsicsSimplePinhole(CameraIntrinsics)
