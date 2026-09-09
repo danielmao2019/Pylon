@@ -16,10 +16,12 @@ test_slpccd_dataset.py
 │   ├── # Pins the inputs as exactly the class's own input names, each carrying a coordinate block of three columns.
 │   ├── assert inputs is a dict keyed exactly by SLPCCDDataset.INPUT_NAMES
 │   └── for each of pc_1 and pc_2
-│       └── assert it carries an xyz tensor whose second dimension is three
+│       ├── assert it carries an xyz tensor whose second dimension is three
+│       └── assert that tensor is float32  # decimal text parses as float64 and no load narrows it any more, so this is the width the dataset narrows to itself
 ├── def validate_labels(labels: Dict[str, Any]) -> None
 │   ├── # Pins the labels as exactly the class's own label names, holding a tensor change map.
-│   └── assert labels is a dict keyed exactly by SLPCCDDataset.LABEL_NAMES, holding a torch.Tensor change map
+│   ├── assert labels is a dict keyed exactly by SLPCCDDataset.LABEL_NAMES, holding a torch.Tensor change map
+│   └── assert the change map carries one entry per point and is not all one value  # a caller-stated layout is the whole field set over a text source, so a label column the dataset forgot to name would leave a change map of nothing rather than an error
 ├── def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None
 │   ├── # Pins the meta info as carrying the index the base adds and the two source paths.
 │   └── assert it holds idx matching datapoint_idx, plus both file paths
@@ -67,6 +69,7 @@ test_urb3dcd_dataset.py
 ├── def validate_point_cloud(pc: PointCloud, name: str) -> None
 │   ├── # Pins one cloud as a PointCloud carrying float coordinates of three columns and a single-column float feature.
 │   ├── assert pc is a PointCloud whose xyz is a floating [N, 3]
+│   ├── assert its xyz is float32  # the version's element is loaded at whatever width it stores, and the dataset narrows to the width its models train at
 │   └── assert it carries a feat field that is a floating [N, 1]
 ├── def validate_change_map(change_map: torch.Tensor) -> None
 │   ├── # Pins the change map as a flat int64 vector whose values all name one of the seven change types.
