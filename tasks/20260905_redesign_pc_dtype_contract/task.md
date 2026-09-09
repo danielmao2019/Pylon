@@ -140,7 +140,7 @@ goal: re-design pc dtype contract/provenance
             1. the load preserves every value the file holds exactly, whichever torch dtype stores it.
          2. each column becomes a field under the name Layout Mapping assigns it.
          3. each field enters under the dtype its source defines, as Type Casting defines it.
-         4. a loaded cloud carries coordinates, so a load whose assembled fields include no xyz hard-asserts and aborts.
+         4. a load produces the fields the file holds, and the meta data states which of them are coordinates.
       2. save point cloud
          1. strictly follows the meta data: it applies the meta data and then writes the cloud that comes back, so writing does not need to be aware of the dtype mismatch at all.
             1. the target's dtype and layout come from the record and the override as specified by New Meta Data API, and the dtype casts follow Type Casting.
