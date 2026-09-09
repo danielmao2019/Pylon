@@ -70,7 +70,7 @@ test_conventions.py
 │   ├── calls Camera
 │   ├── calls camera.transform_extrinsics(scale=that same factor, rotation=that same rotation, translation=that same offset)
 │   ├── impls assert its extrinsics matrix equals the standalone CameraExtrinsics result
-│   ├── calls Cameras
+│   ├── calls _batch_one_camera(camera=that camera)
 │   ├── calls cameras.transform_extrinsics(scale=that same factor, rotation=that same rotation, translation=that same offset)
 │   ├── impls assert every camera in the batch carries that same result
 │   └── return
@@ -86,9 +86,9 @@ test_conventions.py
 │   ├── calls camera_loss.backward(retain_graph=True)
 │   ├── impls assert the source fx param receives a gradient
 │   ├── impls assert the source cam2world tensor receives a gradient
-│   ├── calls Cameras(intrinsics=[intrinsics], extrinsics=[extrinsics], device="cpu")
+│   ├── calls _batch_one_camera(camera=camera)
 │   ├── calls cameras.to(dtype=a floating torch dtype, extr_convention="pytorch3d")
-│   ├── impls cameras_loss = moved_cameras.intrinsics[0].fx + moved_cameras.extrinsics[0].center.sum()
+│   ├── impls cameras_loss = moved_cameras[0].intrinsics.fx + moved_cameras[0].extrinsics.center.sum()  # the batch is indexed to one camera, whose own components then answer
 │   ├── calls cameras_loss.backward
 │   ├── impls assert the source fx param receives a gradient
 │   ├── impls assert the source cam2world tensor receives a gradient
@@ -117,12 +117,10 @@ test_conventions.py
 │   ├── # Builds the three-camera Cameras fixture the collection conversions run on, its poses distinct so a per-camera axis or centre error cannot hide behind one shared pose.
 │   ├── calls _build_extrinsics_matrices
 │   ├── impls pose_matrices = the three distinct cam2world matrices it built
-│   ├── for each of pose_matrices
-│   │   └── calls build_camera_intrinsics(model="pinhole", params=one fixed pinhole param set, intr_convention="standard", device="cpu")
-│   ├── impls intrinsics = one entry per pose, every entry that same pinhole
-│   ├── for each pose_matrix in pose_matrices
-│   │   └── calls CameraExtrinsics(extrinsics=pose_matrix, extr_convention=the pose frame asked for, device="cpu")
-│   ├── impls extrinsics = the per-pose extrinsics it built
+│   ├── calls build_camera_intrinsics(model="pinhole", params=one fixed pinhole param set broadcast to a [3] column per key, intr_convention="standard", device="cpu")
+│   ├── impls intrinsics = that one batched pinhole, its params carrying the pose count
+│   ├── calls CameraExtrinsics(extrinsics=the [3, 4, 4] stack of pose_matrices, extr_convention=the pose frame asked for, device="cpu")
+│   ├── impls extrinsics = the one batched extrinsics it built
 │   ├── calls Cameras(intrinsics=intrinsics, extrinsics=extrinsics, device="cpu")
 │   └── return  # that three-camera collection
 ├── def test_every_supported_extr_convention_is_right_handed
@@ -272,19 +270,26 @@ test_conventions.py
 │   ├── impls assert the returned cam2world tensor has the requested dtype
 │   ├── impls assert copy=True returns a tensor with distinct storage from the source extrinsics
 │   └── return
-└── def test_camera_and_cameras_to_preserve_tensor_parameter_graphs
-    ├── # Camera.to and Cameras.to keep tensor-valued intrinsics and extrinsics on their autograd paths.
-    ├── calls build_camera_intrinsics(model="ortho", params=tensor scalar params with requires_grad, intr_convention="standard")
-    ├── calls CameraExtrinsics(extrinsics=a valid cam2world tensor with tensor-valued translation, extr_convention="standard")
-    ├── calls Camera
-    ├── calls camera.to(device=the current device, dtype=a floating torch dtype, extr_convention="pytorch3d")
-    ├── calls Cameras(intrinsics=intrinsics[None], extrinsics=extrinsics[None])
-    ├── calls cameras.to(device=the current device, dtype=a floating torch dtype, extr_convention="pytorch3d")
-    ├── impls loss = moved_camera.intrinsics.project(points).sum() + moved_cameras.center.sum()
-    ├── calls loss.backward
-    ├── impls assert source intrinsics params receive gradients
-    ├── impls assert source extrinsics receive gradients
-    └── return
+├── def test_camera_and_cameras_to_preserve_tensor_parameter_graphs
+│   ├── # Camera.to and Cameras.to keep tensor-valued intrinsics and extrinsics on their autograd paths.
+│   ├── calls build_camera_intrinsics(model="ortho", params=tensor scalar params with requires_grad, intr_convention="standard")
+│   ├── calls CameraExtrinsics(extrinsics=a valid cam2world tensor with tensor-valued translation, extr_convention="standard")
+│   ├── calls Camera
+│   ├── calls camera.to(device=the current device, dtype=a floating torch dtype, extr_convention="pytorch3d")
+│   ├── calls _batch_one_camera(camera=camera)
+│   ├── calls cameras.to(device=the current device, dtype=a floating torch dtype, extr_convention="pytorch3d")
+│   ├── impls loss = moved_camera.intrinsics.project(points).sum() + moved_cameras.center.sum()
+│   ├── calls loss.backward
+│   ├── impls assert source intrinsics params receive gradients
+│   ├── impls assert source extrinsics receive gradients
+│   └── return
+└── def _batch_one_camera(camera: Camera) -> Cameras
+    ├── # Widens one Camera into a length-one Cameras, which the components cannot do themselves since neither is subscriptable.
+    ├── impls widened_params = each of the camera's intrinsics params under a leading axis of one
+    ├── calls build_camera_intrinsics(model=camera.intrinsics.model, params=widened_params, intr_convention=camera.intrinsics.intr_convention)
+    ├── calls CameraExtrinsics(extrinsics=the cam2world matrix under a leading axis of one, extr_convention=camera.extrinsics.extr_convention)
+    ├── calls Cameras(intrinsics=the intrinsics it built, extrinsics=the extrinsics it built, names=[camera.name], ids=[camera.id])
+    └── return  # that length-one batch
 ```
 
 `tests/data/structures/three_d/camera/test_io.py`
@@ -364,15 +369,12 @@ test_io.py
 │   ├── calls _assert_cameras_fields_equal(loaded=what it loaded, original=cameras)
 │   └── return
 ├── def _make_multi_cameras
-│   ├── # Builds the three-camera Cameras fixture both collection round trips run on, its cameras differing in model, pose frame, name and id so the payload spans every path the format has to carry.
-│   ├── calls build_camera_intrinsics(model="pinhole", params=that model's param set, intr_convention="standard", device="cpu")
-│   ├── calls build_camera_intrinsics(model="simple_pinhole", params=that model's param set, intr_convention="standard", device="cpu")
-│   ├── calls build_camera_intrinsics(model="ortho", params=that model's param set, intr_convention="standard", device="cpu")
-│   ├── impls intrinsics = those three, in that order
-│   ├── calls _make_extrinsics(translation=a first camera centre, extr_convention="opengl")
-│   ├── calls _make_extrinsics(translation=a second camera centre, extr_convention="opencv")
-│   ├── calls _make_extrinsics(translation=a third camera centre, extr_convention="standard")
-│   ├── impls extrinsics = those three, in that order
+│   ├── # Builds the three-camera Cameras fixture both collection round trips run on, its cameras differing in param values, centre, name and id so the payload spans every per-camera path the format has to carry.
+│   ├── calls build_camera_intrinsics(model="pinhole", params=that model's param set with a distinct [3] column per key, intr_convention="standard", device="cpu")
+│   ├── impls intrinsics = that one batched pinhole  # a batch names one model and one image-plane frame, so those two are what the fixture holds fixed
+│   ├── impls matrices = three 4x4 float32 identities whose translation columns are three distinct camera centres
+│   ├── calls CameraExtrinsics(extrinsics=the [3, 4, 4] stack of matrices, extr_convention="opengl", device="cpu")
+│   ├── impls extrinsics = that one batched extrinsics  # a batch names one pose frame, so the frame is what the fixture holds fixed
 │   ├── impls names = a label for every camera but the second
 │   ├── impls ids = an id for every camera but the third
 │   ├── calls Cameras(intrinsics=intrinsics, extrinsics=extrinsics, names=names, ids=ids, device="cpu")
