@@ -376,6 +376,12 @@ def test_the_roll_lock_callback_carries_its_source_inline() -> None:
         "The inlined callback must write the re-derived camera up vector back to the "
         f"panel. {inline_source=}"
     )
+    assert ".rotate =" in inline_source and ".lookAt(" in inline_source, (
+        "A drag never reaches the callback per pointer move, so the inlined callback "
+        "must also hold the lock at the panel's own view controller: it replaces that "
+        "controller's rotation and writes the roll-locked pose back through it. "
+        f"{inline_source=}"
+    )
     assert ".js-plotly-plot" in inline_source, (
         "`dcc.Graph` renders its component id onto a wrapper div, so the inlined "
         "callback must resolve the Plotly graph div inside that wrapper. "
@@ -548,11 +554,7 @@ def build_roll_lock_pitch_harness_script(
 ) -> str:
     """Build the Node harness that drives the roll-lock callback through a pole-crossing pitch.
 
-    The harness stands in for the panel: it holds the gl3d camera the callback reads,
-    fires the callback once on the start pose the way Dash fires it on initial render,
-    then turns the camera the way a Plotly `orbit` left-drag does (the eye and the camera
-    up vector both rotating about the camera's own screen-right axis), hands the turned
-    camera to the callback, and applies whatever `Plotly.relayout` the callback issues.
+    The harness stands in for the panel: it holds the gl3d camera the callback reads and the view controller a drag turns that camera through, fires the callback once on the start pose the way Dash fires it on initial render, then turns the camera through that controller the way a Plotly `orbit` left-drag does (the eye and the camera up vector both rotating about the camera's own screen-right axis), hands the turned camera to the callback, and applies whatever `Plotly.relayout` the callback issues.
 
     Each callback call is watched for whether it can describe the camera it was handed
     at all, since a panel cannot survive a callback that aborts on the pose it reports
@@ -600,22 +602,43 @@ function rotate(v, axis, angle) {
 }
 
 const axis = normalize(LOCK_ROLL);
-let camera = { eye: toRecord(EYE), center: toRecord([0, 0, 0]), up: toRecord(UP) };
 
-function pitchDrag(angle) {
-  const eye = toVector(camera.eye);
-  const center = toVector(camera.center);
-  const up = toVector(camera.up);
-  const forward = normalize(subtract(center, eye));
-  const right = normalize(cross(forward, up));
-  camera = {
-    eye: toRecord(add(center, rotate(subtract(eye, center), right, angle))),
-    center: camera.center,
-    up: toRecord(normalize(rotate(up, right, angle))),
+// The panel's own view controller, as much of it as the roll lock touches: the pose it
+// publishes, the rotation a drag turns the camera through, and the two calls the lock
+// reads and writes that pose with. It holds its pose directly where a real one splines
+// its keyframes over time, since what is under test is which pose each call leaves
+// behind and not how the controller interpolates between them.
+const view = {
+  computedEye: EYE.slice(),
+  computedCenter: [0, 0, 0],
+  computedUp: UP.slice(),
+  recalcMatrix: (time) => {},
+  lookAt: (time, eye, center, up) => {
+    view.computedEye = eye.slice();
+    view.computedCenter = center.slice();
+    view.computedUp = up.slice();
+  },
+  rotate: (time, yaw, pitch, roll) => {
+    const center = view.computedCenter;
+    const up = view.computedUp;
+    const forward = normalize(subtract(center, view.computedEye));
+    const right = normalize(cross(forward, up));
+    view.computedEye = add(center, rotate(subtract(view.computedEye, center), right, pitch));
+    view.computedUp = normalize(rotate(up, right, pitch));
+  },
+};
+
+function readCamera() {
+  return {
+    eye: toRecord(view.computedEye),
+    center: toRecord(view.computedCenter),
+    up: toRecord(view.computedUp),
   };
 }
 
-const graphDiv = { _fullLayout: { scene: { _scene: { getCamera: () => camera } } } };
+const graphDiv = {
+  _fullLayout: { scene: { _scene: { camera: { view: view }, getCamera: readCamera } } },
+};
 globalThis.document = {
   getElementById: (id) =>
     id === GRAPH_ID ? { querySelector: (s) => (s === ".js-plotly-plot" ? graphDiv : null) } : null,
@@ -624,10 +647,10 @@ globalThis.window = { dash_clientside: { no_update: null } };
 globalThis.Plotly = {
   relayout: (div, update) => {
     if (update["scene.camera.eye"] !== undefined) {
-      camera = { eye: update["scene.camera.eye"], center: camera.center, up: camera.up };
+      view.computedEye = toVector(update["scene.camera.eye"]);
     }
     if (update["scene.camera.up"] !== undefined) {
-      camera = { eye: camera.eye, center: camera.center, up: update["scene.camera.up"] };
+      view.computedUp = toVector(update["scene.camera.up"]);
     }
     return { then: (settle) => { settle(); } };
   },
@@ -655,7 +678,7 @@ const records = [];
 // start pose the caller framed the panel with.
 for (let drag = 0; drag <= DRAG_COUNT; drag += 1) {
   if (drag > 0) {
-    pitchDrag(PITCH_PER_DRAG);
+    view.rotate(0, 0, PITCH_PER_DRAG, 0);
   }
   let callbackError = null;
   stepAssertionFailures = [];
@@ -664,9 +687,9 @@ for (let drag = 0; drag <= DRAG_COUNT; drag += 1) {
   } catch (error) {
     callbackError = String(error && error.message !== undefined ? error.message : error);
   }
-  const offset = subtract(toVector(camera.eye), toVector(camera.center));
+  const offset = subtract(view.computedEye, view.computedCenter);
   const forward = normalize(scale(offset, -1));
-  const right = normalize(cross(forward, toVector(camera.up)));
+  const right = normalize(cross(forward, view.computedUp));
   // The camera's own basis is recorded alongside the two dot products because both of
   // those read a direction and neither reads a length: a pose whose up vector is short,
   // long, or non-finite is a camera the panel renders the scene at the wrong size
@@ -675,11 +698,11 @@ for (let drag = 0; drag <= DRAG_COUNT; drag += 1) {
     drag: drag,
     callback_error: callbackError,
     callback_assertion_failures: stepAssertionFailures,
-    up_along_axis: dot(normalize(toVector(camera.up)), axis),
+    up_along_axis: dot(normalize(view.computedUp), axis),
     right_along_axis: dot(right, axis),
     polar: Math.acos(Math.max(-1, Math.min(1, dot(normalize(offset), axis)))),
-    written_eye: toVector(camera.eye),
-    written_up: toVector(camera.up),
+    written_eye: view.computedEye,
+    written_up: view.computedUp,
   });
 }
 process.stdout.write(JSON.stringify(records));

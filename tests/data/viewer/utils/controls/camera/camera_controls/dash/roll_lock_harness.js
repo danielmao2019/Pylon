@@ -1,15 +1,10 @@
 // Node harness driving the roll-lock clientside callback through a scripted gl3d drag.
 //
-// The harness stands in for the Plotly panel: it owns the gl3d camera the callback
-// reads, turns that camera the way a `orbit` left-drag does, hands the turned camera to
-// the callback, applies whatever `Plotly.relayout` the callback issues, and reports the
-// camera the callback left behind. Nothing about the roll lock itself is modelled here:
-// the callback under test is the shipped source, evaluated exactly as the Dash
-// registration inlines it.
+// The harness stands in for the Plotly panel: it owns the gl3d camera the callback reads and the view controller a drag turns that camera through, turns the camera the way an `orbit` left-drag does, hands the turned camera to the callback, applies whatever `Plotly.relayout` the callback issues, and reports the camera the callback left behind. Nothing about the roll lock itself is modelled here: the callback under test is the shipped source, evaluated exactly as the Dash registration inlines it.
 //
-// Usage: node roll_lock_harness.js '<spec-json>', where the spec carries `source_path`,
-// `graph_id`, `lock_roll`, `eye`, `center`, `up`, and `drags`. One JSON record per drag
-// is written to stdout.
+// The view controller stand-in holds its pose directly where a real one splines its keyframes over time and publishes a pose a frame or two behind. What is under test is which pose each call leaves behind, not how the controller interpolates between them, so the timestamps the callback writes at are carried and never interpolated.
+//
+// Usage: node roll_lock_harness.js '<spec-json>', where the spec carries `source_path`, `graph_id`, `lock_roll`, `eye`, `center`, `up`, `turns`, and `reports_each_turn`. One JSON record per turn is written to stdout.
 
 const fs = require("fs");
 
@@ -61,39 +56,52 @@ function recordToVector(record) {
 
 const spec = JSON.parse(process.argv[2]);
 const axis = vectorNormalize(spec.lock_roll);
-let camera = {
-    eye: vectorToRecord(spec.eye),
-    center: vectorToRecord(spec.center),
-    up: vectorToRecord(spec.up),
+
+// The panel's own view controller, as much of it as the roll lock touches: the pose it
+// publishes, the rotation a drag turns the camera through, and the two calls the lock
+// reads and writes that pose with.
+const view = {
+    computedEye: spec.eye.slice(),
+    computedCenter: spec.center.slice(),
+    computedUp: spec.up.slice(),
+    recalcMatrix: function (time) {},
+    lookAt: function (time, eye, center, up) {
+        view.computedEye = eye.slice();
+        view.computedCenter = center.slice();
+        view.computedUp = up.slice();
+    },
+    // Turns the camera the way a Plotly gl3d `orbit` left-drag does: the eye and the
+    // camera up vector rotate together about the camera's own screen axes, so the whole
+    // frame is carried rigidly and roll is left free to drift. This is the turn the roll
+    // lock exists to correct, so the harness produces it rather than a roll-locked one.
+    rotate: function (time, yawRadians, pitchRadians, rollRadians) {
+        const center = view.computedCenter;
+        const up = view.computedUp;
+        const offset = vectorSubtract(view.computedEye, center);
+        const cameraUpAxis = vectorNormalize(up);
+        const cameraRightAxis = vectorNormalize(
+            vectorCross(vectorNormalize(vectorScale(offset, -1)), cameraUpAxis),
+        );
+        view.computedEye = vectorAdd(
+            center,
+            vectorRotate(vectorRotate(offset, cameraUpAxis, yawRadians), cameraRightAxis, pitchRadians),
+        );
+        view.computedUp = vectorNormalize(
+            vectorRotate(vectorRotate(up, cameraUpAxis, yawRadians), cameraRightAxis, pitchRadians),
+        );
+    },
 };
 
-// Turns the camera the way a Plotly gl3d `orbit` left-drag does: the eye and the camera
-// up vector rotate together about the camera's own screen axes, so the whole frame is
-// carried rigidly and roll is left free to drift. This is the drag the roll lock exists
-// to correct, so the harness produces it rather than a roll-locked one.
-function orbitDrag(yawRadians, pitchRadians) {
-    const center = recordToVector(camera.center);
-    const up = recordToVector(camera.up);
-    let offset = vectorSubtract(recordToVector(camera.eye), center);
-    const cameraUpAxis = vectorNormalize(up);
-    const cameraRightAxis = vectorNormalize(
-        vectorCross(vectorNormalize(vectorScale(offset, -1)), cameraUpAxis),
-    );
-    offset = vectorRotate(vectorRotate(offset, cameraUpAxis, yawRadians), cameraRightAxis, pitchRadians);
-    const turnedUp = vectorRotate(
-        vectorRotate(up, cameraUpAxis, yawRadians),
-        cameraRightAxis,
-        pitchRadians,
-    );
-    camera = {
-        eye: vectorToRecord(vectorAdd(center, offset)),
-        center: camera.center,
-        up: vectorToRecord(vectorNormalize(turnedUp)),
+function readCamera() {
+    return {
+        eye: vectorToRecord(view.computedEye),
+        center: vectorToRecord(view.computedCenter),
+        up: vectorToRecord(view.computedUp),
     };
 }
 
 const graphDiv = {
-    _fullLayout: { scene: { _scene: { getCamera: () => camera } } },
+    _fullLayout: { scene: { _scene: { camera: { view: view }, getCamera: readCamera } } },
 };
 globalThis.document = {
     getElementById: (elementId) =>
@@ -105,10 +113,10 @@ globalThis.window = { dash_clientside: { no_update: null } };
 globalThis.Plotly = {
     relayout: (targetGraphDiv, update) => {
         if (update["scene.camera.eye"] !== undefined) {
-            camera = { eye: update["scene.camera.eye"], center: camera.center, up: camera.up };
+            view.computedEye = recordToVector(update["scene.camera.eye"]);
         }
         if (update["scene.camera.up"] !== undefined) {
-            camera = { eye: camera.eye, center: camera.center, up: update["scene.camera.up"] };
+            view.computedUp = recordToVector(update["scene.camera.up"]);
         }
         return Promise.resolve();
     },
@@ -118,9 +126,9 @@ globalThis.Plotly = {
 // right axis's component along the lock axis, the up vector's side of it, and the polar
 // angle that says how close to the pole the camera stands.
 function measureCamera() {
-    const center = recordToVector(camera.center);
-    const eye = recordToVector(camera.eye);
-    const up = recordToVector(camera.up);
+    const center = view.computedCenter;
+    const eye = view.computedEye;
+    const up = view.computedUp;
     const offset = vectorSubtract(eye, center);
     const forward = vectorNormalize(vectorScale(offset, -1));
     const cameraRightAxis = vectorNormalize(vectorCross(forward, up));
@@ -140,19 +148,18 @@ function measureCamera() {
 
 const callback = eval(fs.readFileSync(spec.source_path, "utf8"))(spec.graph_id, axis);
 
-// Fires the callback once on the panel's seeded camera and once per drag, the cadence
-// Dash drives it at: the initial render reports the seeded camera, and gl3d reports each
-// drag at mouse-up. Draining the task queue after each invocation settles the callback's
-// own `Plotly.relayout` promise, which in the browser settles between two user gestures.
+// Fires the callback on the panel's seeded camera, which is what Dash's initial render reports, and turns the camera once per spec turn. `reports_each_turn` is the cadence the panel reports those turns to the callback at: true makes each turn a drag of its own, reported at the mouse-up gl3d emits `plotly_relayout` on, and false makes the turns the pointer moves of one live drag, which the panel reports nothing of until it ends. Draining the task queue after each invocation settles the callback's own `Plotly.relayout` promise, which in the browser settles between two user gestures.
 async function run() {
     const records = [];
     callback(null);
     await new Promise((settle) => setTimeout(settle, 0));
     records.push(measureCamera());
-    for (const drag of spec.drags) {
-        orbitDrag(drag.yaw, drag.pitch);
-        callback(null);
-        await new Promise((settle) => setTimeout(settle, 0));
+    for (const turn of spec.turns) {
+        view.rotate(0, turn.yaw, turn.pitch, 0);
+        if (spec.reports_each_turn) {
+            callback(null);
+            await new Promise((settle) => setTimeout(settle, 0));
+        }
         records.push(measureCamera());
     }
     process.stdout.write(JSON.stringify(records));

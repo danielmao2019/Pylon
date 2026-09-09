@@ -1,30 +1,14 @@
 // Roll lock about a caller-supplied axis for a Plotly gl3d panel in `orbit` dragmode.
 //
-// `orbit` leaves camera roll free: a drag carries `camera.up` wherever the trackball
-// takes it, so the camera right axis drifts off the caller's axis and a drag that
-// pitches through a pole leaves the scene hanging upside down. This module puts both
-// back after every camera change the panel reports, by banding the reported eye away
-// from the axis, stopping the camera at the pole the drag carried it through,
-// re-deriving `up` there from the view direction and the caller's axis, and writing the
-// pose with `Plotly.relayout`.
+// `orbit` leaves camera roll free. The panel's own view controller turns the camera about the camera's own screen axes, and successive yaw and pitch turns about a frame that each turn moves compose into roll, so the camera right axis drifts off the caller's axis; the same controller applies no pitch limit, so a drag that carries the view through a pole leaves the scene hanging upside down. This module holds both back: it keeps the camera right axis perpendicular to the caller's axis, and the camera up vector on that axis's own side.
 //
-// gl3d emits `plotly_relayout` at mouse-up, so the correction lands once per drag. The
-// per-pointer-move `plotly_relayouting` event cannot carry it: a `Plotly.relayout` issued
-// inside a live drag re-seeds the orbit camera from the layout every frame, so the drag
-// stops accumulating and the camera oscillates in place.
+// Two things move the camera off that lock, and the module meets each where it happens. A pose the panel is handed - the framing it comes up on, and any camera a later `Plotly.relayout` writes - arrives whole, and is corrected whole when the panel reports it. A drag arrives one pointer move at a time through the view controller's own rotation, and is corrected there: the controller writes each move as a keyframe into a time-indexed spline the renderer samples a frame or two behind, so a pose written back once the move is already in that spline is re-pinned by the controller's own idle before it is ever drawn. Wrapping the controller's `rotate` puts the roll-locked pose into the spline at the same keyframe timestamp the move was written at, which is what holds the horizon level in every rendered frame of a live drag rather than at the drag's end. Rotation is the whole of what that wrapper has to cover: the controller's pan carries the eye and the center together and its wheel zoom moves the eye along the view direction, so both leave the camera frame - and the lock - exactly as they found it.
 //
-// The module is a single expression: a factory the Python registration calls with the
-// graph id and the unit-length axis, whose result is the Dash clientside callback.
+// The module is a single expression: a factory the Python registration calls with the graph id and the unit-length axis, whose result is the Dash clientside callback.
 (function (graphId, axis) {
-    // Radians the roll-locked camera stops short of the lock axis. The reported eye is
-    // banded into this range before anything derives a camera right axis from it, which
-    // is what leaves the view direction never parallel to the axis, so the cross product
-    // that re-derives that right axis never collapses.
+    // Radians the roll-locked camera stops short of the lock axis. The eye is banded into this range before anything derives a camera right axis from it, which is what leaves the view direction never parallel to the axis, so the cross product that re-derives that right axis never collapses.
     const ROLL_LOCK_POLAR_ANGLE_EPSILON = 1e-6;
-    // Squared distance between the reported up vector and the roll-locked one at or
-    // below which the camera is already roll-locked and no write is issued. Skipping the
-    // redundant write is what stops this module's own `Plotly.relayout` from driving an
-    // endless relayout -> correct -> relayout cycle.
+    // Squared distance between the reported up vector and the roll-locked one at or below which the camera is already roll-locked and no write is issued. Skipping the redundant write is what stops this module's own `Plotly.relayout` from driving an endless relayout -> correct -> relayout cycle, and what leaves a drag the wrapped rotation already locked reporting a camera this module writes nothing over.
     const ROLL_LOCK_VIOLATION_EPSILON = 1e-12;
 
     function vectorAdd(left, right) {
@@ -56,7 +40,7 @@
     }
 
     // A zero-length input is a camera this module cannot describe, so it aborts here
-    // rather than dividing and handing the panel a NaN pose it would then report back
+    // rather than dividing and handing the panel a NaN pose it would then turn from
     // forever. Every call site below feeds this a vector the banding above already made
     // non-degenerate, so reaching the abort means a camera arrived that the band does
     // not cover, and that is the thing worth seeing.
@@ -82,11 +66,7 @@
         return { x: vector[0], y: vector[1], z: vector[2] };
     }
 
-    // The meridian the fallbacks below stand on, as a unit vector perpendicular to the
-    // lock axis. An eye sitting on the axis names no meridian of its own - it is on
-    // every meridian at once - and this is the one it is banded onto. Crossing the axis
-    // with the world basis vector it leans on least is what keeps this cross product
-    // itself clear of the degeneracy it stands in for.
+    // The meridian the fallbacks below stand on, as a unit vector perpendicular to the lock axis. An eye sitting on the axis names no meridian of its own - it is on every meridian at once - and this is the one it is banded onto. Crossing the axis with the world basis vector it leans on least is what keeps this cross product itself clear of the degeneracy it stands in for.
     const ROLL_LOCK_FALLBACK_MERIDIAN = (function () {
         const magnitudes = [Math.abs(axis[0]), Math.abs(axis[1]), Math.abs(axis[2])];
         if (magnitudes[0] <= magnitudes[1] && magnitudes[0] <= magnitudes[2]) {
@@ -98,8 +78,7 @@
         return vectorNormalize(vectorCross(axis, [0, 0, 1]));
     })();
 
-    // Builds the eye offset a radius, a polar angle off the lock axis, and a meridian
-    // name together.
+    // Builds the eye offset a radius, a polar angle off the lock axis, and a meridian name together.
     function buildOffset(radius, polarAngle, meridian) {
         return vectorAdd(
             vectorScale(axis, radius * Math.cos(polarAngle)),
@@ -107,8 +86,7 @@
         );
     }
 
-    // Resolves the meridian an offset stands on, as a unit vector perpendicular to the
-    // lock axis.
+    // Resolves the meridian an offset stands on, as a unit vector perpendicular to the lock axis.
     function resolveMeridian(offset) {
         const meridian = vectorSubtract(offset, vectorScale(axis, vectorDot(offset, axis)));
         if (vectorLengthSquared(meridian) === 0) {
@@ -117,11 +95,7 @@
         return vectorNormalize(meridian);
     }
 
-    // Bands an offset's polar angle off the lock axis into the range the roll lock holds
-    // the camera in, rebuilding it at the banded angle on its own meridian. Every camera
-    // right axis this module derives comes from an offset this has already banded, so
-    // the degeneracy that derivation would hit on an eye sitting exactly on the axis is
-    // unreachable rather than guarded against afterwards.
+    // Bands an offset's polar angle off the lock axis into the range the roll lock holds the camera in, rebuilding it at the banded angle on its own meridian. Every camera right axis this module derives comes from an offset this has already banded, so the degeneracy that derivation would hit on an eye sitting exactly on the axis is unreachable rather than guarded against afterwards.
     function resolveBandedOffset(offset) {
         const radius = Math.sqrt(vectorLengthSquared(offset));
         const polarAngle = Math.acos(Math.min(Math.max(vectorDot(offset, axis) / radius, -1), 1));
@@ -141,11 +115,32 @@
         );
     }
 
-    // Resolves the gl3d graph div and its live camera, or null while the scene has not
-    // mounted yet. `dcc.Graph` renders its component id onto a wrapper div, so the
-    // Plotly graph div is the `.js-plotly-plot` inside it. Dash fires the callback on
-    // initial render, before the WebGL scene exists, so the unmounted case is owned
-    // here rather than handled downstream.
+    // Resolves the eye the roll lock holds the camera at: the banded eye where the turn stayed on the axis's own side, and the pole the turn entered from where it did not. The turned up hanging on the far side of the axis is what says the turn carried the view through a pole, since a locked camera's up sits on the axis's own side by construction; stopping the camera there is the pitch clamp the panel's own `orbit` rotation does not apply.
+    function resolveRollLockedEye(camera) {
+        const center = recordToVector(camera.center);
+        const offset = resolveBandedOffset(vectorSubtract(recordToVector(camera.eye), center));
+        if (vectorDot(recordToVector(camera.up), axis) >= 0) {
+            return vectorAdd(center, offset);
+        }
+        // Past the pole the re-derived right axis points the opposite way, so negating it recovers the meridian the turn entered the pole on, which is the one the camera must be put back onto.
+        const entryRight = vectorNegate(vectorNormalize(vectorCross(vectorNegate(offset), axis)));
+        const entryMeridian = vectorNormalize(vectorCross(entryRight, axis));
+        const polarAngle = vectorDot(offset, axis) > 0
+            ? ROLL_LOCK_POLAR_ANGLE_EPSILON
+            : Math.PI - ROLL_LOCK_POLAR_ANGLE_EPSILON;
+        const radius = Math.sqrt(vectorLengthSquared(offset));
+        return vectorAdd(center, buildOffset(radius, polarAngle, entryMeridian));
+    }
+
+    // Resolves the pose the roll lock holds the camera at: the eye above, and the up vector the view direction from that eye and the caller's axis determine.
+    function resolveRollLockedPose(camera) {
+        const eye = resolveRollLockedEye(camera);
+        const forward = vectorNormalize(vectorSubtract(recordToVector(camera.center), eye));
+        const right = vectorNormalize(vectorCross(forward, axis));
+        return { eye: eye, up: vectorNormalize(vectorCross(right, forward)) };
+    }
+
+    // Resolves the gl3d panel's scene, or null while it has not mounted yet. `dcc.Graph` renders its component id onto a wrapper div, so the Plotly graph div is the `.js-plotly-plot` inside it. Dash fires the callback on initial render, before the WebGL scene exists, so the unmounted case is owned here rather than handled downstream.
     function resolveMountedScene() {
         const wrapper = document.getElementById(graphId);
         if (wrapper === null) {
@@ -159,7 +154,7 @@
         if (scene === undefined || scene === null) {
             return null;
         }
-        return { graphDiv: graphDiv, camera: scene.getCamera() };
+        return { graphDiv: graphDiv, scene: scene };
     }
 
     // Seeds the per-graph in-flight write flag on first use.
@@ -170,45 +165,7 @@
         graphDiv.__rollLock = { writing: false };
     }
 
-    // Resolves the eye the roll lock holds the camera at: the banded eye where the drag
-    // stayed on the axis's own side, and the pole the drag entered from where it did
-    // not. The reported up hanging on the far side of the axis is what says the drag
-    // carried the view through a pole, since a locked camera's up sits on the axis's own
-    // side by construction; stopping the camera there is the pitch clamp the panel's own
-    // `orbit` rotation does not apply.
-    function resolveRollLockedEye(camera) {
-        const center = recordToVector(camera.center);
-        const offset = resolveBandedOffset(vectorSubtract(recordToVector(camera.eye), center));
-        if (vectorDot(recordToVector(camera.up), axis) >= 0) {
-            return vectorAdd(center, offset);
-        }
-        // Past the pole the re-derived right axis points the opposite way, so negating
-        // it recovers the meridian the drag entered the pole on, which is the one the
-        // camera must be put back onto.
-        const entryRight = vectorNegate(vectorNormalize(vectorCross(vectorNegate(offset), axis)));
-        const entryMeridian = vectorNormalize(vectorCross(entryRight, axis));
-        const polarAngle = vectorDot(offset, axis) > 0
-            ? ROLL_LOCK_POLAR_ANGLE_EPSILON
-            : Math.PI - ROLL_LOCK_POLAR_ANGLE_EPSILON;
-        const radius = Math.sqrt(vectorLengthSquared(offset));
-        return vectorAdd(center, buildOffset(radius, polarAngle, entryMeridian));
-    }
-
-    // Resolves the pose the roll lock holds the camera at: the eye above, and the up
-    // vector the view direction from that eye and the caller's axis determine.
-    function resolveRollLockedPose(camera) {
-        const eye = resolveRollLockedEye(camera);
-        const forward = vectorNormalize(vectorSubtract(recordToVector(camera.center), eye));
-        const right = vectorNormalize(vectorCross(forward, axis));
-        return { eye: eye, up: vectorNormalize(vectorCross(right, forward)) };
-    }
-
-    // Reports whether the panel's live camera already carries both halves of the lock:
-    // its right axis perpendicular to the caller's axis, and its up vector on that
-    // axis's own side. Both halves are exactly what the roll-locked up vector is built
-    // from, so the reported up matching it is the whole of the question - and it is
-    // asked of the up vector alone because the reported eye's own right axis is what
-    // collapses on the axis, which is the degeneracy the banding removes.
+    // Reports whether the panel's live camera already carries both halves of the lock: its right axis perpendicular to the caller's axis, and its up vector on that axis's own side. Both halves are exactly what the roll-locked up vector is built from, so the reported up matching it is the whole of the question - and it is asked of the up vector alone because the reported eye's own right axis is what collapses on the axis, which is the degeneracy the banding removes.
     function isRollLockHeld(camera, pose) {
         return (
             vectorLengthSquared(vectorSubtract(recordToVector(camera.up), pose.up))
@@ -216,8 +173,7 @@
         );
     }
 
-    // Writes the roll-locked pose back to the panel when the live camera violates
-    // either half of the lock.
+    // Writes the roll-locked pose back to the panel when the camera it reports violates either half of the lock.
     function applyRollLock(graphDiv, camera) {
         ensureRollLockState(graphDiv);
         const pose = resolveRollLockedPose(camera);
@@ -236,13 +192,39 @@
         });
     }
 
-    // Holds the camera right axis perpendicular to the caller's axis, and the camera up
-    // vector on that axis's own side, after every camera change the panel reports.
-    return function (relayoutData) {
-        const mounted = resolveMountedScene();
-        if (mounted !== null) {
-            applyRollLock(mounted.graphDiv, mounted.camera);
+    // Replaces the view controller's rotation with the roll-locked one. The wrapped call turns the camera exactly as the panel would have, and the roll-locked pose then goes back into the controller at the same keyframe timestamp that turn was written at, so what the renderer interpolates between is two locked poses and never the rolled one in between. Reading the turned camera back out means asking the controller for the pose at that timestamp, since the pose it publishes otherwise is the one it is drawing, which lags the keyframe just written.
+    function holdRollLock(view) {
+        if (view.rollLockHeld === true) {
+            return;
         }
+        view.rollLockHeld = true;
+        const rotate = view.rotate.bind(view);
+        view.rotate = function (time, yaw, pitch, roll) {
+            rotate(time, yaw, pitch, roll);
+            view.recalcMatrix(time);
+            const center = view.computedCenter.slice();
+            const pose = resolveRollLockedPose({
+                eye: vectorToRecord(view.computedEye.slice()),
+                center: vectorToRecord(center),
+                up: vectorToRecord(view.computedUp.slice()),
+            });
+            view.lookAt(time, pose.eye, center, pose.up);
+        };
+    }
+
+    // Holds the roll lock on whatever panel is there now, waiting out the frames before the WebGL scene mounts: the wrapper on the view controller a drag turns the camera through, and the correction of the camera the panel currently reports. A panel that re-renders arrives with a view controller of its own, so the wrapper goes onto whichever one the panel is turning now rather than once and for all.
+    function holdPanelRollLock() {
+        const mounted = resolveMountedScene();
+        if (mounted === null) {
+            window.requestAnimationFrame(holdPanelRollLock);
+            return;
+        }
+        holdRollLock(mounted.scene.camera.view);
+        applyRollLock(mounted.graphDiv, mounted.scene.getCamera());
+    }
+
+    return function (relayoutData) {
+        holdPanelRollLock();
         return window.dash_clientside.no_update;
     };
 })

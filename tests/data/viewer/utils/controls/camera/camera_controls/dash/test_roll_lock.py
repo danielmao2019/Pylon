@@ -28,16 +28,20 @@ UNIT_LENGTH_TOLERANCE = 1e-9
 EYE_MOVED_DISTANCE = 1e-6
 # Polar angle, in radians, at or below which the camera stands at the pole.
 POLE_REACHED_RADIANS = 1e-3
-# Yaw and pitch, in radians, of one drag in each block of the pole-crossing sequence.
+# Yaw and pitch, in radians, of one turn in each block of the pole-crossing sequence.
 TURNING_DRAG = {"yaw": 0.30, "pitch": -0.20}
 POLE_DRAG = {"yaw": 0.0, "pitch": -0.55}
 YAW_DRAG = {"yaw": 0.45, "pitch": 0.0}
 RETURN_DRAG = {"yaw": 0.0, "pitch": 0.55}
-# How many drags each block of the pole-crossing sequence runs. The pole block runs well past the drag that first reaches the pole, so the sequence covers the drags a camera without the clamp spends tumbling out the far side.
+# How many turns each block of the pole-crossing sequence runs. The pole block runs well past the turn that first reaches the pole, so the sequence covers the turns a camera without the clamp spends tumbling out the far side.
 TURNING_DRAG_COUNT = 4
 POLE_DRAG_COUNT = 8
 YAW_DRAG_COUNT = 4
 RETURN_DRAG_COUNT = 4
+# Yaw and pitch, in radians, of one pointer move of the live drag, sized so the whole run sweeps the camera well off its start without any single move jumping it there.
+LIVE_DRAG_MOVE = {"yaw": 0.06, "pitch": -0.045}
+# How many pointer moves the live drag runs, which is how many the panel reports nothing of.
+LIVE_DRAG_MOVE_COUNT = 24
 
 
 def build_pole_crossing_drags() -> List[Dict[str, float]]:
@@ -86,7 +90,8 @@ def run_roll_lock_harness(
     lock_roll: Tuple[float, float, float],
     eye: List[float],
     up: List[float],
-    drags: List[Dict[str, float]],
+    turns: List[Dict[str, float]],
+    reports_each_turn: bool = True,
 ) -> List[Dict[str, Any]]:
     """Drive the shipped roll-lock callback through a scripted gl3d drag under Node and read back the camera it left behind.
 
@@ -94,10 +99,11 @@ def run_roll_lock_harness(
         lock_roll: Axis to lock camera roll about, as a non-zero `(x, y, z)` world-space direction of any length.
         eye: The `[x, y, z]` eye position the panel is seeded with, in the scene's own world frame.
         up: The `[x, y, z]` camera up vector the panel is seeded with, in the scene's own world frame.
-        drags: One `{"yaw", "pitch"}` record per simulated `orbit` left-drag, in radians.
+        turns: One `{"yaw", "pitch"}` record per simulated `orbit` rotation of the camera, in radians.
+        reports_each_turn: The cadence the panel reports those turns to the callback at. True makes each turn a drag of its own, reported at the mouse-up gl3d emits `plotly_relayout` on; False makes the turns the pointer moves of one live drag, which the panel reports nothing of until it ends.
 
     Returns:
-        One record for the seeded camera followed by one per drag, each carrying `right_along_axis`, `up_along_axis`, `up_length`, `camera_right_axis_length`, `polar`, `eye`, `up`, `camera_right_axis`, and `finite`.
+        One record for the seeded camera followed by one per turn, each carrying `right_along_axis`, `up_along_axis`, `up_length`, `camera_right_axis_length`, `polar`, `eye`, `up`, `camera_right_axis`, and `finite`.
     """
     assert ROLL_LOCK_HARNESS_SCRIPT_PATH.is_file(), (
         "The roll-lock Node harness must sit beside this test. ROLL_LOCK_HARNESS_SCRIPT_PATH=%r"
@@ -116,7 +122,8 @@ def run_roll_lock_harness(
                     "eye": eye,
                     "center": [0.0, 0.0, 0.0],
                     "up": up,
-                    "drags": drags,
+                    "turns": turns,
+                    "reports_each_turn": reports_each_turn,
                 }
             ),
         ],
@@ -130,9 +137,9 @@ def run_roll_lock_harness(
         f"{completed_process.returncode=} {completed_process.stderr=}"
     )
     records = json.loads(completed_process.stdout)
-    assert len(records) == len(drags) + 1, (
-        "The harness must report the seeded camera and one camera per drag. "
-        f"{len(records)=} {len(drags)=}"
+    assert len(records) == len(turns) + 1, (
+        "The harness must report the seeded camera and one camera per turn. "
+        f"{len(records)=} {len(turns)=}"
     )
     return records
 
@@ -150,7 +157,7 @@ def test_a_camera_looking_down_the_lock_axis_keeps_a_usable_frame() -> None:
         lock_roll=TOP_DOWN_LOCK_ROLL,
         eye=[0.0, 0.0, ORBIT_RADIUS],
         up=list(TOP_DOWN_LOCK_ROLL),
-        drags=[],
+        turns=[],
     )
 
     unusable_records = [
@@ -195,7 +202,7 @@ def test_a_pole_crossing_drag_holds_the_horizon_level() -> None:
         lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
         eye=build_equator_eye(lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL),
         up=list(NON_AXIS_ALIGNED_LOCK_ROLL),
-        drags=build_pole_crossing_drags(),
+        turns=build_pole_crossing_drags(),
     )
 
     tilted_records = [
@@ -222,7 +229,7 @@ def test_a_pole_crossing_drag_never_hangs_the_scene_upside_down() -> None:
         lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
         eye=build_equator_eye(lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL),
         up=list(NON_AXIS_ALIGNED_LOCK_ROLL),
-        drags=build_pole_crossing_drags(),
+        turns=build_pole_crossing_drags(),
     )
 
     inverted_records = [
@@ -247,7 +254,7 @@ def test_the_pole_clamp_leaves_the_camera_turning() -> None:
         lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
         eye=build_equator_eye(lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL),
         up=list(NON_AXIS_ALIGNED_LOCK_ROLL),
-        drags=build_pole_crossing_drags(),
+        turns=build_pole_crossing_drags(),
     )
 
     parked_polar_angle = records[TURNING_DRAG_COUNT + POLE_DRAG_COUNT]["polar"]
@@ -269,5 +276,67 @@ def test_the_pole_clamp_leaves_the_camera_turning() -> None:
     ]
     assert not still_records, (
         "Every yaw drag from the pole must move the camera, so the clamp that stops the pitch never froze the yaw. "
+        f"{still_records=} {EYE_MOVED_DISTANCE=}"
+    )
+
+
+def run_live_drag() -> List[Dict[str, Any]]:
+    """Drive one live `orbit` left-drag past the callback, which the panel reports nothing of until it ends, and read back the camera at every pointer move of it.
+
+    Args:
+        None.
+
+    Returns:
+        One record for the seeded camera followed by one per pointer move, as `run_roll_lock_harness` returns them.
+    """
+    return run_roll_lock_harness(
+        lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
+        eye=build_equator_eye(lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL),
+        up=list(NON_AXIS_ALIGNED_LOCK_ROLL),
+        turns=[dict(LIVE_DRAG_MOVE)] * LIVE_DRAG_MOVE_COUNT,
+        reports_each_turn=False,
+    )
+
+
+def test_a_live_drag_holds_the_horizon_level_at_every_pointer_move() -> None:
+    """The camera right axis stays perpendicular to the lock axis at every pointer move of a drag the panel reports nothing of, so the horizon is level under the pointer and not only once the button comes up.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    records = run_live_drag()
+
+    tilted_records = [
+        record
+        for record in records
+        if not abs(record["right_along_axis"]) <= PERPENDICULAR_TOLERANCE
+    ]
+    assert not tilted_records, (
+        "A roll-locked camera must keep its right axis perpendicular to the lock axis at every pointer move of a live drag, since a panel that reports its camera only at mouse-up rolls under the pointer for the whole of the drag and re-levels on release. "
+        f"{tilted_records=} {PERPENDICULAR_TOLERANCE=}"
+    )
+
+
+def test_a_live_drag_keeps_the_camera_turning_at_every_pointer_move() -> None:
+    """Every pointer move of that same drag moves the camera, so holding the horizon level through the drag never froze it under the pointer.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    records = run_live_drag()
+
+    still_records = [
+        (before, after)
+        for before, after in zip(records[:-1], records[1:], strict=True)
+        if math.dist(before["eye"], after["eye"]) <= EYE_MOVED_DISTANCE
+    ]
+    assert not still_records, (
+        "Every pointer move of a live drag must move the camera, so a roll lock that holds the horizon level through the drag by pinning the camera in place is caught here rather than read as a lock. "
         f"{still_records=} {EYE_MOVED_DISTANCE=}"
     )
