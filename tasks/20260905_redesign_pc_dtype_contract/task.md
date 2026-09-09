@@ -113,10 +113,15 @@ goal: re-design pc dtype contract/provenance
       1. the entry takes whichever dtype and layout the override states.
       2. it takes the recorded ones wherever the override states none.
       3. where the record names the field nowhere, the field supplies both: its name serves as the layout, and the dtype it carries as the dtype.
-   3. the target's layout assembles the field from the columns it names, and its dtype converts the field's values:
-      1. rgb converts by Color Data Convention Conversion, from the convention its own dtype names to the convention the target's dtype names.
-      2. every other field converts by Type Casting.
-      3. a conversion is made only where every value survives it exactly, and otherwise hard-asserts and the program aborts.
+   3. how the derived target is applied:
+      1. layout:
+         1. the target's layout assembles the field from the columns it names
+      2. dtype (and convention):
+         1. color conversion happens in two steps:
+            1. where a conversion is defined for the pair, the values are mapped from the convention the current dtype names to the convention the target dtype names.
+            2. after convention conversion, type casting happens normally.
+         2. every other field goes through a direct type cast.
+         3. lossless is asserted. the target is applied if it's lossless. the program hard asserts if lossless cannot be achieved.
    4. applying the target changes the fields the obj stores and never the record, which stays exactly what the source data held.
 
 #### 1.1.5. Point Cloud Data Structure Construction and I/O
