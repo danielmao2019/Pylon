@@ -51,19 +51,30 @@ test_chunked_matmul.py
 │   ├── with pytest.raises(torch.cuda.OutOfMemoryError)
 │   │   └── calls chunked_matmul(large=large, small=small, max_divide=2)
 │   └── return
-├── def test_rejects_non_2d_operands
-│   ├── # a vector, batched, or N-D large or small raises an assertion (both operands must be 2D).
-│   ├── for each of a 1D and a 3D operand, taken in turn as large and as small
+├── def test_rejects_non_2d_large
+│   ├── # a vector, batched, or N-D large raises an assertion (the chunked operand must be 2D), and a 1D small does too (a matrix operand needs two axes).
+│   ├── for each of a 1D and a 3D large, and a 1D small
 │   │   └── with pytest.raises(AssertionError)
 │   │       └── calls chunked_matmul(large=large, small=small)
 │   └── return
-├── def test_rejects_non_square_small
-│   ├── # a 2D but non-square small raises an assertion (small must be square).
+├── def test_batched_small_broadcasts_onto_the_product
+│   ├── # a [B, K, K] small gives a [B, N, K] product whose every slice equals large @ that slice's own small, across num_divide splits.
+│   ├── for each num_divide over several splits, the unchunked default among them
+│   │   ├── calls chunked_matmul(large=large, small=a [B, K, K] small, num_divide=num_divide)
+│   │   └── impls assert each slice b of the result equals large @ small[b]
+│   └── return
+├── def test_inplace_rejects_batched_small
+│   ├── # inplace=True with a batched small raises an assertion (the product is wider than large, so large has no room to be overwritten by it).
 │   ├── with pytest.raises(AssertionError)
-│   │   └── calls chunked_matmul(large=large, small=a 2D non-square small)
+│   │   └── calls chunked_matmul(large=large, small=a [B, K, K] small, inplace=True)
+│   └── return
+├── def test_rejects_non_square_small
+│   ├── # a non-square small raises an assertion (small must be square in its trailing two axes).
+│   ├── with pytest.raises(AssertionError)
+│   │   └── calls chunked_matmul(large=large, small=a small whose trailing two axes differ)
 │   └── return
 ├── def test_rejects_mismatched_inner_dim
-│   ├── # large.shape[1] != small.shape[0] raises an assertion (inner dimensions must match).
+│   ├── # large.shape[1] != small.shape[-2] raises an assertion (inner dimensions must match).
 │   ├── with pytest.raises(AssertionError)
 │   │   └── calls chunked_matmul(large=large, small=a square small whose side differs from large's inner dim)
 │   └── return
