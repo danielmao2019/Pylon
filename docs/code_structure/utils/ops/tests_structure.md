@@ -52,7 +52,7 @@ test_chunked_matmul.py
 │   │   └── calls chunked_matmul(large=large, small=small, max_divide=2)
 │   └── return
 ├── def test_rejects_non_2d_large
-│   ├── # a vector, batched, or N-D large raises an assertion (the chunked operand must be 2D), and a 1D small does too (a matrix operand needs two axes).
+│   ├── # a 1D or N-D large raises an assertion (the chunked operand must be 2D), as does a 1D small.
 │   ├── for each of a 1D and a 3D large, and a 1D small
 │   │   └── with pytest.raises(AssertionError)
 │   │       └── calls chunked_matmul(large=large, small=small)
