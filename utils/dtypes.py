@@ -133,22 +133,45 @@ def cast_lossless(
     else:
         cast = values.numpy().astype(dtype)
 
-    if isinstance(cast, np.ndarray) and isinstance(values.dtype, torch.dtype):
-        recovered = torch.from_numpy(
-            cast.astype(NUMPY_DTYPE[CONCEPTUAL_NAME[values.dtype]])
-        )
-    elif isinstance(cast, np.ndarray):
-        recovered = cast.astype(values.dtype)
-    elif isinstance(values.dtype, torch.dtype):
-        recovered = cast.to(values.dtype)
+    if isinstance(values, torch.Tensor) and isinstance(cast, torch.Tensor):
+        # both sides are read in torch, on the device they already sit on: the dtype torch promotes the pair to contains both of their sets, torch naming no uint64 for the promotion to leave a pair of integers with
+        common = torch.promote_types(values.dtype, cast.dtype)
+        compared = values.to(common)
+        recompared = cast.to(common)
     else:
-        recovered = cast.numpy().astype(values.dtype)
+        # each side is read as numpy first, a bfloat16 tensor through float64 since numpy carries no such width and float64 holds every bfloat16 value exactly
+        if isinstance(values, torch.Tensor) and values.dtype == torch.bfloat16:
+            compared = values.to(torch.float64).cpu().numpy()
+        elif isinstance(values, torch.Tensor):
+            compared = values.cpu().numpy()
+        else:
+            compared = values
 
-    # the round trip is the whole test: a value past the target's bounds and a value the target's grid cannot land on both come back different, and a NaN is recovered as the NaN it was
-    matched = (recovered == values) | ((recovered != recovered) & (values != values))
+        if isinstance(cast, torch.Tensor) and cast.dtype == torch.bfloat16:
+            recompared = cast.to(torch.float64).cpu().numpy()
+        elif isinstance(cast, torch.Tensor):
+            recompared = cast.cpu().numpy()
+        else:
+            recompared = cast
+
+        # both sides are read where neither wraps nor rounds: the dtype numpy promotes the pair to, falling back to python's unbounded int where that promotion leaves the integers, as an int64 and uint64 pair does
+        common = np.promote_types(compared.dtype, recompared.dtype)
+        if (
+            compared.dtype.kind in 'bui'
+            and recompared.dtype.kind in 'bui'
+            and common.kind not in 'bui'
+        ):
+            common = np.dtype(object)
+        compared = compared.astype(common)
+        recompared = recompared.astype(common)
+
+    # the cast's own value against the value it came from is the whole test, and a NaN that stays NaN is not a value the cast changed
+    matched = (recompared == compared) | (
+        (recompared != recompared) & (compared != compared)
+    )
     assert bool(
         matched.all()
-    ), f"casting to dtype changed values that casting back does not recover: dtype={dtype}, values.dtype={values.dtype}, unrecovered values={values[~matched]}, recovered as={recovered[~matched]}"
+    ), f"casting to dtype changed values: dtype={dtype}, values.dtype={values.dtype}, changed values={compared[~matched]}, cast to={recompared[~matched]}"
 
     return cast
 
