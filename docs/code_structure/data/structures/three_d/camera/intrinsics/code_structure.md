@@ -347,7 +347,7 @@ camera_intrinsics.py
 │       │   └── calls resolve_target_resolution(params=self._params, resolution=resolution, scale=scale)  # -> resolution; the two forms a caller names a target resolution in, reduced to the one a transform is built from
 │       ├── calls _normalize_inputs
 │       ├── impls sx, sy = resolution[1] / self._params["w"], resolution[0] / self._params["h"]  # the size the params are already stated against is two of those params, the one place every model states it
-│       ├── impls transform = the [..., 3, 3] diagonal carrying sx, sy and a one, its leading axes those of sx and sy  # a resize scales both axes about the pixel frame's own origin, its top-left corner, which is what makes it diagonal
+│       ├── impls transform = [[sx, 0, 0], [0, sy, 0], [0, 0, 1]]                                # a resize scales both axes about the pixel frame's own origin, its top-left corner, which is what makes it diagonal
 │       ├── impls intrinsics = self.transform_intrinsics(transform=transform, resolution=resolution)
 │       └── return intrinsics
 ├── class CameraIntrinsicsSimplePinhole(CameraIntrinsics)
