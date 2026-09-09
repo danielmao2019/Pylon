@@ -110,10 +110,9 @@ goal: re-design pc dtype contract/provenance
 5. the meta data override:
    1. `__init__`, load point cloud and save point cloud each accept one, and it reaches both the dtype and the layout at each.
    2. the target takes whichever of the dtype and the layout the override states, and the source's own wherever the override states neither.
-   3. where the source defines no dtype or no layout, the override is the only thing that can state it, and a construction or load that leaves it unstated hard-asserts and aborts.
-   4. an override changes the fields the obj stores and never the recorded meta data, which stays exactly what the source data held.
-   5. a dtype override moves the field's values onto the dtype it states.
-   6. a layout override chooses which source columns are assembled into a field, and the field the obj stores afterwards is the block those columns make.
+   3. an override changes the fields the obj stores and never the recorded meta data, which stays exactly what the source data held.
+   4. a dtype override moves the field's values onto the dtype it states.
+   5. a layout override chooses which source columns are assembled into a field, and the field the obj stores afterwards is the block those columns make.
 6. save point cloud: each field is written under a target dtype and a target layout, and save derives nothing else.
    1. where the obj's fields and the record's fields differ:
       1. a field the record names that the obj no longer holds is not saved.
