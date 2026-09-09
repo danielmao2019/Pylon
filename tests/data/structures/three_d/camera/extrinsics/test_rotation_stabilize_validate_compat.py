@@ -37,17 +37,25 @@ def test_stabilize_rejects_unsupported_dtype() -> None:
 
 @pytest.mark.parametrize("dtype", [torch.float32, torch.float64])
 def test_stabilized_batch_passes_validator(dtype: torch.dtype) -> None:
-    extrinsics_list = []
-    for index in range(200):
-        extrinsics = torch.eye(4, dtype=dtype)
-        rotation = _stabilize_rotation_matrix(
+    batch_size = 32
+    rotations = torch.stack(
+        [
             _random_rotation(dtype, index) @ _random_rotation(dtype, index + 5000)
+            for index in range(batch_size)
+        ]
+    )
+    stabilized = _stabilize_rotation_matrix(rotations)
+
+    for index, rotation in enumerate(rotations):
+        stabilized_alone = _stabilize_rotation_matrix(rotation)
+        assert torch.equal(stabilized[index], stabilized_alone), (
+            "Expected stabilizing a batch in one call to match stabilizing each "
+            f"rotation of that batch alone. {index=} {stabilized[index]=} {stabilized_alone=}"
         )
-        extrinsics[:3, :3] = rotation
-        extrinsics_list.append(extrinsics)
-    batch = torch.stack(extrinsics_list)
-    assert batch.shape == (200, 4, 4)
-    validate_camera_extrinsics(batch)
+
+    extrinsics = torch.eye(4, dtype=dtype).repeat(batch_size, 1, 1)
+    extrinsics[:, :3, :3] = stabilized
+    validate_camera_extrinsics(extrinsics)
 
 
 def test_validator_threshold_is_dtype_aware() -> None:
@@ -69,8 +77,7 @@ def test_validator_threshold_is_dtype_aware() -> None:
 def test_validator_requires_determinant_plus_one() -> None:
     """A camera's rotation is validated to have determinant +1.
 
-    A reflection is inexpressible as camera extrinsics, so any change of
-    handedness has to be carried by the geometry instead.
+    A reflection is inexpressible as camera extrinsics, so any change of handedness has to be carried by the geometry instead.
 
     Args:
         None.
