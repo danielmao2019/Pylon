@@ -6,9 +6,11 @@
 
 ```text
 test_render_depth.py
+├── from typing import List, Tuple
 ├── import pytest
 ├── import torch
 ├── from data.structures.three_d.camera.camera import Camera
+├── from data.structures.three_d.camera.cameras import Cameras
 ├── from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
 ├── from data.structures.three_d.camera.intrinsics.camera_intrinsics import build_camera_intrinsics
 ├── from data.structures.three_d.point_cloud.point_cloud import PointCloud
@@ -64,6 +66,33 @@ test_render_depth.py
 │   ├── calls render_depth_from_point_cloud(pc=pc_data, camera=camera, resolution=(200, 200))
 │   ├── assert each map has the resolution it was asked for
 │   └── assert each carries at least one rendered pixel
+├── def test_render_depth_batched_matches_per_camera() -> None
+│   ├── # A Cameras of several poses renders one cloud in a single call to [B, H, W], each slice equal to what that pose renders on its own, which is what makes the leading axis a batch rather than a reshape.
+│   ├── calls PointCloud(xyz=several float32 points at distinct depths, so no depth tie leaves the near-point rule two equally correct answers)
+│   ├── calls _build_cameras(focal=100.0, principal_point=50.0, translations=three distinct camera positions)
+│   ├── calls render_depth_from_point_cloud(pc=pc_data, camera=cameras, resolution=(64, 80))
+│   ├── assert the depth map is [3, 64, 80] and float32
+│   ├── for each camera the batch iterates
+│   │   ├── calls render_depth_from_point_cloud(pc=pc_data, camera=that one Camera, resolution=(64, 80))
+│   │   └── assert the batched map's matching slice is elementwise equal to it
+│   └── return
+├── def test_render_depth_batch_of_one_keeps_its_axis() -> None
+│   ├── # A Cameras of length one renders to [1, H, W] rather than [H, W], the batch axis surviving an extent of one instead of collapsing into the single-camera shape.
+│   ├── calls PointCloud(xyz=several float32 points at distinct depths, so no depth tie leaves the near-point rule two equally correct answers)
+│   ├── calls _build_cameras(focal=100.0, principal_point=50.0, translations=one camera position)
+│   ├── calls render_depth_from_point_cloud(pc=pc_data, camera=cameras, resolution=(64, 80))
+│   ├── assert the depth map is [1, 64, 80]
+│   ├── calls render_depth_from_point_cloud(pc=pc_data, camera=the one Camera that batch iterates, resolution=(64, 80))
+│   ├── assert that map is [64, 80] and equals the batched map's only slice
+│   └── return
+├── def test_render_depth_batched_cull_is_per_camera() -> None
+│   ├── # Cameras seeing different subsets of one cloud each keep their own survivors, culling marking a per-camera mask rather than compacting a point list every camera then shares.
+│   ├── calls PointCloud(xyz=two float32 points placed so each falls inside one camera's image bounds and outside the other's)
+│   ├── calls _build_cameras(focal=100.0, principal_point=50.0, translations=two camera positions offset along x)
+│   ├── calls render_depth_from_point_cloud(pc=pc_data, camera=cameras, resolution=(64, 80), return_mask=True)
+│   ├── assert both maps are [2, 64, 80] and the mask is bool
+│   ├── assert each slice's mask covers pixels the other's does not
+│   └── return
 ├── def test_render_depth_invalid_inputs() -> None
 │   ├── # The malformed inputs are refused where each is first named, which for the two camera pieces is their own construction rather than the render call.
 │   ├── calls PointCloud(xyz=one float32 point at depth one)
@@ -76,10 +105,16 @@ test_render_depth.py
 │   │   └── calls CameraExtrinsics(extrinsics=a float32 [3, 3] identity, extr_convention='opengl', device=torch.device('cpu'))
 │   └── with pytest.raises(AssertionError)
 │       └── calls render_depth_from_point_cloud(pc=valid_pc_data, camera=valid_camera, resolution=(0, 100))
-└── def _build_camera(focal: float, principal_point: float) -> Camera
-    ├── # Builds the identity-pose OpenGL pinhole camera on the CPU that every case here renders through.
-    ├── calls build_camera_intrinsics(model='pinhole', params=the shared focal and principal point with the extents twice that point implies, intr_convention='standard', device=torch.device('cpu'))
-    ├── calls CameraExtrinsics(extrinsics=a float32 [4, 4] identity, extr_convention='opengl', device=torch.device('cpu'))
-    ├── calls Camera(intrinsics=the intrinsics it built, extrinsics=the extrinsics it built, device=torch.device('cpu'))
-    └── return  # that camera
+├── def _build_camera(focal: float, principal_point: float) -> Camera
+│   ├── # Builds the identity-pose OpenGL pinhole camera on the CPU that every single-camera case here renders through.
+│   ├── calls build_camera_intrinsics(model='pinhole', params=the shared focal and principal point with the extents twice that point implies, intr_convention='standard', device=torch.device('cpu'))
+│   ├── calls CameraExtrinsics(extrinsics=a float32 [4, 4] identity, extr_convention='opengl', device=torch.device('cpu'))
+│   ├── calls Camera(intrinsics=the intrinsics it built, extrinsics=the extrinsics it built, device=torch.device('cpu'))
+│   └── return  # that camera
+└── def _build_cameras(focal: float, principal_point: float, translations: List[Tuple[float, float, float]]) -> Cameras
+    ├── # Builds the OpenGL pinhole batch every batched case here renders through, one pose per translation, as the one batched intrinsics and one batched extrinsics a Cameras is made of.
+    ├── calls build_camera_intrinsics(model='pinhole', params=the shared focal and principal point carried once per translation, with the extents twice that point implies, intr_convention='standard', device=torch.device('cpu'))
+    ├── calls CameraExtrinsics(extrinsics=a float32 [B, 4, 4] stack of identities carrying one translation each, extr_convention='opengl', device=torch.device('cpu'))
+    ├── calls Cameras(intrinsics=the intrinsics it built, extrinsics=the extrinsics it built, device=torch.device('cpu'))
+    └── return  # that batch
 ```

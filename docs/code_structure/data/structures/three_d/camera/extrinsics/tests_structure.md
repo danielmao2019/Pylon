@@ -23,12 +23,19 @@ test_rotation_stabilize_validate_compat.py
 │   │   └── calls _stabilize_rotation_matrix(rotation=a float16 near-orthogonal rotation)
 │   └── return
 ├── def test_stabilized_batch_passes_validator
-│   ├── # A batch of stabilized cam2world extrinsics passes the batched validate_camera_extrinsics for both float32 and float64.
+│   ├── # A [B, 3, 3] batch stabilized in one call matches stabilizing each rotation alone, and the cam2world batch it builds passes the batched validate_camera_extrinsics for both float32 and float64.
 │   ├── for each dtype in {torch.float32, torch.float64}
-│   │   ├── for each pose in the batch
-│   │   │   └── calls _stabilize_rotation_matrix
+│   │   ├── calls _stabilize_rotation_matrix(rotation=a [B, 3, 3] batch of near-orthogonal rotations in that dtype)
+│   │   ├── for each rotation of that batch
+│   │   │   ├── calls _stabilize_rotation_matrix(rotation=that one (3, 3) rotation alone)
+│   │   │   └── impls assert the batched result's matching slice equals it
 │   │   ├── impls stack the stabilized rotations into a (B, 4, 4) cam2world batch in that dtype
 │   │   └── calls validate_camera_extrinsics(obj=the (B, 4, 4) cam2world batch)
+│   └── return
+├── def test_stabilize_repairs_each_reflection_of_a_batch
+│   ├── # A batch mixing proper rotations with reflections has the sign repaired per matrix, so every returned determinant is positive and the proper ones come back unflipped.
+│   ├── calls _stabilize_rotation_matrix(rotation=a [B, 3, 3] batch whose entries alternate a proper rotation and one column-negated into a reflection)
+│   ├── impls assert every returned determinant is positive
 │   └── return
 ├── def test_validator_threshold_is_dtype_aware
 │   ├── # A fixed near-orthogonality deviation between the float64 and float32 tolerances passes validate_rotation_matrix as float32 but is rejected as float64.
