@@ -46,6 +46,12 @@ test_random_rigid_transform.py
 │   ├── impls the second triplet = what it returns for another pair of copies at that same seed
 │   ├── assert the two posed sources match
 │   └── assert the two adjusted transforms match
+├── def test_a_posed_cloud_inherits_the_meta_data_it_came_from()
+│   ├── # A pose builds a cloud from another cloud's fields, so the meta data travels rather than being rebuilt from the tensors.
+│   ├── calls create_point_cloud(a [N, 3] float32 coordinate block on DEVICE)
+│   ├── calls RandomRigidTransform(rot_mag=45.0, trans_mag=0.5)
+│   ├── impls new_src_pc, new_tgt_pc, new_transform = what it returns for that pair at seed 0
+│   └── assert the meta data on new_src_pc is the one its source cloud carried
 ├── def create_random_point_cloud(num_points=1000)
 │   ├── # Draws the float32 [N, 3] coordinate block the cases here pose.
 │   ├── impls points = num_points rows of three standard-normal values, as float32 on DEVICE
