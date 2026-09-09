@@ -58,6 +58,17 @@ def test_stabilized_batch_passes_validator(dtype: torch.dtype) -> None:
     validate_camera_extrinsics(extrinsics)
 
 
+def test_stabilize_rejects_a_reflection() -> None:
+    batch_size = 4
+    rotations = torch.stack(
+        [_random_rotation(torch.float64, index) for index in range(batch_size)]
+    )
+    rotations[1::2, :, 0] = -rotations[1::2, :, 0]
+
+    with pytest.raises(AssertionError):
+        _stabilize_rotation_matrix(rotations)
+
+
 def test_validator_threshold_is_dtype_aware() -> None:
     eps_float64 = float(np.finfo(np.float64).eps)
     eps_float32 = float(np.finfo(np.float32).eps)
