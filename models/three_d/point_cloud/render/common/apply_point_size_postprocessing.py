@@ -11,68 +11,70 @@ def apply_point_size_postprocessing(
     rendered_image: torch.Tensor,
     depth_map: torch.Tensor,
     point_size: float,
-    ignore_value: Union[int, float] = 0.0,
+    ignore_value: Union[int, float],
 ) -> torch.Tensor:
-    """Apply point size effect through depth-aware dilation post-processing.
+    """Dilate each rendered point into a disc of point_size pixels.
 
-    For each pixel, look in a circular neighborhood and propagate the value
-    from the pixel with minimum (closest) depth.
+    A nearer point's value overwrites a farther one, so the dilation respects the
+    same occlusion the rasterizer resolved. The camera axes ride in front of the
+    image axes, so one call dilates a whole batch and a single camera alike.
 
     Args:
-        rendered_image: Rendered image tensor [C, H, W] or [H, W]
-        depth_map: Depth map tensor [H, W]
-        point_size: Size of circular neighborhood
-        ignore_value: Value representing no data/background
+        rendered_image: [..., C, H, W] or [..., H, W] float torch.Tensor of the
+            rasterized values, its leading axes those of depth_map.
+        depth_map: [..., H, W] float torch.Tensor of the depth the rasterizer
+            resolved, ignore_value marking the pixels no point owns.
+        point_size: Diameter of the circular kernel in pixels.
+        ignore_value: Value marking no data, in both depth_map and the result.
 
     Returns:
-        Post-processed image tensor with same shape as input
+        Dilated torch.Tensor of the same shape and dtype as rendered_image.
     """
-    if point_size <= 1.0:
-        return rendered_image
+    render_height, render_width = depth_map.shape[-2:]
+    channel_axis = rendered_image.ndim == depth_map.ndim + 1
 
-    device = rendered_image.device
-    is_multichannel = rendered_image.ndim == 3
-    H, W = rendered_image.shape[-2:]
-
-    result = rendered_image.clone()
-    kernel_offsets = create_circular_kernel_offsets(point_size, device)
-
-    y_coords, x_coords = torch.meshgrid(
-        torch.arange(H, device=device), torch.arange(W, device=device), indexing='ij'
+    kernel_offsets = create_circular_kernel_offsets(
+        point_size=point_size, device=rendered_image.device
     )
+    num_offsets = kernel_offsets.shape[0]
 
-    for dy, dx in kernel_offsets:
-        neighbor_y = y_coords + dy
-        neighbor_x = x_coords + dx
+    # Every pixel's disc of source pixels, out-of-image sources clamped back in
+    # and marked so the depth below rejects them.
+    y_coords, x_coords = torch.meshgrid(
+        torch.arange(render_height, device=rendered_image.device),
+        torch.arange(render_width, device=rendered_image.device),
+        indexing='ij',
+    )
+    neighbor_y = y_coords + kernel_offsets[:, 0].reshape(num_offsets, 1, 1)
+    neighbor_x = x_coords + kernel_offsets[:, 1].reshape(num_offsets, 1, 1)
+    in_bounds = (
+        (neighbor_y >= 0)
+        & (neighbor_y < render_height)
+        & (neighbor_x >= 0)
+        & (neighbor_x < render_width)
+    ).reshape(num_offsets, -1)
+    source_index = (
+        neighbor_y.clamp(min=0, max=render_height - 1) * render_width
+        + neighbor_x.clamp(min=0, max=render_width - 1)
+    ).reshape(num_offsets, -1)
 
-        valid_mask = (
-            (neighbor_y >= 0) & (neighbor_y < H) & (neighbor_x >= 0) & (neighbor_x < W)
-        )
+    # The depth each source carries, background and out-of-image alike pushed to
+    # positive infinity so only a source a point actually reached can win.
+    depth_flat = depth_map.reshape(depth_map.shape[:-2] + (-1,))
+    depth_flat = depth_flat.masked_fill(depth_flat == ignore_value, float('inf'))
+    neighbor_depth = depth_flat[..., source_index].masked_fill(~in_bounds, float('inf'))
 
-        if not valid_mask.any():
-            continue
+    winning_depth, source_offset = neighbor_depth.min(dim=-2)
+    source_flat = source_index[
+        source_offset,
+        torch.arange(render_height * render_width, device=rendered_image.device),
+    ]
 
-        curr_y = y_coords[valid_mask]
-        curr_x = x_coords[valid_mask]
-        neighbor_y = neighbor_y[valid_mask]  # Reuse neighbor_y
-        neighbor_x = neighbor_x[valid_mask]  # Reuse neighbor_x
+    image_flat = rendered_image.reshape(rendered_image.shape[:-2] + (-1,))
+    if channel_axis:
+        source_flat = source_flat.unsqueeze(-2).expand(image_flat.shape)
+        winning_depth = winning_depth.unsqueeze(-2)
+    dilated_image = torch.gather(image_flat, dim=-1, index=source_flat)
+    dilated_image = dilated_image.masked_fill(torch.isinf(winning_depth), ignore_value)
 
-        neighbor_depths = depth_map[neighbor_y, neighbor_x]
-        current_depths = depth_map[curr_y, curr_x]
-
-        propagate_mask = (neighbor_depths != ignore_value) & (
-            (current_depths == ignore_value) | (neighbor_depths < current_depths)
-        )
-
-        if propagate_mask.any():
-            curr_y = curr_y[propagate_mask]  # Reuse curr_y for update_y
-            curr_x = curr_x[propagate_mask]  # Reuse curr_x for update_x
-            neighbor_y = neighbor_y[propagate_mask]  # Reuse neighbor_y for source_y
-            neighbor_x = neighbor_x[propagate_mask]  # Reuse neighbor_x for source_x
-
-            if is_multichannel:
-                result[:, curr_y, curr_x] = rendered_image[:, neighbor_y, neighbor_x]
-            else:
-                result[curr_y, curr_x] = rendered_image[neighbor_y, neighbor_x]
-
-    return result
+    return dilated_image.reshape(rendered_image.shape)

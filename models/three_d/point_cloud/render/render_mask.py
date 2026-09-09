@@ -4,6 +4,10 @@ from typing import Optional, Tuple
 
 import torch
 
+from models.three_d.point_cloud.render.common.select_nearest_point_per_pixel import (
+    select_nearest_point_per_pixel,
+)
+
 
 def render_mask_from_rendering_points(
     rendering_points: torch.Tensor,
@@ -11,11 +15,12 @@ def render_mask_from_rendering_points(
     device: torch.device,
     valid: Optional[torch.Tensor] = None,
 ) -> torch.Tensor:
-    """Create a valid pixel mask from rendered points.
+    """Mark the pixels a surviving point landed on.
 
     Args:
         rendering_points: Pre-processed points [..., N, 3] float torch.Tensor of
-            (x, y, depth), the leading axes enumerating the cameras rendered.
+            (x, y, depth), the point axis in pc.xyz order and the leading axes
+            enumerating the cameras rendered.
         resolution: Target resolution as (height, width) tuple.
         device: Device for the tensor.
         valid: Optional [..., N] bool torch.Tensor marking which points each
@@ -35,23 +40,10 @@ def render_mask_from_rendering_points(
         else valid
     )
 
-    render_height, render_width = resolution
-
-    # Allocate mask, its leading axes those of rendering_points
-    valid_mask = torch.zeros(
-        rendering_points.shape[:-2] + (render_height, render_width),
-        dtype=torch.bool,
-        device=device,
+    winner = select_nearest_point_per_pixel(
+        rendering_points=rendering_points,
+        valid=valid,
+        resolution=resolution,
     )
 
-    # Mark valid pixels, each index selected by valid so a culled point marks nothing
-    selector = torch.nonzero(valid, as_tuple=True)
-    valid_mask[
-        selector[:-1]
-        + (
-            rendering_points[..., 1][selector].long(),
-            rendering_points[..., 0][selector].long(),
-        )
-    ] = True
-
-    return valid_mask
+    return (winner >= 0).to(device)

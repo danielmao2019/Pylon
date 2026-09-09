@@ -113,9 +113,11 @@ def _prepare_points_for_rendering_chunked(
         None,
     ] = _frustum_cull,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
-    """Run _prepare_points_for_rendering over fixed-size point chunks and depth-sort.
+    """Run _prepare_points_for_rendering over fixed-size point chunks and concatenate them.
 
-    The chunking is over the point axis only, so a camera batch is never split.
+    The chunking is over the point axis only, so a camera batch is never split,
+    and the concatenation leaves the point axis in its input order so row i still
+    names point i.
 
     Args:
         points: [N, 3] float torch.Tensor of world-space coordinates.
@@ -128,9 +130,9 @@ def _prepare_points_for_rendering_chunked(
 
     Returns:
         A (points_2d, valid) tuple where points_2d is a [..., N, 3] float
-        torch.Tensor of (x, y, depth) sorted back-to-front along the point axis
+        torch.Tensor of (x, y, depth) with the point axis in the order of points
         and valid is the [..., N] bool torch.Tensor marking the points each camera
-        keeps, gathered into the same order.
+        keeps, in that same order.
 
     Raises:
         AssertionError: If no point survived culling for any camera.
@@ -159,17 +161,7 @@ def _prepare_points_for_rendering_chunked(
             f"{N=} {resolution=} {extrinsics.shape=} {len(valid_chunks)=}"
         )
 
-    points_all = torch.cat(points_chunks, dim=-2)
-    valid_all = torch.cat(valid_chunks, dim=-1)
-
-    # Back-to-front depth sort along the point axis, so every camera the leading
-    # axes carry sorts independently.
-    sort_indices = torch.argsort(points_all[..., 2], dim=-1, descending=True)
-    points_sorted = torch.gather(
-        points_all, dim=-2, index=sort_indices.unsqueeze(-1).expand_as(points_all)
-    )
-    valid_sorted = torch.gather(valid_all, dim=-1, index=sort_indices)
-    return points_sorted, valid_sorted
+    return torch.cat(points_chunks, dim=-2), torch.cat(valid_chunks, dim=-1)
 
 
 def prepare_points_for_rendering(
@@ -186,7 +178,9 @@ def prepare_points_for_rendering(
     """Prepare a point cloud for rasterization through one camera or a batch of them.
 
     Brings the camera to the OpenCV pose frame and the target resolution, then
-    adaptively chunks the point preprocessing to mitigate CUDA OOM.
+    adaptively chunks the point preprocessing to mitigate CUDA OOM. Row i of the
+    returned points is point i of pc.xyz, so a per-point attribute is looked up by
+    the same index a rasterizer resolves per pixel.
 
     Args:
         pc: PointCloud whose xyz carries the [N, 3] world-space points.
@@ -202,8 +196,8 @@ def prepare_points_for_rendering(
 
     Returns:
         A (points_2d, valid) tuple where points_2d is a [..., N, 3] float
-        torch.Tensor of (x, y, depth) sorted back-to-front along the point axis
-        and valid is the [..., N] bool torch.Tensor marking the points each camera
+        torch.Tensor of (x, y, depth) with the point axis in pc.xyz order and
+        valid is the [..., N] bool torch.Tensor marking the points each camera
         keeps; a Camera gives [N, 3] / [N] and a Cameras gives [B, N, 3] / [B, N].
 
     Raises:
