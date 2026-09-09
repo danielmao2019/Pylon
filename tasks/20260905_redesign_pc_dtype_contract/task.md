@@ -163,6 +163,7 @@ goal: re-design pc dtype contract/provenance
       1. loading a .pth taking columns zero through two as xyz and every column past the third as feat.
       2. loading a .txt taking column six alone as feat when the file holds seven or more columns and every column past the third otherwise.
    3. deriving x, y, z and red, green, blue from the field name, and the feat_0, feat_1 suffix fallback for anything else.
+   4. load point cloud naming a field xyz or rgb out of the columns it read, which it did for every source's own coordinate and colour names.
 - retired load point cloud arguments:
    1. the meta data override replaces the existing dtype arg, which cast xyz alone, and controls dtype per field.
    2. name_feat is removed, and the meta data override covers the dtype it formerly forced.
