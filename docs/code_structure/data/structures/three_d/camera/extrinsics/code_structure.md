@@ -144,8 +144,8 @@ camera_extrinsics.py
 │   │   └── return self._dtype
 │   ├── def __getitem__(self, index: Union[int, slice, List[int], None]) -> "CameraExtrinsics"
 │   │   ├── # Index the leading batch axis the cam2world matrix carries, the way the matrix indexes its own, so None adds an axis of one and an int drops it.
-│   │   ├── calls CameraExtrinsics(extrinsics=self._extrinsics[index], extr_convention=self._extr_convention)
-│   │   └── return  # that CameraExtrinsics
+│   │   ├── impls extrinsics = CameraExtrinsics(extrinsics=self._extrinsics[index], extr_convention=self._extr_convention)
+│   │   └── return extrinsics
 │   ├── def w2c(self) -> torch.Tensor  # @property
 │   │   ├── # The world-to-camera matrix (inverse of extrinsics).
 │   │   ├── impls w2c = the matrix inverse of self._extrinsics
