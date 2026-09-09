@@ -87,7 +87,7 @@ goal: re-design pc dtype contract/provenance
    4. a .pcd names each open3d attribute, so the positions attribute becomes a field called positions and the colors attribute becomes a field called colors.
    5. a .las or .laz names each laspy dimension separately and as ply does.
    6. a .txt holds unnamed columns and defines no column-to-field mapping. its columns are named by position.
-   7. a .off names no columns, and the OFF format declares its vertex block to be the coordinates, so it maps ('x', 'y', 'z') to xyz.
+   7. a .off names no columns and defines no column-to-field mapping. the OFF format declares its vertex block to be the point data, and those columns are named by position.
 3. reverse mapping: each field maps back to the source column names its mapping records. a field mapped from ('x', 'y', 'z') maps back to x, y and z.
 
 #### 1.1.4. New Meta Data API
