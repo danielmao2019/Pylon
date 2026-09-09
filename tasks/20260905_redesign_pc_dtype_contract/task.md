@@ -10,6 +10,7 @@ goal: re-design pc dtype contract/provenance
     - [1.1.4. New Meta Data API](#114-new-meta-data-api)
     - [1.1.5. Point Cloud Data Structure Construction and I/O](#115-point-cloud-data-structure-construction-and-io)
     - [1.1.6. What Becomes Stale Design](#116-what-becomes-stale-design)
+    - [1.1.7. Seriously Bad Behavior Observed when Working on this Task](#117-seriously-bad-behavior-observed-when-working-on-this-task)
   - [1.2. Solution Constraints](#12-solution-constraints)
 - [2. Definition of Done](#2-definition-of-done)
   - [2.1. Project Consumers be Refactored](#21-project-consumers-be-refactored)
@@ -158,6 +159,7 @@ goal: re-design pc dtype contract/provenance
             1. they save and
                1. do necessary type casting when dtype systems mismatch and when type cast can be lossless.
                2. never change layout
+            2. meta data reaches a helper in no form at all: not the record, not the override, and not a target derived from either, whatever it is called. it's just completely unrelated to the job of the per-format helpers.
          2. the main save API
             1. accepts a `meta_data` optional arg override.
             2. calls the `PointCloud.apply_meta_data` passing down the `meta_data` optional arg, then passes the point cloud obj with meta data applied to the per-format helpers.
@@ -182,6 +184,13 @@ goal: re-design pc dtype contract/provenance
       1. name_feat's renaming of a named column to feat and its reshape to [N, 1] are dropped rather than replaced because of the field-name preservation required by Point Cloud Data Structure Construction and I/O.
    3. nameInPly is removed.
 
+#### 1.1.7. Seriously Bad Behavior Observed when Working on this Task
+
+The following are mistakes repeated again and again and every time when i asked what's unclear the agent tells me it's clear enough. I hate this behavior. The following mistakes are recorded here and persisted to let you see how bad you have been behaving. this is a explicitly and strictly and permanently banned.
+
+1. save ply function taking a new arg called "target".
+2. an additional argument called `layout` or `dtype` beside `meta_data` on `__init__`, load point cloud or save point cloud that's meant to do what `meta_data` is expected to cover.
+
 ### 1.2. Solution Constraints
 
 1. You must use "meta_data" as the name of the new arg of init, load, and save. nothing else accepted. it is the only new arg any of the three takes: whatever else a design wants to pass fits inside `meta_data` or is derived, and no second arg is added beside it.
@@ -191,12 +200,6 @@ goal: re-design pc dtype contract/provenance
 3. `PointCloud.__init__`
    1. must have a local function to build meta data from provided source data and set class attr.
    2. must use `self.apply_meta_data` to apply meta data, giving it the `meta_data` the constructor was handed as the override.
-4. load point cloud
-   1. the helpers of load point cloud each constructs a `PointCloud` obj without applying meta data.
-   2. the load point cloud API takes the raw `PointCloud` from the helpers and calls `apply_meta_data` on it.
-5. save point cloud
-   1. the helpers of save point cloud each takes a `PointCloud` obj and no meta data, and neither applies meta data nor reads any.
-   2. the save point cloud API takes the given `PointCloud` from the caller and calls `apply_meta_data` on it.
 
 ## 2. Definition of Done
 
