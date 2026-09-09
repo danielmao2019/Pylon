@@ -150,7 +150,7 @@ def test_get_point_cloud_display_stats_available_fields():
     # Test with positions and colors
     pc_dict_with_rgb = PointCloud(
         xyz=torch.randn(100, 3, dtype=torch.float32),
-        data={'rgb': torch.randn(100, 3, dtype=torch.float32)},
+        data={'rgb': torch.rand(100, 3, dtype=torch.float32)},
     )
     stats_rgb = get_point_cloud_display_stats(pc_dict_with_rgb)
     assert 'available_fields' in stats_rgb
@@ -160,7 +160,7 @@ def test_get_point_cloud_display_stats_available_fields():
     pc_dict_multi = PointCloud(
         xyz=torch.randn(100, 3, dtype=torch.float32),
         data={
-            'rgb': torch.randn(100, 3, dtype=torch.float32),
+            'rgb': torch.rand(100, 3, dtype=torch.float32),
             'normals': torch.randn(100, 3, dtype=torch.float32),
             'features': torch.randn(100, 64, dtype=torch.float32),
         },

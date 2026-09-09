@@ -1,9 +1,11 @@
 """Dash video display API."""
 
+from typing import Optional
+
 from dash import html
 
 
-def create_video_display(src: str | None, title: str) -> html.Div:
+def create_video_display(src: Optional[str], title: str) -> html.Div:
     """Create a Dash video display.
 
     Args:

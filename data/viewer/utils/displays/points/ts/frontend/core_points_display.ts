@@ -34,6 +34,7 @@ interface PlyHeader {
   format: string;
   vertexCount: number;
   properties: PlyProperty[];
+  colorPropertyType: string;
 }
 
 interface PlyPropertyIndices {
@@ -213,16 +214,87 @@ function parsePlyBuffer({
 
   const header = readPlyHeader({ headerText: headerPrefix });
   if (header.format === "ascii") {
-    return parseAsciiPlyGeometry({ buffer, dataOffset, header });
+    const geometry = parseAsciiPlyGeometry({ buffer, dataOffset, header });
+    const color = geometry.getAttribute("color").array as Float32Array;
+    geometry.setAttribute(
+      "color",
+      new THREE.BufferAttribute(
+        convertColorConvention({ color, sourceType: header.colorPropertyType }),
+        3,
+      ),
+    );
+    return geometry;
   }
   if (header.format === "binary_little_endian") {
-    return parseBinaryLittleEndianPlyGeometry({
+    const geometry = parseBinaryLittleEndianPlyGeometry({
       buffer,
       dataOffset,
       header,
     });
+    const color = geometry.getAttribute("color").array as Float32Array;
+    geometry.setAttribute(
+      "color",
+      new THREE.BufferAttribute(
+        convertColorConvention({ color, sourceType: header.colorPropertyType }),
+        3,
+      ),
+    );
+    return geometry;
   }
   throw new Error(`unsupported PLY format ${header.format}`);
+}
+
+// Brings a PLY color column onto the 0-to-1 range THREE reads a Float32 vertex-color
+// attribute in, reading the convention off the column's declared PLY type rather than
+// off the values.
+//
+// Args:
+//   color: the color columns as read from the file, interleaved red/green/blue per
+//     vertex, at the values the file stores them at.
+//   sourceType: the PLY scalar type the header declares for those columns; a float
+//     type names the 0-to-1 convention and an integer type names its own range.
+//
+// Returns:
+//   The colors on the 0-to-1 range, which is `color` itself when the declared
+//   convention is already that range.
+function convertColorConvention({
+  color,
+  sourceType,
+}: {
+  color: Float32Array;
+  sourceType: string;
+}): Float32Array {
+  const declaredRanges: Record<string, [number, number]> = {
+    char: [-128, 127],
+    double: [0, 1],
+    float: [0, 1],
+    float32: [0, 1],
+    float64: [0, 1],
+    int: [-2147483648, 2147483647],
+    int16: [-32768, 32767],
+    int32: [-2147483648, 2147483647],
+    int8: [-128, 127],
+    short: [-32768, 32767],
+    uchar: [0, 255],
+    uint: [0, 4294967295],
+    uint16: [0, 65535],
+    uint32: [0, 4294967295],
+    uint8: [0, 255],
+    ushort: [0, 65535],
+  };
+  const declaredRange = declaredRanges[sourceType];
+  if (declaredRange === undefined) {
+    throw new Error(`unsupported PLY color type ${sourceType}`);
+  }
+  const [low, high] = declaredRange;
+  if (low === 0 && high === 1) {
+    return color;
+  }
+  const converted = new Float32Array(color.length);
+  for (let index = 0; index < color.length; index += 1) {
+    converted[index] = (color[index] - low) / (high - low);
+  }
+  return converted;
 }
 
 function readPlyHeader({ headerText }: { headerText: string }): PlyHeader {
@@ -260,7 +332,20 @@ function readPlyHeader({ headerText }: { headerText: string }): PlyHeader {
   if (!Number.isFinite(vertexCount) || vertexCount < 1) {
     throw new Error(`PLY vertex count is invalid: ${vertexCount}`);
   }
-  return { format, vertexCount, properties };
+  // the colors' convention is the type the header declares for them; a header
+  // declaring no color column leaves the 180 placeholder, written on 0 to 255
+  const colorTypes = Array.from(
+    new Set(
+      properties
+        .filter((property) => ["red", "green", "blue"].includes(property.name))
+        .map((property) => property.type),
+    ),
+  );
+  if (colorTypes.length > 1) {
+    throw new Error(`PLY color properties declare disagreeing types: ${colorTypes.join(", ")}`);
+  }
+  const colorPropertyType = colorTypes[0] ?? "uchar";
+  return { format, vertexCount, properties, colorPropertyType };
 }
 
 function parseAsciiPlyGeometry({
@@ -415,9 +500,11 @@ function writeGeometryVertex({
   positions[positionOffset] = x;
   positions[positionOffset + 1] = y;
   positions[positionOffset + 2] = z;
-  colors[positionOffset] = normalizeColorComponent({ value: red });
-  colors[positionOffset + 1] = normalizeColorComponent({ value: green });
-  colors[positionOffset + 2] = normalizeColorComponent({ value: blue });
+  // the values the file stores, still on the convention its header declares; the
+  // range mapping onto THREE's own is parsePlyBuffer's, over the whole column
+  colors[positionOffset] = red;
+  colors[positionOffset + 1] = green;
+  colors[positionOffset + 2] = blue;
 }
 
 function createPointBufferGeometry({
@@ -465,16 +552,6 @@ function readBinaryColorComponent({
     offset: base + offset.offset,
     type: offset.type,
   });
-}
-
-function normalizeColorComponent({ value }: { value: number }): number {
-  if (!Number.isFinite(value)) {
-    return 0.7;
-  }
-  if (value <= 1) {
-    return Math.min(Math.max(value, 0), 1);
-  }
-  return Math.min(Math.max(value / 255, 0), 1);
 }
 
 function plyScalarTypeSize({ type }: { type: string }): number {

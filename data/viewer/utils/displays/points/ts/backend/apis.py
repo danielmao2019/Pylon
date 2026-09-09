@@ -22,7 +22,7 @@ def create_color_pc_display_response(
     slot_id: str,
     title: str,
     point_cloud_path: Optional[str],
-    meta_info: Dict[str, Any] | None = None,
+    meta_info: Optional[Dict[str, Any]] = None,
 ) -> ColorPCDisplayResponse:
     """Create a color point-cloud display response.
 
@@ -119,35 +119,35 @@ def _map_segmentation_pc_to_rgb(
         "Class color mapping must be a dict. class_id_to_rgb=%r" % class_id_to_rgb
     )
 
-    segmentation_pc = load_point_cloud(filepath=segmentation_pc_path, device="cpu")
-    label = _segmentation_pc_class_ids(segmentation_pc).to(torch.int64)
-    rgb = torch.zeros(
-        (segmentation_pc.num_points, 3),
-        dtype=torch.float32,
-        device=segmentation_pc.xyz.device,
-    )
+    pc = load_point_cloud(filepath=segmentation_pc_path, device="cpu")
+    label = _segmentation_pc_class_ids(pc).to(torch.int64).reshape(-1)
+    # the class-colour map is 0 to 255, and an integer dtype is what declares that
+    # convention rather than the 0-to-1 one a float dtype would name
+    class_rgb = torch.zeros((pc.num_points, 3), dtype=torch.uint8, device=pc.device)
     for class_id, color in class_id_to_rgb.items():
-        rgb[label == int(class_id)] = torch.tensor(
+        class_rgb[label == int(class_id)] = torch.tensor(
             color,
-            dtype=torch.float32,
-            device=segmentation_pc.xyz.device,
+            dtype=torch.uint8,
+            device=pc.device,
         )
-    colorized_pc = PointCloud(
-        xyz=segmentation_pc.xyz,
-        data={
-            **{
-                field_name: getattr(segmentation_pc, field_name)
-                for field_name in segmentation_pc.field_names()
-                if field_name not in {"xyz", "rgb", "colors"}
-            },
-            "rgb": rgb,
-        },
-    )
+    # a fresh cloud rather than a colour written over the source's own, whose record
+    # would otherwise say this uint8 colour means the convention the file declared
+    colorized_pc = PointCloud(xyz=pc.xyz, data={"rgb": class_rgb})
     output_path = _colorized_segmentation_pc_path(
         segmentation_pc_path=segmentation_pc_path,
     )
-    save_point_cloud(pc=colorized_pc, output_filepath=str(output_path))
-    return str(output_path)
+    # an in-memory field's name stands for its whole block, so each of the two writes
+    # one ply column against three until the layout names the columns it becomes
+    save_point_cloud(
+        pc=colorized_pc,
+        output_filepath=str(output_path),
+        meta_data={
+            "xyz": {"layout": ("x", "y", "z")},
+            "rgb": {"layout": ("red", "green", "blue")},
+        },
+    )
+    colorized_pc_path = str(output_path)
+    return colorized_pc_path
 
 
 def _colorized_segmentation_pc_path(segmentation_pc_path: str) -> Path:

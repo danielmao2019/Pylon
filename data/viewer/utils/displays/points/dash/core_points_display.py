@@ -29,6 +29,7 @@ from data.viewer.utils.controls.camera.camera_controls.dash.trackball_camera_con
     create_dash_trackball_camera_controls,
 )
 from data.viewer.utils.segmentation import get_color
+from utils.dtypes import convert_color_convention
 
 logger = logging.getLogger(__name__)
 
@@ -515,6 +516,11 @@ def _create_point_cloud_figure(
         assert (
             labels.shape[0] == points.shape[0]
         ), f"labels length {labels.shape[0]} != points length {points.shape[0]}"
+        assert (
+            labels.numel() == points.shape[0]
+        ), f"labels must carry one value per point, got shape {labels.shape}"
+        # every PointCloud field is at least two-dimensional, and both branches below read a flat per-point vector
+        labels = labels.reshape(-1)
 
         # Determine color_type: use provided arg or guess from color_key
         if color_type is None:
@@ -907,7 +913,9 @@ def create_dash_points_scene(
 
     Args:
         point_cloud: PointCloud to render; `xyz` holds the point positions and an
-            optional `rgb` field holds per-point colors.
+            optional `rgb` field holds per-point colors on the convention its own
+            `meta_data['rgb']['dtype']` names, which the trace maps onto Plotly's
+            own 0-to-255 uint8 convention.
         point_size: Optional uniform marker size override; when None the size is
             `max(DEFAULT_POINT_SIZE_FLOOR, bounding_radius * DEFAULT_POINT_SIZE_RATIO)`.
         point_color: Optional uniform marker color override (CSS color string);
@@ -941,7 +949,13 @@ def create_dash_points_scene(
     if point_color is not None:
         effective_color = point_color
     elif "rgb" in point_cloud.field_names():
-        effective_color = point_cloud.rgb.detach().cpu().numpy()
+        # the convention is what the field MEANS, which the record names; the tensor
+        # parking a uint16 colour is an int32 one and names nothing about the range
+        rgb_dtype = point_cloud.meta_data["rgb"]["dtype"]
+        rgb_array = point_cloud.rgb.detach().cpu().numpy()
+        effective_color = convert_color_convention(
+            values=rgb_array, source_dtype=rgb_dtype, target_dtype="uint8"
+        )
     else:
         effective_color = DEFAULT_POINT_COLOR
 

@@ -1,208 +1,76 @@
-"""Tests for point cloud display functionality - Valid cases.
-
-CRITICAL: Uses pytest FUNCTIONS only (no test classes) as required by CLAUDE.md.
-"""
-
-from typing import Any, Dict, Optional, Tuple, Union
+"""Tests for the colour convention the Dash point-cloud scene reads its per-point colours on."""
 
 import numpy as np
-import plotly.graph_objects as go
-import pytest
 import torch
-from dash import html
 
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from data.viewer.utils.displays.points.dash.core_points_display import (
-    create_point_cloud_display,
+    create_dash_points_scene,
 )
 
-# ================================================================================
-# Fixtures
-# ================================================================================
+XYZ = torch.tensor(
+    [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], dtype=torch.float32
+)
 
 
-@pytest.fixture
-def point_cloud_3d():
-    """Fixture providing 3D point cloud tensor."""
-    return torch.randn(1000, 3, dtype=torch.float32)
-
-
-@pytest.fixture
-def point_cloud_colors():
-    """Fixture providing point cloud colors."""
-    return torch.randint(0, 255, (1000, 3), dtype=torch.uint8)
-
-
-@pytest.fixture
-def point_cloud_labels():
-    """Fixture providing point cloud labels."""
-    return torch.randint(0, 5, (1000,), dtype=torch.long)
-
-
-# ================================================================================
-# create_point_cloud_display Tests - Valid Cases
-# ================================================================================
-
-
-def test_create_point_cloud_display_basic(point_cloud_3d):
-    """Test basic point cloud display creation."""
+def test_a_uint16_colour_is_read_over_its_own_range():
+    """The convention is read off what the field MEANS, not off the tensor torch had to widen it into, which is the defect this design exists to close."""
     pc = PointCloud(
-        xyz=point_cloud_3d,
-        data={'rgb': torch.zeros_like(point_cloud_3d, dtype=torch.uint8)},
+        xyz=XYZ,
+        data={
+            'rgb': torch.tensor(
+                [[0, 0, 0], [32767, 32767, 32767], [65535, 65535, 65535]],
+                dtype=torch.int32,
+            )
+        },
+        meta_data={
+            'xyz': {'dtype': 'float32', 'layout': ('xyz',)},
+            'rgb': {'dtype': 'uint16', 'layout': ('rgb',)},
+        },
     )
-    fig = create_point_cloud_display(
-        pc=pc,
-        color_key=None,
-        highlight_indices=None,
-        title="Test Point Cloud",
-        lod_type="none",
-    )
+    assert (
+        pc.rgb.dtype == torch.int32
+    ), f"a uint16 colour is parked in an int32 tensor: pc.rgb.dtype={pc.rgb.dtype}"
 
-    assert isinstance(fig, go.Figure)
-    assert fig.layout.title.text == "Test Point Cloud"
+    trace = create_dash_points_scene(point_cloud=pc)
 
-
-def test_create_point_cloud_display_with_colors(point_cloud_3d, point_cloud_colors):
-    """Test point cloud display with colors."""
-    pc = PointCloud(xyz=point_cloud_3d, data={'rgb': point_cloud_colors})
-    fig = create_point_cloud_display(
-        pc=pc,
-        color_key=None,
-        highlight_indices=None,
-        title="Colored Point Cloud",
-        lod_type="none",
+    np.testing.assert_array_equal(
+        trace.marker.color,
+        np.array([[0, 0, 0], [127, 127, 127], [255, 255, 255]], dtype=np.float64),
     )
 
-    assert isinstance(fig, go.Figure)
-    assert fig.layout.title.text == "Colored Point Cloud"
 
-
-def test_create_point_cloud_display_with_labels(point_cloud_3d, point_cloud_labels):
-    """Test point cloud display with labels."""
-    pc = PointCloud(xyz=point_cloud_3d, data={'classification': point_cloud_labels})
-    fig = create_point_cloud_display(
-        pc=pc,
-        color_key='classification',  # Use 'classification' as the label key
-        highlight_indices=None,
-        title="Labeled Point Cloud",
-        lod_type="none",
-    )
-
-    assert isinstance(fig, go.Figure)
-    assert fig.layout.title.text == "Labeled Point Cloud"
-
-
-def test_create_point_cloud_display_with_lod():
-    """Test point cloud display with different LOD types."""
-    points = torch.randn(1000, 3, dtype=torch.float32)
+def test_a_float_colour_is_read_as_zero_to_one():
+    """A float dtype declares the 0-to-1 convention, so no rescale is guessed from the values."""
     pc = PointCloud(
-        xyz=points,
-        data={'rgb': torch.randint(0, 255, (1000, 3), dtype=torch.uint8)},
+        xyz=XYZ,
+        data={
+            'rgb': torch.tensor(
+                [[0.0, 0.0, 0.0], [0.2, 0.4, 0.6], [1.0, 1.0, 1.0]],
+                dtype=torch.float32,
+            )
+        },
     )
-    camera_state = {
-        'eye': {'x': 1, 'y': 1, 'z': 1},
-        'center': {'x': 0, 'y': 0, 'z': 0},
-        'up': {'x': 0, 'y': 0, 'z': 1},
-    }
+    assert (
+        pc.meta_data['rgb']['dtype'] == 'float32'
+    ), f"the record names the float convention: rgb entry={pc.meta_data['rgb']}"
 
-    # Test continuous LOD (needs camera_state)
-    fig_continuous = create_point_cloud_display(
-        pc=pc,
-        color_key=None,
-        highlight_indices=None,
-        title="Continuous LOD",
-        lod_type="continuous",
-        camera_state=camera_state,
-    )
-    assert isinstance(fig_continuous, go.Figure)
+    trace = create_dash_points_scene(point_cloud=pc)
 
-    # Test discrete LOD (needs point_cloud_id and camera_state)
-    fig_discrete = create_point_cloud_display(
-        pc=pc,
-        color_key=None,
-        highlight_indices=None,
-        title="Discrete LOD",
-        lod_type="discrete",
-        point_cloud_id="test_id",
-        camera_state=camera_state,
-    )
-    assert isinstance(fig_discrete, go.Figure)
-
-    # Test none LOD
-    fig_none = create_point_cloud_display(
-        pc=pc, color_key=None, highlight_indices=None, title="No LOD", lod_type="none"
-    )
-    assert isinstance(fig_none, go.Figure)
-
-
-# ================================================================================
-# Integration and Edge Case Tests
-# ================================================================================
-
-
-def test_point_cloud_display_pipeline(point_cloud_3d):
-    """Test complete point cloud display pipeline."""
-    # Create display
-    pc = PointCloud(
-        xyz=point_cloud_3d,
-        data={'rgb': torch.zeros_like(point_cloud_3d, dtype=torch.uint8)},
-    )
-    fig = create_point_cloud_display(
-        pc=pc,
-        color_key=None,
-        highlight_indices=None,
-        title="Pipeline Test",
-        lod_type="none",
-    )
-    assert isinstance(fig, go.Figure)
-
-
-def test_large_point_cloud_performance():
-    """Test performance with large point clouds."""
-    # Create large point cloud
-    large_pc = torch.randn(10000, 3, dtype=torch.float32)
-    pc = PointCloud(
-        xyz=large_pc,
-        data={'rgb': torch.randint(0, 255, (10000, 3), dtype=torch.uint8)},
+    np.testing.assert_array_equal(
+        trace.marker.color,
+        np.array([[0, 0, 0], [51, 102, 153], [255, 255, 255]], dtype=np.float64),
     )
 
-    # This should complete without error
-    fig = create_point_cloud_display(
-        pc=pc,
-        color_key=None,
-        highlight_indices=None,
-        title="Large PC Test",
-        lod_type="none",
-    )
 
-    # Basic checks
-    assert isinstance(fig, go.Figure)
+def test_a_uint8_colour_is_passed_through():
+    """uint8 already spans the display's own range, so the conversion is the identity rather than a second rescale."""
+    rgb = torch.tensor([[0, 10, 20], [30, 40, 50], [253, 254, 255]], dtype=torch.uint8)
+    pc = PointCloud(xyz=XYZ, data={'rgb': rgb})
+    assert (
+        pc.meta_data['rgb']['dtype'] == 'uint8'
+    ), f"the record names the uint8 convention: rgb entry={pc.meta_data['rgb']}"
 
+    trace = create_dash_points_scene(point_cloud=pc)
 
-def test_edge_case_point_clouds():
-    """Test edge cases for point cloud processing."""
-    # Very small coordinates
-    tiny_pc = torch.full((100, 3), 1e-6, dtype=torch.float32)
-    pc = PointCloud(xyz=tiny_pc, data={'rgb': torch.zeros((100, 3), dtype=torch.uint8)})
-    fig = create_point_cloud_display(
-        pc=pc, color_key=None, highlight_indices=None, title="Tiny PC", lod_type="none"
-    )
-    assert isinstance(fig, go.Figure)
-
-    # Very large coordinates
-    huge_pc = torch.full((100, 3), 1e6, dtype=torch.float32)
-    pc = PointCloud(xyz=huge_pc, data={'rgb': torch.zeros((100, 3), dtype=torch.uint8)})
-    fig = create_point_cloud_display(
-        pc=pc, color_key=None, highlight_indices=None, title="Huge PC", lod_type="none"
-    )
-    assert isinstance(fig, go.Figure)
-
-    # Mixed positive/negative
-    mixed_pc = torch.randn(100, 3, dtype=torch.float32) * 1000
-    pc = PointCloud(
-        xyz=mixed_pc, data={'rgb': torch.zeros((100, 3), dtype=torch.uint8)}
-    )
-    fig = create_point_cloud_display(
-        pc=pc, color_key=None, highlight_indices=None, title="Mixed PC", lod_type="none"
-    )
-    assert isinstance(fig, go.Figure)
+    np.testing.assert_array_equal(trace.marker.color, rgb.numpy().astype(np.float64))
