@@ -107,7 +107,7 @@ goal: re-design pc dtype contract/provenance
    1. Select preserves it.
    2. serializing a `PointCloud` and restoring it preserves it. a cache is not a source, so restoring builds no new record.
    3. constructing a `PointCloud` from another obj's fields inherits that obj's record. another obj is not a source, so construction builds no new record.
-5. for `__init__` and load point cloud, the target dtype is the source dtype.
+5. for `__init__` and load point cloud, the target dtype is the source dtype where the override states none.
 6. the meta data override:
    1. `__init__`, load point cloud and save point cloud each accept one, and it reaches both halves at each.
    2. it is optional where the source defines a half, and it replaces that half when it states one.
