@@ -12,6 +12,9 @@ from models.three_d.point_cloud.render.common.apply_point_size_postprocessing im
 from models.three_d.point_cloud.render.common.prepare_points_for_rendering import (
     prepare_points_for_rendering,
 )
+from models.three_d.point_cloud.render.common.select_nearest_point_per_pixel import (
+    select_nearest_point_per_pixel,
+)
 from models.three_d.point_cloud.render.common.validate_rendering_inputs import (
     validate_rendering_inputs,
 )
@@ -25,7 +28,7 @@ from models.three_d.point_cloud.render.render_mask import (
 
 def render_segmentation_from_rendering_points(
     rendering_points: torch.Tensor,
-    original_data_indices: torch.Tensor,
+    valid: torch.Tensor,
     pc: PointCloud,
     key: str,
     resolution: Tuple[int, int],
@@ -34,40 +37,41 @@ def render_segmentation_from_rendering_points(
     """Render segmentation map from pre-processed rendering points.
 
     Args:
-        rendering_points: Pre-processed points [M, 3] with (x, y, depth).
-        original_data_indices: Indices mapping rendered points to original data [M].
+        rendering_points: Pre-processed points [..., N, 3] float torch.Tensor of
+            (x, y, depth), the point axis in pc.xyz order and the leading axes
+            enumerating the cameras rendered.
+        valid: [..., N] bool torch.Tensor marking which points each camera keeps.
         pc: Point cloud containing segmentation labels under specified key.
         key: Key name for segmentation labels in pc.
         resolution: Target resolution as (height, width) tuple.
         ignore_value: Fill value for pixels with no point projections (default: 255).
 
     Returns:
-        Segmentation map tensor of shape [H, W] with integer labels.
+        Segmentation map torch.Tensor of shape [..., H, W], int64, carrying the
+        leading axes of rendering_points.
 
     Raises:
         AssertionError: If labels tensor is empty.
     """
     assert hasattr(pc, key), f"PointCloud missing '{key}' field"
-    render_height, render_width = resolution
     labels = getattr(pc, key)
     assert (
         labels.numel() > 0
     ), f"Labels tensor must not be empty, got {labels.numel()} elements"
 
-    # Get labels for visible points
-    pixel_labels = labels[original_data_indices]
-
-    # Allocate segmentation map
-    seg_map = torch.full(
-        (render_height, render_width),
-        ignore_value,
-        dtype=torch.int64,
-        device=rendering_points.device,
+    # Resolve which point owns each pixel, then read that point's own label
+    winner = select_nearest_point_per_pixel(
+        rendering_points=rendering_points,
+        valid=valid,
+        resolution=resolution,
     )
+    pixel_labels = labels[winner.clamp(min=0)]
 
-    # Render pixels
-    seg_map[rendering_points[:, 1].long(), rendering_points[:, 0].long()] = (
-        pixel_labels.to(torch.int64)
+    # Blank the pixels no surviving point landed on
+    seg_map = torch.where(
+        winner >= 0,
+        pixel_labels.to(torch.int64),
+        torch.tensor(ignore_value, dtype=torch.int64, device=rendering_points.device),
     )
 
     return seg_map
@@ -121,7 +125,7 @@ def render_segmentation_from_point_cloud(
     )
 
     # Prepare points for rendering
-    rendering_points, original_data_indices = prepare_points_for_rendering(
+    rendering_points, valid = prepare_points_for_rendering(
         pc=pc,
         camera=camera,
         resolution=resolution,
@@ -130,7 +134,7 @@ def render_segmentation_from_point_cloud(
     # Render segmentation map
     seg_map = render_segmentation_from_rendering_points(
         rendering_points=rendering_points,
-        original_data_indices=original_data_indices,
+        valid=valid,
         pc=pc,
         key=key,
         resolution=resolution,
@@ -144,38 +148,43 @@ def render_segmentation_from_point_cloud(
             resolution=resolution,
             ignore_value=float('inf'),
             return_mask=False,
+            valid=valid,
         )
+
+        # The discs the dilation reaches are exactly the pixels the dilated depth
+        # map keeps finite
+        dilated_depth = apply_point_size_postprocessing(
+            rendered_image=depth_map,
+            depth_map=depth_map,
+            point_size=point_size,
+            ignore_value=float('inf'),
+        )
+        covered = torch.isfinite(dilated_depth)
 
         seg_map = apply_point_size_postprocessing(
             rendered_image=seg_map.float(),
             depth_map=depth_map,
             point_size=point_size,
             ignore_value=float('inf'),
-        ).long()
+        )
+
+        # The dilation leaves the depth sentinel outside those discs, and casting
+        # it back to labels saturates in opposite directions per device, so this
+        # renderer's own background goes back before the cast
+        seg_map = seg_map.masked_fill(~covered, ignore_value).long()
 
     # Handle mask creation if requested
     if return_mask:
-        valid_mask = render_mask_from_rendering_points(
-            rendering_points=rendering_points,
-            resolution=resolution,
-            device=rendering_points.device,
-        )
-
-        # Apply point size processing to mask if needed
         if point_size > 1.0:
-            depth_map = render_depth_from_rendering_points(
+            # The dilation repainted the map, so the mask follows the discs it reached
+            valid_mask = covered
+        else:
+            valid_mask = render_mask_from_rendering_points(
                 rendering_points=rendering_points,
                 resolution=resolution,
-                ignore_value=float('inf'),
-                return_mask=False,
+                device=rendering_points.device,
+                valid=valid,
             )
-
-            valid_mask = apply_point_size_postprocessing(
-                rendered_image=valid_mask.float(),
-                depth_map=depth_map,
-                point_size=point_size,
-                ignore_value=float('inf'),
-            ).bool()
 
         return seg_map, valid_mask
     else:

@@ -324,11 +324,12 @@ def render_rgb_from_point_cloud_volumetric(
     )
 
     stage_start = time.time()
-    _, image_plane_points_indices = prepare_points_for_rendering(
+    _, valid = prepare_points_for_rendering(
         pc=pc,
         camera=camera,
         resolution=resolution,
     )
+    image_plane_points_indices = torch.nonzero(valid, as_tuple=True)[0]
     pc = Select(indices=image_plane_points_indices)(pc)
     aux_cameras = gen_auxiliary_cameras(
         points=pc.xyz,
