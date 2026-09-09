@@ -24,7 +24,7 @@ models/three_d/point_cloud/render/
 
 ```text
 tests/models/three_d/point_cloud/render/
-├── test_render_depth.py  # depth rendering: resolution, the valid mask, occlusion order, and the inputs it refuses
+├── test_render_depth.py  # depth rendering: resolution, the valid mask, occlusion order, the inputs it refuses, and the coordinate width the camera is matched to
 ├── test_render_rgb.py
 └── test_render_segmentation.py
 ```

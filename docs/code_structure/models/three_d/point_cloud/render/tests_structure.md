@@ -76,6 +76,18 @@ test_render_depth.py
 │   │   └── calls CameraExtrinsics(extrinsics=a float32 [3, 3] identity, extr_convention='opengl', device=torch.device('cpu'))
 │   └── with pytest.raises(AssertionError)
 │       └── calls render_depth_from_point_cloud(pc=valid_pc_data, camera=valid_camera, resolution=(0, 100))
+├── def test_a_float64_cloud_renders_against_a_float32_camera() -> None
+│   ├── # No load forces f4 any more, so the camera is brought to the coordinates rather than the projection raising on mismatched widths.
+│   ├── calls PointCloud(xyz=four float64 points at increasing depth)
+│   ├── calls _build_camera(focal=100.0, principal_point=50.0)
+│   ├── calls render_depth_from_point_cloud(pc=pc_data, camera=camera, resolution=(100, 100))
+│   └── assert the depth map is [100, 100] and every depth other than the -1.0 background is finite
+├── def test_the_coordinates_are_not_narrowed_to_the_camera() -> None
+│   ├── # Narrowing the points to meet the camera would throw away the precision the double-precision path exists to keep.
+│   ├── calls PointCloud(xyz=two float64 points whose depths differ only past float32's precision)
+│   ├── calls _build_camera(focal=100.0, principal_point=50.0)
+│   ├── calls render_depth_from_point_cloud(pc=pc_data, camera=camera, resolution=(100, 100))
+│   └── assert the two points land at distinct depths
 └── def _build_camera(focal: float, principal_point: float) -> Camera
     ├── # Builds the identity-pose OpenGL pinhole camera on the CPU that every case here renders through.
     ├── calls build_camera_intrinsics(model='pinhole', params=the shared focal and principal point with the extents twice that point implies, intr_convention='standard', device=torch.device('cpu'))
