@@ -101,6 +101,20 @@ render_depth.py
         └── return  # depth_map
 ```
 
+`models/three_d/point_cloud/render/render_mask.py`
+
+```text
+render_mask.py
+├── from typing import Tuple
+├── import torch
+└── def render_mask_from_rendering_points(rendering_points: torch.Tensor, resolution: Tuple[int, int], device: torch.device) -> torch.Tensor
+    ├── # Marks the pixels the projected points landed on, which is what distinguishes a rendered image's covered pixels from its background.
+    ├── impls render_height, render_width = resolution
+    ├── impls valid_mask = an all-False [render_height, render_width] bool tensor on device
+    ├── impls assign True into valid_mask by advanced indexing at rows from rendering_points' long-cast column 1, cols from its long-cast column 0
+    └── return valid_mask
+```
+
 `models/three_d/point_cloud/render/render_rgb_volumetric.py`
 
 ```text
