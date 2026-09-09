@@ -397,7 +397,6 @@ io.py
 │   │       ├── impls assert its name is None or a str
 │   │       └── impls assert its id is None or an int
 │   ├── calls _validate_inputs
-│   ├── impls intrinsics_list, extrinsics_list, names, ids — four empty accumulators the loop appends to
 │   ├── impls asserts the per-camera dicts agree on model, intr_convention and extr_convention  # the batch shares one projection expression
 │   ├── impls params_columns = each param name mapped to the [N] column gathered from that key across the dicts  # impls-node-one-step:skip; json stores a row per camera where npz stores a column per field
 │   ├── impls names, ids = the name and id columns gathered the same way  # json stores both directly, where npz needs has_name / has_id flags
