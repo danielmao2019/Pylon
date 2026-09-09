@@ -105,17 +105,15 @@ def render_depth_from_rendering_points(
         If return_mask is True:
             Tuple of (depth map tensor, valid mask tensor of shape [..., H, W]).
     """
-
-    def _normalize_inputs(valid: Optional[torch.Tensor]) -> torch.Tensor:
-        if valid is None:
-            valid = torch.ones(
-                rendering_points.shape[:-1],
-                dtype=torch.bool,
-                device=rendering_points.device,
-            )
-        return valid
-
-    valid = _normalize_inputs(valid=valid)
+    valid = (
+        torch.ones(
+            rendering_points.shape[:-1],
+            dtype=torch.bool,
+            device=rendering_points.device,
+        )
+        if valid is None
+        else valid
+    )
 
     render_height, render_width = resolution
 
@@ -143,6 +141,7 @@ def render_depth_from_rendering_points(
             rendering_points=rendering_points,
             resolution=resolution,
             device=rendering_points.device,
+            valid=valid,
         )
         return depth_map, valid_mask
     else:

@@ -1,9 +1,12 @@
 """Test cases for depth rendering from point clouds."""
 
+from typing import List, Tuple
+
 import pytest
 import torch
 
 from data.structures.three_d.camera.camera import Camera
+from data.structures.three_d.camera.cameras import Cameras
 from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
 from data.structures.three_d.camera.intrinsics.camera_intrinsics import (
     build_camera_intrinsics,
@@ -206,6 +209,117 @@ def test_render_depth_intrinsics_scaling() -> None:
     assert (depth_map_large != -1.0).any()
 
 
+def test_render_depth_batched_matches_per_camera() -> None:
+    """Test that a Cameras renders every pose in one call, each slice matching that pose alone."""
+    pc_data = PointCloud(
+        xyz=torch.tensor(
+            [
+                [0.0, 0.0, -1.0],
+                [0.1, 0.1, -2.0],
+                [-0.1, 0.1, -1.5],
+                [0.0, -0.1, -3.0],
+            ],
+            dtype=torch.float32,
+        )
+    )
+
+    cameras = _build_cameras(
+        focal=100.0,
+        principal_point=50.0,
+        translations=[(0.0, 0.0, 0.0), (0.2, 0.0, 0.0), (0.0, 0.15, 0.0)],
+    )
+    resolution = (64, 80)
+
+    depth_maps = render_depth_from_point_cloud(
+        pc=pc_data,
+        camera=cameras,
+        resolution=resolution,
+    )
+
+    assert depth_maps.shape == (3, 64, 80)
+    assert depth_maps.dtype == torch.float32
+
+    for index, camera in enumerate(cameras):
+        depth_map = render_depth_from_point_cloud(
+            pc=pc_data,
+            camera=camera,
+            resolution=resolution,
+        )
+        assert torch.equal(depth_maps[index], depth_map)
+
+
+def test_render_depth_batch_of_one_keeps_its_axis() -> None:
+    """Test that a Cameras of length one renders to [1, H, W] rather than [H, W]."""
+    pc_data = PointCloud(
+        xyz=torch.tensor(
+            [
+                [0.0, 0.0, -1.0],
+                [0.1, 0.1, -2.0],
+                [-0.1, 0.1, -1.5],
+                [0.0, -0.1, -3.0],
+            ],
+            dtype=torch.float32,
+        )
+    )
+
+    cameras = _build_cameras(
+        focal=100.0,
+        principal_point=50.0,
+        translations=[(0.0, 0.0, 0.0)],
+    )
+    resolution = (64, 80)
+
+    depth_maps = render_depth_from_point_cloud(
+        pc=pc_data,
+        camera=cameras,
+        resolution=resolution,
+    )
+
+    assert depth_maps.shape == (1, 64, 80)
+
+    depth_map = render_depth_from_point_cloud(
+        pc=pc_data,
+        camera=next(iter(cameras)),
+        resolution=resolution,
+    )
+
+    assert depth_map.shape == (64, 80)
+    assert torch.equal(depth_maps[0], depth_map)
+
+
+def test_render_depth_batched_cull_is_per_camera() -> None:
+    """Test that cameras seeing different subsets of one cloud each keep their own survivors."""
+    pc_data = PointCloud(
+        xyz=torch.tensor(
+            [
+                [0.0, 0.2, -1.0],  # Inside camera 0's bounds, outside camera 1's
+                [2.0, -0.2, -1.0],  # Inside camera 1's bounds, outside camera 0's
+            ],
+            dtype=torch.float32,
+        )
+    )
+
+    cameras = _build_cameras(
+        focal=100.0,
+        principal_point=50.0,
+        translations=[(0.0, 0.0, 0.0), (2.0, 0.0, 0.0)],
+    )
+    resolution = (64, 80)
+
+    depth_maps, valid_masks = render_depth_from_point_cloud(
+        pc=pc_data,
+        camera=cameras,
+        resolution=resolution,
+        return_mask=True,
+    )
+
+    assert depth_maps.shape == (2, 64, 80)
+    assert valid_masks.shape == (2, 64, 80)
+    assert valid_masks.dtype == torch.bool
+    assert (valid_masks[0] & ~valid_masks[1]).any()
+    assert (valid_masks[1] & ~valid_masks[0]).any()
+
+
 def test_render_depth_invalid_inputs() -> None:
     """Test various invalid input conditions."""
     valid_pc_data = PointCloud(
@@ -275,6 +389,52 @@ def _build_camera(focal: float, principal_point: float) -> Camera:
         ),
         extrinsics=CameraExtrinsics(
             extrinsics=torch.eye(4, dtype=torch.float32),
+            extr_convention="opengl",
+            device=torch.device("cpu"),
+        ),
+        device=torch.device("cpu"),
+    )
+
+
+def _build_cameras(
+    focal: float,
+    principal_point: float,
+    translations: List[Tuple[float, float, float]],
+) -> Cameras:
+    """Build a batch of OpenGL pinhole cameras on the CPU, one pose per translation.
+
+    Args:
+        focal: Shared focal length used for both fx and fy of every camera.
+        principal_point: Shared principal-point coordinate used for both cx and cy
+            of every camera.
+        translations: Per-camera (x, y, z) world-space camera positions, whose
+            length is the batch size B.
+
+    Returns:
+        A Cameras whose pinhole intrinsics params are each a [B] torch.Tensor of
+        (fx, fy, cx, cy) and whose extrinsics are a [B, 4, 4] float32 stack of
+        identity cam2world matrices carrying one translation each, in the opengl
+        convention.
+    """
+    batch_size = len(translations)
+    extrinsics = torch.eye(4, dtype=torch.float32).repeat(batch_size, 1, 1)
+    extrinsics[:, :3, 3] = torch.tensor(translations, dtype=torch.float32)
+    return Cameras(
+        intrinsics=build_camera_intrinsics(
+            model="pinhole",
+            params={
+                "fx": torch.full((batch_size,), focal),
+                "fy": torch.full((batch_size,), focal),
+                "cx": torch.full((batch_size,), principal_point),
+                "cy": torch.full((batch_size,), principal_point),
+                "h": torch.full((batch_size,), 2.0 * principal_point),
+                "w": torch.full((batch_size,), 2.0 * principal_point),
+            },
+            intr_convention="standard",
+            device=torch.device("cpu"),
+        ),
+        extrinsics=CameraExtrinsics(
+            extrinsics=extrinsics,
             extr_convention="opengl",
             device=torch.device("cpu"),
         ),
