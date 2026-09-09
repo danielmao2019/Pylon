@@ -296,6 +296,11 @@ camera_intrinsics.py
 │   ├── def dtype(self) -> torch.dtype  # @property
 │   │   ├── # The dtype shared by the intrinsics params.
 │   │   └── return self._dtype
+│   ├── def __getitem__(self, index: Union[int, slice, List[int], None]) -> "CameraIntrinsics"
+│   │   ├── # Index the leading batch axis the params carry, the way the tensors they are index their own, so None adds an axis of one and an int drops it.
+│   │   ├── impls params = every param indexed by index along its leading axis  # a pass over the model's few param names, never over the cameras
+│   │   ├── calls build_camera_intrinsics(model=type(self).MODEL, params=params, intr_convention=self._intr_convention)
+│   │   └── return  # that CameraIntrinsics
 │   ├── def cx(self) -> torch.Tensor  # @property
 │   │   ├── # The horizontal principal-point coordinate params["cx"].
 │   │   └── return self._params["cx"]
