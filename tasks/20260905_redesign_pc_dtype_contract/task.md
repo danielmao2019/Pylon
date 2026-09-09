@@ -107,12 +107,17 @@ goal: re-design pc dtype contract/provenance
    1. Select preserves it.
    2. serializing a `PointCloud` and restoring it preserves it. a cache is not a source, so restoring builds no new record.
    3. constructing a `PointCloud` from another obj's fields inherits that obj's record. another obj is not a source, so construction builds no new record.
-5. the meta data override:
-   1. `__init__`, load point cloud and save point cloud each accept one, and it reaches both the dtype and the layout at each.
-   2. the target takes whichever of the dtype and the layout the override states, and the source's own wherever the override states neither.
-   3. an override changes the fields the obj stores and never the recorded meta data, which stays exactly what the source data held.
-   4. a dtype override moves the field's values onto the dtype it states.
-   5. a layout override chooses which source columns are assembled into a field, and the field the obj stores afterwards is the block those columns make.
+5. applying meta data:
+   1. `__init__`, load point cloud and save point cloud each accept an override, and it reaches both the dtype and the layout at each.
+   2. the target has one entry for each field the obj holds:
+      1. the entry takes whichever dtype and layout the override states.
+      2. it takes the recorded ones wherever the override states none.
+      3. where the record names the field nowhere, the field supplies both: its name serves as the layout, and the dtype it carries as the dtype.
+   3. the target's layout assembles the field from the columns it names, and its dtype converts the field's values:
+      1. rgb converts by Color Data Convention Conversion, from the convention its own dtype names to the convention the target's dtype names.
+      2. every other field converts by Type Casting.
+      3. a conversion is made only where every value survives it exactly, and otherwise hard-asserts and the program aborts.
+   4. applying the target changes the fields the obj stores and never the record, which stays exactly what the source data held.
 
 #### 1.1.5. Point Cloud Data Structure Construction and I/O
 
