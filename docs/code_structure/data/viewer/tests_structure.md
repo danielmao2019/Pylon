@@ -9,7 +9,7 @@
 ```text
 test_trackball_camera_controls.py
 ├── import pytest
-├── from data.viewer.utils.controls.camera.camera_controls.dash.trackball_camera_controls import assert_dash_roll_lock, create_dash_trackball_camera_controls
+├── from data.viewer.utils.controls.camera.camera_controls.dash.trackball_camera_controls import assert_dash_no_camera_pose_clamps, assert_dash_roll_lock, assert_dash_trackball_camera_controls, create_dash_trackball_camera_controls
 ├── def test_no_axis_renders_no_camera_configuration
 │   ├── # A caller that names no lock_roll gets the empty configuration, identical to an explicit lock_roll=None construction.
 │   ├── calls create_dash_trackball_camera_controls
@@ -24,12 +24,6 @@ test_trackball_camera_controls.py
 │   ├── impls assert the camera up vector coincides with the supplied axis only where the view direction is itself perpendicular to it
 │   ├── impls assert the left-drag rotation resolves as yaw about the supplied axis plus pitch about the camera right axis
 │   └── return
-├── def test_an_applied_camera_state_leaves_the_axis_alone
-│   ├── # The lock axis is the caller's, so no CameraState applied by the display or by camera_sync can change what the control locks about.
-│   ├── calls create_dash_trackball_camera_controls
-│   ├── impls apply a CameraState whose camera up vector differs from the supplied lock_roll
-│   ├── impls assert the controls still hold the camera right axis perpendicular to the supplied lock_roll
-│   └── return
 ├── def test_roll_locked_controls_keep_every_other_degree_of_freedom_free
 │   ├── # Roll lock constrains roll alone, so a supplied lock_roll construction still passes the mouse-mapping, no-orbit, and no-pose-clamp contracts.
 │   ├── calls create_dash_trackball_camera_controls
@@ -39,6 +33,42 @@ test_trackball_camera_controls.py
 │   ├── # A supplied-lock_roll control whose camera right axis may tilt off perpendicular is rejected, so the flag cannot be silently dropped.
 │   ├── impls build a stub control that reports a lock_roll with a camera right axis free to tilt
 │   ├── with pytest.raises on the roll-locked-must-keep-the-right-axis-perpendicular-to-the-supplied-axis message
+│   │   └── calls assert_dash_roll_lock
+│   └── return
+├── def test_a_non_unit_axis_is_normalized
+│   ├── # The caller's axis need not be unit length, so the same direction at any length pins the same camera up vector.
+│   ├── calls create_dash_trackball_camera_controls
+│   ├── impls assert the same direction supplied at two lengths yields the same normalized camera up vector
+│   └── return
+├── def test_assert_dash_roll_lock_rejects_a_mismatched_axis
+│   ├── # A configuration pinned to a different axis than the caller supplied is rejected, so the caller's axis cannot be swapped for another.
+│   ├── impls build a configuration whose pinned axis differs from the supplied lock_roll
+│   ├── with pytest.raises on the roll-locked-must-keep-the-right-axis-perpendicular-to-the-supplied-axis message
+│   │   └── calls assert_dash_roll_lock
+│   └── return
+├── def test_assert_dash_no_camera_pose_clamps_rejects_a_roll_restricting_dragmode
+│   ├── # The roll-pinning dragmode restricts rotation, so it is rejected when no axis is supplied.
+│   ├── impls build a no-axis configuration carrying the roll-locked dragmode
+│   ├── with pytest.raises on the restricted-camera-pose-controls message
+│   │   └── calls assert_dash_no_camera_pose_clamps
+│   └── return
+├── def test_the_threejs_viewer_source_passes_the_trackball_contract
+│   ├── # The shipped three.js mesh viewer source satisfies every trackball contract, so the display's guard keeps guarding it.
+│   ├── impls read the shipped renderer JavaScript source
+│   ├── calls assert_dash_trackball_camera_controls
+│   └── return
+├── def test_free_trackball_source_leaves_camera_roll_unconstrained
+│   ├── # Renderer source whose left-drag rotation carries the camera up vector passes the free-trackball contract and fails the roll-locked one.
+│   ├── impls build renderer source whose left-drag carries the camera up vector
+│   ├── calls assert_dash_trackball_camera_controls
+│   ├── with pytest.raises when the same source is asserted against a supplied axis
+│   │   └── calls assert_dash_roll_lock
+│   └── return
+├── def test_roll_locked_source_holds_the_camera_right_axis
+│   ├── # Renderer source that re-derives the camera right axis passes the roll-locked contract and fails the free-trackball one.
+│   ├── impls build renderer source that re-derives the camera right axis each drag step
+│   ├── calls assert_dash_roll_lock
+│   ├── with pytest.raises when the same source is asserted with no axis supplied
 │   │   └── calls assert_dash_roll_lock
 │   └── return
 └── def test_assert_dash_roll_lock_rejects_an_unrequested_lock
