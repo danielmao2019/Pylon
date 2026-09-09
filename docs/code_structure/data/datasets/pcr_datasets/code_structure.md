@@ -166,9 +166,10 @@ synthetic_transform_pcr_dataset.py
     │   └── raise RuntimeError  # no trial under self.max_trials produced an overlap in range
     └── def _generate(self, t1_pc_filepath: str, t2_pc_filepath: str, transform_matrix: torch.Tensor, idx: int) -> Tuple[PointCloud, PointCloud, Optional[float]]
         ├── # Runs one trial of that search, which is this transform posing the pair apart, the crop, and the overlap that survives it.
-        ├── calls load_point_cloud(t1_pc_filepath, device=self.device)
-        ├── calls load_point_cloud(t2_pc_filepath, device=self.device)
-        ├── impls t1_pc_data, t2_pc_data = the two clouds it loaded, their coordinates narrowed to float32  # a load never narrows any more, so the dataset whose pose arithmetic is single precision does the narrowing itself
+        ├── impls meta_data = {'xyz': {'dtype': 'float32'}}  # the pose arithmetic below is single precision, and a load casts only losslessly, so stating the width is what refuses a source that is not already at it rather than quietly throwing precision away
+        ├── calls load_point_cloud(t1_pc_filepath, meta_data=meta_data, device=self.device)
+        ├── calls load_point_cloud(t2_pc_filepath, meta_data=meta_data, device=self.device)
+        ├── impls t1_pc_data, t2_pc_data = the two clouds it loaded
         ├── calls self._apply_transform(t1_pc_data, t2_pc_data, transform_matrix)
         ├── impls src_pc_transformed, tgt_pc_original = the first cloud carried by the inverse pose and the second left where it was  # impls-node-one-step:skip — one step; the "and" names what it is made of
         ├── calls self._apply_crop(idx, src_pc_transformed)
