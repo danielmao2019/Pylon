@@ -6,10 +6,10 @@ export const DEFAULT_TRACKBALL_PERSPECTIVE_CAMERA_FOV: number = 45;
 
 // Radians of camera rotation per pixel of roll-locked left-drag.
 const ROLL_LOCKED_ROTATE_SPEED = 0.005;
-// Radians the roll-locked pitch stops short of the lock axis. Clamping the pitch into
-// this band is what stops the camera at the pole instead of carrying the view through
-// it, so the view direction never runs parallel to the axis and the cross product that
-// re-derives the camera right axis never collapses.
+// Radians the roll-locked camera stops short of the lock axis. The incoming offset is
+// banded into this range before anything derives a camera right axis from it, and the
+// pitch is then clamped to keep it there, so the view direction never runs parallel to
+// the axis and the cross product that re-derives the camera right axis never collapses.
 const ROLL_LOCKED_POLAR_ANGLE_EPSILON = 1e-6;
 
 type CameraStateListener = (cameraState: CameraState) => void;
@@ -126,6 +126,16 @@ function createRendererTrackballCameraControls({
     // right-drag pan and wheel zoom untouched.
     threeControls.noRotate = true;
 
+    // The framing the controls are constructed on is a pose like any other, and a
+    // caller is free to hand over one looking straight down the lock axis. Holding it
+    // here is what leaves the camera frame real before anything draws with it, rather
+    // than only once a drag has repaired it.
+    holdRollLockedCameraPose({
+      camera,
+      target: threeControls.target,
+      rollLockAxis,
+    });
+
     let leftDragActive = false;
     let lastClientX = 0;
     let lastClientY = 0;
@@ -148,7 +158,16 @@ function createRendererTrackballCameraControls({
       const deltaY = event.clientY - lastClientY;
       lastClientX = event.clientX;
       lastClientY = event.clientY;
-      const offset = camera.position.clone().sub(threeControls.target);
+      // A pan moves the rotation target out from under the eye, so the pose a drag
+      // starts from can sit on the lock axis however the previous one was held.
+      // Banding it first is what leaves the camera right axis below derivable at all:
+      // on the axis that cross product collapses, three normalizes the collapse to a
+      // zero vector rather than a NaN one, so the pitch quaternion the clamp feeds is
+      // built about nothing and the camera never leaves the pole again.
+      const offset = resolveRollLockBandedOffset({
+        offset: camera.position.clone().sub(threeControls.target),
+        rollLockAxis,
+      });
       const yaw = new THREE.Quaternion().setFromAxisAngle(
         rollLockAxis,
         -deltaX * ROLL_LOCKED_ROTATE_SPEED,
@@ -159,8 +178,8 @@ function createRendererTrackballCameraControls({
         .normalize();
       // Yaw turns about the lock axis and so leaves the angle to it alone, which
       // makes the pitch the whole of what can reach a pole. Clamping it to the
-      // band stops the camera at the pole, where every further pitch step is
-      // rejected instead of carrying the view through and inverting the scene.
+      // band keeps the camera short of the pole, where a further pitch step toward
+      // it is rejected instead of carrying the view through and inverting the scene.
       const polarAngle = offset.angleTo(rollLockAxis);
       const pitchAngle = Math.min(
         Math.max(
@@ -175,10 +194,11 @@ function createRendererTrackballCameraControls({
       );
       offset.applyQuaternion(pitch);
       camera.position.copy(threeControls.target).add(offset);
-      camera.up
-        .crossVectors(cameraRightAxis, offset.clone().negate().normalize())
-        .normalize();
-      camera.lookAt(threeControls.target);
+      holdRollLockedCameraPose({
+        camera,
+        target: threeControls.target,
+        rollLockAxis,
+      });
       threeControls.dispatchEvent({ type: "change" });
     });
   }
@@ -207,6 +227,13 @@ function createRendererTrackballCameraControls({
         controls: threeControls,
         cameraState,
       });
+      if (rollLockAxis !== null) {
+        holdRollLockedCameraPose({
+          camera,
+          target: threeControls.target,
+          rollLockAxis,
+        });
+      }
     },
     subscribeCameraStateChange: (listener: CameraStateListener) => {
       if (typeof listener !== "function") {
@@ -218,6 +245,131 @@ function createRendererTrackballCameraControls({
       };
     },
   });
+}
+
+// Holds the camera on the roll-locked pose its own framing implies: the eye banded off
+// the lock axis, and the up vector the view direction from that eye and the lock axis
+// determine. Every framing that enters the roll-locked controls comes through here - the
+// one they are constructed on, the one a camera-sync peer writes through
+// applyCameraState, and the one each drag step leaves behind - so the camera right axis
+// is derived from a banded eye every time and never collapses onto the direction a view
+// running parallel to the axis cannot name.
+//
+// Args:
+//   camera: the perspective camera the controls drive; its position and up vector are
+//     rewritten in place, and it is left looking at the target.
+//   target: the rotation target the eye offset is measured from, in the scene's own
+//     world frame.
+//   rollLockAxis: the unit-length world-space axis camera roll is locked about.
+//
+// Returns:
+//   void.
+function holdRollLockedCameraPose({
+  camera,
+  target,
+  rollLockAxis,
+}: {
+  camera: THREE.PerspectiveCamera;
+  target: THREE.Vector3;
+  rollLockAxis: THREE.Vector3;
+}): void {
+  const offset = resolveRollLockBandedOffset({
+    offset: camera.position.clone().sub(target),
+    rollLockAxis,
+  });
+  const cameraRightAxis = new THREE.Vector3()
+    .crossVectors(offset.clone().negate(), rollLockAxis)
+    .normalize();
+  camera.position.copy(target).add(offset);
+  camera.up
+    .crossVectors(cameraRightAxis, offset.clone().negate().normalize())
+    .normalize();
+  camera.lookAt(target);
+}
+
+// Bands an offset's polar angle off the lock axis into the range the roll lock holds the
+// camera in, rebuilding it at the banded angle on its own meridian. Every camera right
+// axis the roll-locked rotation derives comes from an offset this has already banded, so
+// the collapse that derivation hits on an eye sitting exactly on the axis is unreachable
+// rather than repaired afterwards.
+//
+// Args:
+//   offset: the eye offset to band, as the camera position minus the rotation target in
+//     the scene's own world frame.
+//   rollLockAxis: the unit-length world-space axis camera roll is locked about.
+//
+// Returns:
+//   The offset at the same radius, banded off the lock axis; the offset itself when it
+//   already stands inside the band.
+function resolveRollLockBandedOffset({
+  offset,
+  rollLockAxis,
+}: {
+  offset: THREE.Vector3;
+  rollLockAxis: THREE.Vector3;
+}): THREE.Vector3 {
+  const polarAngle = offset.angleTo(rollLockAxis);
+  if (
+    polarAngle >= ROLL_LOCKED_POLAR_ANGLE_EPSILON &&
+    polarAngle <= Math.PI - ROLL_LOCKED_POLAR_ANGLE_EPSILON
+  ) {
+    return offset;
+  }
+  const bandedPolarAngle = Math.min(
+    Math.max(polarAngle, ROLL_LOCKED_POLAR_ANGLE_EPSILON),
+    Math.PI - ROLL_LOCKED_POLAR_ANGLE_EPSILON,
+  );
+  const radius = offset.length();
+  return resolveRollLockMeridian({ offset, rollLockAxis })
+    .multiplyScalar(radius * Math.sin(bandedPolarAngle))
+    .addScaledVector(rollLockAxis, radius * Math.cos(bandedPolarAngle));
+}
+
+// Resolves the meridian an offset stands on, as a unit vector perpendicular to the lock
+// axis.
+//
+// Args:
+//   offset: the eye offset whose meridian is read, as the camera position minus the
+//     rotation target in the scene's own world frame.
+//   rollLockAxis: the unit-length world-space axis camera roll is locked about.
+//
+// Returns:
+//   A fresh unit-length vector perpendicular to the lock axis.
+function resolveRollLockMeridian({
+  offset,
+  rollLockAxis,
+}: {
+  offset: THREE.Vector3;
+  rollLockAxis: THREE.Vector3;
+}): THREE.Vector3 {
+  const meridian = offset
+    .clone()
+    .addScaledVector(rollLockAxis, -offset.dot(rollLockAxis));
+  if (meridian.lengthSq() > 0) {
+    return meridian.normalize();
+  }
+  // An offset lying on the axis stands on every meridian at once, so it names none of
+  // its own and this is the one it is banded onto. Crossing the axis with the world
+  // basis vector it leans on least is what keeps this cross product itself clear of the
+  // collapse it stands in for.
+  const magnitudes = [
+    Math.abs(rollLockAxis.x),
+    Math.abs(rollLockAxis.y),
+    Math.abs(rollLockAxis.z),
+  ];
+  if (magnitudes[0] <= magnitudes[1] && magnitudes[0] <= magnitudes[2]) {
+    return new THREE.Vector3()
+      .crossVectors(rollLockAxis, new THREE.Vector3(1, 0, 0))
+      .normalize();
+  }
+  if (magnitudes[1] <= magnitudes[2]) {
+    return new THREE.Vector3()
+      .crossVectors(rollLockAxis, new THREE.Vector3(0, 1, 0))
+      .normalize();
+  }
+  return new THREE.Vector3()
+    .crossVectors(rollLockAxis, new THREE.Vector3(0, 0, 1))
+    .normalize();
 }
 
 // Validates the constructed controls satisfy every trackball contract by running

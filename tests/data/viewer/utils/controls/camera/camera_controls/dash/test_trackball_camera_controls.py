@@ -4,7 +4,7 @@ import json
 import math
 import subprocess
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Tuple
 
 import plotly.graph_objects as go
 import pytest
@@ -35,12 +35,22 @@ ROLL_LOCKED_PITCH_PER_DRAG_RADIANS = -0.2
 # Simulated drags, enough that the accumulated pitch overshoots the pole several times
 # over rather than merely reaching it.
 ROLL_LOCKED_PITCH_DRAG_COUNT = 20
+# One record for the panel's initial render, which is when Dash first fires the callback
+# and so the only moment a start the drags cannot reach is handed to it, plus one record
+# per simulated drag.
+ROLL_LOCKED_PITCH_RECORD_COUNT = 1 + ROLL_LOCKED_PITCH_DRAG_COUNT
 # Radians from the lock axis at or below which the camera counts as having reached the
 # pole, generous next to the correction's own stopping distance.
 ROLL_LOCKED_POLE_REACHED_RADIANS = 1e-3
 # Magnitude of `right . axis` at or below which the camera right axis counts as
 # perpendicular to the lock axis.
 ROLL_LOCKED_PERPENDICULAR_TOLERANCE = 1e-9
+# The camera eye the simulated panel comes up on where the start is not degenerate, off
+# the lock axis so the pitch reaches the pole from a frame that is not already on it.
+ROLL_LOCKED_OFF_AXIS_EYE = (1.25, 1.25, 1.25)
+# Distance from the rotation target the degenerate starts place the eye at, matching the
+# off-axis start's own radius so every start turns through the same sphere.
+ROLL_LOCKED_START_RADIUS = 1.25 * math.sqrt(3.0)
 
 
 def build_free_trackball_renderer_controls() -> str:
@@ -417,27 +427,154 @@ def test_the_roll_lock_callback_rejects_a_zero_axis() -> None:
         )
 
 
-def build_roll_lock_pitch_harness_script(lock_roll: Tuple[float, float, float]) -> str:
-    """Build the Node harness that drives the roll-lock callback through a pole-crossing pitch.
+def normalize_vector(
+    vector: Tuple[float, float, float],
+) -> Tuple[float, float, float]:
+    """Scale a non-zero world-space vector to unit length.
 
-    The harness stands in for the panel: it holds the gl3d camera the callback reads,
-    turns it the way a Plotly `orbit` left-drag does (the eye and the camera up vector
-    both rotating about the camera's own screen-right axis), hands the turned camera to
-    the callback, and applies whatever `Plotly.relayout` the callback issues.
+    Args:
+        vector: Non-zero `(x, y, z)` world-space vector of any length.
+
+    Returns:
+        Tuple of the `(x, y, z)` components at unit length.
+    """
+    length = math.sqrt(sum(component * component for component in vector))
+    assert length > 0, f"Cannot normalize a zero-length vector. {vector=}"
+    return (vector[0] / length, vector[1] / length, vector[2] / length)
+
+
+def cross_vectors(
+    left: Tuple[float, float, float],
+    right: Tuple[float, float, float],
+) -> Tuple[float, float, float]:
+    """Compute the cross product of two world-space vectors.
+
+    Args:
+        left: The `(x, y, z)` world-space vector on the left of the product.
+        right: The `(x, y, z)` world-space vector on the right of the product.
+
+    Returns:
+        Tuple of the product's `(x, y, z)` components.
+    """
+    return (
+        left[1] * right[2] - left[2] * right[1],
+        left[2] * right[0] - left[0] * right[2],
+        left[0] * right[1] - left[1] * right[0],
+    )
+
+
+def build_eye_along_lock_axis(
+    lock_roll: Tuple[float, float, float],
+    radius: float,
+) -> Tuple[float, float, float]:
+    """Build the camera eye sitting on the lock axis itself, where the roll lock's own polar angle is degenerate.
+
+    Args:
+        lock_roll: Axis to lock camera roll about, as a non-zero `(x, y, z)`
+            world-space direction of any length.
+        radius: Signed distance from the rotation target along the normalized axis.
+            Positive puts the eye on the pole the axis points at, so the polar angle is
+            0; negative puts it past the far pole, so the polar angle is pi.
+
+    Returns:
+        Tuple of the eye's `(x, y, z)` world-space coordinates.
+    """
+    axis = normalize_vector(lock_roll)
+    return (axis[0] * radius, axis[1] * radius, axis[2] * radius)
+
+
+def build_up_across_lock_axis(
+    lock_roll: Tuple[float, float, float],
+) -> Tuple[float, float, float]:
+    """Build a camera up vector perpendicular to the lock axis, which is what keeps a camera framed straight down that axis drawable.
+
+    The view direction of a camera whose eye sits on the lock axis runs along that axis,
+    so an up vector along it too would leave the camera with no screen-right axis at all
+    and describe a pose no renderer can draw, whatever the roll lock does. Standing the
+    up vector across the axis leaves the pose drawable while keeping the polar angle
+    degenerate, which is the degeneracy the roll lock itself owns.
 
     Args:
         lock_roll: Axis to lock camera roll about, as a non-zero `(x, y, z)`
             world-space direction of any length.
 
     Returns:
-        JavaScript source that prints one JSON record per simulated drag, each carrying
-        `up_along_axis`, `right_along_axis`, and `polar` measured on the camera the
-        callback left behind.
+        Tuple of the up vector's unit-length `(x, y, z)` components.
+    """
+    axis = normalize_vector(lock_roll)
+    least_aligned_basis = min(
+        [(1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0)],
+        key=lambda basis: abs(
+            sum(
+                axis_component * basis_component
+                for axis_component, basis_component in zip(axis, basis, strict=True)
+            ),
+        ),
+    )
+    return normalize_vector(cross_vectors(axis, least_aligned_basis))
+
+
+def build_inverted_up(
+    lock_roll: Tuple[float, float, float],
+    eye: Tuple[float, float, float],
+) -> Tuple[float, float, float]:
+    """Build the camera up vector a panel reports once a drag has carried the view through a pole, which is the roll-locked up vector hanging on the axis's far side.
+
+    Args:
+        lock_roll: Axis to lock camera roll about, as a non-zero `(x, y, z)`
+            world-space direction of any length.
+        eye: The camera eye's `(x, y, z)` world-space coordinates, off the lock axis,
+            looking at a rotation target on the world origin.
+
+    Returns:
+        Tuple of the up vector's unit-length `(x, y, z)` components, perpendicular to
+        the view direction as every up vector a gl3d panel reports is.
+    """
+    axis = normalize_vector(lock_roll)
+    forward = normalize_vector((-eye[0], -eye[1], -eye[2]))
+    right = normalize_vector(cross_vectors(forward, axis))
+    up = normalize_vector(cross_vectors(right, forward))
+    return (-up[0], -up[1], -up[2])
+
+
+def build_roll_lock_pitch_harness_script(
+    lock_roll: Tuple[float, float, float],
+    eye: Tuple[float, float, float],
+    up: Tuple[float, float, float],
+) -> str:
+    """Build the Node harness that drives the roll-lock callback through a pole-crossing pitch.
+
+    The harness stands in for the panel: it holds the gl3d camera the callback reads,
+    fires the callback once on the start pose the way Dash fires it on initial render,
+    then turns the camera the way a Plotly `orbit` left-drag does (the eye and the camera
+    up vector both rotating about the camera's own screen-right axis), hands the turned
+    camera to the callback, and applies whatever `Plotly.relayout` the callback issues.
+
+    Each callback call is watched for whether it can describe the camera it was handed
+    at all, since a panel cannot survive a callback that aborts on the pose it reports
+    and would abort again on every relayout after it, nor one that fails its own
+    invariant and derives the pose it writes from the NaN that follows.
+
+    Args:
+        lock_roll: Axis to lock camera roll about, as a non-zero `(x, y, z)`
+            world-space direction of any length.
+        eye: The `(x, y, z)` world-space coordinates the simulated panel's camera starts
+            at, looking at a rotation target on the world origin.
+        up: The `(x, y, z)` world-space up vector the simulated panel's camera starts
+            with, non-parallel to the view direction so the start pose is one a renderer
+            can draw.
+
+    Returns:
+        JavaScript source that prints one JSON record for the initial render and one per
+        simulated drag, each carrying `drag`, `callback_error`, `up_along_axis`,
+        `right_along_axis`, and `polar` measured on the camera the callback left behind.
     """
     return """
 const ROLL_LOCK_SOURCE = %s;
 const GRAPH_ID = %s;
 const LOCK_ROLL = %s;
+const EYE = %s;
+const UP = %s;
 const PITCH_PER_DRAG = %s;
 const DRAG_COUNT = %s;
 
@@ -458,7 +595,7 @@ function rotate(v, axis, angle) {
 }
 
 const axis = normalize(LOCK_ROLL);
-let camera = { eye: toRecord([1.25, 1.25, 1.25]), center: toRecord([0, 0, 0]), up: toRecord(axis) };
+let camera = { eye: toRecord(EYE), center: toRecord([0, 0, 0]), up: toRecord(UP) };
 
 function pitchDrag(angle) {
   const eye = toVector(camera.eye);
@@ -491,15 +628,44 @@ globalThis.Plotly = {
   },
 };
 
+// The callback reports a state it cannot describe in one of two ways: it throws, or it
+// fails one of its own `console.assert` invariants and carries the NaN onward. A harness
+// that watches only the throw is blind to the second, which is how a pose built out of a
+// zero-length normalization reaches the panel with nothing raised. Both are captured
+// against the step that provoked them.
+let stepAssertionFailures = [];
+console.assert = function (condition) {
+  if (condition) {
+    return;
+  }
+  stepAssertionFailures.push(
+    Array.prototype.slice.call(arguments, 1).map(function (value) { return String(value); }).join(" "),
+  );
+};
+
 const callback = eval(ROLL_LOCK_SOURCE)(GRAPH_ID, axis);
 const records = [];
-for (let drag = 0; drag < DRAG_COUNT; drag += 1) {
-  pitchDrag(PITCH_PER_DRAG);
-  callback(null);
+// Drag 0 is the panel's initial render, which Dash fires the callback on before any
+// drag has moved the camera, so it is the only step that reaches the callback with the
+// start pose the caller framed the panel with.
+for (let drag = 0; drag <= DRAG_COUNT; drag += 1) {
+  if (drag > 0) {
+    pitchDrag(PITCH_PER_DRAG);
+  }
+  let callbackError = null;
+  stepAssertionFailures = [];
+  try {
+    callback(null);
+  } catch (error) {
+    callbackError = String(error && error.message !== undefined ? error.message : error);
+  }
   const offset = subtract(toVector(camera.eye), toVector(camera.center));
   const forward = normalize(scale(offset, -1));
   const right = normalize(cross(forward, toVector(camera.up)));
   records.push({
+    drag: drag,
+    callback_error: callbackError,
+    callback_assertion_failures: stepAssertionFailures,
     up_along_axis: dot(normalize(toVector(camera.up)), axis),
     right_along_axis: dot(right, axis),
     polar: Math.acos(Math.max(-1, Math.min(1, dot(normalize(offset), axis)))),
@@ -510,20 +676,24 @@ process.stdout.write(JSON.stringify(records));
         json.dumps(ROLL_LOCK_CALLBACK_SCRIPT_PATH.read_text()),
         json.dumps(ROLL_LOCKED_GRAPH_ID),
         json.dumps(list(lock_roll)),
+        json.dumps(list(eye)),
+        json.dumps(list(up)),
         json.dumps(ROLL_LOCKED_PITCH_PER_DRAG_RADIANS),
         json.dumps(ROLL_LOCKED_PITCH_DRAG_COUNT),
     )
 
 
-def run_roll_lock_pitch_harness(harness_path: Path) -> List[Dict[str, float]]:
-    """Run the roll-lock pitch harness under Node and read back its per-drag records.
+def run_roll_lock_pitch_harness(harness_path: Path) -> List[Dict[str, Any]]:
+    """Run the roll-lock pitch harness under Node and read back its per-step records.
 
     Args:
         harness_path: Path the harness source was written to.
 
     Returns:
-        One dict per simulated drag, each carrying `up_along_axis`,
-        `right_along_axis`, and `polar` as floats.
+        One dict for the initial render and one per simulated drag, each carrying `drag`
+        as an int, `callback_error` as the message of whatever the callback raised on
+        that step or None, and `up_along_axis`, `right_along_axis`, and `polar` as
+        floats.
     """
     completed_process = subprocess.run(
         args=["node", str(harness_path)],
@@ -539,19 +709,99 @@ def run_roll_lock_pitch_harness(harness_path: Path) -> List[Dict[str, float]]:
     return json.loads(completed_process.stdout)
 
 
-def test_the_roll_lock_callback_stops_a_pitch_at_the_pole(tmp_path: Path) -> None:
-    """A pitch that reaches the pole stops there rather than carrying the view through it, so the camera never comes out the far side."""
+def assert_roll_locked_camera(records: List[Dict[str, Any]]) -> None:
+    """Assert every step left the horizon level, the scene the right way up, and the callback standing.
+
+    The three clauses are what a person looking at the panel would call wrong. A camera
+    right axis off the lock axis tips the horizon; an up vector on the axis's far side
+    hangs the scene upside down; and a callback that cannot describe the camera it was
+    handed leaves the panel with no roll lock at all from that relayout on, which
+    neither dot product can see because both are measured on the pose that call never
+    wrote. The third clause is asserted first for that reason: the other two describe a
+    pose the callback stood behind, and a callback that aborted or carried a NaN through
+    its own failed invariant stood behind nothing.
+
+    Args:
+        records: One dict per harness step, each carrying `drag`, `callback_error`,
+            `callback_assertion_failures`, `up_along_axis`, and `right_along_axis` as
+            `run_roll_lock_pitch_harness` returns them.
+
+    Returns:
+        None.
+    """
+    unsound_records = [
+        record
+        for record in records
+        if record["callback_error"] is not None
+        or record["callback_assertion_failures"]
+    ]
+    assert not unsound_records, (
+        "The roll lock must hold for every camera the panel can report, so the callback "
+        "must describe each of them rather than reaching a state it cannot: aborting "
+        "leaves the panel unlocked from that relayout on, and a failed internal "
+        "invariant leaves it deriving the pose from a NaN that only the next write "
+        f"decides whether to show. {unsound_records=} {records=}"
+    )
+    tilted_records = [
+        record
+        for record in records
+        if abs(record["right_along_axis"]) > ROLL_LOCKED_PERPENDICULAR_TOLERANCE
+    ]
+    assert not tilted_records, (
+        "A roll-locked camera must keep its right axis perpendicular to the lock axis, "
+        f"which is what holds the horizon level. {tilted_records=} {records=}"
+    )
+    inverted_records = [record for record in records if record["up_along_axis"] < 0]
+    assert not inverted_records, (
+        "A roll-locked camera must never hang the scene upside down, so its up vector "
+        f"must stay on the lock axis's own side. {inverted_records=} {records=}"
+    )
+
+
+def run_roll_lock_pitch_drags(
+    tmp_path: Path,
+    eye: Tuple[float, float, float],
+    up: Tuple[float, float, float],
+) -> List[Dict[str, Any]]:
+    """Drive the roll-lock callback through the pitch drags from one start pose and read back its records.
+
+    Args:
+        tmp_path: Directory the harness source is written to.
+        eye: The `(x, y, z)` world-space coordinates the simulated panel's camera starts
+            at, looking at a rotation target on the world origin.
+        up: The `(x, y, z)` world-space up vector the simulated panel's camera starts
+            with.
+
+    Returns:
+        One dict for the initial render and one per simulated drag, as
+        `run_roll_lock_pitch_harness` returns them.
+    """
     harness_path = tmp_path / "roll_lock_pitch_harness.js"
     harness_path.write_text(
-        build_roll_lock_pitch_harness_script(lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL),
+        build_roll_lock_pitch_harness_script(
+            lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
+            eye=eye,
+            up=up,
+        ),
     )
 
     records = run_roll_lock_pitch_harness(harness_path=harness_path)
 
-    assert len(records) == ROLL_LOCKED_PITCH_DRAG_COUNT, (
-        "The harness must report one record per simulated drag. "
-        f"{len(records)=} {ROLL_LOCKED_PITCH_DRAG_COUNT=}"
+    assert len(records) == ROLL_LOCKED_PITCH_RECORD_COUNT, (
+        "The harness must report one record for the initial render and one per "
+        f"simulated drag. {len(records)=} {ROLL_LOCKED_PITCH_RECORD_COUNT=}"
     )
+    return records
+
+
+def test_the_roll_lock_callback_stops_a_pitch_at_the_pole(tmp_path: Path) -> None:
+    """A pitch that reaches the pole stops there rather than carrying the view through it, so the camera never comes out the far side."""
+    records = run_roll_lock_pitch_drags(
+        tmp_path=tmp_path,
+        eye=ROLL_LOCKED_OFF_AXIS_EYE,
+        up=normalize_vector(NON_AXIS_ALIGNED_LOCK_ROLL),
+    )
+
     polar_angles = [record["polar"] for record in records]
     assert min(polar_angles) <= ROLL_LOCKED_POLE_REACHED_RADIANS, (
         "The simulated pitch must actually reach the pole, or nothing about the pole "
@@ -561,34 +811,78 @@ def test_the_roll_lock_callback_stops_a_pitch_at_the_pole(tmp_path: Path) -> Non
         "Every drag past the pole must leave the camera at the pole rather than "
         f"carrying it out the far side. {polar_angles=}"
     )
+    assert_roll_locked_camera(records=records)
 
 
 def test_the_roll_lock_callback_never_lets_a_pitch_invert_the_camera(
     tmp_path: Path,
 ) -> None:
     """A pole-reaching pitch leaves the camera up vector on the lock axis's own side at every drag, which a camera right axis perpendicular to that axis never says on its own."""
-    harness_path = tmp_path / "roll_lock_pitch_harness.js"
-    harness_path.write_text(
-        build_roll_lock_pitch_harness_script(lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL),
+    records = run_roll_lock_pitch_drags(
+        tmp_path=tmp_path,
+        eye=ROLL_LOCKED_OFF_AXIS_EYE,
+        up=normalize_vector(NON_AXIS_ALIGNED_LOCK_ROLL),
     )
 
-    records = run_roll_lock_pitch_harness(harness_path=harness_path)
+    assert_roll_locked_camera(records=records)
 
-    inverted_records = [record for record in records if record["up_along_axis"] < 0]
-    assert not inverted_records, (
-        "A roll-locked camera must never hang the scene upside down, so its up vector "
-        "must stay on the lock axis's own side through a pitch that reaches the pole. "
-        f"{inverted_records=} {records=}"
+
+def test_the_roll_lock_callback_holds_from_an_eye_on_the_lock_axis(
+    tmp_path: Path,
+) -> None:
+    """A panel framed straight down the lock axis reports a camera whose polar angle is 0, and the roll lock must hold from there rather than aborting on the axis it is asked to hold about."""
+    records = run_roll_lock_pitch_drags(
+        tmp_path=tmp_path,
+        eye=build_eye_along_lock_axis(
+            lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
+            radius=ROLL_LOCKED_START_RADIUS,
+        ),
+        up=build_up_across_lock_axis(lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL),
     )
-    tilted_records = [
-        record
-        for record in records
-        if abs(record["right_along_axis"]) > ROLL_LOCKED_PERPENDICULAR_TOLERANCE
-    ]
-    assert not tilted_records, (
-        "A roll-locked camera must keep its right axis perpendicular to the lock axis "
-        f"through the same drags. {tilted_records=} {records=}"
+
+    assert_roll_locked_camera(records=records)
+
+
+def test_the_roll_lock_callback_holds_from_an_eye_past_the_far_pole(
+    tmp_path: Path,
+) -> None:
+    """A panel framed straight up the lock axis reports a camera whose polar angle is pi, the other end of the same degeneracy, and the roll lock must hold from there too."""
+    records = run_roll_lock_pitch_drags(
+        tmp_path=tmp_path,
+        eye=build_eye_along_lock_axis(
+            lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
+            radius=-ROLL_LOCKED_START_RADIUS,
+        ),
+        up=build_up_across_lock_axis(lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL),
     )
+
+    assert_roll_locked_camera(records=records)
+
+
+def test_the_roll_lock_callback_holds_from_an_already_inverted_camera(
+    tmp_path: Path,
+) -> None:
+    """A panel that comes up already hanging upside down is a start the drags cannot reach, and the roll lock must put it back on the axis's own side from the first render."""
+    records = run_roll_lock_pitch_drags(
+        tmp_path=tmp_path,
+        eye=ROLL_LOCKED_OFF_AXIS_EYE,
+        up=build_inverted_up(
+            lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
+            eye=ROLL_LOCKED_OFF_AXIS_EYE,
+        ),
+    )
+
+    assert_roll_locked_camera(records=records)
+
+
+# A camera whose eye sits on its own rotation target is the one remaining degenerate pose
+# the callback's own normalization cannot describe, and it has no test because a Plotly
+# gl3d panel cannot report it. `Scene.initializeGLCamera` builds the panel's camera with
+# `zoomMin: 0.01, zoomMax: 100`, which become the view controller's radius bounds
+# `[log(0.01), log(100)]`; the eye-to-target distance is stored as that bounded radius
+# and `setDistance` additionally ignores any non-positive distance outright, so no drag,
+# no wheel, and no layout-seeded camera reaches a distance of 0. Measured against the
+# plotly.js bundle the repo's `plotly` 6.7.0 ships.
 
 
 # ================================================================================

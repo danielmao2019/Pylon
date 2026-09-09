@@ -26,13 +26,14 @@ FORBIDDEN_DASH_CAMERA_POLAR_ANGLE_PATTERNS: Final[Tuple[str, ...]] = (
 FORBIDDEN_DASH_CAMERA_ROTATION_PATTERNS: Final[Tuple[str, ...]] = (
     "enableRotate = false",
 )
-# The two halves a roll-locked renderer source must declare: the camera right axis held
-# perpendicular to the caller's axis, and the camera up vector held on that axis's own
-# side, which perpendicularity alone never says.
+# The two halves a roll-locked renderer source must declare, as the vocabulary the
+# repo's roll-locked sources actually carry: the lock about the caller's axis, which is
+# what the camera right axis is held perpendicular to, and the polar angle off that axis,
+# whose band is what holds the camera up vector on the axis's own side - which
+# perpendicularity alone never says.
 ROLL_LOCKED_DASH_CAMERA_CONTROL_PATTERNS: Final[Tuple[str, ...]] = (
-    "cameraRollLock",
-    "cameraRightAxisConstraint",
-    "cameraUpAxisConstraint",
+    "rollLock",
+    "polarAngle",
 )
 # Plotly gl3d `layout.scene.dragmode` that clamps the camera up vector onto the world
 # +Z axis: plotly.js discards any supplied up whose normalized z component falls below
@@ -140,7 +141,7 @@ def register_dash_roll_lock_callback(
 ) -> None:
     """Register the clientside callback holding a Dash graph's camera roll about an axis.
 
-    The `orbit` dragmode `create_dash_trackball_camera_controls` selects carries the caller's axis through re-render but leaves roll free through a drag, so the constraint is re-imposed here: on every camera change the graph reports, the callback clamps `camera.eye` onto the arc that never crosses the caller's axis, re-derives `camera.up` from the clamped view direction and that axis, and writes both back with `Plotly.relayout`. Clamping the eye is what stops a drag at the pole; without it a drag that pitches through the pole leaves the camera right axis perpendicular to the caller's axis while hanging the scene upside down.
+    The `orbit` dragmode `create_dash_trackball_camera_controls` selects carries the caller's axis through re-render but leaves roll free through a drag, so the constraint is re-imposed here: on every camera change the graph reports, the callback bands `camera.eye` away from the caller's axis, stops the camera at the pole a drag carried it through, re-derives `camera.up` from the banded view direction and that axis, and writes both back with `Plotly.relayout`. Banding the eye is what keeps the cross product that re-derives the camera right axis from collapsing on a camera looking straight down the axis; stopping the camera at the pole is what keeps a drag pitching through it from leaving that right axis perpendicular to the caller's axis while hanging the scene upside down. The inlined source is the roll-locked renderer source `assert_dash_roll_lock` guards, so it is asserted here before it is registered.
 
     Args:
         app: The Dash app the callback is registered on.
@@ -175,13 +176,10 @@ def register_dash_roll_lock_callback(
 
     length = math.sqrt(sum(component * component for component in lock_roll))
     axis = [component / length for component in lock_roll]
+    script = ROLL_LOCK_CALLBACK_SCRIPT_PATH.read_text()
+    assert_dash_roll_lock(controls=script, lock_roll=lock_roll)
     app.clientside_callback(
-        "(%s)(%s, %s)"
-        % (
-            ROLL_LOCK_CALLBACK_SCRIPT_PATH.read_text(),
-            json.dumps(graph_id),
-            json.dumps(axis),
-        ),
+        "(%s)(%s, %s)" % (script, json.dumps(graph_id), json.dumps(axis)),
         Input(graph_id, "relayoutData"),
     )
 
@@ -384,8 +382,9 @@ def assert_dash_roll_lock(
 
     Args:
         controls: Renderer camera controls, as Plotly gl3d `layout.scene` camera
-            configuration or as the three.js viewer's camera-control JavaScript
-            source.
+            configuration or as renderer camera-control JavaScript source, which
+            is the three.js viewer's source on an unlocked display and the
+            roll-lock clientside source on a locked one.
         lock_roll: Optional axis the controls lock camera roll about, as an
             `(x, y, z)` world-space direction; None asserts the free trackball.
 
