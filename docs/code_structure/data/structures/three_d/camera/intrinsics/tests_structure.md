@@ -49,6 +49,34 @@ test_intrinsics.py
 │   │       ├── calls _tensor_params(params=another model's numeric key set)
 │   │       └── calls validate_camera_intrinsics_params(model=this model, intr_convention="standard", params=another model's key set)
 │   └── return
+├── def test_intrinsics_params_carry_one_shared_batch_axis
+│   ├── # A camera's params are scalars or a [B] batch, all sharing one leading shape, so a batch of cameras is one intrinsics rather than a list of them.
+│   ├── calls _tensor_params(params=the pinhole key set, batch_size=3)
+│   ├── calls validate_camera_intrinsics_params(model="pinhole", intr_convention="standard", params=those [3] params)
+│   ├── impls assert the returned params dict equals the accepted one
+│   ├── with pytest.raises(AssertionError)
+│   │   └── calls validate_camera_intrinsics_params(model="pinhole", intr_convention="standard", params=a key set whose entries disagree on their leading extent)
+│   └── return
+├── def test_batched_intrinsics_carry_the_batch_through_its_accessors_and_project
+│   ├── # Every derived quantity a batched intrinsics reports carries the batch axis, so one intrinsics answers for all its cameras in one call.
+│   ├── calls _tensor_params(params=the pinhole key set, batch_size=3)
+│   ├── calls build_camera_intrinsics(model="pinhole", params=those [3] params, intr_convention="standard")
+│   ├── impls assert fx, fy, cx, cy and both resolution sides are each [3]
+│   ├── calls intrinsics.project(points_camera=valid camera-space points under the batch axis)
+│   ├── impls assert the image points carry the batch axis ahead of the point axis
+│   ├── for each camera index of the batch
+│   │   ├── calls build_camera_intrinsics(model="pinhole", params=that index's params alone, intr_convention="standard")
+│   │   ├── calls intrinsics.project(points_camera=that camera's points)
+│   │   └── impls assert the batched result's matching slice equals it
+│   └── return
+├── def test_scale_intrinsics_rescales_a_batch_against_each_cameras_own_resolution
+│   ├── # A batch states one resolution per camera, so a shared factor lands on each camera's own raster rather than on one resolution the batch does not have.
+│   ├── calls _tensor_params(params=the pinhole key set whose h and w differ per camera, batch_size=3)
+│   ├── calls build_camera_intrinsics(model="pinhole", params=those [3] params, intr_convention="standard")
+│   ├── calls intrinsics.scale_intrinsics(scale=one factor shared by the batch)
+│   ├── impls assert both resolution sides are [3] and each equals that camera's own side scaled
+│   ├── impls assert each focal equals that camera's own focal scaled
+│   └── return
 ├── def test_validate_intrinsics_params_rejects_a_params_dict_missing_the_resolution
 │   ├── # h and w are two of every model's own params rather than a resolution supplied beside them, so a dict carrying the projection keys alone is rejected ahead of the model's own dispatch.
 │   ├── for each model in {simple_pinhole, pinhole, ortho}
@@ -257,9 +285,12 @@ test_intrinsics.py
 │   ├── impls assert the scale factor tensor receives a gradient
 │   └── return
 ├── def _tensor_params
-│   ├── # A test states its params as plain numbers, and this is what makes them the scalar tensor state a camera actually carries.
-│   ├── impls build one scalar float32 tensor per numeric param, carrying the requested requires_grad
-│   └── return  # the params dict with every value a scalar tensor
+│   ├── # A test states its params as plain numbers, and this is what makes them the tensor state a camera actually carries.
+│   ├── if a batch size was asked for
+│   │   └── impls build one [batch_size] float32 tensor per numeric param, carrying the requested requires_grad
+│   ├── else
+│   │   └── impls build one scalar float32 tensor per numeric param, carrying the requested requires_grad
+│   └── return  # the params dict with every value a tensor of that shape
 ├── def test_fx_fy_cx_cy_derived_from_params
 │   ├── # The per-subclass fx / fy accessors and the base cx / cy accessors are derived from the model params.
 │   ├── for each of the three camera models
