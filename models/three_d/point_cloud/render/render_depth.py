@@ -7,8 +7,14 @@ import torch
 from data.structures.three_d.camera.camera import Camera
 from data.structures.three_d.camera.cameras import Cameras
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
+from models.three_d.point_cloud.render.common.apply_point_size_postprocessing import (
+    apply_point_size_postprocessing,
+)
 from models.three_d.point_cloud.render.common.prepare_points_for_rendering import (
     prepare_points_for_rendering,
+)
+from models.three_d.point_cloud.render.common.select_nearest_point_per_pixel import (
+    select_nearest_point_per_pixel,
 )
 from models.three_d.point_cloud.render.common.validate_rendering_inputs import (
     validate_rendering_inputs,
@@ -72,13 +78,38 @@ def render_depth_from_point_cloud(
     )
 
     # Render depth map
-    return render_depth_from_rendering_points(
+    depth_map = render_depth_from_rendering_points(
         rendering_points=rendered_points,
         resolution=resolution,
         ignore_value=ignore_value,
-        return_mask=return_mask,
+        return_mask=False,
         valid=valid,
     )
+
+    # Dilate each rendered point into a disc of point_size pixels
+    if point_size > 1.0:
+        depth_map = apply_point_size_postprocessing(
+            rendered_image=depth_map,
+            depth_map=depth_map,
+            point_size=point_size,
+            ignore_value=ignore_value,
+        )
+
+    if return_mask:
+        if point_size > 1.0:
+            # The dilation repainted the depth map, so the mask follows it
+            valid_mask = depth_map != ignore_value
+        else:
+            valid_mask = render_mask_from_rendering_points(
+                rendering_points=rendered_points,
+                resolution=resolution,
+                device=rendered_points.device,
+                valid=valid,
+            )
+
+        return depth_map, valid_mask
+    else:
+        return depth_map
 
 
 def render_depth_from_rendering_points(
@@ -88,16 +119,21 @@ def render_depth_from_rendering_points(
     return_mask: bool = False,
     valid: Optional[torch.Tensor] = None,
 ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
-    """Render depth map from pre-processed rendered points.
+    """Rasterize already-projected points into a depth map.
+
+    Reads at each pixel the depth of the point that owns it, so occlusion is
+    decided by depth rather than by which write landed last.
 
     Args:
         rendering_points: Pre-processed points [..., N, 3] with (x, y, depth), the
-            leading axes enumerating the cameras rendered.
+            point axis in pc.xyz order and the leading axes enumerating the
+            cameras rendered.
         resolution: Target resolution as (height, width) tuple.
         ignore_value: Fill value for pixels with no point projections (default: inf).
         return_mask: If True, also return valid pixel mask (default: False).
         valid: Optional [..., N] bool torch.Tensor marking which points each
-            camera keeps; None means every point of rendering_points is written.
+            camera keeps; a point marked False never owns a pixel, and None
+            means every point of rendering_points is marked.
 
     Returns:
         If return_mask is False:
@@ -115,25 +151,18 @@ def render_depth_from_rendering_points(
         else valid
     )
 
-    render_height, render_width = resolution
-
-    # Allocate depth map, its leading axes those of rendering_points
-    depth_map = torch.full(
-        rendering_points.shape[:-2] + (render_height, render_width),
-        ignore_value,
-        dtype=torch.float32,
-        device=rendering_points.device,
+    # Resolve which point owns each pixel, then read that point's own depth
+    winner = select_nearest_point_per_pixel(
+        rendering_points=rendering_points,
+        valid=valid,
+        resolution=resolution,
     )
-
-    # Render pixels, each index selected by valid so a culled point writes nowhere
-    selector = torch.nonzero(valid, as_tuple=True)
-    depth_map[
-        selector[:-1]
-        + (
-            rendering_points[..., 1][selector].long(),
-            rendering_points[..., 0][selector].long(),
-        )
-    ] = rendering_points[..., 2][selector].float()
+    depth_map = torch.gather(
+        rendering_points[..., 2],
+        dim=-1,
+        index=winner.clamp(min=0).reshape(winner.shape[:-2] + (-1,)),
+    ).reshape(winner.shape)
+    depth_map = depth_map.float().masked_fill(winner < 0, ignore_value)
 
     # Handle mask creation if requested
     if return_mask:

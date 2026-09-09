@@ -11,6 +11,9 @@ from models.three_d.point_cloud.render.common.create_circular_kernel_offsets imp
 from models.three_d.point_cloud.render.common.prepare_points_for_rendering import (
     prepare_points_for_rendering,
 )
+from models.three_d.point_cloud.render.common.select_nearest_point_per_pixel import (
+    select_nearest_point_per_pixel,
+)
 from models.three_d.point_cloud.render.common.validate_rendering_inputs import (
     validate_rendering_inputs,
 )
@@ -19,5 +22,6 @@ __all__ = (
     'apply_point_size_postprocessing',
     'create_circular_kernel_offsets',
     'prepare_points_for_rendering',
+    'select_nearest_point_per_pixel',
     'validate_rendering_inputs',
 )
