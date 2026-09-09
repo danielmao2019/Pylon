@@ -157,11 +157,9 @@ cameras.py
     │   │   ├── if device is not None or dtype is not None
     │   │   │   ├── calls intrinsics.to(device=device, dtype=dtype)
     │   │   │   └── calls extrinsics.to(device=device, dtype=dtype)
-    │   │   ├── impls names = one None per camera the extrinsics' leading axis carries, when the caller named none
-    │   │   ├── impls ids = one None per camera, when the caller gave none
-    │   │   └── return intrinsics, extrinsics, names, ids
-    │   ├── calls _normalize_inputs(intrinsics=intrinsics, extrinsics=extrinsics, names=names, ids=ids, device=device, dtype=dtype)
-    │   ├── impls intrinsics, extrinsics, names, ids = the returned values from _normalize_inputs
+    │   │   └── return intrinsics, extrinsics
+    │   ├── calls _normalize_inputs(intrinsics=intrinsics, extrinsics=extrinsics, device=device, dtype=dtype)
+    │   ├── impls intrinsics, extrinsics = the returned values from _normalize_inputs
     │   ├── impls self._intrinsics = intrinsics  # params each [B]
     │   ├── impls self._extrinsics = extrinsics  # matrix [B, 4, 4]
     │   ├── impls self._names = names
