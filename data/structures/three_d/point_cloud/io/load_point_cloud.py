@@ -1,11 +1,10 @@
 import os
-from typing import Dict, Optional, Union
+from typing import Any, Dict, Optional, Union
 
 import laspy
 import numpy as np
 import open3d as o3d
 import torch
-import torch.utils.dlpack as torch_dlpack
 from plyfile import PlyData
 
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
@@ -13,27 +12,22 @@ from data.structures.three_d.point_cloud.point_cloud import PointCloud
 
 def load_point_cloud(
     filepath: str,
-    nameInPly: Optional[str] = None,
-    name_feat: Optional[str] = None,
+    meta_data: Optional[Dict[str, Dict[str, Any]]] = None,
     device: Union[str, torch.device] = 'cuda',
-    dtype: torch.dtype = torch.float32,
 ) -> PointCloud:
-    """Load a point cloud file and return as PointCloud.
+    """Loads one point cloud file of any supported format as the cloud its own columns define, then applies the meta data over the halves that source leaves for the caller.
 
     Args:
-        filepath: Path to point cloud file
-        nameInPly: Name of vertex element in PLY file (optional)
-        name_feat: Name of feature column (optional)
-        device: Device to place tensors on ('cuda', 'cpu', or torch.device)
-        dtype: Precision for position data (torch.float32 or torch.float64)
+        filepath: The path of the point cloud file to read, as a str carrying one of the extensions '.pth', '.ply', '.pcd', '.las', '.laz', '.off' and '.txt'.
+        meta_data: The override, one entry per field keyed by field name, each entry stating a 'dtype' naming a conceptual dtype, a 'layout' naming source columns as a tuple of str, or both, or None to apply the source's own record with nothing written over it.
+        device: The torch device every field is to sit on, as a str or a torch.device.
 
     Returns:
-        PointCloud with coordinates in requested dtype.
-        Additional fields may include 'feat', 'rgb', etc. depending on file format.
+        The loaded point cloud, as a PointCloud carrying an xyz field of shape [N, 3] beside every other field the source's columns and the override assemble.
     """
 
     def _validate_inputs() -> None:
-        assert os.path.splitext(filepath)[1] in {
+        assert os.path.splitext(filepath)[1] in (
             '.pth',
             '.ply',
             '.pcd',
@@ -41,330 +35,199 @@ def load_point_cloud(
             '.laz',
             '.off',
             '.txt',
-        }, f"Unsupported file format: {os.path.splitext(filepath)[1]} from {filepath=}"
+        ), f"a file is read by the reader that owns its extension, and no reader owns this one: filepath={filepath}, extension={os.path.splitext(filepath)[1]}"
 
     _validate_inputs()
 
     def _normalize_inputs(filepath: str) -> str:
-        filepath = os.path.normpath(filepath).replace('\\', '/')
-        assert os.path.isfile(filepath), f"Point cloud file not found: {filepath}"
+        filepath = filepath.replace('\\', '/')
+        # output validation of the rewrite: the normalized path is the one that has to exist
+        assert os.path.isfile(
+            filepath
+        ), f"a point cloud is read from a file that exists: filepath={filepath}"
         return filepath
 
     filepath = _normalize_inputs(filepath=filepath)
 
-    def _load_by_format() -> Dict[str, Union[torch.Tensor, np.ndarray]]:
-        """Read the file through the one reader that owns its extension.
+    pc = _load_by_format(filepath=filepath, device=device)
+    pc.apply_meta_data(meta_data=meta_data)
+    # a raw cloud without coordinates is legal, a loaded one is not, so this is where a positional source that named no layout aborts
+    assert (
+        'xyz' in pc.field_names()
+    ), f"a loaded cloud carries coordinates, so a source numbering its columns is loaded under a layout naming which three are the coordinates: filepath={filepath}, fields={pc.field_names()}, meta_data={meta_data}"
 
-        Args:
-            None. The enclosing call's filepath, nameInPly, name_feat and device are read from the closure.
-
-        Returns:
-            Dictionary keyed by field name ('xyz' plus whatever else the format carries), holding the arrays or tensors the matching reader produced.
-        """
-        file_ext = os.path.splitext(filepath)[1]
-        if file_ext == '.pth':
-            return _load_from_pth(filepath, device=device)
-        if file_ext == '.ply':
-            return _load_from_ply(filepath, nameInPly=nameInPly, name_feat=name_feat)
-        if file_ext == '.pcd':
-            return _load_from_pcd(filepath)
-        if file_ext in ['.las', '.laz']:
-            return _load_from_las(filepath)
-        if file_ext == '.off':
-            return _load_from_off(filepath, device=device)
-        if file_ext == '.txt':
-            return _load_from_txt(filepath)
-        assert 0, "Should not reach here."
-
-    pc_data = _load_by_format()
-
-    def _normalize_field(key: str, x: Union[np.ndarray, torch.Tensor]) -> torch.Tensor:
-        """Place one loaded field on the requested device and cast it to the dtype its key calls for.
-
-        Args:
-            key: Field name the matched reader returned this field under.
-            x: The field exactly as the reader produced it, an np.ndarray or a torch.Tensor.
-
-        Returns:
-            The field as a torch.Tensor on device, positions cast to dtype and a segmentation
-            file's label column cast to torch.int64.
-        """
-        if isinstance(x, np.ndarray):
-            if x.dtype == np.uint16:
-                x = x.astype(np.int32)
-            x = torch.from_numpy(x)
-
-        assert isinstance(x, torch.Tensor), f"{type(x)=} under {key=}"
-        tensor = x.to(device)
-
-        if key == 'xyz':
-            assert tensor.is_floating_point(), f"{tensor.dtype=} from {filepath=}"
-            tensor = tensor.to(dtype)
-
-        is_seg_file = '_seg' in os.path.basename(filepath)
-        if key == 'feat' and is_seg_file:
-            assert tensor.is_floating_point() or tensor.dtype in (
-                torch.uint8,
-                torch.int8,
-                torch.int16,
-                torch.int32,
-                torch.int64,
-            ), f"{tensor.dtype=} from {filepath=}"
-            tensor = tensor.to(torch.int64)
-
-        return tensor
-
-    result = {}
-    for key, value in pc_data.items():
-        result[key] = _normalize_field(key, value)
-
-    return PointCloud(data=result)
+    return pc
 
 
-def _load_from_pth(
-    filepath: str, device: Union[str, torch.device] = 'cuda'
-) -> Dict[str, Union[torch.Tensor, np.ndarray]]:
-    """Load a point cloud from a PyTorch tensor file (.pth).
+def _load_by_format(filepath: str, device: Union[str, torch.device]) -> PointCloud:
+    """Reads the file through the one reader that owns its extension.
 
     Args:
-        filepath: Path to the PyTorch tensor file (.pth)
-        device: Device parameter (ignored - kept for API consistency)
+        filepath: The path of the point cloud file to read, as a str carrying one of the supported extensions.
+        device: The torch device every field is to sit on, as a str or a torch.device.
 
     Returns:
-        Dictionary with 'xyz' containing coordinates and optional 'feat' for additional features.
-        Returns data in whatever format was saved (torch.Tensor or np.ndarray).
+        The raw cloud the matching reader built, as a PointCloud whose fields are the source's own columns.
     """
-    # Load the data - can be either torch.Tensor or np.ndarray
-    data = torch.load(filepath, map_location='cpu')
+    file_ext = os.path.splitext(filepath)[1]
+    if file_ext == '.pth':
+        return _load_from_pth(filepath, device)
+    if file_ext == '.ply':
+        return _load_from_ply(filepath, device)
+    if file_ext == '.pcd':
+        return _load_from_pcd(filepath, device)
+    if file_ext in ['.las', '.laz']:
+        return _load_from_las(filepath, device)
+    if file_ext == '.off':
+        return _load_from_off(filepath, device)
+    if file_ext == '.txt':
+        return _load_from_txt(filepath, device)
+    assert 0, "Should not reach here."
 
-    # Handle both torch.Tensor and np.ndarray
-    assert isinstance(data, (torch.Tensor, np.ndarray))
-    result = {'xyz': data[:, :3]}
-    if data.shape[1] > 3:
-        result['feat'] = data[:, 3:]
 
-    return result
-
-
-def _load_from_ply(
-    filepath: str,
-    nameInPly: Optional[str] = None,
-    name_feat: Optional[str] = None,
-) -> Dict[str, np.ndarray]:
-    """Read XYZ and all available fields from PLY file.
+def _load_from_pth(filepath: str, device: Union[str, torch.device]) -> PointCloud:
+    """Reads a .pth file holding one block the file names nothing about, each column becoming a field under its own index.
 
     Args:
-        filename: Path to PLY file
-        nameInPly: Name of vertex element in PLY (e.g., 'vertex', 'params'). If None, will use first element.
-        name_feat: Name of feature column (deprecated - all fields are now loaded automatically).
+        filepath: The path of the .pth file to read, as a str.
+        device: The torch device every field is to sit on, as a str or a torch.device.
 
     Returns:
-        Dictionary with 'xyz' containing coordinates and all other available fields
-        All data loaded preserving original precision where possible.
+        The raw cloud it built, as a PointCloud whose fields are the block's columns keyed by index, its coordinates unnamed until the caller's meta data names them.
+    """
+    data = torch.load(filepath, map_location='cpu')
+    assert isinstance(
+        data, (torch.Tensor, np.ndarray)
+    ), f"a .pth holds one block of values, as a torch tensor or a numpy array: filepath={filepath}, type(data)={type(data)}"
+    # a block of one axis has no columns to key by index, and splitting one raises an IndexError from inside the split rather than refusing the file at this door
+    assert (
+        data.ndim == 2
+    ), f"a .pth block carries a column axis to key its columns by: filepath={filepath}, data.shape={tuple(data.shape)}"
+    columns = {str(index): data[:, index] for index in range(data.shape[1])}
+
+    return PointCloud(data=columns, device=device)
+
+
+def _load_from_ply(filepath: str, device: Union[str, torch.device]) -> PointCloud:
+    """Reads a PLY's properties as fields, each in the dtype the file stores it in.
+
+    Args:
+        filepath: The path of the .ply file to read, as a str.
+        device: The torch device every field is to sit on, as a str or a torch.device.
+
+    Returns:
+        The raw cloud it built, as a PointCloud whose fields are the file's properties, a multi-element file qualifying every key so PLY's own coordinate names are absent from it.
     """
     with open(filepath, "rb") as f:
         plydata = PlyData.read(f)
-
-        # If nameInPly not specified, use first element
-        if nameInPly is None:
-            assert (
-                len(plydata.elements) == 1
-            ), f"PLY file must have exactly one element, got: {list(plydata.elements.keys())}"
-            nameInPly = plydata.elements[0].name
-
-        num_verts = plydata[nameInPly].count
-        available_fields = plydata[nameInPly].data.dtype.names
-
-        # Always read XYZ in float64 precision
-        positions = np.zeros(shape=[num_verts, 3], dtype=np.float64)
-        positions[:, 0] = plydata[nameInPly].data["x"].astype(np.float64)
-        positions[:, 1] = plydata[nameInPly].data["y"].astype(np.float64)
-        positions[:, 2] = plydata[nameInPly].data["z"].astype(np.float64)
-
-        result = {'xyz': positions}
-
-        # Add RGB colors if available - preserve original data types and values
-        if all(field in available_fields for field in ['red', 'green', 'blue']):
-            rgb = np.column_stack(
-                (
-                    plydata[nameInPly].data["red"],
-                    plydata[nameInPly].data["green"],
-                    plydata[nameInPly].data["blue"],
-                )
-            )
-            result['rgb'] = np.ascontiguousarray(rgb)
-
-        # Load ALL other fields dynamically (except x, y, z, red, green, blue)
-        for field_name in available_fields:
-            if field_name not in {'x', 'y', 'z', 'red', 'green', 'blue'}:
-                # STEP 1: Load as-is, preserving original shape and dtype
-                field_array = np.ascontiguousarray(plydata[nameInPly].data[field_name])
-
-                # STEP 2: Check if shape is [N, 1] and squeeze if needed
-                if field_array.ndim == 2 and field_array.shape[1] == 1:
-                    field_array = field_array.squeeze(axis=1)
-
-                result[field_name] = field_array
-
-        # Add feature if specified and exists (legacy compatibility)
-        if (
-            name_feat is not None
-            and name_feat in available_fields
-            and name_feat not in result
-        ):
-            features = plydata[nameInPly].data[name_feat].astype(np.float64)
-            features = features.reshape(-1, 1)
-            result['feat'] = features
-
-    return result
-
-
-def _load_from_pcd(filepath: str) -> Dict[str, torch.Tensor]:
-    """Read point cloud data from a PCD file using Open3D tensor IO.
-
-    Returns Dict[str, torch.Tensor] directly without dtype/device conversions.
-    """
-
-    tensor_pcd = o3d.t.io.read_point_cloud(filepath)
-
-    assert (
-        'positions' in tensor_pcd.point
-    ), f"PCD file does not contain positions: {filepath}"
-
-    # Return Open3D tensors converted to torch.Tensor directly, as-is
-    pos_t: torch.Tensor = torch_dlpack.from_dlpack(
-        tensor_pcd.point['positions'].to_dlpack()
-    )
-    result: Dict[str, torch.Tensor] = {'xyz': pos_t}
-
-    if 'colors' in tensor_pcd.point:
-        result['rgb'] = torch_dlpack.from_dlpack(tensor_pcd.point['colors'].to_dlpack())
-
-    for field_name, ten in tensor_pcd.point.items():
-        if field_name in {'positions', 'colors'}:
-            continue
-        # Keep original shape and dtype; no squeezing or casting
-        result[field_name] = torch_dlpack.from_dlpack(ten.to_dlpack())
-
-    return result
-
-
-def _load_from_las(filepath: str) -> Dict[str, np.ndarray]:
-    """Read point cloud data from a LAS/LAZ file.
-
-    Args:
-        filename: Path to the LAS/LAZ file
-
-    Returns:
-        Dictionary containing 'xyz' and additional attributes
-        All data loaded in float64 precision for maximum accuracy.
-    """
-    # Read the LAS/LAZ file
-    las_file = laspy.read(filepath)
-
-    # Extract XYZ coordinates in float64 precision
-    points = [
-        np.array(las_file.x, dtype=np.float64),
-        np.array(las_file.y, dtype=np.float64),
-        np.array(las_file.z, dtype=np.float64),
-    ]
-    points = np.vstack(points).T
-
-    # Initialize result dictionary with position
-    result = {'xyz': points}
-
-    # Extract RGB colors if available - preserve original values and data types
-    if all(
-        field in las_file.point_format.dimension_names
-        for field in ['red', 'green', 'blue']
-    ):
-        # Keep original RGB values without normalization
-        rgb = np.vstack(
+        assert (
+            len(plydata.elements) >= 1
+        ), f"a PLY carries at least one element to read columns off: filepath={filepath}, elements={tuple(element.name for element in plydata.elements)}"
+        columns = {
             (
-                np.array(las_file.red),
-                np.array(las_file.green),
-                np.array(las_file.blue),
-            )
-        ).T
-        result['rgb'] = rgb
+                property_name
+                if len(plydata.elements) == 1
+                else f"{element.name}.{property_name}"
+            ): np.ascontiguousarray(element.data[property_name])
+            for element in plydata.elements
+            for property_name in element.data.dtype.names
+        }
 
-    # Add all available attributes
-    for field in las_file.point_format.dimension_names:
-        if field not in [
-            'x',
-            'y',
-            'z',
-            'red',
-            'green',
-            'blue',
-        ]:  # Skip XYZ and RGB as they're already handled
-            attr_value = getattr(las_file, field)
-            if attr_value is not None:
-                # STEP 1: Load as-is, preserving original shape and dtype
-                attr_value = np.array(attr_value)
-
-                # STEP 2: Check if shape is [N, 1] and squeeze if needed
-                if attr_value.ndim == 2 and attr_value.shape[1] == 1:
-                    attr_value = attr_value.squeeze(axis=1)
-
-                result[field] = attr_value
-
-    return result
+        return PointCloud(data=columns, device=device)
 
 
-def _load_from_off(
-    filepath: str, device: Union[str, torch.device] = 'cuda'
-) -> Dict[str, torch.Tensor]:
-    """Read point cloud data from an OFF file.
+def _load_from_pcd(filepath: str, device: Union[str, torch.device]) -> PointCloud:
+    """Reads a PCD through Open3D's tensor IO, each attribute becoming a field whole under its own name.
 
     Args:
-        filepath: Path to OFF file
+        filepath: The path of the .pcd file to read, as a str.
+        device: The torch device every field is to sit on, as a str or a torch.device.
 
     Returns:
-        Dictionary with 'xyz' containing coordinates
+        The raw cloud it built, as a PointCloud whose fields are the file's Open3D attributes.
+    """
+    tensor_pcd = o3d.t.io.read_point_cloud(filepath)
+    columns = {}
+    # a TensorMap iterates its names alone, so the pairs come from items rather than from the map itself
+    for attribute_name, ten in tensor_pcd.point.items():
+        # an attribute is one named block, the way an in-memory variable is, so it is not split into columns of its own
+        columns[attribute_name] = ten.numpy()
+
+    return PointCloud(data=columns, device=device)
+
+
+def _load_from_las(filepath: str, device: Union[str, torch.device]) -> PointCloud:
+    """Reads a LAS/LAZ file's dimensions as fields, each in the dtype laspy materializes it as, which makes a bit-packed dimension an ordinary uint8 field.
+
+    Args:
+        filepath: The path of the .las or .laz file to read, as a str.
+        device: The torch device every field is to sit on, as a str or a torch.device.
+
+    Returns:
+        The raw cloud it built, as a PointCloud whose fields are the file's dimensions beside the scaled real-world coordinate columns 'x', 'y' and 'z'.
+    """
+    las_file = laspy.read(filepath)
+    columns = {}
+    for dimension_name in las_file.point_format.dimension_names:
+        if dimension_name not in ('X', 'Y', 'Z'):
+            columns[dimension_name] = np.asarray(getattr(las_file, dimension_name))
+    columns['x'], columns['y'], columns['z'] = (
+        np.asarray(las_file.x),
+        np.asarray(las_file.y),
+        np.asarray(las_file.z),
+    )
+
+    return PointCloud(data=columns, device=device)
+
+
+def _load_from_off(filepath: str, device: Union[str, torch.device]) -> PointCloud:
+    """Reads the vertex block of an OFF file into float32 coordinate fields.
+
+    Args:
+        filepath: The path of the .off file to read, as a str.
+        device: The torch device every field is to sit on, as a str or a torch.device.
+
+    Returns:
+        The raw cloud it built, as a PointCloud carrying the float32 coordinate fields 'x', 'y' and 'z'.
     """
     with open(filepath, 'r') as f:
         header = f.readline().strip()
-        assert header == 'OFF', f"Invalid OFF file format: {filepath}"
-
-        n_vertices, _, _ = map(int, f.readline().strip().split())
-
+        # ModelNet40 writes the counts glued to the keyword, so OFF is the line's prefix rather than the whole of it
+        assert header.startswith(
+            'OFF'
+        ), f"an OFF file opens on the OFF keyword: filepath={filepath}, header={header}"
+        counts_text = header[len('OFF') :].strip() or next(
+            line for line in f if line.strip() and not line.strip().startswith('#')
+        )
+        n_vertices = int(counts_text.split()[0])
         vertices = []
         for _ in range(n_vertices):
             coords = list(map(float, f.readline().strip().split()))
-            vertices.append(coords[:3])  # Take only XYZ, ignore additional columns
+            vertices.append(coords[:3])
+        # float32 is the width this format is READ at, so the text lands there directly rather than being parsed wide and narrowed onto float32's grid afterwards, which every ordinary decimal would fail
+        positions = np.array(vertices, dtype=np.float32)
+        # a magnitude beyond float32 overflows in the parse, and validate_xyz_tensor is what aborts on it, this reader not repeating a check the construction it feeds already makes
+        columns = {
+            'x': positions[:, 0],
+            'y': positions[:, 1],
+            'z': positions[:, 2],
+        }
 
-        positions = torch.tensor(vertices, dtype=torch.float32, device=device)
-        result = {'xyz': positions}
-        return result
+        return PointCloud(data=columns, device=device)
 
 
-def _load_from_txt(filepath: str) -> Dict[str, np.ndarray]:
-    """Read point cloud data from a text file.
+def _load_from_txt(filepath: str, device: Union[str, torch.device]) -> PointCloud:
+    """Reads a whitespace-separated text point cloud whose leading two lines are a header, each column becoming a field under its own index and nothing divined from how many there are.
 
     Args:
-        filepath: Path to the text file
+        filepath: The path of the .txt file to read, as a str, its leading two lines a header.
+        device: The torch device every field is to sit on, as a str or a torch.device.
 
     Returns:
-        Dictionary with 'xyz' containing coordinates and optional 'feat' for additional features
-        All data loaded in float64 precision for maximum accuracy.
+        The raw cloud it built, as a PointCloud whose fields are the table's columns keyed by index, its coordinates unnamed until the caller's meta data names them.
     """
-    # Load data in float64 precision - SLPCCD format has header lines that need to be skipped
-    data = np.loadtxt(filepath, delimiter=' ', skiprows=2, dtype=np.float64)
+    # no delimiter is named because the default splits on runs of whitespace, taking aligned columns and the single-space file alike, and ndmin holds the column axis open on the one-row file numpy would otherwise hand back flat
+    data = np.loadtxt(filepath, skiprows=2, dtype=np.float64, ndmin=2)
+    columns = {str(index): data[:, index] for index in range(data.shape[1])}
 
-    # Extract XYZ coordinates
-    positions = data[:, 0:3]
-    result = {'xyz': positions}
-
-    # Extract features if available
-    if data.shape[1] > 3:
-        if data.shape[1] >= 7:
-            # SLPCCD format: X Y Z Rf Gf Bf label - use label column as feature
-            features = data[:, 6:7]
-        else:
-            # General format: use all remaining columns as features
-            features = data[:, 3:]
-
-        result['feat'] = features
-
-    return result
+    return PointCloud(data=columns, device=device)

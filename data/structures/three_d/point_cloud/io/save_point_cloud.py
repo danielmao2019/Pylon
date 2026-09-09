@@ -1,140 +1,99 @@
-from typing import Dict, Any
 import os
+from typing import Any, Dict, Optional
+
 import numpy as np
-import torch
 from plyfile import PlyData, PlyElement
+
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
+from utils.dtypes import NUMPY_DTYPE, PLY_CHAR, cast_lossless
 
 
-def save_point_cloud(pc: PointCloud, output_filepath: str) -> None:
-    """Save point cloud data to file.
+def save_point_cloud(
+    pc: PointCloud,
+    output_filepath: str,
+    meta_data: Optional[Dict[str, Dict[str, Any]]] = None,
+) -> None:
+    """Applies the meta data to the cloud and writes it through the writer that owns the output file's extension.
 
     Args:
-        pc: Point cloud data with xyz and other fields
-        output_filepath: Output file path (supports .ply format)
+        pc: The point cloud to write, as a PointCloud whose fields are still on the record it carries.
+        output_filepath: The path of the file to write, as a str carrying the '.ply' extension.
+        meta_data: The override, one entry per field keyed by field name, each entry stating a 'dtype' naming a conceptual dtype, a 'layout' naming the output columns as a tuple of str, or both, or None to write the cloud at the record it carries.
+
+    Returns:
+        None.
     """
-    file_ext = os.path.splitext(output_filepath)[1].lower()
 
-    if file_ext == '.ply':
-        _save_as_ply(pc, output_filepath)
-    else:
-        raise ValueError(
-            f"Unsupported output format: {file_ext}. Currently only .ply is supported."
+    def _validate_inputs() -> None:
+        assert isinstance(
+            pc, PointCloud
+        ), f"a point cloud is written from a PointCloud: type(pc)={type(pc)}"
+        # the two doors of this module refuse an unsupported extension the same way, so a caller meets one behaviour rather than an assert on load and an exception on save
+        assert os.path.splitext(output_filepath)[1].lower() in (
+            '.ply',
+        ), f"a file is written by the writer that owns its extension, and no writer owns this one: output_filepath={output_filepath}, extension={os.path.splitext(output_filepath)[1]}"
+
+    _validate_inputs()
+
+    def _normalize_inputs(output_filepath: str) -> str:
+        output_filepath = (
+            os.path.splitext(output_filepath)[0]
+            + os.path.splitext(output_filepath)[1].lower()
         )
+        return output_filepath
 
-    # Count points for logging
-    num_points = pc.num_points
+    output_filepath = _normalize_inputs(output_filepath=output_filepath)
 
-    print(f"   💾 Saved {num_points} points to: {output_filepath}")
+    pc.apply_meta_data(meta_data=meta_data)
+    if os.path.splitext(output_filepath)[1] == '.ply':
+        _save_as_ply(pc, output_filepath)
+
+    return
 
 
 def _save_as_ply(pc: PointCloud, output_filepath: str) -> None:
-    """Save point cloud data to PLY file using plyfile library.
+    """Writes a point cloud whose meta data is already applied, each field going to the columns and the ply dtype its own entry names, with every value already on the convention and the width that entry states.
 
     Args:
-        pc: Point cloud data with xyz and other fields
-        output_filepath: Output file path (must end with .ply)
+        pc: The point cloud to write, as a PointCloud whose meta data is already applied, every field carrying the values of the convention and the width its own entry names.
+        output_filepath: The path of the .ply file to write, as a str.
+
+    Returns:
+        None.
     """
-    assert output_filepath.endswith(
-        '.ply'
-    ), f"Output file must be .ply format, got: {output_filepath}"
-
-    assert isinstance(pc, PointCloud), f"{type(pc)=}"
-    field_mapping: Dict[str, Any] = {
-        name: getattr(pc, name) for name in pc.field_names()
-    }
-
-    # Get positions and convert to numpy if needed
-    positions = field_mapping['xyz']
-    if isinstance(positions, torch.Tensor):
-        positions = positions.detach().cpu().numpy()
-
-    assert (
-        len(positions.shape) == 2 and positions.shape[1] == 3
-    ), f"Expected positions shape (N, 3), got: {positions.shape}"
-
-    num_points = positions.shape[0]
-
-    # Build vertex dtype and data dictionary dynamically
-    vertex_dtype = [('x', 'f4'), ('y', 'f4'), ('z', 'f4')]
-    vertex_arrays = {
-        'x': positions[:, 0].astype(np.float32),
-        'y': positions[:, 1].astype(np.float32),
-        'z': positions[:, 2].astype(np.float32),
-    }
-
-    # Process all other fields dynamically
-    for field_name, field_data in field_mapping.items():
-        if field_name in ('xyz', 'pos') or field_data is None:
-            continue
-
-        # Convert to numpy if needed
-        if isinstance(field_data, torch.Tensor):
-            field_data = field_data.detach().cpu().numpy()
-
-        # Handle special color field mappings
-        if field_name in ['colors', 'rgb'] and field_data.shape[1] == 3:
-            # Map to standard PLY color names
-            color_data = field_data
-            if color_data.max() <= 1.0:
-                color_data = (color_data * 255).astype(np.uint8)
-            else:
-                color_data = color_data.astype(np.uint8)
-
-            vertex_dtype.extend([('red', 'u1'), ('green', 'u1'), ('blue', 'u1')])
-            vertex_arrays['red'] = color_data[:, 0]
-            vertex_arrays['green'] = color_data[:, 1]
-            vertex_arrays['blue'] = color_data[:, 2]
-
-        elif field_name == 'normals' and field_data.shape[1] == 3:
-            # Map to standard PLY normal names
-            normal_data = field_data.astype(np.float32)
-            vertex_dtype.extend([('nx', 'f4'), ('ny', 'f4'), ('nz', 'f4')])
-            vertex_arrays['nx'] = normal_data[:, 0]
-            vertex_arrays['ny'] = normal_data[:, 1]
-            vertex_arrays['nz'] = normal_data[:, 2]
-
+    vertex_dtype = []
+    vertex_arrays = {}
+    for field_name in pc.field_names():
+        entry = pc.meta_data[field_name]
+        # what the field means, which is the one thing an int32 tensor holding a uint16 colour cannot be asked
+        current_dtype = entry['dtype']
+        column_names = entry['layout']
+        field_tensor = getattr(pc, field_name).detach().cpu().reshape(pc.num_points, -1)
+        if current_dtype in NUMPY_DTYPE:
+            # a uint16 field arrives here as int32, which is what the cast below narrows back
+            field_data = field_tensor.numpy()
         else:
-            # Handle arbitrary fields dynamically
-            if len(field_data.shape) == 1:
-                # Single-column field
-                if field_data.dtype.kind in ['i', 'u']:  # Integer types
-                    dtype_char = 'i4'  # Always use i4 for integers
-                else:  # Float types
-                    dtype_char = 'f4' if field_data.dtype.itemsize <= 4 else 'f8'
+            # bfloat16 has no numpy form at all, and f4 is the column PLY_CHAR sends it to anyway
+            field_data = field_tensor.float().numpy()
+        assert len(column_names) == field_data.shape[1], (
+            "the reverse mapping writes one output column per name, so a count that disagrees leaves the writer with no name for a column: "
+            f"field_name={field_name}, layout={column_names}, field_data.shape={field_data.shape}"
+        )
+        # two fields writing one ply column would silently overwrite each other
+        assert all(
+            column_name not in vertex_arrays for column_name in column_names
+        ), f"one ply column is written by one field: field_name={field_name}, layout={column_names}, columns already written={tuple(vertex_arrays.keys())}"
+        # an int64 field goes to i4 and a uint64 one to u4, and the per-column cast below is where the values decide whether that survives
+        dtype_char = PLY_CHAR[current_dtype]
+        for i, column_name in enumerate(column_names):
+            vertex_dtype.append((column_name, dtype_char))
+            vertex_arrays[column_name] = cast_lossless(
+                values=field_data[:, i], dtype=np.dtype(dtype_char)
+            )
 
-                vertex_dtype.append((field_name, dtype_char))
-                vertex_arrays[field_name] = field_data.astype(
-                    dtype_char[0] + str(int(dtype_char[1]))
-                )
-
-            elif len(field_data.shape) == 2:
-                # Multi-column field - create separate entries for each column
-                for i in range(field_data.shape[1]):
-                    col_name = (
-                        f"{field_name}_{i}" if field_data.shape[1] > 1 else field_name
-                    )
-
-                    if field_data.dtype.kind in ['i', 'u']:  # Integer types
-                        dtype_char = 'i4'  # Always use i4 for integers
-                    else:  # Float types
-                        dtype_char = 'f4' if field_data.dtype.itemsize <= 4 else 'f8'
-
-                    vertex_dtype.append((col_name, dtype_char))
-                    vertex_arrays[col_name] = field_data[:, i].astype(
-                        dtype_char[0] + str(int(dtype_char[1]))
-                    )
-
-    # Create structured numpy array efficiently
-    vertex_array = np.empty(num_points, dtype=vertex_dtype)
-    for field_name in vertex_arrays:
-        vertex_array[field_name] = vertex_arrays[field_name]
-
-    # Create PLY element
+    vertex_array = np.empty(pc.num_points, dtype=vertex_dtype)
+    for column_name in vertex_arrays:
+        vertex_array[column_name] = vertex_arrays[column_name]
     vertex_element = PlyElement.describe(vertex_array, 'vertex')
-
-    # Create output directory if needed
     os.makedirs(os.path.dirname(output_filepath), exist_ok=True)
-
-    # Write PLY file
     PlyData([vertex_element]).write(output_filepath)
