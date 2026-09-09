@@ -187,6 +187,7 @@ goal: re-design pc dtype contract/provenance
 3. `PointCloud.__init__`
    1. must have a local function to build meta data from provided source data and set class attr.
    2. must use `self.apply_meta_data` to apply meta data.
+   3. the local function that builds meta data reads the source data and nothing else. the `meta_data` the constructor is given goes to `apply_meta_data` as the override.
 4. load point cloud
    1. the helpers of load point cloud each constructs a `PointCloud` obj without applying meta data.
    2. the load point cloud API takes the raw `PointCloud` from the helpers and calls `apply_meta_data` on it.
