@@ -98,7 +98,7 @@ goal: re-design pc dtype contract/provenance
       2. it records the conceptual dtype. a field entering as ply u2, as numpy uint16, or as an open3d UInt16 all record the same thing.
       3. it is recorded against the source layout and not the loaded layout: the dtype is the one the source column held, not the one the loaded field carries.
          1. for the ply u4 example in Type Casting, the record holds uint32.
-         2. a float128 source with no override records float128 in meta data.
+         2. a float128 source records float128 in meta data.
    2. layout: it records the mapping defined by Layout Mapping.
 2. granularity: the record is one whole, created when the obj is constructed. inside it, both halves are keyed on the source columns.
 3. immutability: the record is never mutable. adding a field, deleting a field, and overwriting an existing field all leave it exactly as it was.
