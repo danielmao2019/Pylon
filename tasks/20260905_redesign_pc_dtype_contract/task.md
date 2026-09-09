@@ -145,18 +145,18 @@ goal: re-design pc dtype contract/provenance
       3. the point cloud displays under `data/viewer/utils/displays/points/dash` and `data/viewer/utils/displays/points/ts` assume 0 to 255 colors, and each applies Color Data Convention Conversion to rgb in its input normalization.
    2. point cloud I/O:
       1. load point cloud
-         1. load point cloud preserves everything whenever possible, and applies Type Casting only for the dtype mismatch between torch and the format it is reading.
-            1. the load preserves every value the file holds exactly, whichever torch dtype stores it.
-         2. each column becomes a field under the name Layout Mapping assigns it.
-         3. each field enters under the dtype its source defines, as Type Casting defines it.
-         4. a load produces the fields the file holds, and the meta data states which of them are coordinates.
+         1. the per-format helpers
+            1. they load and do necessary type casting when the dtype systems mismatch and when the type cast can be lossless. how this part is done is never a consequence of any meta data from anywhere.
+            2. they construct the meta data record from the data in disk, NOT from the type-casted data stored in the PointCloud obj. i.e., the recorded meta data is a consequence of what's inside the file in disk and nothing else.
+         2. the main load API
+            1. accepts a `meta_data` optional arg override.
+            2. calls the `PointCloud.apply_meta_data` passing down the `meta_data` optional arg after the per-format helpers return.
       2. save point cloud
-         1. strictly follows the meta data: it applies the meta data and then writes the cloud that comes back, so writing does not need to be aware of the dtype mismatch at all.
-            1. the target's dtype and layout come from the record and the override as specified by New Meta Data API, and the dtype casts follow Type Casting.
-         2. save converts colors between conventions.
-            1. rgb is the one field it converts, and every other field reaches its target by a dtype cast alone.
-            2. save applies Color Data Convention Conversion from the field's current color convention to the convention defined by the target conceptual dtype.
-            3. save refuses a lossy one: it hard-asserts and the program aborts, so a rounded color never reaches the file.
+         1. the per-format helpers
+            1. they save and do necessary type casting when dtype systems mismatch and when type cast can be lossless. how this part is done is never a consequence of any meta data from anywhere.
+         2. the main save API
+            1. accepts a `meta_data` optional arg override.
+            2. calls the `PointCloud.apply_meta_data` passing down the `meta_data` optional arg before passing the point cloud obj to the per-format helpers.
 
 #### 1.1.6. What Becomes Stale Design
 
