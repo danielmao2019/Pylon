@@ -21,11 +21,13 @@ def _validate_inputs(
         large.ndim == 2
     ), f"large must be a 2D tensor, got {large.ndim=} with {large.shape=}"
     assert (
-        small.ndim == 2
-    ), f"small must be a 2D tensor, got {small.ndim=} with {small.shape=}"
-    assert small.shape[0] == small.shape[1], f"small must be square, got {small.shape=}"
+        small.ndim >= 2
+    ), f"small must be at least 2D, got {small.ndim=} with {small.shape=}"
     assert (
-        large.shape[1] == small.shape[0]
+        small.shape[-2] == small.shape[-1]
+    ), f"small must be square in its trailing two axes, got {small.shape=}"
+    assert (
+        large.shape[1] == small.shape[-2]
     ), f"inner dimensions must match for matmul, got {large.shape=} and {small.shape=}"
     assert (
         large.device == small.device
@@ -46,6 +48,9 @@ def _validate_inputs(
     ), f"num_divide must be non-negative when set, got {num_divide=}"
     if inplace:
         assert (
+            small.ndim == 2
+        ), f"inplace=True requires a 2D small: leading axes make the product wider than large, leaving nothing to overwrite in place, got {small.shape=}"
+        assert (
             not large.requires_grad and not small.requires_grad
         ), f"inplace=True overwrites large and is illegal under autograd, got {large.requires_grad=} and {small.requires_grad=}"
 
@@ -57,8 +62,8 @@ def _matmul_chunk(
 
     Args:
         large: Left operand chunk of shape [b, K], any floating dtype.
-        small: Right square operand of shape [K, K], same dtype and device as large.
-        out: Destination chunk of shape [b, K], same dtype and device as large; may alias large's rows only when direct is False.
+        small: Right square operand of shape [..., K, K], same dtype and device as large; leading axes broadcast large over them.
+        out: Destination chunk of shape [..., b, M], same dtype and device as large; may alias large's rows only when direct is False.
         direct: When True the GEMM writes straight into out with no intermediate (out must be a distinct, non-grad buffer); when False a temp-copy assignment is used (autograd-safe, and the only correct form when out aliases large, since a GEMM whose out aliases an operand is undefined behavior).
 
     Returns:
@@ -77,19 +82,19 @@ def chunked_matmul(
     max_divide: int = 0,
     num_divide: Optional[int] = None,
 ) -> torch.Tensor:
-    """Multiply a large 2D tensor by a small square 2D tensor on its right, chunking the large's first dim.
+    """Multiply a large 2D tensor by a small [..., K, K] tensor on its right, chunking the large's first dim.
 
     The chunk size is ceil(N / 2 ** num_divide) when num_divide is set, otherwise it starts at N and is halved on each CUDA OOM up to max_divide times, releasing cached CUDA memory between attempts. The loop is resume-safe: a halving continues from the first not-yet-written chunk and never recomputes a completed one, so the in-place path can never double-transform an already-written row. Peak memory follows three paths: inplace overwrites large with no output allocation (only a per-chunk intermediate); the not-inplace no-grad path writes each chunk straight into the output (output only, no intermediate); the not-inplace grad path index-assigns each chunk (output plus a per-chunk intermediate, the autograd-safe minimum).
 
     Args:
         large: Left operand of shape [N, K], any floating dtype.
-        small: Right operand of shape [K, K] (square), same dtype and device as large.
-        inplace: When True the product overwrites large and large is returned; requires that neither operand requires grad. A CUDA-OOM that exhausts max_divide mid-pass leaves large partially transformed (already-written chunks are not rolled back, since that would need the inverse of small); use inplace=False for all-or-nothing semantics.
+        small: Right operand of shape [..., K, K] (square in its trailing two axes), same dtype and device as large. A batched small broadcasts large over its leading axes, so every matrix it carries multiplies the same [N, K] large.
+        inplace: When True the product overwrites large and large is returned; requires a 2D small (leading axes make the product wider than large) and that neither operand requires grad. A CUDA-OOM that exhausts max_divide mid-pass leaves large partially transformed (already-written chunks are not rolled back, since that would need the inverse of small); use inplace=False for all-or-nothing semantics.
         max_divide: Maximum number of chunk halvings on CUDA OOM. int >= 0.
         num_divide: Optional fixed number of halvings, with no OOM retry. int >= 0 when set, else None.
 
     Returns:
-        The [N, K] product, same dtype and device as large; the large object itself when inplace.
+        The [..., N, M] product carrying small's leading axes, same dtype and device as large; the large object itself when inplace, which a batched small therefore cannot produce.
     """
     _validate_inputs(
         large=large,
@@ -101,11 +106,13 @@ def chunked_matmul(
     small = small.contiguous()
 
     N = large.shape[0]
-    M = small.shape[1]
+    M = small.shape[-1]
     out = (
         large
         if inplace
-        else torch.empty((N, M), dtype=large.dtype, device=large.device)
+        else torch.empty(
+            tuple(small.shape[:-2]) + (N, M), dtype=large.dtype, device=large.device
+        )
     )
     direct = not inplace and not large.requires_grad and not small.requires_grad
 
@@ -115,7 +122,9 @@ def chunked_matmul(
     while i < N:
         j = min(N, i + bs)
         try:
-            _matmul_chunk(large=large[i:j], small=small, out=out[i:j], direct=direct)
+            _matmul_chunk(
+                large=large[i:j], small=small, out=out[..., i:j, :], direct=direct
+            )
         except torch.cuda.OutOfMemoryError:
             if num_divide is not None or divides >= max_divide or bs <= 1:
                 raise

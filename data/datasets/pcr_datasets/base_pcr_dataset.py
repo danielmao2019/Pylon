@@ -25,7 +25,6 @@ from data.viewer.utils.displays.points.dash.core_points_display import (
 )
 from data.viewer.utils.structure_validation import validate_pcr_structure
 from models.three_d.point_cloud.ops import apply_transform
-from models.three_d.point_cloud.ops.apply_transform import _normalize_transform
 from models.three_d.point_cloud.ops.set_ops import pc_symmetric_difference
 from models.three_d.point_cloud.ops.set_ops.symmetric_difference import (
     _normalize_points,
@@ -199,18 +198,29 @@ class BasePCRDataset(BaseDataset):
 
     @staticmethod
     def _compute_transform_info(transform: torch.Tensor) -> Dict[str, Any]:
-        """Compute transform information including rotation angle and translation magnitude."""
-        # Normalize transform to handle batched case
-        transform_normalized = _normalize_transform(
-            transform,
-            torch.Tensor,
-            target_device=transform.device,
-            target_dtype=transform.dtype,
-        )
+        """Compute the rotation angle, translation magnitude, and matrix rendering of a single rigid transform for display.
+
+        Args:
+            transform: Rigid transformation matrix as a `torch.Tensor` of shape [4, 4], optionally carrying leading axes of size one (e.g. [1, 4, 4]), of any floating dtype, on any device.
+
+        Returns:
+            Dictionary with key `'transform_str'` holding the 4x4 matrix rendered row by row as a `str`, key `'rotation_angle'` holding the rotation angle in degrees as a 0-dim `torch.Tensor`, and key `'translation_magnitude'` holding the translation norm as a 0-dim `torch.Tensor`.
+        """
+
+        def _normalize_inputs(transform: torch.Tensor) -> torch.Tensor:
+            while transform.ndim > 2 and transform.shape[0] == 1:
+                transform = transform.squeeze(0)
+            assert transform.shape == (
+                4,
+                4,
+            ), f"Transform must reduce to a single 4x4 matrix to have one rotation angle and translation magnitude to display, got {transform.shape=}"
+            return transform
+
+        transform = _normalize_inputs(transform)
 
         # Compute rotation angle and translation magnitude
-        rotation_matrix = transform_normalized[:3, :3]
-        translation_vector = transform_normalized[:3, 3]
+        rotation_matrix = transform[:3, :3]
+        translation_vector = transform[:3, 3]
 
         # Compute rotation angle using the trace of the rotation matrix
         trace = torch.trace(rotation_matrix)
@@ -222,7 +232,7 @@ class BasePCRDataset(BaseDataset):
         # Format the transformation matrix as a string
         transform_str = "Transform Matrix:\n"
         for i in range(4):
-            row = [f"{transform_normalized[i, j]:.4f}" for j in range(4)]
+            row = [f"{transform[i, j]:.4f}" for j in range(4)]
             transform_str += "  ".join(row) + "\n"
 
         return {
