@@ -20,7 +20,7 @@ apply_transform.py
 │   ├── calls _normalize_points
 │   ├── calls _normalize_transform
 │   ├── if isinstance(points_normalized, np.ndarray)
-│   │   ├── impls append a ones column, np.matmul by the transform's trailing-two-axes swap, drop the homogeneous coordinate
+│   │   ├── impls append a ones column, np.matmul by the transform transposed over its trailing two axes, drop the homogeneous coordinate
 │   │   ├── if points_was_batched
 │   │   │   └── impls add back the batch dimension
 │   │   ├── if inplace
@@ -29,7 +29,7 @@ apply_transform.py
 │   │   └── return  # the transformed numpy points
 │   └── else
 │       ├── impls points_h = the points with a ones homogeneous column appended
-│       ├── calls chunked_matmul(points_h, transform_normalized.transpose(-2, -1), max_divide=max_divide, num_divide=num_divide)  # chunked over the point rows
+│       ├── calls chunked_matmul(points_h, the normalized transform transposed over its trailing two axes, max_divide=max_divide, num_divide=num_divide)  # chunked over the point rows
 │       ├── impls drop the homogeneous coordinate from the chunked-matmul result
 │       ├── if points_was_batched
 │       │   └── impls add back the batch dimension
