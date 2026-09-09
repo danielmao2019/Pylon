@@ -113,7 +113,7 @@ goal: re-design pc dtype contract/provenance
    3. an override changes the fields the obj stores and never the recorded meta data, which stays exactly what the source data held.
    4. a dtype override moves the field's values onto the dtype it states.
    5. a layout override chooses which source columns are assembled into a field, and the field the obj stores afterwards is the block those columns make.
-6. save point cloud: each field is written under a target dtype and a target layout, and save derives nothing else.
+6. save point cloud: what reaches the file is the obj's fields brought to the target, and save derives nothing else.
    1. where the obj's fields and the record's fields differ:
       1. a field the record names that the obj no longer holds is not saved.
       2. a field the obj holds that the record does not name takes its target dtype and target layout from the field itself and from the override.
