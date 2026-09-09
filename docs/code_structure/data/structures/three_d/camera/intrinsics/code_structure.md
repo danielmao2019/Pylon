@@ -103,12 +103,12 @@ scaling.py
 ├── from typing import Dict, List, Optional, Tuple, Union
 ├── import numpy as np
 ├── import torch
-├── def rescale_intr_params(params: Dict[str, Union[int, float]], model: str, unit_x: float, unit_y: float) -> Dict[str, Union[int, float]]
+├── def rescale_intr_params(params: Dict[str, torch.Tensor], model: str, unit_x: Union[int, float, torch.Tensor], unit_y: Union[int, float, torch.Tensor]) -> Dict[str, torch.Tensor]
 │   ├── # Restates params measured in the image-plane unit; cx / cy are coordinates for perspective models and weak-perspective offsets for ortho.
 │   ├── impls params = a copy of params
 │   ├── impls cx = unit_x * cx
 │   ├── impls cy = unit_y * cy
-│   ├── def _rescale_focal(params: Dict[str, Union[int, float]]) -> Dict[str, Union[int, float]] [local]
+│   ├── def _rescale_focal(params: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor] [local]
 │   │   ├── # Scales whichever focal params the model carries, the one place the camera models differ under a rescale.
 │   │   ├── if model == "simple_pinhole"
 │   │   │   ├── impls assert unit_x == unit_y  # one shared f cannot carry two different axis scales, and a pair that disagrees is a pinhole rather than this model
@@ -120,7 +120,7 @@ scaling.py
 │   │   └── raise NotImplementedError  # a camera model whose focal params no rescale here has a rule for yet
 │   ├── calls _rescale_focal
 │   └── return  # params, in the target unit, h and w as they came in
-└── def resolve_target_resolution(params: Dict[str, Union[int, float]], resolution: Optional[Union[int, Tuple[int, int], List[int], np.ndarray, torch.Tensor]] = None, scale: Optional[Union[int, float, Tuple[Union[int, float], Union[int, float]], List[Union[int, float]], np.ndarray, torch.Tensor]] = None) -> Tuple[int, int]
+└── def resolve_target_resolution(params: Dict[str, torch.Tensor], resolution: Optional[Union[int, Tuple[int, int], List[int], np.ndarray, torch.Tensor]] = None, scale: Optional[Union[int, float, Tuple[Union[int, float], Union[int, float]], List[Union[int, float]], np.ndarray, torch.Tensor]] = None) -> Tuple[Union[int, torch.Tensor], Union[int, torch.Tensor]]
     ├── # Resolves the two ways a caller names a target resolution — the size itself, or a factor on the size the params already carry — into the single form a rescale reads.
     ├── def _validate_inputs [local]
     │   ├── impls assert exactly one of resolution and scale is given  # impls-node-one-step:skip; a target resolution and a factor are two ways to name the same thing, and giving both leaves unstated which one wins
@@ -156,13 +156,14 @@ scaling.py
 
 ```text
 conventions.py
-├── from typing import Dict, Tuple, Union
+├── from typing import Dict, Tuple
+├── import torch
 ├── from data.structures.three_d.camera.intrinsics.scaling import rescale_intr_params
-├── def transform_intr_convention(params: Dict[str, Union[int, float]], model: str, source_intr_convention: str, target_intr_convention: str) -> Dict[str, Union[int, float]]
+├── def transform_intr_convention(params: Dict[str, torch.Tensor], model: str, source_intr_convention: str, target_intr_convention: str) -> Dict[str, torch.Tensor]
 │   ├── # Restates one camera model's named params from the image-plane frame they were stated in into another, routed through the standard frame so each frame brings its own two helpers rather than one against every frame already here.
 │   ├── if source_intr_convention == target_intr_convention
 │   │   └── return params
-│   ├── def _to_standard(params: Dict[str, Union[int, float]]) -> Dict[str, Union[int, float]] [local]
+│   ├── def _to_standard(params: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor] [local]
 │   │   ├── # Dispatches the source frame onto its own inbound spoke, the standard frame being already there.
 │   │   ├── if source_intr_convention == "standard"
 │   │   │   └── return params
@@ -177,7 +178,7 @@ conventions.py
 │   │   │   └── return params
 │   │   └── assert 0, "Should not reach here."
 │   ├── calls _to_standard
-│   ├── def _from_standard(params: Dict[str, Union[int, float]]) -> Dict[str, Union[int, float]] [local]
+│   ├── def _from_standard(params: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor] [local]
 │   │   ├── # Dispatches the target frame onto its own outbound spoke, the standard frame needing none.
 │   │   ├── if target_intr_convention == "standard"
 │   │   │   └── return params
@@ -193,56 +194,56 @@ conventions.py
 │   │   └── assert 0, "Should not reach here."
 │   ├── calls _from_standard
 │   └── return  # params, restated on target_intr_convention
-├── def _opengl_to_standard(params: Dict[str, Union[int, float]], model: str) -> Dict[str, Union[int, float]]
+├── def _opengl_to_standard(params: Dict[str, torch.Tensor], model: str) -> Dict[str, torch.Tensor]
 │   ├── # The inbound half of the same frame, the three steps run in reverse so a round trip returns what it started as.
 │   ├── impls unit_x, unit_y = w / 2, h / 2
 │   ├── calls rescale_intr_params(params=params, model=model, unit_x=unit_x, unit_y=unit_y)
 │   ├── calls _reverse_axes(params=params, axes=("y",))
 │   ├── calls _uncentre_principal_point(params=params)
 │   └── return  # params, on the standard frame
-├── def _pytorch3d_to_standard(params: Dict[str, Union[int, float]], model: str) -> Dict[str, Union[int, float]]
+├── def _pytorch3d_to_standard(params: Dict[str, torch.Tensor], model: str) -> Dict[str, torch.Tensor]
 │   ├── # The inbound half of the same frame, the three steps run in reverse.
 │   ├── impls unit = min(h, w) / 2
 │   ├── calls rescale_intr_params(params=params, model=model, unit_x=unit, unit_y=unit)
 │   ├── calls _reverse_axes(params=params, axes=("x", "y"))
 │   ├── calls _uncentre_principal_point(params=params)
 │   └── return  # params, on the standard frame
-├── def _vulkan_to_standard(params: Dict[str, Union[int, float]], model: str) -> Dict[str, Union[int, float]]
+├── def _vulkan_to_standard(params: Dict[str, torch.Tensor], model: str) -> Dict[str, torch.Tensor]
 │   ├── # The inbound half of the same frame, the two steps run in reverse.
 │   ├── impls unit_x, unit_y = w / 2, h / 2
 │   ├── calls rescale_intr_params(params=params, model=model, unit_x=unit_x, unit_y=unit_y)
 │   ├── calls _uncentre_principal_point(params=params)
 │   └── return  # params, on the standard frame
-├── def _standard_to_opengl(params: Dict[str, Union[int, float]], model: str) -> Dict[str, Union[int, float]]
+├── def _standard_to_opengl(params: Dict[str, torch.Tensor], model: str) -> Dict[str, torch.Tensor]
 │   ├── # Restates pixel params on OpenGL's device frame, whose origin is the image's centre, whose x runs with standard's toward the right edge and whose y runs against it toward the top, each axis spanning its own side.
 │   ├── impls unit_x, unit_y = 2 / w, 2 / h              # each axis spans [-1, 1] across its own side
 │   ├── calls _centre_principal_point(params=params)     # -> params, off the top-left corner onto the image's centre
 │   ├── calls _reverse_axes(params=params, axes=("y",))  # standard's y runs toward the bottom edge and OpenGL's toward the top
 │   ├── calls rescale_intr_params(params=params, model=model, unit_x=unit_x, unit_y=unit_y)
 │   └── return  # params, on the opengl frame
-├── def _standard_to_pytorch3d(params: Dict[str, Union[int, float]], model: str) -> Dict[str, Union[int, float]]
+├── def _standard_to_pytorch3d(params: Dict[str, torch.Tensor], model: str) -> Dict[str, torch.Tensor]
 │   ├── # Restates pixel params on PyTorch3D's device frame, whose origin is the image's centre, whose x runs toward the left edge and y toward the top, and whose shorter side alone spans [-1, 1].
 │   ├── impls unit = 2 / min(h, w)  # the one frame here normalizing both axes by a single side, letting the longer one reach past $1$
 │   ├── calls _centre_principal_point(params=params)
 │   ├── calls _reverse_axes(params=params, axes=("x", "y"))  # standard runs x toward the right edge and y toward the bottom, PyTorch3D x toward the left and y toward the top
 │   ├── calls rescale_intr_params(params=params, model=model, unit_x=unit, unit_y=unit)
 │   └── return  # params, on the pytorch3d frame
-├── def _standard_to_vulkan(params: Dict[str, Union[int, float]], model: str) -> Dict[str, Union[int, float]]
+├── def _standard_to_vulkan(params: Dict[str, torch.Tensor], model: str) -> Dict[str, torch.Tensor]
 │   ├── # Restates pixel params on Vulkan's device frame, which agrees with standard on both axis directions and differs from OpenGL's in exactly that.
 │   ├── impls unit_x, unit_y = 2 / w, 2 / h
 │   ├── calls _centre_principal_point(params=params)
 │   ├── calls rescale_intr_params(params=params, model=model, unit_x=unit_x, unit_y=unit_y)
 │   └── return  # params, on the vulkan frame
-├── def _centre_principal_point(params: Dict[str, Union[int, float]]) -> Dict[str, Union[int, float]]
+├── def _centre_principal_point(params: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]
 │   ├── # Moves the principal point off the image's top-left corner onto its centre, the separation no axis reversal can carry and the largest of the three.
 │   ├── impls cx, cy = cx - w / 2, cy - h / 2 in a copy of params  # every model states its principal point and its size as the same four params
 │   └── return  # params, on a centred origin
-├── def _reverse_axes(params: Dict[str, Union[int, float]], axes: Tuple[str, ...]) -> Dict[str, Union[int, float]]
+├── def _reverse_axes(params: Dict[str, torch.Tensor], axes: Tuple[str, ...]) -> Dict[str, torch.Tensor]
 │   ├── # Reverses the named image axes, which reaches the principal point alone.
 │   ├── for each named axis
 │   │   └── impls negate that axis's principal-point param in a copy of params  # the offset is stated on the output side alone, so a reversal reaches it unopposed
 │   └── return  # params, on the reversed axes
-└── def _uncentre_principal_point(params: Dict[str, Union[int, float]]) -> Dict[str, Union[int, float]]
+└── def _uncentre_principal_point(params: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]
     ├── # Moves the principal point back off the image's centre onto its top-left corner.
     ├── impls cx, cy = cx + w / 2, cy + h / 2 in a copy of params
     └── return  # params, on a corner origin
@@ -266,8 +267,8 @@ camera_intrinsics.py
 │   │   ├── # Construct a CameraIntrinsics from tensor-compatible named scalar params and the image-plane frame they are stated in.
 │   │   ├── calls validate_camera_intrinsics_attributes(model=type(self).MODEL, intr_convention=intr_convention, params=params, device=device, dtype=dtype)
 │   │   ├── def _normalize_inputs [local]
-│   │   │   ├── impls params = each value materialized as a scalar torch.Tensor without applying the placement request
-│   │   │   ├── impls asserts every normalized param is a scalar torch.Tensor
+│   │   │   ├── impls params = each value materialized as a torch.Tensor without applying the placement request
+│   │   │   ├── impls asserts every normalized param is a scalar torch.Tensor or a one-axis batch, all sharing one leading batch shape  # a scalar param is the empty-batch case
 │   │   │   ├── impls asserts every normalized param shares one device
 │   │   │   ├── impls asserts every normalized param shares one dtype
 │   │   │   └── return params
@@ -324,11 +325,11 @@ camera_intrinsics.py
 │   │   │   └── return self
 │   │   ├── impls intrinsics = type(self)(params=params, intr_convention=intr_convention or self._intr_convention)
 │   │   └── return intrinsics
-│   ├── def transform_intrinsics(self, transform: torch.Tensor, resolution: Tuple[int, int]) -> "CameraIntrinsics"
+│   ├── def transform_intrinsics(self, transform: torch.Tensor, resolution: Tuple[Union[int, torch.Tensor], Union[int, torch.Tensor]]) -> "CameraIntrinsics"
 │   │   ├── # Return this CameraIntrinsics restated onto another image by a pixel-frame affine, the raster that image is named alongside it because a 3x3 carries no size of its own.
 │   │   ├── def _validate_inputs [local]
 │   │   │   ├── impls assert transform is a [..., 3, 3] float32 whose last row is [0, 0, 1]
-│   │   │   └── impls assert resolution is an (h, w) pair of positive ints
+│   │   │   └── impls assert resolution is an (h, w) pair of positive integer-valued scalars or [B] tensors  # a batch scales each camera's own raster, so the sides differ per camera
 │   │   ├── calls _validate_inputs
 │   │   ├── calls transform_intr_convention(params=self._params, model=type(self).MODEL, source_intr_convention=self._intr_convention, target_intr_convention="standard")  # -> params, in pixels; an affine between two rasters composes only with a K stated in them
 │   │   ├── impls K = transform @ the [..., 3, 3] assembled from self.fx, self.fy and params' cx, cy  # impls-node-one-step:skip; the per-model accessors, since simple_pinhole states its two focals as one f

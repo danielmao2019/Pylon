@@ -139,12 +139,12 @@ camera.py
 
 ```text
 cameras.py
-├── from typing import Iterator, List, Optional, Sequence, Union
+├── from typing import Iterator, List, Optional, Sequence, Tuple, Union
 ├── import numpy as np
 ├── import torch
 ├── from data.structures.three_d.camera.camera import Camera
 ├── from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
-├── from data.structures.three_d.camera.intrinsics.camera_intrinsics import CameraIntrinsics
+├── from data.structures.three_d.camera.intrinsics.camera_intrinsics import CameraIntrinsics, build_camera_intrinsics
 ├── from data.structures.three_d.camera.validation import validate_cameras_attributes
 └── class Cameras
     ├── # A batch of cameras: one CameraIntrinsics and one CameraExtrinsics carrying a leading batch axis, so every method they already have operates on the whole batch.

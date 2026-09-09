@@ -119,11 +119,12 @@ validate_rendering_inputs.py
 ├── from typing import Optional, Tuple, Union
 ├── import torch
 ├── from data.structures.three_d.camera.camera import Camera
+├── from data.structures.three_d.camera.cameras import Cameras
 ├── from data.structures.three_d.point_cloud.point_cloud import PointCloud
-└── def validate_rendering_inputs(pc: PointCloud, camera: Camera, resolution: Tuple[int, int], ignore_value: Optional[Union[int, float]] = None, return_mask: bool = False, point_size: float = 1.0) -> None
+└── def validate_rendering_inputs(pc: PointCloud, camera: Union[Camera, Cameras], resolution: Tuple[int, int], ignore_value: Optional[Union[int, float]] = None, return_mask: bool = False, point_size: float = 1.0) -> None
     ├── # The precondition the depth, rgb, segmentation and normal entries assert before projecting: a point cloud sharing one device with its camera, a positive (height, width) pair, a point size of at least one pixel.
     ├── assert isinstance(pc, PointCloud)  # f"{type(pc)=}"
-    ├── assert isinstance(camera, Camera)  # f"{type(camera)=}"
+    ├── assert isinstance(camera, (Camera, Cameras))  # f"{type(camera)=}"; the checks below read only the two components, which a single camera and a batch both carry
     ├── impls points = pc.xyz
     ├── impls intrinsics = camera.intrinsics
     ├── impls extrinsics = camera.extrinsics
