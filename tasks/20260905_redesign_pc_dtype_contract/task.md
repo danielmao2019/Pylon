@@ -112,8 +112,9 @@ goal: re-design pc dtype contract/provenance
    1. `__init__`, load point cloud and save point cloud each accept one, and it reaches both halves at each.
    2. it is optional where the source defines a half, and it replaces that half when it states one.
    3. it is required where the source does not define a half: the caller supplies that half, and a construction or load without it hard-asserts and aborts.
-   4. a dtype override changes the target dtype without changing the source dtype the record keeps.
-   5. a layout override chooses which source columns are assembled into a field. the mapping's loaded side is what the override asked for, while its source side stays the columns the source held.
+   4. an override never reaches the record at any of the three doors: the record is what the source data held and nothing a caller states rewrites it, so an override moves the target alone.
+   5. a dtype override changes the target dtype without changing the source dtype the record keeps.
+   6. a layout override chooses which source columns are assembled into a field. the target mapping's loaded side is what the override asked for, while its source side stays the columns the source held, and the record goes on holding the mapping the source defined.
 7. save point cloud: each field is written under a target dtype and a target layout, and save derives nothing else.
    1. where the obj's fields and the record's fields differ:
       1. a field the record names that the obj no longer holds is not saved.
