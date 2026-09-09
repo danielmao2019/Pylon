@@ -123,6 +123,23 @@ class CameraExtrinsics:
         """
         return self._dtype
 
+    def __getitem__(
+        self, index: Union[int, slice, List[int], None]
+    ) -> "CameraExtrinsics":
+        """Index the leading batch axis the camera-to-world matrix carries.
+
+        Args:
+            index: The index applied to the matrix's leading axis the way the tensor indexes its own, so ``None`` adds an axis of one and an int drops it.
+
+        Returns:
+            A CameraExtrinsics whose camera-to-world matrix carries the indexed leading axis.
+        """
+        extrinsics = CameraExtrinsics(
+            extrinsics=self._extrinsics[index],
+            extr_convention=self._extr_convention,
+        )
+        return extrinsics
+
     @property
     def w2c(self) -> torch.Tensor:
         """The world-to-camera matrix (inverse of extrinsics).

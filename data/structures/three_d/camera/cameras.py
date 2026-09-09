@@ -7,7 +7,6 @@ from data.structures.three_d.camera.camera import Camera
 from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
 from data.structures.three_d.camera.intrinsics.camera_intrinsics import (
     CameraIntrinsics,
-    build_camera_intrinsics,
 )
 from data.structures.three_d.camera.validation import validate_cameras_attributes
 
@@ -265,17 +264,8 @@ class Cameras:
                 f"{index=} {list(self._name_to_index.keys())=}"
             )
             index = self._name_to_index[index]
-        # a pass over the model's few param names, never over the cameras
-        params = {key: value[index] for key, value in self._intrinsics.params.items()}
-        intrinsics = build_camera_intrinsics(
-            model=self._intrinsics.model,
-            params=params,
-            intr_convention=self._intrinsics.intr_convention,
-        )
-        extrinsics = CameraExtrinsics(
-            extrinsics=self._extrinsics.extrinsics[index],
-            extr_convention=self._extrinsics.extr_convention,
-        )
+        intrinsics = self._intrinsics[index]
+        extrinsics = self._extrinsics[index]
         if isinstance(index, int):
             return Camera(
                 intrinsics=intrinsics,
