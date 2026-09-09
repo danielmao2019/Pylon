@@ -210,7 +210,7 @@ def prepare_points_for_rendering(
     points = pc.xyz
 
     camera_prepared = camera.to(
-        device=points.device, extr_convention="opencv"
+        device=points.device, dtype=points.dtype, extr_convention="opencv"
     ).scale_intrinsics(resolution=resolution)
 
     # If `num_divide` is set, derive batch size from N / 2**num_divide.

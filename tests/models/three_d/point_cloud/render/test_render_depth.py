@@ -248,6 +248,69 @@ def test_render_depth_invalid_inputs() -> None:
         )
 
 
+def test_a_float64_cloud_renders_against_a_float32_camera() -> None:
+    """Test that a float64 point cloud renders against a float32 camera."""
+    pc_data = PointCloud(
+        xyz=torch.tensor(
+            [
+                [0.0, 0.0, -1.0],
+                [0.2, 0.2, -1.5],
+                [-0.3, -0.3, -2.0],
+                [0.1, -0.4, -2.5],
+            ],
+            dtype=torch.float64,
+        )
+    )
+
+    camera = _build_camera(focal=100.0, principal_point=50.0)
+
+    depth_map = render_depth_from_point_cloud(
+        pc=pc_data,
+        camera=camera,
+        resolution=(100, 100),
+    )
+
+    assert depth_map.shape == (100, 100), (
+        "A float64 cloud rendered a depth map of the wrong resolution. "
+        f"{depth_map.shape=}, {pc_data.xyz.dtype=}, {camera.intrinsics.dtype=}"
+    )
+    valid_depths = depth_map[depth_map != -1.0]
+    assert torch.isfinite(valid_depths).all(), (
+        "A float64 cloud rendered non-finite depths. "
+        f"{valid_depths=}, {pc_data.xyz.dtype=}, {camera.intrinsics.dtype=}"
+    )
+
+
+def test_the_coordinates_are_not_narrowed_to_the_camera() -> None:
+    """Test that float64 coordinates keep depth detail finer than a float32 step."""
+    near_depth = 1.0
+    far_depth = 1.0000001  # Less than one float32 step away from near_depth.
+    pc_data = PointCloud(
+        xyz=torch.tensor(
+            [
+                [0.0, 0.0, -near_depth],
+                [0.2, 0.0, -far_depth],
+            ],
+            dtype=torch.float64,
+        )
+    )
+
+    camera = _build_camera(focal=100.0, principal_point=50.0)
+
+    depth_map = render_depth_from_point_cloud(
+        pc=pc_data,
+        camera=camera,
+        resolution=(100, 100),
+    )
+
+    valid_depths = torch.unique(depth_map[depth_map != -1.0])
+    assert valid_depths.numel() == 2, (
+        "The two points did not land at distinct depths, so the depth detail "
+        "carried by the float64 coordinates was narrowed away. "
+        f"{valid_depths=}, {near_depth=}, {far_depth=}, {pc_data.xyz.dtype=}"
+    )
+
+
 def _build_camera(focal: float, principal_point: float) -> Camera:
     """Build an identity-pose OpenGL pinhole camera on the CPU.
 
