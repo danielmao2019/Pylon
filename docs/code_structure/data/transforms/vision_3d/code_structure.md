@@ -23,11 +23,11 @@ random_rigid_transform.py
     │   ├── impls random_transform = the transform it sampled
     │   ├── calls apply_transform(points=src_pc.xyz, transform=random_transform)
     │   ├── impls transformed_src_xyz = the posed coordinates
-    │   ├── impls src_fields = every field of src_pc but xyz
-    │   ├── calls PointCloud(xyz=transformed_src_xyz, data=src_fields)
-    │   ├── impls new_src_pc = the cloud it built
-    │   ├── impls tgt_fields = every field of tgt_pc but xyz
-    │   ├── calls PointCloud(xyz=tgt_pc.xyz, data=tgt_fields)
+    │   ├── impls src_fields = transformed_src_xyz under 'xyz' followed by every other field of src_pc in its own order
+    │   ├── calls PointCloud(data=src_fields, meta_data=src_pc.meta_data)
+    │   ├── impls new_src_pc = the cloud it built  # a pose is not a source, so the meta data crosses unchanged rather than being rebuilt from the posed tensors
+    │   ├── impls tgt_fields = tgt_pc.xyz under 'xyz' followed by every other field of tgt_pc in its own order
+    │   ├── calls PointCloud(data=tgt_fields, meta_data=tgt_pc.meta_data)
     │   ├── impls new_tgt_pc = the cloud it built  # the target is rebuilt rather than passed through, so neither returned cloud aliases an input
     │   ├── impls random_transform_inv = the inverse of random_transform
     │   ├── impls new_transform = transform composed with random_transform_inv, mapping the posed source onto the target
