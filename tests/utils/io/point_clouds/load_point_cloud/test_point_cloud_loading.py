@@ -677,44 +677,46 @@ def test_an_off_with_a_comment_before_its_counts_loads(temp_dir):
     ), f"{result.xyz.numpy()=}, {vertices=}"
 
 
-def test_load_from_ply_returns_columns_and_their_layout(temp_dir):
-    """The PLY reader hands back the file's own columns and how PLY names their layout; assembly into xyz and rgb happens later."""
+def test_load_from_ply_returns_the_file_s_own_columns_as_a_raw_cloud(temp_dir):
+    """The PLY reader builds the cloud the file's own column names define, and the record it comes with is how PLY names their layout."""
     filepath = os.path.join(temp_dir, "reader.ply")
     write_ply(filepath, with_rgb=True, extra_field='intensity')
 
-    columns, layout = _load_from_ply(filepath=filepath)
+    pc = _load_from_ply(filepath=filepath, device='cpu')
 
-    assert set(columns.keys()) == {
+    assert set(pc.field_names()) == {
+        'xyz',
+        'rgb',
+        'intensity',
+    }, f"{pc.field_names()=}"
+    assert pc.meta_data['xyz']['dtype'] == 'float32', f"{pc.meta_data['xyz']=}"
+    assert pc.meta_data['rgb']['dtype'] == 'uint8', f"{pc.meta_data['rgb']=}"
+    assert (
+        pc.meta_data['intensity']['dtype'] == 'float32'
+    ), f"{pc.meta_data['intensity']=}"
+    assert pc.meta_data['xyz']['layout'] == (
         'x',
         'y',
         'z',
+    ), f"{pc.meta_data['xyz']=}"
+    assert pc.meta_data['rgb']['layout'] == (
         'red',
         'green',
         'blue',
+    ), f"{pc.meta_data['rgb']=}"
+    assert pc.meta_data['intensity']['layout'] == (
         'intensity',
-    }, f"{tuple(columns.keys())=}"
-    assert all(
-        isinstance(column, np.ndarray) for column in columns.values()
-    ), f"{ {name: type(column) for name, column in columns.items()} =}"
-    assert all(
-        columns[name].dtype == np.dtype('float32') for name in ('x', 'y', 'z')
-    ), f"{ {name: columns[name].dtype for name in ('x', 'y', 'z')} =}"
-    assert all(
-        columns[name].dtype == np.dtype('uint8') for name in ('red', 'green', 'blue')
-    ), f"{ {name: columns[name].dtype for name in ('red', 'green', 'blue')} =}"
-    assert layout['xyz'] == ('x', 'y', 'z'), f"{layout=}"
-    assert layout['rgb'] == ('red', 'green', 'blue'), f"{layout=}"
-    assert layout['intensity'] == ('intensity',), f"{layout=}"
+    ), f"{pc.meta_data['intensity']=}"
 
 
 def test_load_from_txt_returns_its_columns_under_their_indices(temp_dir):
-    """The text reader names its columns by position and nothing else, so a seven-column file hands back seven float64 arrays and no field names at all."""
+    """The text reader names its columns by position and nothing else, so a seven-column file hands back seven float64 fields and no field names at all."""
     filepath = os.path.join(temp_dir, "reader.txt")
     write_txt(filepath, num_columns=7)
 
-    columns, layout = _load_from_txt(filepath=filepath)
+    pc = _load_from_txt(filepath=filepath, device='cpu')
 
-    assert set(columns.keys()) == {
+    assert set(pc.field_names()) == {
         '0',
         '1',
         '2',
@@ -722,12 +724,12 @@ def test_load_from_txt_returns_its_columns_under_their_indices(temp_dir):
         '4',
         '5',
         '6',
-    }, f"{tuple(columns.keys())=}"
+    }, f"{pc.field_names()=}"
     assert all(
-        column.dtype == np.dtype('float64') for column in columns.values()
-    ), f"{ {name: column.dtype for name, column in columns.items()} =}"
-    # the file defines none, which is what makes the caller's meta data required rather than optional
-    assert layout is None, f"{layout=}"
+        getattr(pc, name).dtype == torch.float64 for name in pc.field_names()
+    ), f"{ {name: getattr(pc, name).dtype for name in pc.field_names()} =}"
+    # the file defines no coordinate columns, which is what makes the caller's meta data required rather than optional
+    assert 'xyz' not in pc.field_names(), f"{pc.field_names()=}"
 
 
 def test_load_from_txt_divines_no_fields_from_the_column_count(temp_dir):
@@ -735,11 +737,11 @@ def test_load_from_txt_divines_no_fields_from_the_column_count(temp_dir):
     filepath = os.path.join(temp_dir, "no_divination.txt")
     write_txt(filepath, num_columns=7)
 
-    columns, _ = _load_from_txt(filepath=filepath)
+    pc = _load_from_txt(filepath=filepath, device='cpu')
 
-    assert 'xyz' not in columns, f"{tuple(columns.keys())=}"
-    assert 'rgb' not in columns, f"{tuple(columns.keys())=}"
-    assert 'feat' not in columns, f"{tuple(columns.keys())=}"
+    assert 'xyz' not in pc.field_names(), f"{pc.field_names()=}"
+    assert 'rgb' not in pc.field_names(), f"{pc.field_names()=}"
+    assert 'feat' not in pc.field_names(), f"{pc.field_names()=}"
 
 
 def test_load_from_txt_reads_columns_however_they_are_spaced(temp_dir):
@@ -747,28 +749,30 @@ def test_load_from_txt_reads_columns_however_they_are_spaced(temp_dir):
     filepath = os.path.join(temp_dir, "aligned.txt")
     written = write_txt(filepath, num_columns=3, spacing='aligned')
 
-    aligned_columns, _ = _load_from_txt(filepath=filepath)
+    aligned_pc = _load_from_txt(filepath=filepath, device='cpu')
 
-    assert set(aligned_columns.keys()) == {
+    assert set(aligned_pc.field_names()) == {
         '0',
         '1',
         '2',
-    }, f"{tuple(aligned_columns.keys())=}"
+    }, f"{aligned_pc.field_names()=}"
     assert all(
-        np.allclose(aligned_columns[str(index)], written[:, index])
+        np.allclose(
+            getattr(aligned_pc, str(index)).squeeze(-1).numpy(), written[:, index]
+        )
         for index in range(3)
-    ), f"{aligned_columns=}, {written=}"
+    ), f"{ {index: getattr(aligned_pc, str(index)) for index in range(3)} =}, {written=}"
 
     filepath = os.path.join(temp_dir, "single.txt")
     write_txt(filepath, num_columns=3, spacing='single')
 
-    single_columns, _ = _load_from_txt(filepath=filepath)
+    single_pc = _load_from_txt(filepath=filepath, device='cpu')
 
     # one delimiter reads both files, where naming a single space reads only the second
     assert all(
-        np.allclose(single_columns[str(index)], aligned_columns[str(index)])
+        torch.equal(getattr(single_pc, str(index)), getattr(aligned_pc, str(index)))
         for index in range(3)
-    ), f"{single_columns=}, {aligned_columns=}"
+    ), f"{ {index: getattr(single_pc, str(index)) for index in range(3)} =}, { {index: getattr(aligned_pc, str(index)) for index in range(3)} =}"
 
 
 def test_a_txt_of_one_row_still_has_columns_to_key(temp_dir):
@@ -776,40 +780,42 @@ def test_a_txt_of_one_row_still_has_columns_to_key(temp_dir):
     filepath = os.path.join(temp_dir, "one_row.txt")
     write_txt(filepath, num_points=1, num_columns=3)
 
-    columns, _ = _load_from_txt(filepath=filepath)
+    pc = _load_from_txt(filepath=filepath, device='cpu')
 
-    assert set(columns.keys()) == {'0', '1', '2'}, f"{tuple(columns.keys())=}"
+    assert set(pc.field_names()) == {'0', '1', '2'}, f"{pc.field_names()=}"
     assert all(
-        len(column) == 1 for column in columns.values()
-    ), f"{ {name: len(column) for name, column in columns.items()} =}"
+        len(getattr(pc, name)) == 1 for name in pc.field_names()
+    ), f"{ {name: len(getattr(pc, name)) for name in pc.field_names()} =}"
 
 
-def test_load_from_pth_returns_a_field_dict(temp_dir):
-    """The .pth reader hands back a dict in whatever form the file was saved in."""
+def test_load_from_pth_returns_a_raw_cloud(temp_dir):
+    """The .pth reader builds a cloud whose fields are the block's columns under their own indices, its coordinates unnamed until the caller's meta data names them."""
     filepath = os.path.join(temp_dir, "reader.pth")
     write_pth(filepath, torch.rand(size=(8, 4), dtype=torch.float32))
 
-    fields = _load_from_pth(filepath=filepath)
+    pc = _load_from_pth(filepath=filepath, device='cpu')
 
-    assert isinstance(fields['xyz'], torch.Tensor), f"{type(fields['xyz'])=}"
+    assert isinstance(pc, PointCloud), f"{type(pc)=}"
+    assert set(pc.field_names()) == {'0', '1', '2', '3'}, f"{pc.field_names()=}"
+    assert 'xyz' not in pc.field_names(), f"{pc.field_names()=}"
 
 
-def test_load_from_off_returns_a_field_dict(temp_dir):
-    """The OFF reader hands back a dict of plain float32 columns; device placement is PointCloud's, which is why the readers take no device."""
+def test_load_from_off_returns_a_raw_cloud(temp_dir):
+    """The OFF format declares its vertex block to be the coordinates, so the reader names them and the cloud it builds already carries xyz."""
     filepath = os.path.join(temp_dir, "reader.off")
     write_off(
         filepath, [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]
     )
 
-    columns, layout = _load_from_off(filepath=filepath)
+    pc = _load_from_off(filepath=filepath, device='cpu')
 
-    assert all(
-        isinstance(column, np.ndarray)
-        and column.dtype == np.dtype('float32')
-        and column.shape == (4,)
-        for column in columns.values()
-    ), f"{ {name: (type(column), column.dtype, column.shape) for name, column in columns.items()} =}"
-    assert layout == {'xyz': ('x', 'y', 'z')}, f"{layout=}"
+    assert pc.xyz.shape == (4, 3), f"{pc.xyz.shape=}"
+    assert pc.xyz.dtype == torch.float32, f"{pc.xyz.dtype=}"
+    assert pc.meta_data['xyz']['layout'] == (
+        'x',
+        'y',
+        'z',
+    ), f"{pc.meta_data['xyz']=}"
 
 
 def test_missing_file_is_rejected():

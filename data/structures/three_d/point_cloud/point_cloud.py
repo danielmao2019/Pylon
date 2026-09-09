@@ -40,7 +40,7 @@ class PointCloud:
         Args:
             xyz: The coordinate columns, as a numpy array or a torch tensor of shape [N, 3] carrying any floating point dtype, or None when the coordinates arrive as an entry of data.
             data: The source's own columns keyed by the name the source gives each, every value a numpy array or a torch tensor of shape [N] or [N, C] carrying any dtype this repo's conceptual dtype table names except uint64, or None when xyz is the only column.
-            meta_data: The record another point cloud hands over, one entry per field keyed by field name, each entry holding a 'dtype' naming a conceptual dtype and a 'layout' naming the source columns that field is assembled from, or None when the record is to be built from the columns themselves.
+            meta_data: The record another point cloud hands over, which is also what this construction applies over the columns it was handed, one entry per field keyed by field name, each entry holding a 'dtype' naming a conceptual dtype and a 'layout' naming the source columns that field is assembled from, or None when the record is to be built from the columns themselves.
             device: The torch device every field is to sit on, as a string or a torch.device, or None to take the device of the first column when it is already a torch tensor and the cpu device otherwise.
 
         Returns:
@@ -146,7 +146,10 @@ class PointCloud:
                 None.
             """
             if meta_data is not None:
-                self._meta_data = meta_data
+                # a record handed over is already resolved, so it stands as this cloud's own rather than being derived a second time from the tensors it comes with
+                self._meta_data = {
+                    name: dict(entry) for name, entry in meta_data.items()
+                }
                 return
 
             # read off the SOURCE columns, since uint16, uint32 and float128 reach torch only in the width TORCH_DTYPE parks them in, where their own names are gone
@@ -175,8 +178,7 @@ class PointCloud:
             self._meta_data = record
 
         _build_meta_data()
-        # the record is already what this cloud means, so the construction applies it with nothing written over it
-        self.apply_meta_data()
+        self.apply_meta_data(meta_data=meta_data)
 
     def apply_meta_data(
         self, meta_data: Optional[Dict[str, Dict[str, Any]]] = None
@@ -300,8 +302,6 @@ class PointCloud:
             for name in list(target.keys()):
                 if name not in self._meta_data:
                     continue
-                if meta_data is not None and name in meta_data:
-                    continue
                 if (
                     not any(column in table for column in target[name]['layout'])
                     and name not in self._fields
@@ -309,7 +309,8 @@ class PointCloud:
                     # the field was deleted, and save writes no column for one the obj no longer holds
                     del target[name]
             for name, value in self._fields.items():
-                if name in target:
+                # a field the record names is one the record speaks for, so what this loop reaches is the fields that arrived after it
+                if name in target or name in self._meta_data:
                     continue
                 if not any(name in entry['layout'] for entry in target.values()):
                     # a field assigned after construction takes both halves from itself, while a column another entry's layout already assembles is that field's column rather than a field of its own
@@ -365,8 +366,6 @@ class PointCloud:
                 None.
             """
             fields = {}
-            # what the source held is rewritten only where the target speaks for a field the record already names or the caller names, so a departed field goes on being named and a field made after construction enters no record
-            record = self._meta_data
             for name, entry in target.items():
                 if all(column in table for column in entry['layout']):
                     # a one-dimensional column becomes one column wide and a block that is already two-dimensional keeps the width it has, which is what lets three ply columns and one pcd attribute reach the same [N, 3]
@@ -393,8 +392,14 @@ class PointCloud:
                         if name in self._meta_data
                         else CONCEPTUAL_NAME[value.dtype]
                     )
-                if meta_data is not None and 'dtype' in meta_data.get(name, {}):
-                    if name == 'rgb' and entry['dtype'] != source_dtype:
+                # a stated dtype that is what the columns already MEAN moves nothing, so a record naming one width over a tensor of another leaves that tensor where it is
+                if (
+                    meta_data is not None
+                    and name in meta_data
+                    and 'dtype' in meta_data[name]
+                    and entry['dtype'] != source_dtype
+                ):
+                    if name == 'rgb':
                         converted = convert_color_convention(
                             values=value,
                             source_dtype=source_dtype,
@@ -417,12 +422,14 @@ class PointCloud:
                     value = cast_lossless(
                         values=value, dtype=TORCH_DTYPE[entry['dtype']]
                     )
-                # a target dtype the caller did not state is what the field already means, so nothing is cast on the record's account and a record naming one width over a tensor of another leaves that tensor where it is
                 fields[name] = value
-                # the cloud now IS what the target says, so the record it carries forward is the one it was made to match and the one a save reads its columns and its ply dtype off
-                record[name] = entry
+                if meta_data is not None and name in meta_data:
+                    # the layout half a caller states is what the field now IS, while the dtype half stays what its columns held, so the override moves the mapping's loaded side and never the provenance
+                    self._meta_data[name] = {
+                        'layout': entry['layout'],
+                        'dtype': source_dtype,
+                    }
             self._fields = fields
-            self._meta_data = record
 
         _apply_target_meta_data(table=table, target=target)
 

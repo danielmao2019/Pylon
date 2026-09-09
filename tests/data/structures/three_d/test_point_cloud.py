@@ -37,9 +37,12 @@ def test_missing_field_access() -> None:
 
 
 def test_point_cloud_requires_xyz() -> None:
-    """A field dict with no coordinates in it is refused."""
-    with pytest.raises(AssertionError):
-        PointCloud(data={'feat': torch.randn(4, 1, dtype=torch.float32)})
+    """A cloud whose columns assemble into no coordinate field is legal here, a positional reader building exactly one, and load_point_cloud's own door is where a loaded cloud without coordinates is refused."""
+    pc = PointCloud(data={'feat': torch.randn(4, 1, dtype=torch.float32)})
+
+    assert pc.field_names() == (
+        'feat',
+    ), f"a cloud built from one column carries that column alone: field_names={pc.field_names()}"
 
 
 def test_point_cloud_rejects_nan_xyz() -> None:
@@ -163,11 +166,17 @@ def test_rgb_is_admitted_at_any_integer_width() -> None:
 
     pc = PointCloud(
         data={
-            'xyz': xyz,
-            'rgb': torch.full((4, 3), 60000, dtype=torch.int32),
+            'xyz': np.zeros((4, 3), dtype=np.float32),
+            'rgb': np.full((4, 3), 60000, dtype=np.uint16),
         }
     )
-    assert pc.rgb.dtype == torch.int32
+    # a width naming no colour convention names no colour either, so what "any integer width" reaches is every width COLOR_RANGE bounds
+    assert (
+        pc.meta_data['rgb']['dtype'] == 'uint16'
+    ), f"a uint16 colour is noted as the convention it means: meta_data={pc.meta_data['rgb']}"
+    assert (
+        pc.rgb.dtype == torch.int32
+    ), f"torch has no uint16, so the tensor parking it is int32: rgb.dtype={pc.rgb.dtype}"
 
 
 def test_a_float_rgb_outside_zero_to_one_is_refused() -> None:

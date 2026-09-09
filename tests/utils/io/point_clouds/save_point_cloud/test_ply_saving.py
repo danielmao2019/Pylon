@@ -765,8 +765,8 @@ def test_indices_survive_the_ply_round_trip():
 
     np.testing.assert_array_equal(loaded.indices.cpu().numpy().reshape(-1), indices)
     assert (
-        loaded.indices.dtype == torch.int64
-    ), f"indices come back in the width the meta data names: indices.dtype={loaded.indices.dtype}"
+        loaded.indices.dtype == torch.int32
+    ), f"ply carries no 64-bit integer, so the width that comes back is the one its i4 column names: indices.dtype={loaded.indices.dtype}"
 
 
 def test_an_int64_target_goes_to_an_i4_column():

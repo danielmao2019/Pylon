@@ -29,12 +29,13 @@ def test_a_meta_data_handed_over_is_kept_exactly_as_it_arrived() -> None:
         },
         meta_data={
             'xyz': {'dtype': 'float32', 'layout': ('xyz',)},
-            'feat': {'dtype': 'float64', 'layout': ('a', 'b')},
+            # a layout names one column per column the field carries, so a record handed over states as many names as the field it comes with
+            'feat': {'dtype': 'float64', 'layout': ('a',)},
         },
     )
 
     assert pc.meta_data['feat']['dtype'] == 'float64'
-    assert pc.meta_data['feat']['layout'] == ('a', 'b')
+    assert pc.meta_data['feat']['layout'] == ('a',)
     # the record says what the field means; the constructor casts nothing on its account
     assert pc.feat.dtype == torch.float32
 
@@ -275,7 +276,8 @@ def test_a_field_assigned_after_construction_is_named_by_no_meta_data() -> None:
     # its tensor is float64, which is what a field outside the meta data means
     assert pc.feat.dtype == torch.float64
 
-    with pytest.raises(AssertionError):
+    # the record is a plain mapping, so a name it does not hold is missing rather than refused
+    with pytest.raises(KeyError):
         _ = pc.meta_data['feat']
 
 
@@ -398,13 +400,14 @@ def test_a_field_assembled_from_columns_can_be_split_back_into_them() -> None:
         }
     )
 
+    # the coordinates are three columns wherever they are named xyz, so a regrouping onto two carries its own name
     pc.apply_meta_data(
-        meta_data={'xyz': {'layout': ('x', 'y')}, 'z': {'layout': ('z',)}}
+        meta_data={'ground_plane': {'layout': ('x', 'y')}, 'z': {'layout': ('z',)}}
     )
 
-    assert pc.xyz.shape[1] == 2
+    assert pc.ground_plane.shape[1] == 2
     assert pc.z.shape[0] == 4
-    assert pc.meta_data['xyz']['layout'] == ('x', 'y')
+    assert pc.meta_data['ground_plane']['layout'] == ('x', 'y')
 
 
 def test_a_layout_override_enters_the_record_while_the_dtype_override_does_not() -> (

@@ -17,7 +17,7 @@ opencv-python
 open3d
 nibabel
 plyfile
-laspy
+laspy[lazrs]
 
 # --- Experiment utilities
 pytest
