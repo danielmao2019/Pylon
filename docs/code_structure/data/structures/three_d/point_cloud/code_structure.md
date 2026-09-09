@@ -120,14 +120,14 @@ point_cloud.py
     │   │   │   │   └── impls value = converted
     │   │   │   ├── calls cast_lossless(values=value, dtype=TORCH_DTYPE[entry's dtype])
     │   │   │   ├── impls value = the tensor it cast  # a narrowing the target cannot hold exactly aborts inside the cast, a caller wanting one narrowing its own values before handing them in
-    │   │   │   ├── calls self._assert_field_name_valid(name=name)
-    │   │   │   ├── calls self._validate_field(name=name, value=value, color_dtype=entry's dtype)  # the target's dtype is the convention these values are on once the conversion above has run
     │   │   │   ├── impls fields[name] = value
     │   │   │   └── impls record[name] = entry  # the cloud now IS what the target says, so the record it carries forward is the one it was made to match and the one a save reads its columns and its ply dtype off
     │   │   ├── impls _fields = fields
     │   │   └── impls _meta_data = record
     │   ├── calls _apply_target_meta_data(table=table, target=target)
-    │   └── return
+    │   └── for each name, value in self._fields
+    │       ├── calls self._assert_field_name_valid(name=name)
+    │       └── calls self._validate_field(name=name, value=value)  # both slots are assigned by now, so a colour is bounded by the convention the record it was just made to match names
     ├── @property def device(self) -> torch.device
     │   ├── # Hands back the one device every field of this point cloud sits on.
     │   └── return self._device
@@ -190,8 +190,8 @@ point_cloud.py
     │   ├── if name == 'xyz'
     │   │   └── calls self.validate_xyz_tensor(value)
     │   └── elif name == 'rgb'
-    │       ├── impls colour_dtype = the 'dtype' of self._meta_data[name] when the meta data names it, else CONCEPTUAL_NAME[the dtype of value]  # the meta data is what says an int32 tensor holds a uint16 colour, and a colour assigned after construction is a torch tensor whose own dtype is exact
-    │       └── calls self.validate_rgb_tensor(value, colour_dtype)
+    │       ├── impls color_dtype = the 'dtype' of self._meta_data[name] when the record names name, else CONCEPTUAL_NAME[the dtype of value]  # the record is what says an int32 tensor holds a uint16 colour, and a colour under a name the record never saw is exact in its own tensor
+    │       └── calls self.validate_rgb_tensor(value, color_dtype)
     ├── @staticmethod def validate_xyz_tensor(xyz: torch.Tensor) -> None
     │   ├── # Checks coordinates are an [N, 3] floating point tensor of any width, free of NaN and Inf.
     │   ├── assert xyz is a torch.Tensor
