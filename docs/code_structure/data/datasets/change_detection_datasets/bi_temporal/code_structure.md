@@ -38,7 +38,7 @@ slpccd_dataset.py
         ├── impls pc_1_filepath, pc_2_filepath = the two paths this index's annotation names
         ├── impls pc_2_seg_filepath = pc_2_filepath with '.txt' replaced by '_seg.txt'
         ├── impls has_seg_file = whether pc_2_seg_filepath exists
-        ├── impls meta_data = {'xyz': {'layout': ('0', '1', '2')}}  # decimal text names none of its own columns, so the dataset states the layout the reader's positional split used to supply, and takes the float64 the text parses as
+        ├── impls meta_data = {'xyz': {'layout': ('0', '1', '2')}}  # decimal text names none of its own columns, so the dataset states the layout the reader's positional split used to supply, and states no width: text parses as float64, so asking for float32 here would abort rather than narrow
         ├── calls load_point_cloud(pc_1_filepath, meta_data=meta_data)
         ├── calls load_point_cloud(pc_2_filepath, meta_data=meta_data)
         ├── impls pc_1, pc_2 = the two clouds it loaded, their coordinates narrowed to float32  # a load never narrows any more, so the dataset that wants the single-precision width its models train at does the narrowing itself
@@ -85,14 +85,15 @@ urb3dcd_dataset.py
         ├── assert this index's annotation names both cloud paths
         ├── impls files = the two cloud paths that annotation names
         ├── impls the second path printed as the pair being loaded
-        ├── impls nameInPly = the PLY element name VERSION_MAP gives this version
-        ├── calls load_point_cloud(files['pc_1_filepath'], nameInPly=nameInPly, name_feat='label_ch', dtype=torch.float32)
+        ├── impls element_name = the PLY element name VERSION_MAP gives this version
+        ├── impls meta_data = {'xyz': {'dtype': 'float32', 'layout': element_name joined to each of 'x', 'y' and 'z' by a dot}, 'feat': {'layout': element_name joined to 'label_ch' by a dot}}  # a multi-element ply names which element's columns form a field for nobody, so the dataset states the element the retired nameInPly and name_feat arguments named, and the width the retired dtype argument asked of the coordinates alone
+        ├── calls load_point_cloud(files['pc_1_filepath'], meta_data=meta_data)
         ├── impls pc1_xyz = the coordinates of the cloud it loaded
         ├── impls pc1_features = a ones column of one entry per point, in pc1_xyz's dtype
-        ├── calls load_point_cloud(files['pc_2_filepath'], nameInPly=nameInPly, name_feat='label_ch', dtype=torch.float32)
+        ├── calls load_point_cloud(files['pc_2_filepath'], meta_data=meta_data)
         ├── impls pc2_xyz = the coordinates of the cloud it loaded
         ├── impls pc2_features = a ones column of one entry per point, in pc2_xyz's dtype
-        ├── impls change_map = the second cloud's feat squeezed  # the load above asks for 'label_ch' as the feature, which is where this dataset keeps its change labels
+        ├── impls change_map = the second cloud's feat squeezed  # the layout above assembles 'label_ch' into feat, which is where this dataset keeps its change labels
         ├── impls pc1_xyz recast to float32
         ├── impls pc2_xyz recast to float32
         ├── impls change_map recast to int64
