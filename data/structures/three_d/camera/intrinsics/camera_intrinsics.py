@@ -623,7 +623,11 @@ class CameraIntrinsics(ABC):
 
         resolution, scale = _normalize_inputs(resolution=resolution, scale=scale)
 
-        if scale is None:
+        if scale is not None:
+            # The caller's factor is used raw rather than re-derived from resolution, because resolve_target_resolution detaches and rounds to whole pixels, which would sever a tensor factor from the autograd graph. A rounded raster and a raw factor are not exactly consistent when the product is not whole; the gradient is what this trade keeps.
+            scale_x, scale_y = scale
+        else:
+            # The size the params are already stated against is two of those params, the one place every model states it.
             scale_x = (
                 torch.as_tensor(resolution[1], dtype=self._dtype, device=self._device)
                 / self._params["w"]
@@ -632,8 +636,6 @@ class CameraIntrinsics(ABC):
                 torch.as_tensor(resolution[0], dtype=self._dtype, device=self._device)
                 / self._params["h"]
             )
-        else:
-            scale_x, scale_y = scale
         zero = torch.zeros_like(scale_x)
         one = torch.ones_like(scale_x)
         transform = torch.stack(

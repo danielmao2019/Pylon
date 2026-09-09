@@ -14,8 +14,8 @@ if TYPE_CHECKING:
 def validate_cameras_attributes(
     intrinsics: "CameraIntrinsics",
     extrinsics: "CameraExtrinsics",
-    names: List[Optional[str]],
-    ids: List[Optional[int]],
+    names: Optional[List[Optional[str]]],
+    ids: Optional[List[Optional[int]]],
     device: Optional[Union[str, torch.device]],
     dtype: Optional[torch.dtype],
 ) -> None:
@@ -28,8 +28,8 @@ def validate_cameras_attributes(
     Args:
         intrinsics: Candidate batched CameraIntrinsics whose params are each ``[B]`` torch.Tensor.
         extrinsics: Candidate batched CameraExtrinsics whose cam2world matrix is a ``[B, 4, 4]`` torch.Tensor.
-        names: Per-camera list of optional names, parallel to the batch axis.
-        ids: Per-camera list of optional ids, parallel to the batch axis.
+        names: None, or a per-camera list of optional names parallel to the batch axis.
+        ids: None, or a per-camera list of optional ids parallel to the batch axis.
         device: Optional device target for the batch, a string or torch.device.
         dtype: Optional floating dtype target for the batch.
 
@@ -60,14 +60,15 @@ def validate_cameras_attributes(
             f"batch axis as the CameraExtrinsics. {key=} {value.shape=} {batch_size=}"
         )
 
-    assert len(names) == batch_size, (
-        "Expected the per-camera names to be parallel to the batch axis. "
-        f"{len(names)=} {batch_size=}"
+    # __init__ fills them in after this runs, so an unnamed batch arrives here as None.
+    assert names is None or len(names) == batch_size, (
+        "Expected the per-camera names to be None or parallel to the batch axis. "
+        f"{names=} {batch_size=}"
     )
 
-    assert len(ids) == batch_size, (
-        "Expected the per-camera ids to be parallel to the batch axis. "
-        f"{len(ids)=} {batch_size=}"
+    assert ids is None or len(ids) == batch_size, (
+        "Expected the per-camera ids to be None or parallel to the batch axis. "
+        f"{ids=} {batch_size=}"
     )
 
     assert device is None or isinstance(device, (str, torch.device)), (
@@ -94,9 +95,7 @@ def validate_camera_attributes(
 ) -> None:
     """Validate the parts and the name / id / device / dtype for a Camera.
 
-    Single-entry validation for ``Camera.__init__``; asserts the parts are a
-    CameraIntrinsics / CameraExtrinsics and validates the name / id / device,
-    relying on each part's own validation for its internals.
+    Single-entry validation for ``Camera.__init__`` and, through ``validate_cameras_attributes``, for ``Cameras.__init__``; asserts the parts are a CameraIntrinsics / CameraExtrinsics that agree on device and dtype, and validates the name / id / device / dtype, relying on each part's own validation for its internals.
 
     Args:
         intrinsics: Candidate CameraIntrinsics.
@@ -121,6 +120,15 @@ def validate_camera_attributes(
     )
     assert isinstance(extrinsics, CameraExtrinsics), (
         "Expected Camera extrinsics to be a CameraExtrinsics. " f"{type(extrinsics)=}"
+    )
+    # The device / dtype accessors read one component and describe both, so a disagreement makes them lie.
+    assert intrinsics.device == extrinsics.device, (
+        "Expected Camera components to share device. "
+        f"{intrinsics.device=} {extrinsics.device=}"
+    )
+    assert intrinsics.dtype == extrinsics.dtype, (
+        "Expected Camera components to share dtype. "
+        f"{intrinsics.dtype=} {extrinsics.dtype=}"
     )
     assert name is None or isinstance(name, str), (
         "Expected Camera name to be None or a string. " f"{type(name)=}"

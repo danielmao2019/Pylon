@@ -48,12 +48,6 @@ class CameraExtrinsics:
             device: Optional[Union[str, torch.device]],
             dtype: Optional[torch.dtype],
         ) -> Tuple[torch.Tensor, torch.device, torch.dtype]:
-            if device is not None:
-                device = torch.device(device)
-            elif isinstance(extrinsics, torch.Tensor):
-                device = extrinsics.device
-            else:
-                device = torch.device("cpu")
             if dtype is not None:
                 dtype = dtype
             elif isinstance(extrinsics, torch.Tensor):
@@ -63,6 +57,8 @@ class CameraExtrinsics:
             else:
                 dtype = torch.float32
             extrinsics = torch.as_tensor(extrinsics).to(device=device, dtype=dtype)
+            # Read off the materialized tensor, the same rule the intrinsics side uses, so an un-indexed cuda and an indexed cuda:0 do not disagree when Camera asserts its two components share a device.
+            device = extrinsics.device
             return extrinsics, device, dtype
 
         extrinsics, device, dtype = _normalize_inputs(
