@@ -146,17 +146,21 @@ goal: re-design pc dtype contract/provenance
    2. point cloud I/O:
       1. load point cloud
          1. the per-format helpers
-            1. they load and do necessary type casting when the dtype systems mismatch and when the type cast can be lossless. how this part is done is never a consequence of any meta data from anywhere.
+            1. they load and
+               1. do necessary type casting when the dtype systems mismatch and when the type cast can be lossless.
+               2. never change layout.
             2. they construct the meta data record from the data in disk, NOT from the type-casted data stored in the PointCloud obj. i.e., the recorded meta data is a consequence of what's inside the file in disk and nothing else.
          2. the main load API
             1. accepts a `meta_data` optional arg override.
             2. calls the `PointCloud.apply_meta_data` passing down the `meta_data` optional arg after the per-format helpers return.
       2. save point cloud
          1. the per-format helpers
-            1. they save and do necessary type casting when dtype systems mismatch and when type cast can be lossless. how this part is done is never a consequence of any meta data from anywhere.
+            1. they save and
+               1. do necessary type casting when dtype systems mismatch and when type cast can be lossless.
+               2. never change layout
          2. the main save API
             1. accepts a `meta_data` optional arg override.
-            2. calls the `PointCloud.apply_meta_data` passing down the `meta_data` optional arg before passing the point cloud obj to the per-format helpers.
+            2. calls the `PointCloud.apply_meta_data` passing down the `meta_data` optional arg, then passes the point cloud obj with meta data applied to the per-format helpers.
 
 #### 1.1.6. What Becomes Stale Design
 
