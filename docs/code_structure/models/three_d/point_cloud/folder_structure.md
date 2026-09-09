@@ -5,7 +5,7 @@
 ```text
 models/three_d/point_cloud/
 ├── __init__.py
-├── scene_model.py  # PointCloudSceneModel: the interactive display's scene model over one point cloud file a user names directly
+├── scene_model.py  # PointCloudSceneModel: the interactive display's scene model over one point cloud file a user names directly, in the extensions it supports
 ├── states.py
 ├── callbacks/
 ├── layout/
@@ -18,6 +18,7 @@ models/three_d/point_cloud/
 
 ```text
 tests/models/three_d/point_cloud/
-├── ops/     # own skeleton
-└── render/  # own skeleton
+├── test_scene_model.py  # the formats a scene model opens unaided, and the ones it refuses by name
+├── ops/                 # own skeleton
+└── render/              # own skeleton
 ```
