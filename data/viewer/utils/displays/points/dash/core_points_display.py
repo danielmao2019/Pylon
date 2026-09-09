@@ -737,7 +737,7 @@ def create_point_cloud_display(
             - For "discrete": {"camera_state": dict, ...other params...}
         point_cloud_id: Unique identifier for LOD caching
         axis_ranges: Optional fixed axis ranges for consistent scaling
-        lock_roll: Optional axis to lock camera roll about, as an `(x, y, z)` world-space direction in the point cloud's own world frame. When supplied, the returned figure's `layout.scene` carries Plotly gl3d `dragmode="orbit"` with `camera.up` seeded from the normalized axis, merged over whatever `camera_state` already placed there; holding camera roll through a drag additionally needs `register_dash_roll_lock_callback` registered on the graph rendering this figure. When None, no camera configuration is applied at all, so the scene is exactly the one `camera_state` and Plotly's own gl3d defaults produce.
+        lock_roll: Optional axis to lock camera roll about, as an `(x, y, z)` world-space direction in the point cloud's own world frame. When supplied, the returned figure's `layout.scene` carries Plotly gl3d `dragmode="orbit"` with `camera.up` seeded from the normalized axis, merged over whatever `camera_state` already placed there; holding camera roll additionally needs `register_dash_roll_lock_callback` registered on the graph rendering this figure, which re-imposes the lock at each drag's end rather than through it, so under the pointer the panel rolls with the free `"orbit"` trackball and lands on the locked pose when the button is released. When None, that same `dragmode="orbit"` is still merged over whatever `camera_state` placed there and no axis is pinned, so the display's roll is genuinely free; Plotly's own gl3d default `"turntable"` would instead pin `camera.up` to world +Z and make roll unreachable.
         **kwargs: Additional arguments
 
     Returns:
@@ -862,10 +862,9 @@ def create_point_cloud_display(
         uirevision='camera',  # This ensures camera views stay in sync
     )
 
-    if lock_roll is not None:
-        fig.update_layout(
-            scene=create_dash_trackball_camera_controls(lock_roll=lock_roll),
-        )
+    fig.update_layout(
+        scene=create_dash_trackball_camera_controls(lock_roll=lock_roll),
+    )
 
     return fig
 
@@ -889,7 +888,7 @@ def create_dash_points_display(
             bounding-sphere heuristic computes the size.
         point_color: Optional uniform marker color override (CSS color string);
             when None per-point colors or the lib default color is used.
-        lock_roll: Optional axis to lock camera roll about, as an `(x, y, z)` world-space direction in the point cloud's own world frame. When supplied, the rendered camera uses Plotly gl3d `dragmode="orbit"` with `camera.up` seeded from the normalized axis; holding camera roll through a drag additionally needs `register_dash_roll_lock_callback` registered on this graph. When None, the rendered camera still uses that same `dragmode="orbit"` and pins no axis, so the display's roll is genuinely free; Plotly's own gl3d default `"turntable"` would instead pin `camera.up` to world +Z and make roll unreachable.
+        lock_roll: Optional axis to lock camera roll about, as an `(x, y, z)` world-space direction in the point cloud's own world frame. When supplied, the rendered camera uses Plotly gl3d `dragmode="orbit"` with `camera.up` seeded from the normalized axis; holding camera roll additionally needs `register_dash_roll_lock_callback` registered on this graph, which re-imposes the lock at each drag's end rather than through it, so under the pointer the panel rolls with the free `"orbit"` trackball and lands on the locked pose when the button is released. When None, the rendered camera still uses that same `dragmode="orbit"` and pins no axis, so the display's roll is genuinely free; Plotly's own gl3d default `"turntable"` would instead pin `camera.up` to world +Z and make roll unreachable.
 
     Returns:
         Dash `dcc.Graph` wrapping the point-cloud scene.
