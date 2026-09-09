@@ -52,7 +52,7 @@ goal: re-design pc dtype contract/provenance
 
 #### 1.1.2. Color Data Convention Conversion
 
-1. color conventions: rgb admits any integer width and any float width, unlike mesh vertex colors. conventions include:
+1. color conventions: rgb admits any integer dtype and any float dtype, unlike mesh vertex colors. conventions include:
    1. 0 to 255 unsigned integer representation.
    2. -128 to 127 signed integer representation.
    3. 0 to 1 floating point representation.
