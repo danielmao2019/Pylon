@@ -69,7 +69,7 @@ def rescale_intr_params(
 
 
 def resolve_target_resolution(
-    params: Dict[str, Union[int, float, torch.Tensor]],
+    params: Dict[str, torch.Tensor],
     resolution: Optional[
         Union[int, Tuple[int, int], List[int], np.ndarray, torch.Tensor]
     ] = None,

@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict
 
 import torch
 
@@ -8,7 +8,7 @@ def validate_camera_intrinsics_attributes(
     intr_convention: Any,
     params: Any,
     device: Any,
-    dtype: Any = None,
+    dtype: Any,
 ) -> None:
     """Validate the model, image-plane frame, params, device, and dtype for a CameraIntrinsics.
 

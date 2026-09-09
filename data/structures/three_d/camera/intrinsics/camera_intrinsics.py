@@ -211,6 +211,25 @@ class CameraIntrinsics(ABC):
         """
         return self._dtype
 
+    def __getitem__(
+        self, index: Union[int, slice, List[int], None]
+    ) -> "CameraIntrinsics":
+        """Index the leading batch axis the params carry.
+
+        Args:
+            index: The index applied to every param's leading axis the way the tensors index their own, so ``None`` adds an axis of one and an int drops it.
+
+        Returns:
+            A CameraIntrinsics of the same model whose params carry the indexed leading axis.
+        """
+        # a pass over the model's few param names, never over the cameras
+        params = {key: value[index] for key, value in self._params.items()}
+        return build_camera_intrinsics(
+            model=type(self).MODEL,
+            params=params,
+            intr_convention=self._intr_convention,
+        )
+
     @property
     def cx(self) -> torch.Tensor:
         """The horizontal principal-point coordinate.
@@ -528,11 +547,8 @@ class CameraIntrinsics(ABC):
             Union[
                 int,
                 float,
-                Tuple[
-                    Union[int, float, torch.Tensor],
-                    Union[int, float, torch.Tensor],
-                ],
-                List[Union[int, float, torch.Tensor]],
+                Tuple[Union[int, float], Union[int, float]],
+                List[Union[int, float]],
                 np.ndarray,
                 torch.Tensor,
             ]
@@ -569,11 +585,8 @@ class CameraIntrinsics(ABC):
                 Union[
                     int,
                     float,
-                    Tuple[
-                        Union[int, float, torch.Tensor],
-                        Union[int, float, torch.Tensor],
-                    ],
-                    List[Union[int, float, torch.Tensor]],
+                    Tuple[Union[int, float], Union[int, float]],
+                    List[Union[int, float]],
                     np.ndarray,
                     torch.Tensor,
                 ]

@@ -16,7 +16,6 @@ from data.structures.three_d.camera.extrinsics.validation import (
 )
 from data.structures.three_d.camera.intrinsics import conventions as intr_conventions
 from data.structures.three_d.camera.intrinsics.camera_intrinsics import (
-    CameraIntrinsics,
     build_camera_intrinsics,
 )
 from data.structures.three_d.camera.intrinsics.conventions import (
@@ -132,32 +131,6 @@ def _build_cameras(extr_convention: str) -> Cameras:
         intrinsics=intrinsics,
         extrinsics=extrinsics,
         device="cpu",
-    )
-
-
-def _batch_one_camera(
-    intrinsics: CameraIntrinsics,
-    extrinsics: CameraExtrinsics,
-) -> Cameras:
-    """Restate one camera's unbatched components as a Cameras of batch size one.
-
-    Args:
-        intrinsics: CameraIntrinsics whose params are each a scalar ``[]`` torch.Tensor.
-        extrinsics: CameraExtrinsics whose camera-to-world matrix is a ``[4, 4]`` torch.Tensor.
-
-    Returns:
-        A Cameras whose components carry a leading batch axis of one.
-    """
-    return Cameras(
-        intrinsics=build_camera_intrinsics(
-            model=intrinsics.model,
-            params={key: value[None] for key, value in intrinsics.params.items()},
-            intr_convention=intrinsics.intr_convention,
-        ),
-        extrinsics=CameraExtrinsics(
-            extrinsics=extrinsics.extrinsics[None],
-            extr_convention=extrinsics.extr_convention,
-        ),
     )
 
 
@@ -390,7 +363,7 @@ def test_transform_extrinsics_applies_the_similarity_and_restabilizes() -> None:
         transformed_camera.extrinsics.extrinsics, transformed.extrinsics, atol=1e-6
     ), f"{transformed_camera.extrinsics.extrinsics=}"
 
-    cameras = _batch_one_camera(intrinsics=intrinsics, extrinsics=extrinsics)
+    cameras = Cameras(intrinsics=intrinsics[None], extrinsics=extrinsics[None])
     transformed_cameras = cameras.transform_extrinsics(
         scale=scale,
         rotation=rotation,
@@ -510,7 +483,7 @@ def test_camera_and_cameras_to_keep_tensor_state_on_the_autograd_path() -> None:
     assert params["fx"].grad is not None, f"{params['fx'].grad=}"
     assert matrix.grad is not None, f"{matrix.grad=}"
 
-    cameras = _batch_one_camera(intrinsics=intrinsics, extrinsics=extrinsics)
+    cameras = Cameras(intrinsics=intrinsics[None], extrinsics=extrinsics[None])
     moved_cameras = cameras.to(dtype=torch.float64, extr_convention="pytorch3d")
     cameras_loss = (
         moved_cameras[0].intrinsics.fx + moved_cameras[0].extrinsics.center.sum()
@@ -1304,7 +1277,7 @@ def test_camera_and_cameras_to_preserve_tensor_parameter_graphs() -> None:
     )
     extrinsics = CameraExtrinsics(extrinsics=matrix, extr_convention="standard")
     camera = Camera(intrinsics=intrinsics, extrinsics=extrinsics)
-    cameras = _batch_one_camera(intrinsics=intrinsics, extrinsics=extrinsics)
+    cameras = Cameras(intrinsics=intrinsics[None], extrinsics=extrinsics[None])
     moved_camera = camera.to(
         device=intrinsics.device, dtype=torch.float64, extr_convention="pytorch3d"
     )

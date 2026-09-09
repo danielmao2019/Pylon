@@ -182,18 +182,8 @@ def serialize_cameras(
         if was_single:
             # A leading axis of one, not a one-element list.
             cameras = Cameras(
-                intrinsics=build_camera_intrinsics(
-                    model=cameras.intrinsics.model,
-                    params={
-                        key: value[None]
-                        for key, value in cameras.intrinsics.params.items()
-                    },
-                    intr_convention=cameras.intrinsics.intr_convention,
-                ),
-                extrinsics=CameraExtrinsics(
-                    extrinsics=cameras.extrinsics.extrinsics[None],
-                    extr_convention=cameras.extrinsics.extr_convention,
-                ),
+                intrinsics=cameras.intrinsics[None],
+                extrinsics=cameras.extrinsics[None],
                 names=[cameras.name],
                 ids=[cameras.id],
                 device=cameras.device,
