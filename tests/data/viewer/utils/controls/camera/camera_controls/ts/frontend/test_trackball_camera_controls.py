@@ -160,9 +160,9 @@ def build_roll_lock_pitch_harness_script(
 
     Returns:
         TypeScript source that prints one JSON record for the pose the controls come up
-        on and one per simulated drag, each carrying `drag`, `up_along_axis`,
-        `right_along_axis`, `polar`, `written_position`, `written_up`, and
-        `written_quaternion` measured on the camera the controls left behind.
+        on and one per simulated drag, each carrying `drag`, `controls_error`,
+        `up_along_axis`, `right_along_axis`, `polar`, `written_position`, `written_up`,
+        and `written_quaternion` measured on the camera the controls left behind.
     """
     return """
 import { JSDOM } from "jsdom";
@@ -230,6 +230,15 @@ function pointerEvent(type: string, clientY: number): Event {
 }
 
 const records: Array<Record<string, unknown>> = [];
+// A rotation the controls cannot describe reports itself by throwing out of the pointer
+// handler, and jsdom routes that throw to the window rather than back out of
+// `dispatchEvent`, so a harness that does not listen here walks on to the next drag and
+// records the pose the failed step left behind as though the controls had written it.
+let stepErrors: string[] = [];
+dom.window.addEventListener("error", (event: Event) => {
+  stepErrors.push(String((event as unknown as { message: unknown }).message));
+});
+
 // The camera's own basis is recorded alongside the two dot products because both of
 // those read a direction and neither reads a length: three's `.normalize()` answers a
 // collapsed cross product with the zero vector rather than a NaN one, so a camera left
@@ -240,8 +249,11 @@ function recordCameraPose(drag: number): void {
   const cameraRightAxis = new THREE.Vector3()
     .setFromMatrixColumn(camera.matrixWorld, 0)
     .normalize();
+  const errorsSinceLastRecord = stepErrors;
+  stepErrors = [];
   records.push({
     drag: drag,
+    controls_error: errorsSinceLastRecord.length === 0 ? null : errorsSinceLastRecord.join(" "),
     up_along_axis: camera.up.clone().normalize().dot(rollLockAxis),
     right_along_axis: cameraRightAxis.dot(rollLockAxis),
     polar: camera.position.clone().sub(controls.target).angleTo(rollLockAxis),
@@ -304,9 +316,10 @@ def run_roll_lock_pitch_harness(
 
     Returns:
         One dict for the pose the controls come up on and one per simulated drag, each
-        carrying `drag` as an int, `up_along_axis`, `right_along_axis`, and `polar` as
-        floats, and `written_position`, `written_up`, and `written_quaternion` as
-        component lists.
+        carrying `drag` as an int, `controls_error` as the messages of whatever the
+        controls threw since the previous record or None, `up_along_axis`,
+        `right_along_axis`, and `polar` as floats, and `written_position`, `written_up`,
+        and `written_quaternion` as component lists.
     """
     assert WEB_NODE_MODULES_PATH.is_dir(), (
         "The roll-lock harness runs the module against the repo's installed Node "
@@ -371,25 +384,36 @@ def is_unit_length(components: List[Optional[float]]) -> bool:
 
 
 def assert_roll_locked_camera(records: List[Dict[str, Any]]) -> None:
-    """Assert every step left the horizon level, the scene the right way up, and the camera a real camera.
+    """Assert every step left the controls standing, the horizon level, and the camera a real camera.
 
-    The three clauses are what a person looking at the viewer would call wrong. A camera
-    right axis off the lock axis tips the horizon; an up vector on the axis's far side
-    hangs the scene upside down; and a camera whose basis is not unit length is not a
-    camera at all. The third is the one the first two cannot see: both read a direction
-    and neither reads a length, and three answers a collapsed cross product with the
-    zero vector rather than a NaN one, so a zero up vector reads as `up . axis == 0` and
-    passes the upright clause while its non-unit quaternion scales the whole world
-    matrix and renders the scene at the wrong size.
+    The three clauses are what a person looking at the viewer would call wrong. Controls
+    that cannot describe the rotation they were asked for throw out of the pointer
+    handler, which jsdom routes to the window rather than back out of the drag, so the
+    viewer walks on with the camera the failed step left behind and neither measurement
+    below is taken on a pose the controls stood behind; a camera right axis off the lock
+    axis tips the horizon; and a camera whose basis is not unit length is not a camera at
+    all. The third is the one the second cannot see: it reads a direction and never a
+    length, and three answers a collapsed cross product with the zero vector rather than
+    a NaN one, so a zero up vector passes every direction measurement while its non-unit
+    quaternion scales the whole world matrix and renders the scene at the wrong size.
 
     Args:
-        records: One dict per harness step, each carrying `drag`, `up_along_axis`,
+        records: One dict per harness step, each carrying `drag`, `controls_error`,
             `right_along_axis`, `written_position`, `written_up`, and
             `written_quaternion` as `run_roll_lock_pitch_harness` returns them.
 
     Returns:
         None.
     """
+    unsound_records = [
+        record for record in records if record["controls_error"] is not None
+    ]
+    assert not unsound_records, (
+        "The roll lock must hold for every camera a drag can reach, so the controls "
+        "must describe each of them rather than throwing on one: jsdom routes the throw "
+        "to the window rather than out of the drag, so the viewer runs on showing "
+        f"whatever the failed rotation left behind. {unsound_records=} {records=}"
+    )
     tilted_records = [
         record
         for record in records
@@ -398,11 +422,6 @@ def assert_roll_locked_camera(records: List[Dict[str, Any]]) -> None:
     assert not tilted_records, (
         "A roll-locked camera must keep its right axis perpendicular to the lock axis, "
         f"which is what holds the horizon level. {tilted_records=} {records=}"
-    )
-    inverted_records = [record for record in records if record["up_along_axis"] < 0]
-    assert not inverted_records, (
-        "A roll-locked camera must never hang the scene upside down, so its up vector "
-        f"must stay on the lock axis's own side. {inverted_records=} {records=}"
     )
     unreal_records = [
         record
@@ -456,6 +475,13 @@ def test_the_roll_locked_rotation_never_lets_a_pitch_invert_the_camera(
     )
 
     assert_roll_locked_camera(records=records)
+
+    minimum_up_along_axis = min(record["up_along_axis"] for record in records)
+    assert minimum_up_along_axis >= 0, (
+        "A pitch the roll lock carries to the pole must leave the camera up vector on "
+        "the lock axis's own side at every drag, so the smallest `up . axis` the drags "
+        f"reach must never go negative. {minimum_up_along_axis=} {records=}"
+    )
 
 
 def test_the_roll_locked_rotation_leaves_an_eye_starting_on_the_lock_axis(

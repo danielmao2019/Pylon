@@ -4,7 +4,7 @@ import json
 import math
 import subprocess
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import plotly.graph_objects as go
 import pytest
@@ -45,6 +45,10 @@ ROLL_LOCKED_POLE_REACHED_RADIANS = 1e-3
 # Magnitude of `right . axis` at or below which the camera right axis counts as
 # perpendicular to the lock axis.
 ROLL_LOCKED_PERPENDICULAR_TOLERANCE = 1e-9
+# Deviation from 1 at or below which a basis vector the camera carries counts as unit
+# length. A basis that is finite but not unit length is a camera whose view matrix
+# carries a scale, which renders the scene at the wrong size rather than at no size.
+ROLL_LOCKED_UNIT_LENGTH_TOLERANCE = 1e-9
 # The camera eye the simulated panel comes up on where the start is not degenerate, off
 # the lock axis so the pitch reaches the pole from a frame that is not already on it.
 ROLL_LOCKED_OFF_AXIS_EYE = (1.25, 1.25, 1.25)
@@ -566,8 +570,9 @@ def build_roll_lock_pitch_harness_script(
 
     Returns:
         JavaScript source that prints one JSON record for the initial render and one per
-        simulated drag, each carrying `drag`, `callback_error`, `up_along_axis`,
-        `right_along_axis`, and `polar` measured on the camera the callback left behind.
+        simulated drag, each carrying `drag`, `callback_error`,
+        `callback_assertion_failures`, `up_along_axis`, `right_along_axis`, `polar`,
+        `written_eye`, and `written_up` measured on the camera the callback left behind.
     """
     return """
 const ROLL_LOCK_SOURCE = %s;
@@ -662,6 +667,10 @@ for (let drag = 0; drag <= DRAG_COUNT; drag += 1) {
   const offset = subtract(toVector(camera.eye), toVector(camera.center));
   const forward = normalize(scale(offset, -1));
   const right = normalize(cross(forward, toVector(camera.up)));
+  // The camera's own basis is recorded alongside the two dot products because both of
+  // those read a direction and neither reads a length: a pose whose up vector is short,
+  // long, or non-finite is a camera the panel renders the scene at the wrong size
+  // through, and both dot products pass it unremarked.
   records.push({
     drag: drag,
     callback_error: callbackError,
@@ -669,6 +678,8 @@ for (let drag = 0; drag <= DRAG_COUNT; drag += 1) {
     up_along_axis: dot(normalize(toVector(camera.up)), axis),
     right_along_axis: dot(right, axis),
     polar: Math.acos(Math.max(-1, Math.min(1, dot(normalize(offset), axis)))),
+    written_eye: toVector(camera.eye),
+    written_up: toVector(camera.up),
   });
 }
 process.stdout.write(JSON.stringify(records));
@@ -692,8 +703,10 @@ def run_roll_lock_pitch_harness(harness_path: Path) -> List[Dict[str, Any]]:
     Returns:
         One dict for the initial render and one per simulated drag, each carrying `drag`
         as an int, `callback_error` as the message of whatever the callback raised on
-        that step or None, and `up_along_axis`, `right_along_axis`, and `polar` as
-        floats.
+        that step or None, `callback_assertion_failures` as the messages of whatever
+        internal invariants failed on that step, `up_along_axis`, `right_along_axis`,
+        and `polar` as floats, and `written_eye` and `written_up` as component lists
+        with None standing for any non-finite number JSON cannot express.
     """
     completed_process = subprocess.run(
         args=["node", str(harness_path)],
@@ -709,22 +722,43 @@ def run_roll_lock_pitch_harness(harness_path: Path) -> List[Dict[str, Any]]:
     return json.loads(completed_process.stdout)
 
 
-def assert_roll_locked_camera(records: List[Dict[str, Any]]) -> None:
-    """Assert every step left the horizon level, the scene the right way up, and the callback standing.
+def is_unit_length(components: List[Optional[float]]) -> bool:
+    """Report whether a basis the camera carries is a finite, unit-length vector.
 
-    The three clauses are what a person looking at the panel would call wrong. A camera
-    right axis off the lock axis tips the horizon; an up vector on the axis's far side
-    hangs the scene upside down; and a callback that cannot describe the camera it was
-    handed leaves the panel with no roll lock at all from that relayout on, which
-    neither dot product can see because both are measured on the pose that call never
-    wrote. The third clause is asserted first for that reason: the other two describe a
+    Args:
+        components: The vector's components as the harness's JSON carried them, with
+            None standing for any non-finite number JSON cannot express.
+
+    Returns:
+        True when every component is a finite number and the vector's length is 1 to
+        within `ROLL_LOCKED_UNIT_LENGTH_TOLERANCE`, False otherwise.
+    """
+    if any(component is None for component in components):
+        return False
+    return math.isclose(
+        math.sqrt(sum(component * component for component in components)),
+        1.0,
+        abs_tol=ROLL_LOCKED_UNIT_LENGTH_TOLERANCE,
+    )
+
+
+def assert_roll_locked_camera(records: List[Dict[str, Any]]) -> None:
+    """Assert every step left the callback standing, the horizon level, and the camera a real camera.
+
+    The three clauses are what a person looking at the panel would call wrong. A callback
+    that cannot describe the camera it was handed leaves the panel with no roll lock at
+    all from that relayout on, which the two measurements below cannot see because both
+    are taken on the pose that call never wrote; a camera right axis off the lock axis
+    tips the horizon; and a camera whose basis is not unit length is not a camera at all,
+    which the right-axis measurement also cannot see because it reads a direction and
+    never a length. Soundness is asserted first for that reason: the other two describe a
     pose the callback stood behind, and a callback that aborted or carried a NaN through
     its own failed invariant stood behind nothing.
 
     Args:
         records: One dict per harness step, each carrying `drag`, `callback_error`,
-            `callback_assertion_failures`, `up_along_axis`, and `right_along_axis` as
-            `run_roll_lock_pitch_harness` returns them.
+            `callback_assertion_failures`, `right_along_axis`, `written_eye`, and
+            `written_up` as `run_roll_lock_pitch_harness` returns them.
 
     Returns:
         None.
@@ -750,10 +784,17 @@ def assert_roll_locked_camera(records: List[Dict[str, Any]]) -> None:
         "A roll-locked camera must keep its right axis perpendicular to the lock axis, "
         f"which is what holds the horizon level. {tilted_records=} {records=}"
     )
-    inverted_records = [record for record in records if record["up_along_axis"] < 0]
-    assert not inverted_records, (
-        "A roll-locked camera must never hang the scene upside down, so its up vector "
-        f"must stay on the lock axis's own side. {inverted_records=} {records=}"
+    unreal_records = [
+        record
+        for record in records
+        if any(component is None for component in record["written_eye"])
+        or not is_unit_length(record["written_up"])
+    ]
+    assert not unreal_records, (
+        "A roll-locked camera must stay a camera a renderer can draw: a finite eye, and "
+        "an up vector that is unit length, since a short or long up vector scales the "
+        "camera's view matrix and renders the scene at the wrong size. "
+        f"{unreal_records=} {records=}"
     )
 
 
@@ -825,6 +866,13 @@ def test_the_roll_lock_callback_never_lets_a_pitch_invert_the_camera(
 
     assert_roll_locked_camera(records=records)
 
+    minimum_up_along_axis = min(record["up_along_axis"] for record in records)
+    assert minimum_up_along_axis >= 0, (
+        "A pitch the roll lock carries to the pole must leave the camera up vector on "
+        "the lock axis's own side at every drag, so the smallest `up . axis` the drags "
+        f"reach must never go negative. {minimum_up_along_axis=} {records=}"
+    )
+
 
 def test_the_roll_lock_callback_holds_from_an_eye_on_the_lock_axis(
     tmp_path: Path,
@@ -872,6 +920,13 @@ def test_the_roll_lock_callback_holds_from_an_already_inverted_camera(
     )
 
     assert_roll_locked_camera(records=records)
+
+    minimum_up_along_axis = min(record["up_along_axis"] for record in records)
+    assert minimum_up_along_axis >= 0, (
+        "A panel that comes up hanging upside down must be put back on the lock axis's "
+        "own side from the first render, so the smallest `up . axis` across the steps "
+        f"must never go negative. {minimum_up_along_axis=} {records=}"
+    )
 
 
 # A camera whose eye sits on its own rotation target is the one remaining degenerate pose
