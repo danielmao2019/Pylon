@@ -541,7 +541,7 @@ def _build_scene_context(
         device="cpu",
     )
     point_cloud = load_point_cloud(
-        filepath=processed_scene_root / "sparse_pc.ply",
+        filepath=str(processed_scene_root / "sparse_pc.ply"),
         device="cpu",
     )
     assert isinstance(point_cloud, PointCloud), (

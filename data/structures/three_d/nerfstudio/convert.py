@@ -16,6 +16,7 @@ from data.structures.three_d.colmap.load import (
 from data.structures.three_d.nerfstudio.nerfstudio_data import NerfStudio_Data
 from data.structures.three_d.point_cloud.io.load_point_cloud import load_point_cloud
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
+from utils.dtypes import convert_color_convention
 
 
 def convert_nerfstudio_to_colmap(
@@ -140,14 +141,21 @@ def _build_colmap_points(
     assert isinstance(point_cloud_path, Path), f"{type(point_cloud_path)=}"
     assert point_cloud_path.is_file(), f"Point cloud file not found: {point_cloud_path}"
 
+    # COLMAP records a point's coordinates as float32, and a load casts only losslessly, so stating the width refuses a capture that is not already at it
+    meta_data = {'xyz': {'dtype': 'float32'}}
     pc: PointCloud = load_point_cloud(
         filepath=str(point_cloud_path),
+        meta_data=meta_data,
         device="cpu",
-        dtype=torch.float32,
     )
     assert hasattr(pc, "rgb"), "Point cloud missing RGB data for COLMAP export"
     positions = pc.xyz.cpu().numpy()
-    colors = pc.rgb.cpu().numpy()
+    # COLMAP records a colour on the 0-to-255 convention uint8 names, so the cloud's own convention is mapped onto it rather than cast into it
+    colors = convert_color_convention(
+        values=pc.rgb.cpu(),
+        source_dtype=pc.meta_data['rgb']['dtype'],
+        target_dtype='uint8',
+    ).numpy()
     points: Dict[int, ColmapPoint3D] = {}
     for point_id in range(pc.num_points):
         coord = positions[point_id]

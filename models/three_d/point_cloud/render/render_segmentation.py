@@ -53,9 +53,13 @@ def render_segmentation_from_rendering_points(
     assert (
         labels.numel() > 0
     ), f"Labels tensor must not be empty, got {labels.numel()} elements"
+    # every field carries a column axis, and one label per point is the only shape a pixel can be written from
+    assert (
+        labels.shape[1] == 1
+    ), f"a segmentation label is one column per point: key={key}, labels.shape={tuple(labels.shape)}"
 
-    # Get labels for visible points
-    pixel_labels = labels[original_data_indices]
+    # Get labels for visible points, off the single column the field carries
+    pixel_labels = labels[original_data_indices, 0]
 
     # Allocate segmentation map
     seg_map = torch.full(

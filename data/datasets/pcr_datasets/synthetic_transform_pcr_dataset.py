@@ -389,16 +389,17 @@ class SyntheticTransformPCRDataset(BasePCRDataset, ABC):
         Returns:
             Tuple of (src_pc, tgt_pc, overlap_ratio)
         """
-        # Load the two point clouds
+        # the pose arithmetic below is single precision, and a load casts only losslessly, so stating the width refuses a source that is not already at it
+        meta_data = {'xyz': {'dtype': 'float32'}}
         t1_pc_data = load_point_cloud(
             t1_pc_filepath,
+            meta_data=meta_data,
             device=self.device,
-            dtype=torch.float32,
         )
         t2_pc_data = load_point_cloud(
             t2_pc_filepath,
+            meta_data=meta_data,
             device=self.device,
-            dtype=torch.float32,
         )
 
         # Apply inverse transform to PC1 and keep PC2 original

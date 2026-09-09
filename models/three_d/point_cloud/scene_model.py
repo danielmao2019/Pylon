@@ -15,6 +15,9 @@ from models.three_d.point_cloud.render import render_display
 
 class PointCloudSceneModel(BaseSceneModel):
 
+    # the extensions this scene model opens, each naming its own columns
+    SUPPORTED_EXTENSIONS = ('.ply', '.pcd', '.las', '.laz', '.off')
+
     def _load_model(self) -> PointCloud:
         return load_point_cloud(self.resolved_path, device=self.device)
 
@@ -25,8 +28,13 @@ class PointCloudSceneModel(BaseSceneModel):
 
     @staticmethod
     def parse_scene_path(path: str) -> str:
-        """Validate a direct point cloud filepath and return it resolved."""
+        """Validate a direct point cloud filepath and return it resolved, refusing a format whose columns only a caller could name."""
         assert os.path.isfile(path), f"Point cloud path must be a file: {path}"
+        file_ext = os.path.splitext(path)[1].lower()
+        # a .pth or .txt names none of its columns, and a scene model has no dataset behind it to state a layout on its behalf
+        assert (
+            file_ext in PointCloudSceneModel.SUPPORTED_EXTENSIONS
+        ), f"a scene model opens only a format that names its own columns: path={path}, extension={file_ext}, supported extensions={PointCloudSceneModel.SUPPORTED_EXTENSIONS}"
         return os.path.abspath(path)
 
     @staticmethod
@@ -71,7 +79,9 @@ class PointCloudSceneModel(BaseSceneModel):
         assert isinstance(resolution, tuple), f"{type(resolution)=}"
         assert len(resolution) == 2, f"{len(resolution)=}"
         assert all(isinstance(dim, int) for dim in resolution), f"{resolution=}"
-        assert camera_name is None or isinstance(camera_name, str), f"{type(camera_name)=}"
+        assert camera_name is None or isinstance(
+            camera_name, str
+        ), f"{type(camera_name)=}"
         assert display_cameras is None or isinstance(
             display_cameras, list
         ), f"{type(display_cameras)=}"

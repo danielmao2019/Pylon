@@ -86,17 +86,25 @@ class RandomRigidTransform(BaseTransform):
             points=src_pc.xyz, transform=random_transform
         )
         src_fields = {
-            name: getattr(src_pc, name)
-            for name in src_pc.field_names()
-            if name != 'xyz'
+            'xyz': transformed_src_xyz,
+            **{
+                name: getattr(src_pc, name)
+                for name in src_pc.field_names()
+                if name != 'xyz'
+            },
         }
-        new_src_pc = PointCloud(xyz=transformed_src_xyz, data=src_fields)
+        # a pose is not a source, so the meta data crosses unchanged rather than being rebuilt from the posed tensors
+        new_src_pc = PointCloud(data=src_fields, meta_data=src_pc.meta_data)
         tgt_fields = {
-            name: getattr(tgt_pc, name)
-            for name in tgt_pc.field_names()
-            if name != 'xyz'
+            'xyz': tgt_pc.xyz,
+            **{
+                name: getattr(tgt_pc, name)
+                for name in tgt_pc.field_names()
+                if name != 'xyz'
+            },
         }
-        new_tgt_pc = PointCloud(xyz=tgt_pc.xyz, data=tgt_fields)
+        # the target is rebuilt rather than passed through, so neither returned cloud aliases an input
+        new_tgt_pc = PointCloud(data=tgt_fields, meta_data=tgt_pc.meta_data)
 
         # Adjust the transformation matrix
         # The new transformation is: new_transform = transform @ random_transform^(-1)

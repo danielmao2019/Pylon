@@ -76,8 +76,8 @@ def demo_rendering() -> None:
     # Load the point cloud onto the GPU; ensure it exposes 'rgb' and 'classification' fields.
     pc = load_point_cloud(
         filepath=str(point_cloud_path),
+        meta_data={'xyz': {'dtype': 'float32'}},
         device=device,
-        dtype=torch.float32,
     )
 
     # Render RGB and segmentation; set return_mask=True when you need valid-pixel masks.

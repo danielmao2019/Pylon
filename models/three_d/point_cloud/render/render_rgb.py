@@ -21,6 +21,7 @@ from models.three_d.point_cloud.render.render_depth import (
 from models.three_d.point_cloud.render.render_mask import (
     render_mask_from_rendering_points,
 )
+from utils.dtypes import convert_color_convention
 
 
 def render_rgb_from_rendering_points(
@@ -46,22 +47,21 @@ def render_rgb_from_rendering_points(
         AssertionError: If colors tensor is empty.
     """
     assert hasattr(pc, 'rgb'), "PointCloud missing rgb field"
+    assert (
+        'rgb' in pc.meta_data
+    ), f"the convention a colour is read on is the one its meta data names: fields={pc.field_names()}, meta data fields={tuple(pc.meta_data.keys())}"
     render_height, render_width = resolution
     colors = pc.rgb
     assert (
         colors.numel() > 0
     ), f"Colors tensor must not be empty, got {colors.numel()} elements"
 
-    # Normalize colors to [0, 1] range (keep float32 to reduce memory)
-    colors = colors.clone()
-    integer_dtypes = [torch.uint8, torch.int8, torch.int16, torch.int32, torch.int64]
-    is_integer_dtype = colors.dtype in integer_dtypes
-    is_in_255_range = colors.min() >= 0 and colors.max() <= 255 and colors.max() > 1.0
-
-    if is_integer_dtype or is_in_255_range:
-        colors = colors / 255.0
-
-    colors = torch.clamp(colors, 0.0, 1.0)
+    # a render is a display of its own copy, so it maps the colours onto the 0-to-1 convention this image is written on rather than reading a range out of the values
+    colors = convert_color_convention(
+        values=colors,
+        source_dtype=pc.meta_data['rgb']['dtype'],
+        target_dtype='float32',
+    )
 
     # Get colors for visible points
     pixel_colors = colors[original_data_indices]

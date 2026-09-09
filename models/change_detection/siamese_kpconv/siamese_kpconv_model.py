@@ -256,8 +256,12 @@ class SiameseKPConv(nn.Module):
 
         pc_0 = point_clouds['pc_0']
         pc_1 = point_clouds['pc_1']
-        pos1, feat1, batch1 = pc_0.xyz, pc_0.feat, pc_0.batch
-        pos2, feat2, batch2 = pc_1.xyz, pc_1.feat, pc_1.batch
+        # every field carries a column axis, and the batch index every op below takes is one number per point
+        assert (
+            pc_0.batch.shape[1] == 1 and pc_1.batch.shape[1] == 1
+        ), f"a batch index is one column per point: pc_0.batch.shape={tuple(pc_0.batch.shape)}, pc_1.batch.shape={tuple(pc_1.batch.shape)}"
+        pos1, feat1, batch1 = pc_0.xyz, pc_0.feat, pc_0.batch[:, 0]
+        pos2, feat2, batch2 = pc_1.xyz, pc_1.feat, pc_1.batch[:, 0]
 
         # Concatenate position and features for KPConv processing
         x1 = torch.cat([pos1, feat1], dim=1)  # [N, 4] (xyz + ones)

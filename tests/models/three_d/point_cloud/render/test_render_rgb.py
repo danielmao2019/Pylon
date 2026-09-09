@@ -127,7 +127,7 @@ def test_render_rgb_with_mask() -> None:
 
 
 def test_render_rgb_color_normalization() -> None:
-    """Test automatic color normalization from 0-255 range."""
+    """Test that a uint8 cloud's 0-to-255 convention is mapped onto the render's 0-to-1 image."""
     pc_data = PointCloud(
         xyz=torch.tensor(
             [
@@ -139,10 +139,10 @@ def test_render_rgb_color_normalization() -> None:
         data={
             'rgb': torch.tensor(
                 [
-                    [255.0, 0.0, 0.0],
-                    [0.0, 255.0, 128.0],
+                    [255, 0, 0],
+                    [0, 255, 128],
                 ],
-                dtype=torch.float32,
+                dtype=torch.uint8,
             )
         },
     )
@@ -159,6 +159,7 @@ def test_render_rgb_color_normalization() -> None:
     assert rgb_image.max() <= 1.0
     assert rgb_image.min() >= 0.0
     assert valid_mask.any()
+    assert torch.isclose(rgb_image.max(), torch.tensor(1.0))
 
 
 def test_render_rgb_depth_sorting() -> None:

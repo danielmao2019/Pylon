@@ -132,6 +132,10 @@ def group_data(
 
     if hasattr(pc, 'change_map'):
         change_map = pc.change_map
+        # every field carries a column axis, and one label per point is the only shape a majority vote is taken over
+        assert (
+            change_map.shape[1] == 1
+        ), f"a change map is one column per point: change_map.shape={tuple(change_map.shape)}"
         if mode == "last":
             fields['change_map'] = change_map[unique_pos_indices]
         else:  # mode == "mean"
@@ -141,7 +145,7 @@ def group_data(
                 (change_map.size(0), change_map.max() - change_min + 1),
                 device=change_map.device,
             )
-            one_hot.scatter_(1, (change_map - change_min).unsqueeze(1), 1)
+            one_hot.scatter_(1, change_map - change_min, 1)
             summed = torch.zeros(
                 (num_clusters, one_hot.size(1)), device=change_map.device
             )

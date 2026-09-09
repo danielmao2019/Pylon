@@ -482,31 +482,34 @@ class Urb3DCDDataset(Base3DCDDataset):
         }
 
         print("Loading " + files['pc_2_filepath'])
-        nameInPly = self.VERSION_MAP[self.version]['nameInPly']
+        element_name = self.VERSION_MAP[self.version]['nameInPly']
+
+        # a multi-element ply names which element's columns form a field for nobody, so the dataset states the element and the width its models train at
+        meta_data = {
+            'xyz': {
+                'dtype': 'float32',
+                'layout': (
+                    f'{element_name}.x',
+                    f'{element_name}.y',
+                    f'{element_name}.z',
+                ),
+            },
+            'feat': {'layout': (f'{element_name}.label_ch',)},
+        }
 
         # Load first point cloud (only has XYZ coordinates)
-        pc1_data = load_point_cloud(
-            files['pc_1_filepath'],
-            nameInPly=nameInPly,
-            name_feat="label_ch",
-            dtype=torch.float32,
-        )
+        pc1_data = load_point_cloud(files['pc_1_filepath'], meta_data=meta_data)
         pc1_xyz = pc1_data.xyz  # Extract position from dictionary
         # Add ones feature
         pc1_features = torch.ones((pc1_xyz.size(0), 1), dtype=pc1_xyz.dtype)  # [N, 1]
 
         # Load second point cloud (XYZ coordinates + label)
-        pc2_data = load_point_cloud(
-            files['pc_2_filepath'],
-            nameInPly=nameInPly,
-            name_feat="label_ch",
-            dtype=torch.float32,
-        )
+        pc2_data = load_point_cloud(files['pc_2_filepath'], meta_data=meta_data)
         pc2_xyz = pc2_data.xyz  # Extract position from dictionary
         # Add ones feature
         pc2_features = torch.ones((pc2_xyz.size(0), 1), dtype=pc2_xyz.dtype)  # [N, 1]
 
-        # Extract change map from features - this is mandatory, let it fail if not present
+        # Extract change map from features - the layout above assembles 'label_ch' into feat
         change_map = pc2_data.feat.squeeze()  # Labels from the loaded features
 
         # Convert to correct types but keep on original device

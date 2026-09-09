@@ -289,14 +289,27 @@ class SLPCCDDataset(Base2DCDDataset):
         pc_2_seg_filepath = pc_2_filepath.replace('.txt', '_seg.txt')
         has_seg_file = os.path.exists(pc_2_seg_filepath)
 
-        # Load point clouds (float32 for processing)
-        pc_1 = load_point_cloud(pc_1_filepath, dtype=torch.float32)
-        pc_2 = load_point_cloud(pc_2_filepath, dtype=torch.float32)
+        # decimal text names none of its own columns, so the dataset states the layout and no width: text parses as float64, and asking for float32 here would abort rather than narrow
+        meta_data = {'xyz': {'layout': ('0', '1', '2')}}
+        pc_1 = load_point_cloud(pc_1_filepath, meta_data=meta_data)
+        pc_2 = load_point_cloud(pc_2_filepath, meta_data=meta_data)
+        # a load never narrows any more, so the dataset that wants the single-precision width its models train at does the narrowing itself
+        assert (
+            pc_1.xyz.dtype == torch.float64 and pc_2.xyz.dtype == torch.float64
+        ), f"decimal text parses as float64: pc_1.xyz.dtype={pc_1.xyz.dtype}, pc_2.xyz.dtype={pc_2.xyz.dtype}"
+        pc_1.xyz = pc_1.xyz.to(torch.float32)
+        pc_2.xyz = pc_2.xyz.to(torch.float32)
 
         # Load segmentation file if available
         pc_2_seg = None
         if has_seg_file:
-            pc_2_seg = load_point_cloud(pc_2_seg_filepath, dtype=torch.float32)
+            # a caller-stated layout is the whole field set over a source that numbers its columns, so the label column is named here or it is not loaded at all
+            seg_meta_data = {**meta_data, 'change_map': {'layout': ('6',)}}
+            pc_2_seg = load_point_cloud(pc_2_seg_filepath, meta_data=seg_meta_data)
+            assert (
+                pc_2_seg.xyz.dtype == torch.float64
+            ), f"decimal text parses as float64: pc_2_seg.xyz.dtype={pc_2_seg.xyz.dtype}"
+            pc_2_seg.xyz = pc_2_seg.xyz.to(torch.float32)
 
         return {
             'pc_1': pc_1,
@@ -376,9 +389,9 @@ class SLPCCDDataset(Base2DCDDataset):
             pc_2_seg = pc_data['pc_2_seg']
             assert isinstance(pc_2_seg, PointCloud), f"{type(pc_2_seg)=}"
             assert hasattr(
-                pc_2_seg, 'feat'
-            ), "Segmentation file must contain labels in feat field"
-            change_map = pc_2_seg.feat.view(-1).long()
+                pc_2_seg, 'change_map'
+            ), "Segmentation file must contain labels in change_map field"
+            change_map = pc_2_seg.change_map.view(-1).long()
         else:
             pc_2_feat = pc_2.feat if hasattr(pc_2, 'feat') else None
             if pc_2_feat is not None:

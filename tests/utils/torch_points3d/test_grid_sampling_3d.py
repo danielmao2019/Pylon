@@ -21,7 +21,7 @@ def test_grid_sampling_3d_basic():
     assert hasattr(result_mean, 'change_map')
     assert hasattr(result_mean, 'point_indices')
     assert isinstance(result_mean.point_indices, torch.Tensor)
-    assert result_mean.point_indices.dim() == 1  # Should be 1D tensor
+    assert result_mean.point_indices.shape[1] == 1  # Every field carries a column axis
 
     # Test with last mode
     sampler_last = GridSampling3D(size=0.1, mode='last')
@@ -31,7 +31,7 @@ def test_grid_sampling_3d_basic():
     assert hasattr(result_last, 'change_map')
     assert hasattr(result_last, 'point_indices')
     assert isinstance(result_last.point_indices, torch.Tensor)
-    assert result_last.point_indices.dim() == 1  # Should be 1D tensor
+    assert result_last.point_indices.shape[1] == 1  # Every field carries a column axis
 
 
 def test_grid_sampling_3d_edge_cases():
@@ -43,7 +43,7 @@ def test_grid_sampling_3d_edge_cases():
     result = sampler(pc)
 
     assert isinstance(result.point_indices, torch.Tensor)
-    assert result.point_indices.dim() == 1
+    assert result.point_indices.shape[1] == 1
 
 
 def test_grid_sampling_3d_invalid_inputs():
@@ -78,7 +78,7 @@ def test_grid_sampling_3d_point_indices():
     result_mean = sampler_mean(pc)
 
     assert isinstance(result_mean.point_indices, torch.Tensor)
-    assert result_mean.point_indices.dim() == 1
+    assert result_mean.point_indices.shape[1] == 1
     # Should have indices for all points, grouped by cluster
     assert result_mean.point_indices.shape[0] == pc.num_points
 
@@ -87,6 +87,6 @@ def test_grid_sampling_3d_point_indices():
     result_last = sampler_last(pc)
 
     assert isinstance(result_last.point_indices, torch.Tensor)
-    assert result_last.point_indices.dim() == 1
+    assert result_last.point_indices.shape[1] == 1
     # Should have indices only for the last point in each cluster
     assert result_last.point_indices.shape[0] == 2  # Two clusters in this case
