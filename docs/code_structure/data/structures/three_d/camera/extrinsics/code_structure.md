@@ -222,9 +222,9 @@ camera_extrinsics.py
     ├── impls asserts max(orthogonality residual, determinant residual) <= _ORTHOGONALITY_REPAIR_ATOL
     ├── impls u, _, v_h = svd(rotation) in rotation.dtype
     ├── impls rotation_fixed = u @ v_h
-    ├── if det(rotation_fixed) < 0
-    │   ├── impls flip u[:, -1]
-    │   └── impls recompute rotation_fixed = u @ v_h
+    ├── impls signs = a [..., 3] of ones whose last entry is the sign of det(rotation_fixed)
+    ├── impls u = u with its columns scaled by signs
+    ├── impls recompute rotation_fixed = u @ v_h
     ├── calls validate_rotation_matrix
     └── return rotation_fixed
 ```
