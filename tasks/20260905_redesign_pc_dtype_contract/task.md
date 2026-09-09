@@ -131,7 +131,6 @@ goal: re-design pc dtype contract/provenance
       1. no canonicalization: `PointCloud` does not canonicalize any field, color included.
          1. rgb enters and is held exactly as it arrived, like every other field.
          2. fields keep their own names.
-      2. both `__init__` and load point cloud bring each field to its target dtype, rgb under Color Data Convention Conversion where a conversion is defined between its source dtype and its target dtype, and every other case under Type Casting. neither loses anything: whatever the source held is exactly recoverable from what they leave, or the program aborts.
    2. validation:
       1. the columns a field is assembled from must all hold one dtype. disagreeing column dtypes hard-assert and abort rather than being promoted to a dtype covering them all.
       2. `PointCloud` keeps validating xyz and rgb by field name.
