@@ -405,6 +405,8 @@ class PointCloud:
                             source_dtype=source_dtype,
                             target_dtype=entry['dtype'],
                         )
+                        # the mapping hands back double precision, and a colour is held at the storage its own convention names
+                        converted = converted.to(TORCH_DTYPE[entry['dtype']])
                         assert bool(
                             (
                                 convert_color_convention(
@@ -418,10 +420,11 @@ class PointCloud:
                         value = converted
                         # the colours sit on the target's range now, so that is the convention they MEAN and the one the record has to name for the next reader to read them by
                         source_dtype = entry['dtype']
-                    # a narrowing the target cannot hold exactly aborts inside the cast, a caller wanting one narrowing its own values before handing them in
-                    value = cast_lossless(
-                        values=value, dtype=TORCH_DTYPE[entry['dtype']]
-                    )
+                    else:
+                        # a narrowing the target cannot hold exactly aborts inside the cast, a caller wanting one narrowing its own values before handing them in
+                        value = cast_lossless(
+                            values=value, dtype=TORCH_DTYPE[entry['dtype']]
+                        )
                 fields[name] = value
                 if meta_data is not None and name in meta_data:
                     # the layout half a caller states is what the field now IS, while the dtype half stays what its columns held, so the override moves the mapping's loaded side and never the provenance
