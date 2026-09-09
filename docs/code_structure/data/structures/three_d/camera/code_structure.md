@@ -11,11 +11,11 @@ validation.py
 ├── if TYPE_CHECKING  # annotation-only imports; the runtime type checks import the two classes inline
 │   ├── from data.structures.three_d.camera.intrinsics.camera_intrinsics import CameraIntrinsics, build_camera_intrinsics
 │   └── from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
-├── def validate_cameras_attributes(intrinsics: "CameraIntrinsics", extrinsics: "CameraExtrinsics", names: List[Optional[str]], ids: List[Optional[int]], device: Optional[Union[str, torch.device]], dtype: Optional[torch.dtype]) -> None
+├── def validate_cameras_attributes(intrinsics: "CameraIntrinsics", extrinsics: "CameraExtrinsics", names: Optional[List[Optional[str]]], ids: Optional[List[Optional[int]]], device: Optional[Union[str, torch.device]], dtype: Optional[torch.dtype]) -> None
 │   ├── # Single-entry validation for Cameras.__init__: validate the batched component pair, the metadata parallel to its batch axis, and the optional tensor placement request.
 │   ├── calls validate_camera_attributes(intrinsics=intrinsics, extrinsics=extrinsics, name=None, id=None, device=device, dtype=dtype)  # the component checks are shape-agnostic, so the batched pair takes the same ones a single camera does
 │   ├── impls asserts the two components agree on the extent of their leading batch axis
-│   ├── impls asserts len(names) == len(ids) == that extent
+│   ├── impls asserts names and ids are each None or hold one entry per camera in the batch  # __init__ fills them in after this runs, so an unnamed batch arrives here as None
 │   ├── impls asserts device is None or a valid torch device spec
 │   ├── impls asserts dtype is None or a floating torch dtype
 │   └── return
