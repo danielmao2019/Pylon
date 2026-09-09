@@ -79,13 +79,13 @@ goal: re-design pc dtype contract/provenance
 #### 1.1.3. Layout Mapping
 
 1. what it is: the mapping between the source layout and the loaded layout, with the columns the source held on one side and the fields assembled from them on the other.
-2. forward mapping: determining the layout from the source, one rule per source.
+2. forward mapping: determining the layout from the source, one rule per source. each field carries the name its source gives the column, attribute or dimension it holds, and a caller wanting a field under another name, or assembled out of several columns, states that in the meta data.
    1. an in-memory variable uses the identity mapping: the name a field was handed under stands for the whole block of columns it was handed as.
    2. a .pth holds one block of unnamed columns and defines no column-to-field mapping. its columns are named by position.
-   3. a .ply names each column, mapping ('x', 'y', 'z') to xyz, ('red', 'green', 'blue') to rgb, and every other column to a field under its own name, so ('intensity',) maps to intensity.
-      1. a file with more than one separately named group of columns does not by itself define which group's columns form each field.
-   4. a .pcd names each open3d attribute, mapping ('positions',) to xyz, ('colors',) to rgb, and every other attribute to a field under its own name.
-   5. a .las or .laz names each laspy dimension separately and as ply does, mapping ('x', 'y', 'z') to xyz, ('red', 'green', 'blue') to rgb, and every other dimension to a field under its own name.
+   3. a .ply names each column, so a column called x becomes a field called x and a column called intensity becomes a field called intensity.
+      1. in a file with more than one separately named group of columns, a column's name is its group's name and its own together, so a column called x in a group called vertex becomes a field called vertex.x.
+   4. a .pcd names each open3d attribute, so the positions attribute becomes a field called positions and the colors attribute becomes a field called colors.
+   5. a .las or .laz names each laspy dimension separately and as ply does.
    6. a .txt holds unnamed columns and defines no column-to-field mapping. its columns are named by position.
    7. a .off names no columns, and the OFF format declares its vertex block to be the coordinates, so it maps ('x', 'y', 'z') to xyz.
 3. reverse mapping: each field maps back to the source column names its mapping records. a field mapped from ('x', 'y', 'z') maps back to x, y and z.
