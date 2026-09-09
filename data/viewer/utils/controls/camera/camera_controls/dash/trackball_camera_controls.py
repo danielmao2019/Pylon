@@ -10,20 +10,29 @@ from dash import Dash, Input
 FORBIDDEN_DASH_CAMERA_CONTROL_PATTERNS: Final[Tuple[str, ...]] = (
     "OrbitControls",
     ".target",
-    "minPolarAngle",
-    "maxPolarAngle",
     "minAzimuthAngle",
     "maxAzimuthAngle",
     "minDistance",
     "maxDistance",
     "enablePan = false",
 )
+# Polar-angle limits, which a roll lock is allowed to carry and an unlocked display is
+# not: stopping the camera at the pole rather than letting a drag carry the view through
+# it is what keeps a locked camera's up vector on the lock axis's own side.
+FORBIDDEN_DASH_CAMERA_POLAR_ANGLE_PATTERNS: Final[Tuple[str, ...]] = (
+    "minPolarAngle",
+    "maxPolarAngle",
+)
 FORBIDDEN_DASH_CAMERA_ROTATION_PATTERNS: Final[Tuple[str, ...]] = (
     "enableRotate = false",
 )
+# The two halves a roll-locked renderer source must declare: the camera right axis held
+# perpendicular to the caller's axis, and the camera up vector held on that axis's own
+# side, which perpendicularity alone never says.
 ROLL_LOCKED_DASH_CAMERA_CONTROL_PATTERNS: Final[Tuple[str, ...]] = (
     "cameraRollLock",
     "cameraRightAxisConstraint",
+    "cameraUpAxisConstraint",
 )
 # Plotly gl3d `layout.scene.dragmode` that clamps the camera up vector onto the world
 # +Z axis: plotly.js discards any supplied up whose normalized z component falls below
@@ -131,7 +140,7 @@ def register_dash_roll_lock_callback(
 ) -> None:
     """Register the clientside callback holding a Dash graph's camera roll about an axis.
 
-    The `orbit` dragmode `create_dash_trackball_camera_controls` selects carries the caller's axis through re-render but leaves roll free through a drag, so the constraint is re-imposed here: on every camera change the graph reports, the callback re-derives `camera.up` from the new view direction and the caller's axis and writes it back with `Plotly.relayout`.
+    The `orbit` dragmode `create_dash_trackball_camera_controls` selects carries the caller's axis through re-render but leaves roll free through a drag, so the constraint is re-imposed here: on every camera change the graph reports, the callback clamps `camera.eye` onto the arc that never crosses the caller's axis, re-derives `camera.up` from the clamped view direction and that axis, and writes both back with `Plotly.relayout`. Clamping the eye is what stops a drag at the pole; without it a drag that pitches through the pole leaves the camera right axis perpendicular to the caller's axis while hanging the scene upside down.
 
     Args:
         app: The Dash app the callback is registered on.
@@ -283,12 +292,17 @@ def assert_dash_no_camera_pose_clamps(
 ) -> None:
     """Assert that controls do not impose camera-pose limits.
 
+    Polar-angle limits are the exception a supplied axis buys, since holding the
+    camera up vector on that axis's own side costs the polar extremes; every other
+    pose limit is forbidden whether or not an axis is supplied.
+
     Args:
         controls: Renderer camera controls, as Plotly gl3d `layout.scene` camera
             configuration or as the three.js viewer's camera-control JavaScript
             source.
         lock_roll: Optional axis the controls lock camera roll about, as an
-            `(x, y, z)` world-space direction; None asserts the free trackball.
+            `(x, y, z)` world-space direction; None asserts the free trackball,
+            whose polar angle and rotation are both unrestricted.
 
     Returns:
         None.
@@ -328,20 +342,33 @@ def assert_dash_no_camera_pose_clamps(
         "restricted camera pose controls are forbidden. restricted_patterns=%r"
         % restricted_patterns
     )
+    polar_angle_patterns = [
+        pattern
+        for pattern in FORBIDDEN_DASH_CAMERA_POLAR_ANGLE_PATTERNS
+        if pattern in controls
+    ]
     rotation_patterns = [
         pattern
         for pattern in FORBIDDEN_DASH_CAMERA_ROTATION_PATTERNS
         if pattern in controls
     ]
     if lock_roll is None:
+        assert not polar_angle_patterns, (
+            "restricted camera pose controls are forbidden. restricted_patterns=%r"
+            % polar_angle_patterns
+        )
         assert not rotation_patterns, (
             "restricted camera pose controls are forbidden. restricted_patterns=%r"
             % rotation_patterns
         )
     else:
+        # A supplied axis buys the roll lock at the polar extremes: stopping the camera
+        # at the pole rather than letting a drag carry the view through it is what keeps
+        # the camera up vector on the axis's own side, so a polar-angle limit is the
+        # lock's own price and not a restriction this assertion forbids.
         assert not rotation_patterns, (
-            "roll lock must cost only the roll axis. lock_roll=%r "
-            "restricted_patterns=%r" % (lock_roll, rotation_patterns)
+            "roll lock must cost only the roll axis and the polar extremes. "
+            "lock_roll=%r restricted_patterns=%r" % (lock_roll, rotation_patterns)
         )
 
 
@@ -350,6 +377,10 @@ def assert_dash_roll_lock(
     lock_roll: Optional[Tuple[float, float, float]] = None,
 ) -> None:
     """Assert that camera roll is held about `lock_roll` exactly when one is supplied.
+
+    A held roll is both halves of the invariant: the camera right axis perpendicular
+    to `lock_roll`, and the camera up vector on that axis's own side. Perpendicularity
+    alone reads the same whichever way is up, so it passes an inverted camera.
 
     Args:
         controls: Renderer camera controls, as Plotly gl3d `layout.scene` camera
@@ -399,15 +430,31 @@ def assert_dash_roll_lock(
             "z": lock_roll[2] / length,
         }
         actual_up = controls["camera"]["up"]
-        assert set(actual_up) == set(expected_up) and all(
-            math.isclose(
-                actual_up[axis], expected_up[axis], rel_tol=1e-9, abs_tol=1e-12
-            )
-            for axis in expected_up
-        ), (
+        assert set(actual_up) == set(expected_up), (
             "roll-locked camera controls must keep the camera right axis "
             "perpendicular to the supplied axis. lock_roll=%r expected_up=%r "
             "actual_up=%r" % (lock_roll, expected_up, actual_up)
+        )
+        up_across_axis = (
+            actual_up["y"] * expected_up["z"] - actual_up["z"] * expected_up["y"],
+            actual_up["z"] * expected_up["x"] - actual_up["x"] * expected_up["z"],
+            actual_up["x"] * expected_up["y"] - actual_up["y"] * expected_up["x"],
+        )
+        assert all(
+            math.isclose(component, 0.0, abs_tol=1e-9) for component in up_across_axis
+        ), (
+            "roll-locked camera controls must keep the camera right axis "
+            "perpendicular to the supplied axis. lock_roll=%r expected_up=%r "
+            "actual_up=%r up_across_axis=%r"
+            % (lock_roll, expected_up, actual_up, up_across_axis)
+        )
+        up_along_axis = sum(actual_up[key] * expected_up[key] for key in expected_up)
+        assert math.isclose(up_along_axis, 1.0, rel_tol=1e-9, abs_tol=1e-12), (
+            "roll-locked camera controls must keep the camera up vector on the "
+            "supplied axis's own side at unit length, which a camera right axis "
+            "perpendicular to that axis never says. lock_roll=%r expected_up=%r "
+            "actual_up=%r up_along_axis=%r"
+            % (lock_roll, expected_up, actual_up, up_along_axis)
         )
         return
     if lock_roll is None:
@@ -428,6 +475,6 @@ def assert_dash_roll_lock(
     ]
     assert not missing_patterns, (
         "roll-locked camera controls must keep the camera right axis perpendicular "
-        "to the supplied axis. lock_roll=%r missing_patterns=%r"
-        % (lock_roll, missing_patterns)
+        "to the supplied axis and the camera up vector on that axis's own side. "
+        "lock_roll=%r missing_patterns=%r" % (lock_roll, missing_patterns)
     )

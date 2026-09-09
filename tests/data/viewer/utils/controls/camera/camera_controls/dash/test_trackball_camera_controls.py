@@ -2,13 +2,16 @@
 
 import json
 import math
-from typing import Dict, Tuple
+import subprocess
+from pathlib import Path
+from typing import Dict, List, Tuple
 
 import plotly.graph_objects as go
 import pytest
 from dash import Dash, dcc, html
 
 from data.viewer.utils.controls.camera.camera_controls.dash.trackball_camera_controls import (
+    ROLL_LOCK_CALLBACK_SCRIPT_PATH,
     assert_dash_no_camera_pose_clamps,
     assert_dash_roll_lock,
     assert_dash_trackball_camera_controls,
@@ -26,6 +29,18 @@ NON_AXIS_ALIGNED_LOCK_ROLL = (0.3, 0.9, -0.2)
 NON_UNIT_LOCK_ROLL = (3.0, 9.0, -2.0)
 # The component id the roll-locked graph is registered under in the callback tests.
 ROLL_LOCKED_GRAPH_ID = "roll-locked-graph"
+# Radians of pitch each simulated drag turns the panel's camera through, negative so the
+# drag climbs toward the pole the camera starts nearest.
+ROLL_LOCKED_PITCH_PER_DRAG_RADIANS = -0.2
+# Simulated drags, enough that the accumulated pitch overshoots the pole several times
+# over rather than merely reaching it.
+ROLL_LOCKED_PITCH_DRAG_COUNT = 20
+# Radians from the lock axis at or below which the camera counts as having reached the
+# pole, generous next to the correction's own stopping distance.
+ROLL_LOCKED_POLE_REACHED_RADIANS = 1e-3
+# Magnitude of `right . axis` at or below which the camera right axis counts as
+# perpendicular to the lock axis.
+ROLL_LOCKED_PERPENDICULAR_TOLERANCE = 1e-9
 
 
 def build_free_trackball_renderer_controls() -> str:
@@ -62,13 +77,16 @@ def build_roll_locked_renderer_controls() -> str:
     Returns:
         JavaScript source carrying the trackball mouse mapping plus the roll-lock
         wiring that re-derives the camera right axis perpendicular to the supplied
-        axis on every drag step.
+        axis on every drag step and clamps the pitch so the camera up vector stays
+        on that axis's own side.
     """
     return build_free_trackball_renderer_controls() + """
     container.dataset.cameraRollLock = JSON.stringify(rollLockAxis);
     container.dataset.cameraRightAxisConstraint = "perpendicular-to-roll-lock-axis";
+    container.dataset.cameraUpAxisConstraint = "same-side-as-roll-lock-axis";
     cameraRightAxis.crossVectors(viewDirection, rollLockAxis).normalize();
     camera.up.crossVectors(cameraRightAxis, viewDirection).normalize();
+    pitchAngle = Math.min(Math.max(pitchAngle, -polarAngle), Math.PI - polarAngle);
     """
 
 
@@ -399,6 +417,180 @@ def test_the_roll_lock_callback_rejects_a_zero_axis() -> None:
         )
 
 
+def build_roll_lock_pitch_harness_script(lock_roll: Tuple[float, float, float]) -> str:
+    """Build the Node harness that drives the roll-lock callback through a pole-crossing pitch.
+
+    The harness stands in for the panel: it holds the gl3d camera the callback reads,
+    turns it the way a Plotly `orbit` left-drag does (the eye and the camera up vector
+    both rotating about the camera's own screen-right axis), hands the turned camera to
+    the callback, and applies whatever `Plotly.relayout` the callback issues.
+
+    Args:
+        lock_roll: Axis to lock camera roll about, as a non-zero `(x, y, z)`
+            world-space direction of any length.
+
+    Returns:
+        JavaScript source that prints one JSON record per simulated drag, each carrying
+        `up_along_axis`, `right_along_axis`, and `polar` measured on the camera the
+        callback left behind.
+    """
+    return """
+const ROLL_LOCK_SOURCE = %s;
+const GRAPH_ID = %s;
+const LOCK_ROLL = %s;
+const PITCH_PER_DRAG = %s;
+const DRAG_COUNT = %s;
+
+function add(a, b) { return [a[0] + b[0], a[1] + b[1], a[2] + b[2]]; }
+function subtract(a, b) { return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]; }
+function scale(a, s) { return [a[0] * s, a[1] * s, a[2] * s]; }
+function cross(a, b) {
+  return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+}
+function dot(a, b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+function normalize(a) { const l = Math.sqrt(dot(a, a)); return [a[0] / l, a[1] / l, a[2] / l]; }
+function toRecord(a) { return { x: a[0], y: a[1], z: a[2] }; }
+function toVector(r) { return [r.x, r.y, r.z]; }
+function rotate(v, axis, angle) {
+  const c = Math.cos(angle);
+  const s = Math.sin(angle);
+  return add(add(scale(v, c), scale(cross(axis, v), s)), scale(axis, dot(axis, v) * (1 - c)));
+}
+
+const axis = normalize(LOCK_ROLL);
+let camera = { eye: toRecord([1.25, 1.25, 1.25]), center: toRecord([0, 0, 0]), up: toRecord(axis) };
+
+function pitchDrag(angle) {
+  const eye = toVector(camera.eye);
+  const center = toVector(camera.center);
+  const up = toVector(camera.up);
+  const forward = normalize(subtract(center, eye));
+  const right = normalize(cross(forward, up));
+  camera = {
+    eye: toRecord(add(center, rotate(subtract(eye, center), right, angle))),
+    center: camera.center,
+    up: toRecord(normalize(rotate(up, right, angle))),
+  };
+}
+
+const graphDiv = { _fullLayout: { scene: { _scene: { getCamera: () => camera } } } };
+globalThis.document = {
+  getElementById: (id) =>
+    id === GRAPH_ID ? { querySelector: (s) => (s === ".js-plotly-plot" ? graphDiv : null) } : null,
+};
+globalThis.window = { dash_clientside: { no_update: null } };
+globalThis.Plotly = {
+  relayout: (div, update) => {
+    if (update["scene.camera.eye"] !== undefined) {
+      camera = { eye: update["scene.camera.eye"], center: camera.center, up: camera.up };
+    }
+    if (update["scene.camera.up"] !== undefined) {
+      camera = { eye: camera.eye, center: camera.center, up: update["scene.camera.up"] };
+    }
+    return { then: (settle) => { settle(); } };
+  },
+};
+
+const callback = eval(ROLL_LOCK_SOURCE)(GRAPH_ID, axis);
+const records = [];
+for (let drag = 0; drag < DRAG_COUNT; drag += 1) {
+  pitchDrag(PITCH_PER_DRAG);
+  callback(null);
+  const offset = subtract(toVector(camera.eye), toVector(camera.center));
+  const forward = normalize(scale(offset, -1));
+  const right = normalize(cross(forward, toVector(camera.up)));
+  records.push({
+    up_along_axis: dot(normalize(toVector(camera.up)), axis),
+    right_along_axis: dot(right, axis),
+    polar: Math.acos(Math.max(-1, Math.min(1, dot(normalize(offset), axis)))),
+  });
+}
+process.stdout.write(JSON.stringify(records));
+""" % (
+        json.dumps(ROLL_LOCK_CALLBACK_SCRIPT_PATH.read_text()),
+        json.dumps(ROLL_LOCKED_GRAPH_ID),
+        json.dumps(list(lock_roll)),
+        json.dumps(ROLL_LOCKED_PITCH_PER_DRAG_RADIANS),
+        json.dumps(ROLL_LOCKED_PITCH_DRAG_COUNT),
+    )
+
+
+def run_roll_lock_pitch_harness(harness_path: Path) -> List[Dict[str, float]]:
+    """Run the roll-lock pitch harness under Node and read back its per-drag records.
+
+    Args:
+        harness_path: Path the harness source was written to.
+
+    Returns:
+        One dict per simulated drag, each carrying `up_along_axis`,
+        `right_along_axis`, and `polar` as floats.
+    """
+    completed_process = subprocess.run(
+        args=["node", str(harness_path)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed_process.returncode == 0, (
+        "Expected the roll-lock pitch Node harness to succeed. "
+        f"{completed_process.returncode=} {completed_process.stderr=}"
+    )
+    return json.loads(completed_process.stdout)
+
+
+def test_the_roll_lock_callback_stops_a_pitch_at_the_pole(tmp_path: Path) -> None:
+    """A pitch that reaches the pole stops there rather than carrying the view through it, so the camera never comes out the far side."""
+    harness_path = tmp_path / "roll_lock_pitch_harness.js"
+    harness_path.write_text(
+        build_roll_lock_pitch_harness_script(lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL),
+    )
+
+    records = run_roll_lock_pitch_harness(harness_path=harness_path)
+
+    assert len(records) == ROLL_LOCKED_PITCH_DRAG_COUNT, (
+        "The harness must report one record per simulated drag. "
+        f"{len(records)=} {ROLL_LOCKED_PITCH_DRAG_COUNT=}"
+    )
+    polar_angles = [record["polar"] for record in records]
+    assert min(polar_angles) <= ROLL_LOCKED_POLE_REACHED_RADIANS, (
+        "The simulated pitch must actually reach the pole, or nothing about the pole "
+        f"is under test. {polar_angles=} {ROLL_LOCKED_POLE_REACHED_RADIANS=}"
+    )
+    assert polar_angles[-1] <= ROLL_LOCKED_POLE_REACHED_RADIANS, (
+        "Every drag past the pole must leave the camera at the pole rather than "
+        f"carrying it out the far side. {polar_angles=}"
+    )
+
+
+def test_the_roll_lock_callback_never_lets_a_pitch_invert_the_camera(
+    tmp_path: Path,
+) -> None:
+    """A pole-reaching pitch leaves the camera up vector on the lock axis's own side at every drag, which a camera right axis perpendicular to that axis never says on its own."""
+    harness_path = tmp_path / "roll_lock_pitch_harness.js"
+    harness_path.write_text(
+        build_roll_lock_pitch_harness_script(lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL),
+    )
+
+    records = run_roll_lock_pitch_harness(harness_path=harness_path)
+
+    inverted_records = [record for record in records if record["up_along_axis"] < 0]
+    assert not inverted_records, (
+        "A roll-locked camera must never hang the scene upside down, so its up vector "
+        "must stay on the lock axis's own side through a pitch that reaches the pole. "
+        f"{inverted_records=} {records=}"
+    )
+    tilted_records = [
+        record
+        for record in records
+        if abs(record["right_along_axis"]) > ROLL_LOCKED_PERPENDICULAR_TOLERANCE
+    ]
+    assert not tilted_records, (
+        "A roll-locked camera must keep its right axis perpendicular to the lock axis "
+        f"through the same drags. {tilted_records=} {records=}"
+    )
+
+
 # ================================================================================
 # The three.js viewer's camera-control JavaScript source
 # ================================================================================
@@ -423,8 +615,8 @@ def test_free_trackball_source_leaves_camera_roll_unconstrained() -> None:
         )
 
 
-def test_roll_locked_source_holds_the_camera_right_axis() -> None:
-    """Renderer source that re-derives the camera right axis passes the roll-locked contract and fails the free-trackball one."""
+def test_roll_locked_source_holds_the_camera_right_axis_and_up_vector() -> None:
+    """Renderer source that re-derives the camera right axis and clamps the pitch passes the roll-locked contract and fails the free-trackball one."""
     controls = build_roll_locked_renderer_controls()
 
     assert_dash_roll_lock(controls=controls, lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL)

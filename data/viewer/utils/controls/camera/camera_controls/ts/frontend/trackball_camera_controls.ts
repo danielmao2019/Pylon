@@ -4,12 +4,13 @@ import type { CameraState } from "data/viewer/utils/controls/camera/camera_state
 
 export const DEFAULT_TRACKBALL_PERSPECTIVE_CAMERA_FOV: number = 45;
 
-// Squared length below which a cross product no longer defines a direction: the
-// view direction runs parallel to the roll-lock axis and their cross product
-// collapses, so the camera right axis is carried instead of re-derived.
-const ROLL_LOCK_DEGENERACY_EPSILON_SQUARED = 1e-12;
 // Radians of camera rotation per pixel of roll-locked left-drag.
 const ROLL_LOCKED_ROTATE_SPEED = 0.005;
+// Radians the roll-locked pitch stops short of the lock axis. Clamping the pitch into
+// this band is what stops the camera at the pole instead of carrying the view through
+// it, so the view direction never runs parallel to the axis and the cross product that
+// re-derives the camera right axis never collapses.
+const ROLL_LOCKED_POLAR_ANGLE_EPSILON = 1e-6;
 
 type CameraStateListener = (cameraState: CameraState) => void;
 
@@ -29,6 +30,7 @@ export interface ThreeTrackballCameraControls extends TrackballCameraControls {
   minDistance: number;
   maxDistance: number;
   rollLockAxis: THREE.Vector3 | null;
+  rollLockPolarAngleEpsilon: number | null;
   addEventListener: (type: "change", listener: () => void) => void;
   handleResize: () => void;
   update: () => void;
@@ -68,7 +70,7 @@ export function createTrackballCameraControls({
     renderer,
     lockRoll,
   });
-  assertTrackballCameraControls({ controls, renderer, lockRoll });
+  assertTrackballCameraControls({ controls, camera, renderer, lockRoll });
   if (initialCameraState !== null) {
     controls.applyCameraState(initialCameraState);
   }
@@ -124,20 +126,6 @@ function createRendererTrackballCameraControls({
     // right-drag pan and wheel zoom untouched.
     threeControls.noRotate = true;
 
-    const cameraRightAxis = new THREE.Vector3().crossVectors(
-      threeControls.target.clone().sub(camera.position),
-      rollLockAxis,
-    );
-    if (cameraRightAxis.lengthSq() < ROLL_LOCK_DEGENERACY_EPSILON_SQUARED) {
-      // The camera already looks along the lock axis, so every axis perpendicular
-      // to the lock axis is an equally valid camera right axis to start from.
-      cameraRightAxis.set(1, 0, 0).cross(rollLockAxis);
-      if (cameraRightAxis.lengthSq() < ROLL_LOCK_DEGENERACY_EPSILON_SQUARED) {
-        cameraRightAxis.set(0, 1, 0).cross(rollLockAxis);
-      }
-    }
-    cameraRightAxis.normalize();
-
     let leftDragActive = false;
     let lastClientX = 0;
     let lastClientY = 0;
@@ -166,24 +154,24 @@ function createRendererTrackballCameraControls({
         -deltaX * ROLL_LOCKED_ROTATE_SPEED,
       );
       offset.applyQuaternion(yaw);
-      cameraRightAxis.applyQuaternion(yaw);
-      const yawedRightAxis = new THREE.Vector3().crossVectors(
-        offset.clone().negate(),
-        rollLockAxis,
+      const cameraRightAxis = new THREE.Vector3()
+        .crossVectors(offset.clone().negate(), rollLockAxis)
+        .normalize();
+      // Yaw turns about the lock axis and so leaves the angle to it alone, which
+      // makes the pitch the whole of what can reach a pole. Clamping it to the
+      // band stops the camera at the pole, where every further pitch step is
+      // rejected instead of carrying the view through and inverting the scene.
+      const polarAngle = offset.angleTo(rollLockAxis);
+      const pitchAngle = Math.min(
+        Math.max(
+          -deltaY * ROLL_LOCKED_ROTATE_SPEED,
+          ROLL_LOCKED_POLAR_ANGLE_EPSILON - polarAngle,
+        ),
+        Math.PI - ROLL_LOCKED_POLAR_ANGLE_EPSILON - polarAngle,
       );
-      if (yawedRightAxis.lengthSq() >= ROLL_LOCK_DEGENERACY_EPSILON_SQUARED) {
-        yawedRightAxis.normalize();
-        // Past a pole the re-derived axis points the opposite way, which would
-        // reverse the next pitch and bounce the camera off the pole; taking the
-        // carried axis's orientation pitches straight through and out the far side.
-        if (yawedRightAxis.dot(cameraRightAxis) < 0) {
-          yawedRightAxis.negate();
-        }
-        cameraRightAxis.copy(yawedRightAxis);
-      }
       const pitch = new THREE.Quaternion().setFromAxisAngle(
         cameraRightAxis,
-        -deltaY * ROLL_LOCKED_ROTATE_SPEED,
+        pitchAngle,
       );
       offset.applyQuaternion(pitch);
       camera.position.copy(threeControls.target).add(offset);
@@ -206,6 +194,8 @@ function createRendererTrackballCameraControls({
   });
   return Object.assign(threeControls, {
     rollLockAxis,
+    rollLockPolarAngleEpsilon:
+      rollLockAxis === null ? null : ROLL_LOCKED_POLAR_ANGLE_EPSILON,
     getCameraState: () =>
       buildThreeTrackballCameraState({
         camera,
@@ -235,6 +225,7 @@ function createRendererTrackballCameraControls({
 //
 // Args:
 //   controls: the constructed trackball controls.
+//   camera: the perspective camera the controls drive.
 //   renderer: the WebGL renderer whose canvas the controls listen on.
 //   lockRoll: the world-space axis the controls were asked to lock roll about;
 //     null asserts the free trackball.
@@ -243,17 +234,19 @@ function createRendererTrackballCameraControls({
 //   void.
 function assertTrackballCameraControls({
   controls,
+  camera,
   renderer,
   lockRoll,
 }: {
   controls: ThreeTrackballCameraControls;
+  camera: THREE.PerspectiveCamera;
   renderer: THREE.WebGLRenderer;
   lockRoll: THREE.Vector3 | null;
 }): void {
   assertTrackballMouseMapping({ controls, renderer });
   assertNoOrbitCameraControls({ controls });
   assertNoCameraPoseClamps({ controls, lockRoll });
-  assertRollLock({ controls, lockRoll });
+  assertRollLock({ controls, camera, lockRoll });
 }
 
 // Asserts the controls map left-drag to rotate, right-drag to pan, and wheel to
@@ -312,13 +305,14 @@ function assertNoOrbitCameraControls({
   }
 }
 
-// Asserts the controls impose no camera-pose restriction on polar angle, azimuth
-// angle, target lock, distance, pan, translation, or rotation.
+// Asserts the controls impose no camera-pose restriction on azimuth angle, target
+// lock, distance, pan, or translation, and none on polar angle or rotation beyond
+// what a supplied lock axis buys.
 //
 // Args:
 //   controls: the constructed trackball controls.
 //   lockRoll: the world-space axis the controls were asked to lock roll about;
-//     null forbids every rotation restriction.
+//     null forbids every rotation and polar-angle restriction.
 //
 // Returns:
 //   void.
@@ -329,9 +323,9 @@ function assertNoCameraPoseClamps({
   controls: ThreeTrackballCameraControls;
   lockRoll: THREE.Vector3 | null;
 }): void {
-  // Three's trackball has no polar, azimuth, target-lock, or translation clamp to
-  // read: its whole pose-restriction surface is the pan flag and the distance
-  // bounds, which stay at the unbounded defaults.
+  // Three's trackball has no azimuth, target-lock, or translation clamp to read:
+  // its whole pose-restriction surface is the pan flag and the distance bounds,
+  // which stay at the unbounded defaults.
   if (
     controls.noPan ||
     controls.minDistance !== 0 ||
@@ -342,23 +336,35 @@ function assertNoCameraPoseClamps({
     );
   }
   if (lockRoll === null) {
-    if (controls.noRotate) {
-      throw new Error("restricted camera pose controls: noRotate=true");
+    // Three's own rotation carries the camera over a pole without stopping, so an
+    // unlocked path's polar angle is unrestricted exactly when that rotation is the
+    // one running and no roll-locked pitch clamp replaced it.
+    if (controls.noRotate || controls.rollLockPolarAngleEpsilon !== null) {
+      throw new Error(
+        `restricted camera pose controls: noRotate=${controls.noRotate} rollLockPolarAngleEpsilon=${controls.rollLockPolarAngleEpsilon}`,
+      );
     }
     return;
   }
+  // A supplied axis buys the roll lock at the polar extremes: the roll-locked pitch
+  // stops the camera at the pole rather than carrying the view through it, so the
+  // polar clamp is the lock's own price and not a restriction this assertion forbids.
   if (controls.noRotate && controls.rollLockAxis === null) {
     throw new Error(
-      "roll lock must cost only the roll axis: three's rotation is off and no roll-locked rotation replaced it",
+      "roll lock must cost only the roll axis and the polar extremes: three's rotation is off and no roll-locked rotation replaced it",
     );
   }
 }
 
 // Asserts roll is held about lockRoll when one is supplied and left free when
-// none is, this module owning no axis of its own.
+// none is, this module owning no axis of its own. A held roll is both halves of
+// the invariant: the camera right axis perpendicular to the axis, and the camera
+// up vector on the axis's own side rather than hanging the scene upside down.
 //
 // Args:
 //   controls: the constructed trackball controls.
+//   camera: the perspective camera the controls drive, whose up vector carries the
+//     side of the axis the scene hangs on.
 //   lockRoll: the world-space axis the controls were asked to lock roll about;
 //     null asserts the camera right axis is constrained against no axis at all.
 //
@@ -366,23 +372,44 @@ function assertNoCameraPoseClamps({
 //   void.
 function assertRollLock({
   controls,
+  camera,
   lockRoll,
 }: {
   controls: ThreeTrackballCameraControls;
+  camera: THREE.PerspectiveCamera;
   lockRoll: THREE.Vector3 | null;
 }): void {
   if (lockRoll !== null) {
+    const rollLockAxis = lockRoll.clone().normalize();
     if (
       controls.rollLockAxis === null ||
-      !controls.rollLockAxis.equals(lockRoll.clone().normalize())
+      !controls.rollLockAxis.equals(rollLockAxis)
     ) {
       throw new Error(
         "roll-locked camera controls must keep the camera right axis perpendicular to the supplied axis",
       );
     }
+    // Perpendicularity alone reads the same whichever way is up, so it passes a
+    // camera that pitched through the pole and hangs the scene inverted. The pitch
+    // clamp is what keeps the up vector on the axis's side, and the up vector the
+    // controls drive is what says it did.
+    if (controls.rollLockPolarAngleEpsilon === null) {
+      throw new Error(
+        "roll-locked camera controls must keep the camera up vector on the supplied axis's side: no pitch clamp stops the camera at the pole",
+      );
+    }
+    const upAlongAxis = camera.up.dot(rollLockAxis);
+    if (upAlongAxis < 0) {
+      throw new Error(
+        `roll-locked camera controls must keep the camera up vector on the supplied axis's side: up . axis = ${upAlongAxis}`,
+      );
+    }
     return;
   }
-  if (controls.rollLockAxis !== null) {
+  if (
+    controls.rollLockAxis !== null ||
+    controls.rollLockPolarAngleEpsilon !== null
+  ) {
     throw new Error(
       "free trackball camera controls must leave camera roll unconstrained",
     );
