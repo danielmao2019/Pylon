@@ -61,10 +61,14 @@ class PointCloud:
                 isinstance(name, str) for name in data.keys()
             ), f"every source column is named by a str: data keys={None if data is None else tuple(data.keys())}"
             assert data is None or all(
+                isinstance(column, (np.ndarray, torch.Tensor))
+                for column in data.values()
+            ), f"every source column arrives as a numpy array or a torch tensor: column types={None if data is None else {name: type(column) for name, column in data.items()}}"
+            assert data is None or all(
                 CONCEPTUAL_NAME[column.dtype] != 'uint64' for column in data.values()
             ), f"uint64 is unsupported as a source dtype whatever the values are: column dtypes={None if data is None else {name: column.dtype for name, column in data.items()}}"
             assert (
-                xyz is not None or data is not None
+                xyz is not None or data
             ), f"a point cloud is built from coordinates, from columns, or from both, never from neither: xyz={xyz}, data={data}"
             assert (
                 xyz is None or data is None or 'xyz' not in data
@@ -113,6 +117,9 @@ class PointCloud:
                 device = next(iter(data.values())).device
             else:
                 device = torch.device('cpu')
+            if device.type == 'cuda' and device.index is None:
+                # a field lands on the current cuda device whatever index the name leaves out, so the slot names that same index rather than the bare type
+                device = torch.device('cuda', torch.cuda.current_device())
 
             return data, device
 
@@ -142,9 +149,9 @@ class PointCloud:
                 self._meta_data = meta_data
                 return
 
+            # read off the SOURCE columns, since uint16, uint32 and float128 reach torch only in the width TORCH_DTYPE parks them in, where their own names are gone
             column_dtypes = {
-                name: CONCEPTUAL_NAME[value.dtype]
-                for name, value in self._fields.items()
+                name: CONCEPTUAL_NAME[column.dtype] for name, column in data.items()
             }
             record = {}
             for group in COORDINATE_COLUMN_NAMES:
@@ -648,10 +655,10 @@ class PointCloud:
         ), f"coordinates are a floating point tensor: xyz.dtype={xyz.dtype}"
         assert not bool(
             torch.isnan(xyz).any()
-        ), f"coordinates carry no NaN: number of NaN entries={int(torch.isnan(xyz).sum())}"
+        ), f"xyz tensor contains NaN: number of NaN entries={int(torch.isnan(xyz).sum())}"
         assert not bool(
             torch.isinf(xyz).any()
-        ), f"coordinates carry no Inf: number of Inf entries={int(torch.isinf(xyz).sum())}"
+        ), f"xyz tensor contains Inf: number of Inf entries={int(torch.isinf(xyz).sum())}"
 
     @staticmethod
     def validate_rgb_tensor(rgb: torch.Tensor, current_dtype: str) -> None:
