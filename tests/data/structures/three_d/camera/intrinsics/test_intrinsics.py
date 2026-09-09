@@ -2,7 +2,7 @@ import ast
 import math
 import warnings
 from pathlib import Path
-from typing import Dict, List, Set, Tuple, Union
+from typing import Dict, List, Optional, Set, Tuple, Union
 
 import numpy as np
 import pytest
@@ -152,6 +152,156 @@ def test_validate_intrinsics_params_dispatches_per_model_tensor_keys() -> None:
                 intr_convention="standard",
                 params=_tensor_params(params=model_params[foreign_model[model]]),
             )
+
+
+def test_intrinsics_params_carry_one_shared_batch_axis() -> None:
+    """A camera's params are scalars or a [B] batch, all sharing one leading shape, so a batch of cameras is one intrinsics rather than a list of them.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    batched_params = _tensor_params(
+        params={
+            "fx": 400.0,
+            "fy": 410.0,
+            "cx": 160.0,
+            "cy": 120.0,
+            "h": 240,
+            "w": 320,
+        },
+        batch_size=3,
+    )
+    accepted = validate_camera_intrinsics_params(
+        model="pinhole", intr_convention="standard", params=batched_params
+    )
+    assert accepted == batched_params, (
+        "Expected the validated batched params to be the accepted params dict. "
+        f"{set(accepted.keys())=} {set(batched_params.keys())=}"
+    )
+
+    mismatched_params: Dict[str, torch.Tensor] = {
+        **batched_params,
+        **_tensor_params(params={"fy": 410.0}, batch_size=2),
+    }
+    with pytest.raises(AssertionError):
+        validate_camera_intrinsics_params(
+            model="pinhole", intr_convention="standard", params=mismatched_params
+        )
+
+
+def test_batched_intrinsics_carry_the_batch_through_its_accessors_and_project() -> None:
+    """Every derived quantity a batched intrinsics reports carries the batch axis, so one intrinsics answers for all its cameras in one call.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    batched_params = _tensor_params(
+        params={
+            "fx": 400.0,
+            "fy": 410.0,
+            "cx": 160.0,
+            "cy": 120.0,
+            "h": 240,
+            "w": 320,
+        },
+        batch_size=3,
+    )
+    intrinsics = build_camera_intrinsics(
+        model="pinhole", params=batched_params, intr_convention="standard"
+    )
+    height, width = intrinsics.resolution
+    for name, derived in (
+        ("fx", intrinsics.fx),
+        ("fy", intrinsics.fy),
+        ("cx", intrinsics.cx),
+        ("cy", intrinsics.cy),
+        ("h", height),
+        ("w", width),
+    ):
+        assert derived.shape == (3,), (
+            "Expected every derived quantity of a three-camera batch to carry the "
+            f"batch axis. {name=} {derived.shape=}"
+        )
+
+    points_camera = torch.tensor(
+        [
+            [[1.0, 2.0, 4.0], [3.0, -1.0, 8.0]],
+            [[2.0, 1.0, 5.0], [-1.0, 3.0, 10.0]],
+            [[0.5, 0.5, 2.0], [4.0, 4.0, 4.0]],
+        ],
+        dtype=torch.float32,
+    )
+    image_points = intrinsics.project(points_camera=points_camera, inplace=False)
+    assert image_points.shape == (3, 2, 2), (
+        "Expected the image points to carry the batch axis ahead of the point axis. "
+        f"{image_points.shape=} {points_camera.shape=}"
+    )
+
+    for index in range(3):
+        one_camera = build_camera_intrinsics(
+            model="pinhole",
+            params={key: value[index] for key, value in batched_params.items()},
+            intr_convention="standard",
+        )
+        one_camera_image_points = one_camera.project(
+            points_camera=points_camera[index], inplace=False
+        )
+        assert torch.equal(image_points[index], one_camera_image_points), (
+            "Expected the batched image points slice to equal that camera's own "
+            f"projection. {index=} {image_points[index]=} {one_camera_image_points=}"
+        )
+
+
+def test_scale_intrinsics_rescales_a_batch_against_each_cameras_own_resolution() -> (
+    None
+):
+    """A batch states one resolution per camera, so a shared factor lands on each camera's own raster rather than on one resolution the batch does not have.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    batched_params = _tensor_params(
+        params={
+            "fx": 400.0,
+            "fy": 410.0,
+            "cx": 160.0,
+            "cy": 120.0,
+            "h": [240, 300, 360],
+            "w": [320, 400, 480],
+        },
+        batch_size=3,
+    )
+    intrinsics = build_camera_intrinsics(
+        model="pinhole", params=batched_params, intr_convention="standard"
+    )
+    scaled = intrinsics.scale_intrinsics(scale=2.0)
+
+    height, width = scaled.resolution
+    assert height.shape == (3,) and width.shape == (3,), (
+        "Expected both scaled resolution sides to carry the batch axis. "
+        f"{height.shape=} {width.shape=}"
+    )
+    assert torch.equal(height, 2.0 * batched_params["h"]) and torch.equal(
+        width, 2.0 * batched_params["w"]
+    ), (
+        "Expected each scaled resolution side to be that camera's own side scaled. "
+        f"{height=} {width=} {batched_params['h']=} {batched_params['w']=}"
+    )
+    assert torch.equal(scaled.fx, 2.0 * batched_params["fx"]) and torch.equal(
+        scaled.fy, 2.0 * batched_params["fy"]
+    ), (
+        "Expected each scaled focal to be that camera's own focal scaled. "
+        f"{scaled.fx=} {scaled.fy=} {batched_params['fx']=} {batched_params['fy']=}"
+    )
 
 
 def test_validate_intrinsics_params_rejects_a_params_dict_missing_the_resolution() -> (
@@ -1660,17 +1810,33 @@ def test_scale_intrinsics_keeps_tensor_state_differentiable() -> None:
 
 
 def _tensor_params(
-    params: Dict[str, Union[int, float]], requires_grad: bool = False
+    params: Dict[str, Union[int, float, List[Union[int, float]]]],
+    requires_grad: bool = False,
+    batch_size: Optional[int] = None,
 ) -> Dict[str, torch.Tensor]:
-    """Build scalar tensor intrinsics params from numeric values.
+    """Build scalar or batched tensor intrinsics params from numeric values.
 
     Args:
-        params: Numeric intrinsics params keyed by model field name.
+        params: Numeric intrinsics params keyed by model field name, each stated as one number shared by every camera or as one number per camera.
         requires_grad: Whether floating projection params should require gradients.
+        batch_size: Number of cameras the params state, or None for a single unbatched camera.
 
     Returns:
-        A dict with every param represented as a scalar float32 tensor.
+        A dict with every param represented as a float32 tensor, of shape ``[]`` when batch_size is None and ``[batch_size]`` otherwise.
     """
+    if batch_size is not None:
+        return {
+            key: torch.tensor(
+                (
+                    [float(item) for item in value]
+                    if isinstance(value, list)
+                    else [float(value)] * batch_size
+                ),
+                dtype=torch.float32,
+                requires_grad=requires_grad,
+            )
+            for key, value in params.items()
+        }
     return {
         key: torch.tensor(
             float(value), dtype=torch.float32, requires_grad=requires_grad
