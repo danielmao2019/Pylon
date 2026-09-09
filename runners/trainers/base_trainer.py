@@ -20,7 +20,7 @@ from utils.dynamic_executor import create_dynamic_executor
 from utils.logging.text_logger import TextLogger
 from utils.logging.screen_logger import ScreenLogger
 from utils.logging import echo_page_break, log_losses, log_scores
-from runners.model_comparison import compare_scores, get_metric_directions, reduce_scores_to_scalar
+from runners.model_comparison import compare_scores, get_metric_directions
 
 
 class BaseTrainer(ABC):
