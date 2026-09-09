@@ -113,15 +113,6 @@ goal: re-design pc dtype contract/provenance
    3. an override changes the fields the obj stores and never the recorded meta data, which stays exactly what the source data held.
    4. a dtype override moves the field's values onto the dtype it states.
    5. a layout override chooses which source columns are assembled into a field, and the field the obj stores afterwards is the block those columns make.
-6. save point cloud: what reaches the file is the obj's fields brought to the target, and save derives nothing else.
-   1. where the obj's fields and the record's fields differ:
-      1. a field the record names that the obj no longer holds is not saved.
-      2. a field the obj holds that the record does not name takes its target dtype and target layout from the field itself and from the override.
-   2. the target is the record amended by the override, and the record itself is untouched by the save.
-      1. a field the override leaves alone is written at the record's own dtype, including when that is int64 for a ply save.
-   3. dtype: the target dtype of each source column is the one the override states for its field, or the recorded dtype where the override states none. the actual ply storage dtype follows the lossless casting rule in Type Casting.
-      1. the ply u4 example is therefore saved as u4.
-   4. layout: output columns follow the reverse mapping defined by Layout Mapping. the save format must support the target layout. one it cannot express hard-asserts and aborts.
 
 #### 1.1.5. Point Cloud Data Structure Construction and I/O
 
@@ -169,8 +160,8 @@ goal: re-design pc dtype contract/provenance
 - retired layout behavior:
    1. the colors and pos aliases.
    2. splitting unnamed columns by position:
-      1. the .pth reader taking columns zero through two as xyz and every column past the third as feat.
-      2. the .txt reader taking column six alone as feat when the file holds seven or more columns and every column past the third otherwise.
+      1. loading a .pth taking columns zero through two as xyz and every column past the third as feat.
+      2. loading a .txt taking column six alone as feat when the file holds seven or more columns and every column past the third otherwise.
    3. deriving x, y, z and red, green, blue from the field name, and the feat_0, feat_1 suffix fallback for anything else.
 - retired load point cloud arguments:
    1. the meta data override replaces the existing dtype arg, which cast xyz alone, and controls dtype per field.
