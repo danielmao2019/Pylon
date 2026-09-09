@@ -57,14 +57,6 @@ class Camera:
         if device is not None or dtype is not None:
             intrinsics = intrinsics.to(device=device, dtype=dtype)
             extrinsics = extrinsics.to(device=device, dtype=dtype)
-        assert intrinsics.device == extrinsics.device, (
-            "Expected Camera components to share device. "
-            f"{intrinsics.device=} {extrinsics.device=}"
-        )
-        assert intrinsics.dtype == extrinsics.dtype, (
-            "Expected Camera components to share dtype. "
-            f"{intrinsics.dtype=} {extrinsics.dtype=}"
-        )
         self._intrinsics: CameraIntrinsics = intrinsics
         self._extrinsics: CameraExtrinsics = extrinsics
         self._name: Optional[str] = name

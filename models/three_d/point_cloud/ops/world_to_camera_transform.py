@@ -27,6 +27,9 @@ def world_to_camera_transform(
             inverted over the trailing two axes.
         inplace: If True, the camera-frame coordinates are written back into
             points and points is returned; if False, a new tensor is returned.
+            Requires extrinsics carrying no leading axis, since [N, 3] points in
+            and [..., N, 3] out is a shape expansion that leaves no buffer to
+            write back into.
         max_divide: Maximum number of times the matmul may halve its row batch on
             CUDA OOM (forwarded to apply_transform).
         num_divide: If not None, the fixed number of halvings for the matmul row
@@ -35,8 +38,8 @@ def world_to_camera_transform(
     Returns:
         Float torch.Tensor of shape [..., N, 3] in the camera local frame
         (OpenCV: +Z forward), carrying the extrinsics' leading axes: [4, 4] in
-        gives [N, 3] out and [B, 4, 4] gives [B, N, 3]. The same tensor as points
-        when inplace.
+        gives [N, 3] out and is the only case inplace returns the same tensor as
+        points, [B, 4, 4] gives [B, N, 3].
     """
 
     def _validate_inputs() -> None:
@@ -46,6 +49,9 @@ def world_to_camera_transform(
         assert points.ndim == 2 and points.shape[1] == 3, (
             "Expected points to be a [N, 3] tensor. " f"{points.shape=}"
         )
+        assert points.dtype.is_floating_point, (
+            "Expected points to be a float tensor. " f"{points.dtype=}"
+        )
         assert isinstance(extrinsics, torch.Tensor), (
             "Expected extrinsics to be a torch.Tensor. " f"{type(extrinsics)=}"
         )
@@ -53,10 +59,20 @@ def world_to_camera_transform(
             "Expected extrinsics to be a [..., 4, 4] stack of matrices. "
             f"{extrinsics.shape=}"
         )
+        assert extrinsics.dtype.is_floating_point, (
+            "Expected extrinsics to be a float tensor. " f"{extrinsics.dtype=}"
+        )
         assert points.device == extrinsics.device, (
             "Expected points and extrinsics on the same device. "
             f"{points.device=} {extrinsics.device=}"
         )
+        if inplace:
+            assert extrinsics.ndim == 2, (
+                "Expected inplace=True only with extrinsics carrying no leading axis: "
+                "[N, 3] points in and [..., N, 3] out is a shape expansion, leaving no "
+                "buffer to write back into. "
+                f"{points.shape=} {extrinsics.shape=}"
+            )
 
     _validate_inputs()
 
