@@ -32,7 +32,7 @@ prepare_points_for_rendering.py
 ├── def prepare_points_for_rendering(pc: PointCloud, camera: Camera, resolution: Tuple[int, int], max_divide: int = 0, num_divide: Optional[int] = None, cull_func: Callable[[torch.Tensor, torch.Tensor, int, int], None] = _frustum_cull) -> Tuple[torch.Tensor, torch.Tensor]
 │   ├── # Public entry that prepares the camera (opencv extr_convention + resolution-scaled intrinsics) and adaptively batches point preprocessing to mitigate CUDA OOM.
 │   ├── impls points = pc.xyz  # the [N, 3] world-space point tensor
-│   ├── impls camera_prepared = camera.to(device=points.device, extr_convention="opencv").scale_intrinsics(resolution=resolution)
+│   ├── impls camera_prepared = camera.to(device=points.device, dtype=points.dtype, extr_convention="opencv").scale_intrinsics(resolution=resolution)
 │   ├── impls N = points.shape[0]
 │   ├── if num_divide is not None
 │   │   ├── impls batch_size = max(1, math.ceil(N / 2 ** num_divide))
