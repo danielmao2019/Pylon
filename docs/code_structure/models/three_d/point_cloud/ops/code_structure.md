@@ -13,9 +13,12 @@ apply_transform.py
 ├── def apply_transform(points: Union[np.ndarray, torch.Tensor], transform: Union[list, np.ndarray, torch.Tensor], inplace: bool = False, max_divide: int = 0, num_divide: Optional[int] = None) -> Union[np.ndarray, torch.Tensor]
 │   ├── # A transform carrying a leading batch axis broadcasts over it, so [..., 4, 4] against [N, 3] yields [..., N, 3] and a single [4, 4] still yields [N, 3].
 │   ├── # Applies a 4x4 transform to points in homogeneous coordinates, preserving the input's type and batch shape, writing the result back into points when inplace.
+│   ├── def _validate_inputs [local]
+│   │   └── if inplace
+│   │       └── assert transform carries no leading axes  # they yield one copy of the points per entry, leaving no single buffer to write back into
+│   ├── calls _validate_inputs
 │   ├── calls _normalize_points
 │   ├── calls _normalize_transform
-│   ├── assert not inplace or transform_normalized.ndim == 2  # a transform carrying leading axes yields one copy of the points per axis entry, so there is no single buffer to write back into
 │   ├── if isinstance(points_normalized, np.ndarray)
 │   │   ├── impls append a ones column, np.matmul by the transform's trailing-two-axes swap, drop the homogeneous coordinate
 │   │   ├── if points_was_batched
@@ -26,7 +29,7 @@ apply_transform.py
 │   │   └── return  # the transformed numpy points
 │   └── else
 │       ├── impls points_h = the points with a ones homogeneous column appended
-│       ├── calls chunked_matmul(points_h, transform_normalized.transpose(-2, -1), max_divide=max_divide, num_divide=num_divide)  # chunked over the point rows, the transform's leading axes riding through as the small operand's own
+│       ├── calls chunked_matmul(points_h, transform_normalized.transpose(-2, -1), max_divide=max_divide, num_divide=num_divide)  # chunked over the point rows
 │       ├── impls drop the homogeneous coordinate from the chunked-matmul result
 │       ├── if points_was_batched
 │       │   └── impls add back the batch dimension
@@ -47,14 +50,14 @@ apply_transform.py
 │   └── else
 │       └── raise ValueError
 ├── def _normalize_transform(transform: Union[list, np.ndarray, torch.Tensor], target_type: type, target_dtype: Union[torch.dtype, np.dtype], target_device: Optional[Union[str, torch.device]]) -> Union[np.ndarray, torch.Tensor]
-│   ├── # Normalizes a transform to the target type/dtype/device, leaving its leading axes as they came in so a batch of one keeps the axis that names it a batch.
+│   ├── # Normalizes a transform to the target type/dtype/device, leaving its leading axes as they came in.
 │   ├── if target_type == np.ndarray
 │   │   └── calls _normalize_transform_numpy
 │   ├── elif target_type == torch.Tensor
 │   │   └── calls _normalize_transform_torch
 │   ├── else
 │   │   └── raise ValueError
-│   └── return  # the [..., 4, 4] transform, its leading axes those of the transform it was given
+│   └── return  # the [..., 4, 4] transform
 ├── def _normalize_transform_numpy(transform: Union[list, np.ndarray, torch.Tensor], target_dtype: np.dtype) -> np.ndarray
 │   ├── # Converts a list or tensor transform into a numpy array of the target dtype.
 │   ├── if transform is a list
