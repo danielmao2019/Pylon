@@ -40,6 +40,11 @@ LOCKED_GRAPH_ID = "locked-mesh-graph"
 # report a wrong type instead of naming what the lock is missing.
 MISSING_APP_MESSAGE = re.escape("Expected an `app` alongside `lock_roll`")
 MISSING_GRAPH_ID_MESSAGE = re.escape("Expected a `graph_id` alongside `lock_roll`")
+# The rejection an `app` handed in with no axis must be named by. Matching this
+# contract's own wording rather than the word `app` or `lock_roll` alone is what keeps
+# the clause from passing on some unrelated later failure that happens to mention one
+# of those words instead of naming what the lock is missing.
+MISSING_LOCK_ROLL_MESSAGE = re.escape("Expected a `lock_roll` alongside `app`")
 
 
 def _write_mesh_artifact(tmp_path: Path) -> str:
@@ -261,3 +266,100 @@ def test_mesh_display_api_rejects_an_axis_without_the_lock_target(
         create_display(mesh_path, lock_roll=LOCK_ROLL_AXIS, graph_id=LOCKED_GRAPH_ID)
     with pytest.raises(AssertionError, match=MISSING_GRAPH_ID_MESSAGE):
         create_display(mesh_path, lock_roll=LOCK_ROLL_AXIS, app=Dash(__name__))
+
+
+@pytest.mark.parametrize(
+    "create_display",
+    MESH_DISPLAY_APIS,
+    ids=MESH_DISPLAY_API_IDS,
+)
+def test_mesh_display_api_rejects_an_app_without_the_axis(
+    create_display: Callable[..., dcc.Graph],
+    tmp_path: Path,
+) -> None:
+    """Reject an app handed in with no axis for it to lock about, rather than returning the unlocked display a caller who believed they were locking would otherwise get.
+
+    Args:
+        create_display: Mesh display API under test, called with an artifact path.
+        tmp_path: Pytest-provided temporary directory the mesh artifact is written into.
+
+    Returns:
+        None.
+    """
+
+    mesh_path = _write_mesh_artifact(tmp_path=tmp_path)
+
+    with pytest.raises(AssertionError, match=MISSING_LOCK_ROLL_MESSAGE):
+        create_display(mesh_path, app=Dash(__name__))
+    with pytest.raises(AssertionError, match=MISSING_LOCK_ROLL_MESSAGE):
+        create_display(mesh_path, app=Dash(__name__), graph_id=LOCKED_GRAPH_ID)
+
+
+@pytest.mark.parametrize(
+    "create_display",
+    MESH_DISPLAY_APIS,
+    ids=MESH_DISPLAY_API_IDS,
+)
+def test_mesh_display_api_graph_id_without_the_axis_names_the_unlocked_graph(
+    create_display: Callable[..., dcc.Graph],
+    tmp_path: Path,
+) -> None:
+    """Allow a graph id named with no axis and carry it onto the returned graph, because naming a graph is useful on its own and only the app is meaningless without an axis.
+
+    Args:
+        create_display: Mesh display API under test, called with an artifact path.
+        tmp_path: Pytest-provided temporary directory the mesh artifact is written into.
+
+    Returns:
+        None.
+    """
+
+    display = create_display(
+        _write_mesh_artifact(tmp_path=tmp_path),
+        graph_id=LOCKED_GRAPH_ID,
+    )
+
+    assert display.id == LOCKED_GRAPH_ID, (
+        "Expected a graph id named without an axis to reach the graph the API "
+        f"returns. {display.to_plotly_json()['props'].keys()=} {LOCKED_GRAPH_ID=}"
+    )
+    assert display.figure.layout.scene.to_plotly_json() == {"dragmode": "orbit"}, (
+        "Expected a graph id named without an axis to leave the display unlocked, "
+        "since an id names the graph and locks nothing. "
+        f"{display.figure.layout.scene.to_plotly_json()=}"
+    )
+
+
+@pytest.mark.parametrize(
+    "create_display",
+    MESH_DISPLAY_APIS,
+    ids=MESH_DISPLAY_API_IDS,
+)
+def test_mesh_display_api_naming_neither_returns_the_unlocked_graph_unchanged(
+    create_display: Callable[..., dcc.Graph],
+    tmp_path: Path,
+) -> None:
+    """Return byte-for-byte the unlocked graph the API returns when the three roll-lock parameters are omitted entirely.
+
+    Args:
+        create_display: Mesh display API under test, called with an artifact path.
+        tmp_path: Pytest-provided temporary directory the mesh artifact is written into.
+
+    Returns:
+        None.
+    """
+
+    mesh_path = _write_mesh_artifact(tmp_path=tmp_path)
+    omitted = create_display(mesh_path)
+    explicit_none = create_display(mesh_path, lock_roll=None, app=None, graph_id=None)
+
+    assert omitted.to_plotly_json() == explicit_none.to_plotly_json(), (
+        "Expected passing the roll-lock parameters as None to render exactly what "
+        f"omitting them renders. {omitted.to_plotly_json()=} "
+        f"{explicit_none.to_plotly_json()=}"
+    )
+    assert set(omitted.to_plotly_json()["props"]) == {"figure"}, (
+        "Expected a display named neither an axis nor an app to return a graph "
+        "carrying nothing but its figure, which is what every existing call site "
+        f"already gets. {omitted.to_plotly_json()['props'].keys()=}"
+    )

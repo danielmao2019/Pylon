@@ -33,6 +33,11 @@ LOCKED_GRAPH_ID = "locked-display-graph"
 # report a wrong type instead of naming what the lock is missing.
 MISSING_APP_MESSAGE = re.escape("Expected an `app` alongside `lock_roll`")
 MISSING_GRAPH_ID_MESSAGE = re.escape("Expected a `graph_id` alongside `lock_roll`")
+# The rejection an `app` handed in with no axis must be named by. Matching this
+# contract's own wording rather than the word `app` or `lock_roll` alone is what keeps
+# the clause from passing on some unrelated later failure that happens to mention one
+# of those words instead of naming what the lock is missing.
+MISSING_LOCK_ROLL_MESSAGE = re.escape("Expected a `lock_roll` alongside `app`")
 
 
 def build_dash_mesh_display(**kwargs: Any) -> dcc.Graph:
@@ -314,4 +319,73 @@ def test_no_axis_leaves_the_returned_graph_where_it_was(
         "An unlocked display must return a graph carrying nothing but its figure, "
         "which is what every existing call site already gets. "
         f"{display_kind=} {display.to_plotly_json()['props'].keys()=}"
+    )
+
+
+@pytest.mark.parametrize(
+    "display_kind, build_display",
+    DASH_3D_DISPLAY_FACTORIES,
+    ids=[display_kind for display_kind, _ in DASH_3D_DISPLAY_FACTORIES],
+)
+def test_an_app_without_the_axis_is_rejected(
+    display_kind: str,
+    build_display: Callable[..., dcc.Graph],
+) -> None:
+    """Handing in an app with no axis for it to lock about is rejected, rather than silently returning the unlocked display a caller who believed they were locking would otherwise get."""
+    with pytest.raises(AssertionError, match=MISSING_LOCK_ROLL_MESSAGE):
+        build_display(app=Dash(__name__))
+    with pytest.raises(AssertionError, match=MISSING_LOCK_ROLL_MESSAGE):
+        build_display(app=Dash(__name__), graph_id=LOCKED_GRAPH_ID)
+
+
+@pytest.mark.parametrize(
+    "display_kind, build_display",
+    DASH_3D_DISPLAY_FACTORIES,
+    ids=[display_kind for display_kind, _ in DASH_3D_DISPLAY_FACTORIES],
+)
+def test_a_graph_id_without_the_axis_names_the_unlocked_graph(
+    display_kind: str,
+    build_display: Callable[..., dcc.Graph],
+) -> None:
+    """A graph id named with no axis is allowed and names the returned graph, because naming a graph is useful on its own and only the app is meaningless without an axis."""
+    display = build_display(graph_id=LOCKED_GRAPH_ID)
+
+    assert display.id == LOCKED_GRAPH_ID, (
+        "A graph id named without an axis must reach the graph the factory "
+        f"returns. {display_kind=} {display.to_plotly_json()['props'].keys()=} "
+        f"{LOCKED_GRAPH_ID=}"
+    )
+    scene = display.figure.layout.scene
+    assert (scene.camera.up.x, scene.camera.up.y, scene.camera.up.z) == (
+        None,
+        None,
+        None,
+    ), (
+        "A graph id named without an axis must leave the display unlocked, since "
+        f"an id names the graph and locks nothing. {display_kind=} {scene.camera.up=}"
+    )
+
+
+@pytest.mark.parametrize(
+    "display_kind, build_display",
+    DASH_3D_DISPLAY_FACTORIES,
+    ids=[display_kind for display_kind, _ in DASH_3D_DISPLAY_FACTORIES],
+)
+def test_naming_neither_returns_the_unlocked_component_unchanged(
+    display_kind: str,
+    build_display: Callable[..., dcc.Graph],
+) -> None:
+    """Naming neither an axis nor an app returns byte-for-byte the unlocked component the factory returns when the three parameters are omitted entirely."""
+    omitted = build_display()
+    explicit_none = build_display(lock_roll=None, app=None, graph_id=None)
+
+    assert omitted.to_plotly_json() == explicit_none.to_plotly_json(), (
+        "Passing the roll-lock parameters as None must render exactly what "
+        f"omitting them renders. {display_kind=} {omitted.to_plotly_json()=} "
+        f"{explicit_none.to_plotly_json()=}"
+    )
+    assert set(omitted.to_plotly_json()["props"]) == {"figure"}, (
+        "A display named neither an axis nor an app must return a graph carrying "
+        "nothing but its figure, which is what every existing call site already "
+        f"gets. {display_kind=} {omitted.to_plotly_json()['props'].keys()=}"
     )
