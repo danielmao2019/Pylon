@@ -48,7 +48,7 @@ goal: re-design pc dtype contract/provenance
    4. a .pcd defines the dtype each open3d attribute carries.
    5. a .las or .laz defines the dtype laspy materializes each dimension as: float64 for the scaled x, y and z, uint16 for the colors, and uint8 for a bit-packed field, which is an ordinary unsigned integer.
    6. a .txt holds decimal text, which yields float64.
-   7. a .off holds decimal text, and float32 is what load point cloud keeps it at, hard-asserting it is never handed anything beyond what float32 holds rather than moving it onto a dtype that covers it.
+   7. a .off holds decimal text, and float32 is what load point cloud keeps it at, hard-asserting on any magnitude float32 cannot hold rather than moving it onto a dtype that covers it.
 
 #### 1.1.2. Color Data Convention Conversion
 
