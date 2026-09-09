@@ -89,7 +89,7 @@ def expected_camera_up(lock_roll: Tuple[float, float, float]) -> Dict[str, float
 # ================================================================================
 
 
-def test_no_axis_means_free_trackball() -> None:
+def test_no_axis_renders_no_camera_configuration() -> None:
     """A caller that names no lock_roll gets no camera configuration at all, identical to an explicit lock_roll=None construction."""
     defaulted_controls = create_dash_trackball_camera_controls()
     explicit_controls = create_dash_trackball_camera_controls(lock_roll=None)
