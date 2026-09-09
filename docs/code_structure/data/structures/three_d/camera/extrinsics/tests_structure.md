@@ -10,10 +10,22 @@ test_rotation_stabilize_validate_compat.py
 ├── import torch
 ├── from data.structures.three_d.camera.extrinsics.camera_extrinsics import _stabilize_rotation_matrix
 ├── from data.structures.three_d.camera.extrinsics.validation import validate_camera_extrinsics, validate_rotation_matrix
+├── def _random_rotation
+│   ├── # One reproducible proper rotation per seed, so every rotation-building test starts from a real rotation instead of a hand-written matrix.
+│   ├── impls draw a seeded random (3, 3) float64 matrix
+│   ├── impls take the QR decomposition of that matrix
+│   ├── impls canonicalize the orthonormal factor by the signs of the triangular factor's diagonal
+│   ├── if that orthonormal factor has a negative determinant
+│   │   └── impls negate its first column
+│   ├── impls cast the orthonormal factor to the requested dtype
+│   └── return
 ├── def test_stabilize_accepts_float32_and_float64
 │   ├── # _stabilize_rotation_matrix accepts a float32 or float64 near-orthogonal rotation, returns the same dtype, and its output passes validate_rotation_matrix.
 │   ├── for each dtype in {torch.float32, torch.float64}
-│   │   ├── calls _stabilize_rotation_matrix(rotation=a near-orthogonal (3, 3) rotation in that dtype)
+│   │   ├── calls _random_rotation(dtype=that dtype, seed=a fixed seed)
+│   │   ├── calls _random_rotation(dtype=that dtype, seed=a second fixed seed)
+│   │   ├── impls multiply the two rotations into one near-orthogonal (3, 3) rotation in that dtype
+│   │   ├── calls _stabilize_rotation_matrix(rotation=that near-orthogonal (3, 3) rotation)
 │   │   ├── impls assert the returned rotation keeps that dtype
 │   │   └── calls validate_rotation_matrix(obj=the returned rotation)
 │   └── return
@@ -25,17 +37,22 @@ test_rotation_stabilize_validate_compat.py
 ├── def test_stabilized_batch_passes_validator
 │   ├── # A [B, 3, 3] batch stabilized in one call matches stabilizing each rotation alone, and the cam2world batch it builds passes validate_camera_extrinsics for both float32 and float64.
 │   ├── for each dtype in {torch.float32, torch.float64}
-│   │   ├── calls _stabilize_rotation_matrix(rotation=a [B, 3, 3] batch of near-orthogonal rotations in that dtype)
+│   │   ├── for each entry of the batch
+│   │   │   ├── calls _random_rotation(dtype=that dtype, seed=a per-entry seed)
+│   │   │   ├── calls _random_rotation(dtype=that dtype, seed=a second per-entry seed)
+│   │   │   └── impls multiply the two rotations into one near-orthogonal (3, 3) rotation
+│   │   ├── impls stack those rotations into a [B, 3, 3] batch in that dtype
+│   │   ├── calls _stabilize_rotation_matrix(rotation=that [B, 3, 3] batch of near-orthogonal rotations)
 │   │   ├── for each rotation of that batch
 │   │   │   ├── calls _stabilize_rotation_matrix(rotation=that one (3, 3) rotation alone)
 │   │   │   └── impls assert the batched result's matching slice equals it
 │   │   ├── impls stack the stabilized rotations into a (B, 4, 4) cam2world batch in that dtype
 │   │   └── calls validate_camera_extrinsics(obj=the (B, 4, 4) cam2world batch)
 │   └── return
-├── def test_stabilize_repairs_each_reflection_of_a_batch
-│   ├── # A batch mixing proper rotations with reflections has the sign repaired per matrix, so every returned determinant is positive.
-│   ├── calls _stabilize_rotation_matrix(rotation=a [B, 3, 3] batch whose entries alternate a proper rotation and one column-negated into a reflection)
-│   ├── impls assert every returned determinant is positive
+├── def test_stabilize_rejects_a_reflection
+│   ├── # A batch mixing proper rotations with reflections is refused rather than sign-repaired, since a camera's rotation is proper by construction.
+│   ├── with pytest.raises(AssertionError)
+│   │   └── calls _stabilize_rotation_matrix(rotation=a [B, 3, 3] batch whose entries alternate a proper rotation and one column-negated into a reflection)
 │   └── return
 ├── def test_validator_threshold_is_dtype_aware
 │   ├── # A fixed near-orthogonality deviation between the float64 and float32 tolerances passes validate_rotation_matrix as float32 but is rejected as float64.
@@ -46,7 +63,8 @@ test_rotation_stabilize_validate_compat.py
 │   └── return
 └── def test_validator_requires_determinant_plus_one
     ├── # A camera's rotation is validated to have determinant +1, so a reflection is inexpressible as camera extrinsics and any change of handedness has to be carried by the geometry instead.
-    ├── calls validate_rotation_matrix(obj=a proper rotation of determinant +1)
+    ├── calls _random_rotation(dtype=torch.float64, seed=a fixed seed)
+    ├── calls validate_rotation_matrix(obj=that proper rotation of determinant +1)
     ├── impls build an orthonormal (3, 3) matrix whose determinant is -1 by negating one of its columns
     ├── with pytest.raises(AssertionError)
     │   └── calls validate_rotation_matrix(obj=that determinant -1 matrix)
