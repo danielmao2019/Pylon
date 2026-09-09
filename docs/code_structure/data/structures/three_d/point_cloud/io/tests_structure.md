@@ -428,12 +428,22 @@ test_point_cloud_operations.py
 │   ├── calls write_ply(filepath, extra_field='intensity')
 │   ├── calls load_point_cloud(filepath=filepath, meta_data={'intensity': {'dtype': 'bfloat16'}}, device='cpu')
 │   └── impls assert intensity is stored as torch.bfloat16
-├── def test_a_dtype_the_caller_states_leaves_the_field_meaning_what_its_source_held
-│   ├── # A stated dtype casts the values without rescaling them, so they stay on the source's convention and the record goes on being what the field means.
-│   ├── calls write_ply(filepath, with_rgb=True, colour_columns='uint16')
+├── def test_a_stated_colour_dtype_moves_the_values_onto_the_convention_it_names
+│   ├── # A colour's dtype IS its convention, so stating one converts the values onto that range and the record then says the convention they are on.
+│   ├── calls write_ply(filepath, with_rgb=True, colour_columns='uint16', colour_values='multiples of 257')
 │   ├── calls load_point_cloud(filepath=filepath, meta_data={'rgb': {'dtype': 'uint8'}}, device='cpu')
-│   ├── impls assert the stored rgb tensor is torch.uint8
-│   └── impls assert the meta data entry for rgb still holds 'uint16', which is the convention those values are on
+│   ├── impls assert the stored rgb tensor is torch.uint8 holding the 0-to-255 counterparts of what the file held
+│   └── impls assert the meta data entry for rgb holds 'uint8'
+├── def test_a_stated_colour_dtype_that_would_round_the_values_is_refused
+│   ├── # Construction and load refuse a lossy conversion exactly as save does, so a colour that cannot come back is never quietly rounded on the way in.
+│   ├── calls write_ply(filepath, with_rgb=True, colour_columns='uint16', colour_values='1')
+│   └── with pytest.raises(AssertionError)
+│       └── calls load_point_cloud(filepath=filepath, meta_data={'rgb': {'dtype': 'uint8'}}, device='cpu')
+├── def test_a_stated_dtype_that_would_narrow_a_value_away_is_refused
+│   ├── # Every cast these modules make is lossless, so narrowing is the caller's to do on its own values before handing them in.
+│   ├── calls torch.save(a [N, 4] float64 tensor whose coordinates need float64, filepath)
+│   └── with pytest.raises(AssertionError)
+│       └── calls load_point_cloud(filepath=filepath, meta_data={'xyz': {'dtype': 'float32', 'layout': ('0', '1', '2')}}, device='cpu')
 ├── def test_a_dtype_alone_is_enough_where_the_source_defines_the_layout
 │   ├── # A ply names its own columns, so a caller who only wants a different dtype states only that and the file's layout stands.
 │   ├── calls write_ply(filepath, extra_field='intensity')
@@ -574,6 +584,12 @@ test_ply_saving.py
 ├── from plyfile import PlyData
 ├── from data.structures.three_d.point_cloud.point_cloud import PointCloud
 ├── from data.structures.three_d.point_cloud.io import load_point_cloud, save_point_cloud
+├── @pytest.fixture def pc()
+│   ├── # The in-memory cloud every case below saves, handed in as the three separately named columns a ply file holds rather than as one coordinate block.
+│   ├── # A block handed in under one name reverse-maps to one column of three values, which ply cannot express, so a fixture built that way would make every case here a test of that refusal instead of of what it means to test.
+│   ├── impls columns = eight rows of x, y and z as three float32 arrays, keyed 'x', 'y' and 'z'
+│   ├── calls PointCloud(data=columns, device='cpu')
+│   └── return  # the cloud it built, whose record maps xyz back onto the three columns a ply save writes under
 ├── def test_basic_ply_saving
 │   ├── # Coordinates written to a PLY under the column names their meta data entry gives them come back as the ones that were saved.
 │   ├── impls filepath = the path of a tempfile.NamedTemporaryFile with suffix '.ply'

@@ -307,10 +307,40 @@ test_point_cloud_meta_data.py
 │   ├── # Coordinates-first is insertion order now, so the constructor enters them first rather than trusting the caller's dict order.
 │   ├── calls PointCloud(data={'feat': a [4] float32 tensor, 'xyz': a [4, 3] float32 tensor})
 │   └── impls assert field_names() is ('xyz', 'feat')
-└── def test_a_layout_repeating_a_column_is_refused_in_a_handed_over_meta_data
-    ├── # A column assembled into one field twice is not a layout, and the door refuses the record rather than reading past it.
-    └── with pytest.raises(AssertionError)
-        └── calls PointCloud(data={'xyz': a [4, 3] float32 tensor}, meta_data={'xyz': {'dtype': 'float32', 'layout': ('a', 'a')}})
+├── def test_a_layout_repeating_a_column_is_refused_in_a_handed_over_meta_data
+│   ├── # A column assembled into one field twice is not a layout, and the door refuses the record rather than reading past it.
+│   └── with pytest.raises(AssertionError)
+│       └── calls PointCloud(data={'xyz': a [4, 3] float32 tensor}, meta_data={'xyz': {'dtype': 'float32', 'layout': ('a', 'a')}})
+├── def test_applying_the_same_meta_data_twice_changes_nothing
+│   ├── # Every load applies once inside the construction and again on the way out, and every save applies once more, so a second application that moved anything would move it on every ordinary path.
+│   ├── calls PointCloud(data={'x': a [4] float32 tensor, 'y': a [4] float32 tensor, 'z': a [4] float32 tensor, 'intensity': a [4] uint16 tensor})
+│   ├── impls first = the meta data pc carries and the fields it holds after construction
+│   ├── calls pc.apply_meta_data()
+│   ├── impls assert the meta data still maps xyz onto ('x', 'y', 'z') rather than onto ('xyz',)
+│   └── impls assert every field still holds what first held
+├── def test_a_field_assembled_from_columns_can_be_split_back_into_them
+│   ├── # A later application names the source columns back out of the field the record already assembled, which is what makes the same columns reachable however they were last grouped.
+│   ├── calls PointCloud(data={'x': a [4] float32 tensor, 'y': a [4] float32 tensor, 'z': a [4] float32 tensor})
+│   ├── calls pc.apply_meta_data(meta_data={'xyz': {'layout': ('x', 'y')}, 'z': {'layout': ('z',)}})
+│   ├── impls assert xyz is two columns wide and z is its own field
+│   └── impls assert the meta data maps xyz onto ('x', 'y')
+├── def test_a_layout_override_enters_the_record_while_the_dtype_override_does_not
+│   ├── # The mapping's loaded side is what a caller asked for, and its dtype half stays what the source held whatever width the values were moved to.
+│   ├── calls PointCloud(data={'0': a [4] float64 tensor, '1': a [4] float64 tensor, '2': a [4] float64 tensor}, meta_data={'xyz': {'dtype': 'float32', 'layout': ('0', '1', '2')}})
+│   ├── impls assert the xyz tensor is torch.float32
+│   ├── impls assert the meta data maps xyz onto ('0', '1', '2')
+│   └── impls assert the meta data entry for xyz still holds 'float64'
+├── def test_applying_meta_data_hands_back_the_target_it_applied
+│   ├── # The dtype half a caller states never reaches the record, so the target is handed back for the writer that has to write the file at it.
+│   ├── calls PointCloud(data={'intensity': a [4] uint16 tensor, 'xyz': a [4, 3] float32 tensor})
+│   ├── calls pc.apply_meta_data(meta_data={'intensity': {'dtype': 'uint8'}})
+│   └── impls assert what it returned holds 'uint8' for intensity while pc.meta_data holds 'uint16'
+└── def test_a_deleted_field_is_dropped_from_the_target_rather_than_aborting_it
+    ├── # The record goes on naming a departed field, and the application that follows a deletion drops it instead of failing to find its columns.
+    ├── calls PointCloud(data={'xyz': a [4, 3] float32 tensor, 'intensity': a [4] uint16 tensor})
+    ├── impls the intensity attribute of pc is deleted
+    ├── calls pc.apply_meta_data()
+    └── impls assert what it returned names xyz alone
 ```
 
 `tests/data/structures/three_d/point_cloud/test_select_random_select.py`
