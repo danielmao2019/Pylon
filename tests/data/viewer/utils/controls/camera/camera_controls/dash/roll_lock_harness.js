@@ -29,8 +29,17 @@ let clock = 0;
 globalThis.performance = { now: () => clock };
 
 const { JSDOM, VirtualConsole } = require(path.join(spec.node_modules_path, "jsdom"));
+// jsdom catches whatever a DOM event listener throws and reports it here instead of letting it out of `dispatchEvent`, so a callback that aborts on the pose a pointer move handed it would otherwise leave the run reporting a full set of records as if nothing had happened. The callback runs inside the controller's own listener for every move of a drag, so failing the run on that report is what makes such an abort visible. The other thing reported here is jsdom naming a browser API it does not implement - the WebGL context the renderer would draw through, which nothing under test reads - and that is left to pass.
+const virtualConsole = new VirtualConsole();
+virtualConsole.on("jsdomError", (error) => {
+    if (error.type !== "unhandled-exception") {
+        return;
+    }
+    process.stderr.write(String(error.stack) + "\n");
+    process.exit(1);
+});
 const dom = new JSDOM("<!doctype html><html><body></body></html>", {
-    virtualConsole: new VirtualConsole(),
+    virtualConsole: virtualConsole,
 });
 const domWindow = dom.window;
 // The shipped controller reaches for the browser globals through the bare names, so the jsdom window is installed under those names before it is loaded. `performance` is deliberately not among them: jsdom's own implementation reads the global back and would recur into itself, and the harness clock is what belongs there.

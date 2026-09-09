@@ -56,6 +56,15 @@ LIVE_DRAG_MOVE_COUNT = 24
 LIVE_POLE_MOVE = {"dx": 0, "dy": 26}
 # How many pointer moves that drag runs, which carries it well past the move that first reaches the pole.
 LIVE_POLE_MOVE_COUNT = 24
+# The camera eye a panel whose framing is not degenerate is seeded with, off the lock axis so a pitch reaches a pole from a frame that is not already on one.
+OFF_AXIS_EYE = (1.25, 1.25, 1.25)
+# Distance from the rotation target the degenerate framings seed the eye at, matching the off-axis framing's own radius so every framing turns through the same sphere.
+SEEDED_FRAMING_RADIUS = 1.25 * math.sqrt(3.0)
+# Pointer travel, in pixels, of one pointer move of the live pitch that climbs into one pole, and of the reversed pitch that carries the camera back through the sphere into the other. A pure-vertical drag composes no roll of its own, so what these moves carry into the poles is the framing the panel was seeded with.
+LIVE_PITCH_MOVE = {"dx": 0, "dy": -26}
+REVERSED_LIVE_PITCH_MOVE = {"dx": 0, "dy": 26}
+# How many pointer moves each half of that pitch runs, enough to reach its own pole from every framing below and to keep pushing well past the move that first reaches it.
+LIVE_PITCH_MOVE_COUNT = 16
 
 
 def build_pole_crossing_drags() -> List[Dict[str, int]]:
@@ -73,6 +82,110 @@ def build_pole_crossing_drags() -> List[Dict[str, int]]:
         + [dict(YAW_DRAG)] * YAW_DRAG_COUNT
         + [dict(RETURN_DRAG)] * RETURN_DRAG_COUNT
     )
+
+
+def build_live_pitch_moves() -> List[Dict[str, int]]:
+    """Build the pointer moves that pitch the camera into one pole and on back through the sphere into the other.
+
+    Args:
+        None.
+
+    Returns:
+        One `{"dx", "dy"}` record per simulated `orbit` pointer move, in pixels of pointer travel.
+    """
+    return [dict(LIVE_PITCH_MOVE)] * LIVE_PITCH_MOVE_COUNT + [
+        dict(REVERSED_LIVE_PITCH_MOVE)
+    ] * LIVE_PITCH_MOVE_COUNT
+
+
+def normalize_vector(vector: List[float]) -> List[float]:
+    """Scale a non-zero world-space vector to unit length.
+
+    Args:
+        vector: Non-zero `[x, y, z]` world-space vector of any length.
+
+    Returns:
+        The `[x, y, z]` components at unit length.
+    """
+    length = math.sqrt(sum(component * component for component in vector))
+    assert length > 0, f"Cannot normalize a zero-length vector. {vector=}"
+    return [component / length for component in vector]
+
+
+def cross_vectors(left: List[float], right: List[float]) -> List[float]:
+    """Compute the cross product of two world-space vectors.
+
+    Args:
+        left: The `[x, y, z]` world-space vector on the left of the product.
+        right: The `[x, y, z]` world-space vector on the right of the product.
+
+    Returns:
+        The product's `[x, y, z]` components.
+    """
+    return [
+        left[1] * right[2] - left[2] * right[1],
+        left[2] * right[0] - left[0] * right[2],
+        left[0] * right[1] - left[1] * right[0],
+    ]
+
+
+def build_eye_along_lock_axis(
+    lock_roll: Tuple[float, float, float],
+    radius: float,
+) -> List[float]:
+    """Build the camera eye sitting on the lock axis itself, where the roll lock's own polar angle is degenerate.
+
+    Args:
+        lock_roll: Axis to lock camera roll about, as a non-zero `(x, y, z)` world-space direction of any length.
+        radius: Signed distance from the rotation target along the normalized axis. Positive puts the eye on the pole the axis points at, so the polar angle is 0; negative puts it past the far pole, so the polar angle is pi.
+
+    Returns:
+        An `[x, y, z]` eye position in the scene's own world frame.
+    """
+    axis = normalize_vector(vector=list(lock_roll))
+    return [component * radius for component in axis]
+
+
+def build_up_across_lock_axis(lock_roll: Tuple[float, float, float]) -> List[float]:
+    """Build a camera up vector perpendicular to the lock axis, which is what keeps a camera framed straight down that axis drawable.
+
+    Args:
+        lock_roll: Axis to lock camera roll about, as a non-zero `(x, y, z)` world-space direction of any length.
+
+    Returns:
+        The up vector's unit-length `[x, y, z]` components.
+    """
+    axis = normalize_vector(vector=list(lock_roll))
+    least_aligned_basis = min(
+        [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+        key=lambda basis: abs(
+            sum(
+                axis_component * basis_component
+                for axis_component, basis_component in zip(axis, basis, strict=True)
+            ),
+        ),
+    )
+    return normalize_vector(vector=cross_vectors(left=axis, right=least_aligned_basis))
+
+
+def build_inverted_up(
+    lock_roll: Tuple[float, float, float],
+    eye: List[float],
+) -> List[float]:
+    """Build the camera up vector a panel reports once a drag has carried the view through a pole, which is the roll-locked up vector hanging on the axis's far side.
+
+    Args:
+        lock_roll: Axis to lock camera roll about, as a non-zero `(x, y, z)` world-space direction of any length.
+        eye: The `[x, y, z]` eye position, off the lock axis, looking at a rotation target on the world origin.
+
+    Returns:
+        The up vector's unit-length `[x, y, z]` components, perpendicular to the view direction as every up vector a gl3d panel reports is.
+    """
+    axis = normalize_vector(vector=list(lock_roll))
+    forward = normalize_vector(vector=[-eye[0], -eye[1], -eye[2]])
+    right = normalize_vector(vector=cross_vectors(left=forward, right=axis))
+    up = normalize_vector(vector=cross_vectors(left=right, right=forward))
+    return [-up[0], -up[1], -up[2]]
 
 
 def build_equator_eye(lock_roll: Tuple[float, float, float]) -> List[float]:
@@ -162,6 +275,44 @@ def run_roll_lock_harness(
     return records
 
 
+def assert_roll_locked_camera(records: List[Dict[str, Any]]) -> None:
+    """Assert every frame drew a camera a renderer can draw, level about the lock axis and the right way up.
+
+    Args:
+        records: One record per rendered camera, as `run_roll_lock_harness` returns them.
+
+    Returns:
+        None.
+    """
+    unusable_records = [
+        record
+        for record in records
+        if not record["finite"]
+        or not abs(record["up_length"] - 1.0) <= UNIT_LENGTH_TOLERANCE
+        or not abs(record["camera_right_axis_length"] - 1.0) <= UNIT_LENGTH_TOLERANCE
+    ]
+    assert not unusable_records, (
+        "A roll-locked camera must be left with unit-length, finite up and right axes whatever framing the panel reports, so the panel is never handed a pose it cannot render. "
+        f"{unusable_records=} {UNIT_LENGTH_TOLERANCE=}"
+    )
+    tilted_records = [
+        record
+        for record in records
+        if not abs(record["right_along_axis"]) <= PERPENDICULAR_TOLERANCE
+    ]
+    assert not tilted_records, (
+        "A roll-locked camera must keep its right axis perpendicular to the lock axis, so the horizon stays level. "
+        f"{tilted_records=} {PERPENDICULAR_TOLERANCE=}"
+    )
+    inverted_records = [
+        record for record in records if not record["up_along_axis"] >= 0
+    ]
+    assert not inverted_records, (
+        "A roll-locked camera must keep its up vector on the lock axis's own side, so the scene never hangs upside down. "
+        f"{inverted_records=}"
+    )
+
+
 def test_the_harness_runs_the_view_controller_the_app_serves() -> None:
     """The `plotly.js` release the harness takes its gl3d view controller from is the release Dash serves the panel, so the spline, the idle and the recalc under test are the ones that ship rather than a differently versioned fork of them.
 
@@ -204,33 +355,7 @@ def test_a_camera_looking_down_the_lock_axis_keeps_a_usable_frame() -> None:
         drags=[],
     )
 
-    unusable_records = [
-        record
-        for record in records
-        if not record["finite"]
-        or not abs(record["up_length"] - 1.0) <= UNIT_LENGTH_TOLERANCE
-        or not abs(record["camera_right_axis_length"] - 1.0) <= UNIT_LENGTH_TOLERANCE
-    ]
-    assert not unusable_records, (
-        "A roll-locked camera must be left with unit-length, finite up and right axes whatever framing the panel reports, so the panel is never handed a pose it cannot render. "
-        f"{unusable_records=} {UNIT_LENGTH_TOLERANCE=}"
-    )
-    tilted_records = [
-        record
-        for record in records
-        if not abs(record["right_along_axis"]) <= PERPENDICULAR_TOLERANCE
-    ]
-    assert not tilted_records, (
-        "The same camera must keep its right axis perpendicular to the lock axis. "
-        f"{tilted_records=} {PERPENDICULAR_TOLERANCE=}"
-    )
-    inverted_records = [
-        record for record in records if not record["up_along_axis"] >= 0
-    ]
-    assert not inverted_records, (
-        "The same camera must keep its up vector on the lock axis's own side. "
-        f"{inverted_records=}"
-    )
+    assert_roll_locked_camera(records=records)
 
 
 def test_a_pole_crossing_drag_holds_the_horizon_level() -> None:
@@ -417,3 +542,130 @@ def test_a_live_drag_never_hangs_the_scene_upside_down() -> None:
         "A roll-locked camera must never hang the scene upside down at any pointer move of a live drag, since a panel that reports its camera only at mouse-up tumbles out the far side of the pole under the pointer and rights itself on release. "
         f"{inverted_records=}"
     )
+
+
+def run_live_pitch(eye: List[float], up: List[float]) -> List[Dict[str, Any]]:
+    """Drive one live `orbit` pitch through both poles from a seeded framing and read back the camera every rendered frame of it drew.
+
+    The panel reports the framing it was seeded with on its initial render and then nothing until the button comes up, so every frame between those two is held by the wrapped rotation alone.
+
+    Args:
+        eye: The `[x, y, z]` eye position the panel is seeded with, in the scene's own world frame.
+        up: The `[x, y, z]` camera up vector the panel is seeded with, in the scene's own world frame.
+
+    Returns:
+        One record for the seeded camera followed by one per pointer move, as `run_roll_lock_harness` returns them.
+    """
+    return run_roll_lock_harness(
+        lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
+        eye=eye,
+        up=up,
+        drags=build_live_pitch_moves(),
+        reports_each_drag=False,
+    )
+
+
+def test_the_roll_lock_callback_stops_a_pitch_at_the_pole() -> None:
+    """A pitch pushed well past a pole leaves the camera standing at that pole rather than carrying the view out the far side, at both ends of the lock axis.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    records = run_live_pitch(
+        eye=list(OFF_AXIS_EYE),
+        up=normalize_vector(vector=list(NON_AXIS_ALIGNED_LOCK_ROLL)),
+    )
+
+    polar_angles = [record["polar"] for record in records]
+    assert polar_angles[LIVE_PITCH_MOVE_COUNT] >= math.pi - POLE_REACHED_RADIANS, (
+        "The moves that climb into the far pole must leave the camera standing at it, since they push well past the move that first reaches it. "
+        f"{polar_angles=} {POLE_REACHED_RADIANS=}"
+    )
+    assert polar_angles[-1] <= POLE_REACHED_RADIANS, (
+        "The moves that pitch back through the sphere must leave the camera standing at the near pole for the same reason. "
+        f"{polar_angles=} {POLE_REACHED_RADIANS=}"
+    )
+    assert_roll_locked_camera(records=records)
+
+
+def test_the_roll_lock_callback_holds_from_an_eye_off_the_lock_axis() -> None:
+    """A panel seeded clear of the lock axis has a framing the roll lock is not degenerate on, and it must leave that same pitch level, upright and drawable at every pointer move of it.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    records = run_live_pitch(
+        eye=list(OFF_AXIS_EYE),
+        up=normalize_vector(vector=list(NON_AXIS_ALIGNED_LOCK_ROLL)),
+    )
+
+    assert_roll_locked_camera(records=records)
+
+
+def test_the_roll_lock_callback_holds_from_an_eye_on_the_lock_axis() -> None:
+    """A panel seeded looking straight down the lock axis reports a camera whose polar angle is 0, and the roll lock must hold the same pitch from there rather than aborting on the axis it is asked to hold about.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    records = run_live_pitch(
+        eye=build_eye_along_lock_axis(
+            lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
+            radius=SEEDED_FRAMING_RADIUS,
+        ),
+        up=build_up_across_lock_axis(lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL),
+    )
+
+    assert_roll_locked_camera(records=records)
+
+
+def test_the_roll_lock_callback_holds_from_an_eye_past_the_far_pole() -> None:
+    """A panel seeded looking straight up the lock axis reports a camera whose polar angle is pi, the other end of the same degeneracy, and the roll lock must hold from there too.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    records = run_live_pitch(
+        eye=build_eye_along_lock_axis(
+            lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
+            radius=-SEEDED_FRAMING_RADIUS,
+        ),
+        up=build_up_across_lock_axis(lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL),
+    )
+
+    assert_roll_locked_camera(records=records)
+
+
+def test_the_roll_lock_callback_holds_from_an_already_inverted_camera() -> None:
+    """A panel that comes up already hanging upside down is a framing no drag can reach, and the roll lock must put it back on the axis's own side from the first render and hold it there through the same pitch.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    records = run_live_pitch(
+        eye=list(OFF_AXIS_EYE),
+        up=build_inverted_up(
+            lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
+            eye=list(OFF_AXIS_EYE),
+        ),
+    )
+
+    assert_roll_locked_camera(records=records)
+
+
+# A camera whose eye sits on its own rotation target is the one remaining degenerate framing the callback's own normalization cannot describe, and it has no test because a Plotly gl3d panel cannot report it. `Scene.initializeGLCamera` builds the panel's camera with `zoomMin: 0.01, zoomMax: 100`, which become the view controller's radius bounds `[log(0.01), log(100)]`; the eye-to-target distance is stored as that bounded radius and `setDistance` additionally ignores any non-positive distance outright, so no drag, no wheel, and no layout-seeded camera reaches a distance of 0. Measured against the plotly.js bundle the repo's `plotly` 6.7.0 ships.
