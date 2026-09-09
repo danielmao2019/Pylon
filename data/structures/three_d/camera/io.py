@@ -496,7 +496,6 @@ def _serialize_cameras_npz(cameras: "Cameras") -> Dict[str, Any]:
         `[N, 4, 4]`, per-camera `intr_convention` / `extr_convention` / `name` / `id` arrays of length N with
         `has_name` / `has_id` flag arrays and a `-1` id sentinel for absent ids.
     """
-    # The params are already [N] columns, which is the shape npz stores.
     serialized_params = _serialize_intrinsics_params(params=cameras.intrinsics.params)
     batch_size = len(cameras)
 
@@ -522,6 +521,7 @@ def _serialize_cameras_npz(cameras: "Cameras") -> Dict[str, Any]:
 
     return {
         "model": models,
+        # npz stores arrays, not a dict, so the columns are re-laid as one json-encoded payload per camera.
         "params": np.array(
             [
                 json.dumps(

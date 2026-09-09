@@ -1,4 +1,4 @@
-from typing import Iterator, List, Optional, Sequence, Tuple, Union
+from typing import Dict, Iterator, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import torch
@@ -40,28 +40,55 @@ class Cameras:
         Returns:
             None.
         """
-        # Input normalizations
-        batch_size = len(extrinsics.extrinsics)
-        names = names if names is not None else [None] * batch_size
-        ids = ids if ids is not None else [None] * batch_size
 
-        validate_cameras_attributes(
+        def _validate_inputs() -> None:
+            validate_cameras_attributes(
+                intrinsics=intrinsics,
+                extrinsics=extrinsics,
+                names=names,
+                ids=ids,
+                device=device,
+                dtype=dtype,
+            )
+
+        _validate_inputs()
+
+        def _normalize_inputs(
+            intrinsics: CameraIntrinsics,
+            extrinsics: CameraExtrinsics,
+            device: Optional[Union[str, torch.device]],
+            dtype: Optional[torch.dtype],
+        ) -> Tuple[CameraIntrinsics, CameraExtrinsics]:
+            if device is not None or dtype is not None:
+                intrinsics = intrinsics.to(device=device, dtype=dtype)
+                extrinsics = extrinsics.to(device=device, dtype=dtype)
+            return intrinsics, extrinsics
+
+        intrinsics, extrinsics = _normalize_inputs(
             intrinsics=intrinsics,
             extrinsics=extrinsics,
-            names=names,
-            ids=ids,
             device=device,
             dtype=dtype,
         )
 
-        if device is not None or dtype is not None:
-            intrinsics = intrinsics.to(device=device, dtype=dtype)
-            extrinsics = extrinsics.to(device=device, dtype=dtype)
+        batch_size = len(extrinsics.extrinsics)
+        names = names if names is not None else [None] * batch_size
+        ids = ids if ids is not None else [None] * batch_size
+
         self._intrinsics: CameraIntrinsics = intrinsics
         self._extrinsics: CameraExtrinsics = extrinsics
         self._names: List[Optional[str]] = names
         self._ids: List[Optional[int]] = ids
-        self._name_to_index = {name: index for index, name in enumerate(names)}
+        self._name_to_index: Dict[str, int] = {}
+        for index, name in enumerate(names):
+            if name is None:
+                continue
+            assert name not in self._name_to_index, (
+                "Expected every Cameras name to be unique, since a name two cameras "
+                "share cannot resolve to one of them. "
+                f"{name=} {self._name_to_index[name]=} {index=} {names=}"
+            )
+            self._name_to_index[name] = index
 
     @property
     def intrinsics(self) -> CameraIntrinsics:
