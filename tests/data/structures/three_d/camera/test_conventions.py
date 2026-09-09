@@ -483,10 +483,12 @@ def test_camera_and_cameras_to_keep_tensor_state_on_the_autograd_path() -> None:
     assert params["fx"].grad is not None, f"{params['fx'].grad=}"
     assert matrix.grad is not None, f"{matrix.grad=}"
 
-    cameras = Cameras(intrinsics=intrinsics[None], extrinsics=extrinsics[None])
+    cameras = Cameras(
+        intrinsics=intrinsics[None], extrinsics=extrinsics[None], device="cpu"
+    )
     moved_cameras = cameras.to(dtype=torch.float64, extr_convention="pytorch3d")
     cameras_loss = (
-        moved_cameras[0].intrinsics.fx + moved_cameras[0].extrinsics.center.sum()
+        moved_cameras.intrinsics[0].fx + moved_cameras.extrinsics[0].center.sum()
     )
     cameras_loss.backward()
     assert params["fx"].grad is not None, f"{params['fx'].grad=}"
