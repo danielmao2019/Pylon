@@ -180,7 +180,7 @@ goal: re-design pc dtype contract/provenance
 
 ### 1.2. Solution Constraints
 
-1. You must use "meta_data" as the name of the new arg of init, load, and save. nothing else accepted.
+1. You must use "meta_data" as the name of the new arg of init, load, and save. nothing else accepted. it is the only new arg any of the three takes: whatever else a design wants to pass fits inside `meta_data` or is derived, and no second arg is added beside it.
 2. `PointCloud` should expose a public method `apply_meta_data`, which also takes a `meta_data` arg as override.
    1. `apply_meta_data` must have a local helper that infers/derives the meta data from the recorded meta data and checks the override meta data to produce the target meta data.
    2. `apply_meta_data` must have a local helper that applies the target meta data to self.
