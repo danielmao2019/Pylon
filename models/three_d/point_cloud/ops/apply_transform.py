@@ -46,6 +46,17 @@ def _normalize_transform(
     target_dtype: Union[torch.dtype, np.dtype],
     target_device: Optional[Union[str, torch.device]],
 ) -> Union[np.ndarray, torch.Tensor]:
+    """Normalize a transform to the target type, dtype, and device, leaving its leading axes as they came in.
+
+    Args:
+        transform: 4x4 homogeneous transformation matrix applied to column-vector points (a point maps as transform @ [x, y, z, 1]), as a nested list, numpy.ndarray, or torch.Tensor of shape [4, 4], or a stack [..., 4, 4] carrying leading batch axes, in any dtype and, for a torch.Tensor, on any device.
+        target_type: Type the transform is normalized to, either numpy.ndarray or torch.Tensor; any other type raises ValueError.
+        target_dtype: Dtype the transform is cast to: a numpy dtype when target_type is numpy.ndarray, a torch.dtype when target_type is torch.Tensor.
+        target_device: Device the transform is placed on when target_type is torch.Tensor; None when target_type is numpy.ndarray, where devices do not apply.
+
+    Returns:
+        The transform as target_type of shape [..., 4, 4] with dtype target_dtype, on target_device when target_type is torch.Tensor, its leading batch axes exactly as they came in: [4, 4] stays [4, 4] and [1, 4, 4] keeps its leading axis.
+    """
     if target_type == np.ndarray:
         transform = _normalize_transform_numpy(
             transform=transform, target_dtype=target_dtype
@@ -66,6 +77,15 @@ def _normalize_transform(
 def _normalize_transform_numpy(
     transform: Union[list, np.ndarray, torch.Tensor], target_dtype: np.dtype
 ) -> np.ndarray:
+    """Convert a list or tensor transform into a numpy array of the target dtype.
+
+    Args:
+        transform: 4x4 homogeneous transformation matrix as a nested list, numpy.ndarray, or torch.Tensor of shape [4, 4], or a stack [..., 4, 4] carrying leading batch axes, in any dtype and, for a torch.Tensor, on any device (it is moved to the cpu before conversion).
+        target_dtype: Numpy dtype the returned array is cast to.
+
+    Returns:
+        The transform as a numpy.ndarray of shape [..., 4, 4] and dtype target_dtype, its leading batch axes unchanged.
+    """
     if isinstance(transform, list):
         transform = np.array(transform, dtype=target_dtype)
     if isinstance(transform, torch.Tensor):
@@ -78,6 +98,16 @@ def _normalize_transform_torch(
     target_dtype: torch.dtype,
     target_device: torch.device,
 ) -> torch.Tensor:
+    """Convert a list or ndarray transform into a torch tensor on the target dtype and device.
+
+    Args:
+        transform: 4x4 homogeneous transformation matrix as a nested list, numpy.ndarray, or torch.Tensor of shape [4, 4], or a stack [..., 4, 4] carrying leading batch axes, in any dtype and, for a torch.Tensor, on any device.
+        target_dtype: Torch dtype the returned tensor is cast to.
+        target_device: Torch device the returned tensor is placed on.
+
+    Returns:
+        The transform as a torch.Tensor of shape [..., 4, 4] with dtype target_dtype on target_device, its leading batch axes unchanged.
+    """
     if isinstance(transform, list):
         transform = torch.tensor(transform, dtype=target_dtype, device=target_device)
     if isinstance(transform, np.ndarray):
