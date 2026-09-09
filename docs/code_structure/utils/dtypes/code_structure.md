@@ -18,8 +18,8 @@ dtypes.py
 ├── def cast_lossless(values: Union[np.ndarray, torch.Tensor], dtype: Union[np.dtype, torch.dtype]) -> Union[np.ndarray, torch.Tensor]
 │   ├── # Casts values to a dtype and aborts rather than handing back values the cast changed, which is the promise every cast this module's callers make.
 │   ├── impls cast = values cast to dtype
-│   ├── impls recovered = cast cast back to the dtype values arrived in
-│   ├── assert recovered equals values at every entry  # the round trip is the whole test: a value past the target's bounds and a value the target's grid cannot land on both come back different
+│   ├── impls compared, recompared = values and cast each read at a dtype whose set contains both of their sets, or at python's own unbounded int where no dtype does  # the comparison is made where neither side wraps or rounds, so what it reads is the mathematical value each entry holds rather than the bits its own dtype parks it in
+│   ├── assert recompared equals compared at every entry  # the cast's own value against the value it came from is the whole test, a trip back through the target being no test at all where the two dtypes map onto each other bijectively, as a same-width signed and unsigned pair do
 │   └── return cast
 └── def convert_color_convention(values: Union[np.ndarray, torch.Tensor], source_dtype: str, target_dtype: str) -> Union[np.ndarray, torch.Tensor]
     ├── # Maps colours off the range one conceptual dtype names onto the range another names, which is the one operation every reader of a colour at its own range performs.
