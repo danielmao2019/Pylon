@@ -77,7 +77,7 @@ test_render_depth.py
 │   │   └── assert the batched map's matching slice is elementwise equal to it
 │   └── return
 ├── def test_render_depth_batch_of_one_keeps_its_axis() -> None
-│   ├── # A Cameras of length one renders to [1, H, W] rather than [H, W], the batch axis surviving an extent of one.
+│   ├── # A Cameras of length one renders to [1, H, W] rather than [H, W].
 │   ├── calls PointCloud(xyz=four float32 points at distinct depths)
 │   ├── calls _build_cameras(focal=100.0, principal_point=50.0, translations=one camera position)
 │   ├── calls render_depth_from_point_cloud(pc=pc_data, camera=cameras, resolution=(64, 80))
