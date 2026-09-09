@@ -41,6 +41,7 @@ point_cloud.py
     │   ├── impls data, device = the values it returned
     │   ├── impls _device = device
     │   ├── impls _length = the row count of the first value of data
+    │   ├── impls _fields = each column of data raised to two dimensions, under its own name  # the source's columns exactly as the source gave them, which is what apply_meta_data reads them back out of; the one cast is the one it makes onto the target, and for a field no override names that target is the source dtype and so is also the crossing into torch
     │   ├── def _build_meta_data [local]
     │   │   ├── impls column_dtypes = CONCEPTUAL_NAME of each column of data, keyed by that column's own name  # read off the SOURCE columns, since uint16, uint32 and float128 reach torch only in the width TORCH_DTYPE parks them in, where their own names are gone
     │   │   ├── impls record = an empty dict
@@ -58,7 +59,7 @@ point_cloud.py
     │   │   │   └── impls entry gains that dtype
     │   │   └── impls _meta_data = record  # the Layout Mapping over the source's own columns beside the dtype each column held, which is the record every later derivation reads and no field mutation ever rewrites
     │   ├── calls _build_meta_data()
-    │   └── calls self.apply_meta_data()  # the record is already what this cloud means, so the construction applies it with nothing written over it
+    │   └── calls self.apply_meta_data(meta_data=meta_data)
     ├── def apply_meta_data(self, meta_data: Optional[Dict[str, Dict[str, Any]]] = None) -> Dict[str, Dict[str, Any]]
     │   ├── # Derives the meta data this cloud should carry from the one it records and the override, makes the cloud match it, and hands the target back for the writer that has to write the file at it.
     │   ├── def _validate_inputs [local]
@@ -118,7 +119,6 @@ point_cloud.py
     │   ├── def _apply_target_meta_data [local]
     │   │   ├── # Rebuilds every field the target names out of the columns its layout names, on the convention and at the width that entry states.
     │   │   ├── impls fields = an empty dict
-    │   │   ├── impls record = self._meta_data  # what the source held is rewritten only where the target speaks for a field the record already names or the caller names, so a departed field goes on being named and a field made after construction enters no record
     │   │   ├── for each name, entry in target
     │   │   │   ├── if table names every column of entry's layout
     │   │   │   │   ├── impls value = the table columns entry's layout names, joined along the column axis  # a one-dimensional column becomes one column wide and a block that is already two-dimensional keeps the width it has, which is what lets three ply columns and one pcd attribute reach the same [N, 3]
@@ -130,16 +130,16 @@ point_cloud.py
     │   │   │   │   ├── if name == 'rgb' and entry's dtype is not source_dtype
     │   │   │   │   │   ├── calls convert_color_convention(values=value, source_dtype=source_dtype, target_dtype=entry's dtype)
     │   │   │   │   │   ├── impls converted = the colours it mapped onto the target convention
+    │   │   │   │   │   ├── impls converted = converted at TORCH_DTYPE[entry's dtype]  # the mapping hands back double precision, and a colour is held at the storage its own convention names
     │   │   │   │   │   ├── calls convert_color_convention(values=converted, source_dtype=entry's dtype, target_dtype=source_dtype)
-    │   │   │   │   │   ├── assert what it mapped back equals value  # tolerating a rounded colour belongs to a display converting its own copy, never to the cloud these colours are the record of
+    │   │   │   │   │   ├── assert what it mapped back equals value  # a colour conversion is lossless when the source values come back exactly, which is a question about the two conventions and never about the width holding them
     │   │   │   │   │   ├── impls value = converted
     │   │   │   │   │   └── impls source_dtype = entry's dtype  # the colours sit on the target's range now, so that is the convention they MEAN and the one the record has to name for the next reader to read them by
-    │   │   │   │   ├── calls cast_lossless(values=value, dtype=TORCH_DTYPE[entry's dtype])
-    │   │   │   │   └── impls value = the tensor it cast  # a narrowing the target cannot hold exactly aborts inside the cast, a caller wanting one narrowing its own values before handing them in
-    │   │   │   ├── impls fields[name] = value  # a target dtype the caller did not state is what the field already means, so nothing is cast on the record's account and a record naming one width over a tensor of another leaves that tensor where it is
-    │   │   │   └── impls record[name] = entry  # the cloud now IS what the target says, so the record it carries forward is the one it was made to match and the one a save reads its columns and its ply dtype off
-    │   │   ├── impls _fields = fields
-    │   │   └── impls _meta_data = record
+    │   │   │   │   └── else
+    │   │   │   │       ├── calls cast_lossless(values=value, dtype=TORCH_DTYPE[entry's dtype])
+    │   │   │   │       └── impls value = the tensor it cast  # a narrowing the target cannot hold exactly aborts inside the cast, a caller wanting one narrowing its own values before handing them in
+    │   │   │   └── impls fields[name] = value  # a target dtype the caller did not state is what the field already means, so nothing is cast on the record's account and a record naming one width over a tensor of another leaves that tensor where it is
+    │   │   └── impls _fields = fields  # the record is left exactly as construction wrote it, so what an override moves is the fields and the target this hands back, never the provenance
     │   ├── calls _apply_target_meta_data(table=table, target=target)
     │   ├── for each name, value in self._fields
     │   │   ├── calls self._assert_field_name_valid(name=name)
