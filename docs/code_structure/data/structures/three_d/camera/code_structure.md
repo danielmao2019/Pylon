@@ -150,10 +150,18 @@ cameras.py
     ├── # A batch of cameras: one CameraIntrinsics and one CameraExtrinsics carrying a leading batch axis, so every method they already have operates on the whole batch.
     ├── def __init__(self, intrinsics: CameraIntrinsics, extrinsics: CameraExtrinsics, names: Optional[List[Optional[str]]] = None, ids: Optional[List[Optional[int]]] = None, device: Optional[Union[str, torch.device]] = None, dtype: Optional[torch.dtype] = None) -> None
     │   ├── # Construct a Cameras from a batched CameraIntrinsics whose params are [B] and a batched CameraExtrinsics whose matrix is [B, 4, 4].
-    │   ├── calls validate_cameras_attributes(intrinsics=intrinsics, extrinsics=extrinsics, names=names, ids=ids, device=device, dtype=dtype)
-    │   ├── if device is not None or dtype is not None
-    │   │   ├── calls intrinsics.to(device=device, dtype=dtype)
-    │   │   └── calls extrinsics.to(device=device, dtype=dtype)
+    │   ├── def _validate_inputs [local]
+    │   │   └── calls validate_cameras_attributes(intrinsics=intrinsics, extrinsics=extrinsics, names=names, ids=ids, device=device, dtype=dtype)
+    │   ├── calls _validate_inputs
+    │   ├── def _normalize_inputs [local]
+    │   │   ├── if device is not None or dtype is not None
+    │   │   │   ├── calls intrinsics.to(device=device, dtype=dtype)
+    │   │   │   └── calls extrinsics.to(device=device, dtype=dtype)
+    │   │   ├── impls names = one None per camera the extrinsics' leading axis carries, when the caller named none
+    │   │   ├── impls ids = one None per camera, when the caller gave none
+    │   │   └── return intrinsics, extrinsics, names, ids
+    │   ├── calls _normalize_inputs(intrinsics=intrinsics, extrinsics=extrinsics, names=names, ids=ids, device=device, dtype=dtype)
+    │   ├── impls intrinsics, extrinsics, names, ids = the returned values from _normalize_inputs
     │   ├── impls self._intrinsics = intrinsics  # params each [B]
     │   ├── impls self._extrinsics = extrinsics  # matrix [B, 4, 4]
     │   ├── impls self._names = names
