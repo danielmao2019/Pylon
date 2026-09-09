@@ -158,13 +158,38 @@ def test_raises_after_max_divide_exhausted(monkeypatch: pytest.MonkeyPatch) -> N
         (torch.randn(4), torch.randn(4, 4)),
         (torch.randn(2, 4, 3), torch.randn(3, 3)),
         (torch.randn(4, 3), torch.randn(3)),
-        (torch.randn(4, 3), torch.randn(2, 3, 3)),
     ],
 )
-def test_rejects_non_2d_operands(large: torch.Tensor, small: torch.Tensor) -> None:
-    """a vector, batched, or N-D large or small raises an assertion (both operands must be 2D)."""
+def test_rejects_non_2d_large(large: torch.Tensor, small: torch.Tensor) -> None:
+    """a 1D or N-D large raises an assertion (the chunked operand must be 2D), as does a 1D small."""
     with pytest.raises(AssertionError):
         chunked_matmul(large=large, small=small)
+
+
+@pytest.mark.parametrize("num_divide", [None, 0, 2, 3])
+def test_batched_small_broadcasts_onto_the_product(num_divide: Optional[int]) -> None:
+    """a [B, K, K] small gives a [B, N, K] product whose every slice equals large @ that slice's own small."""
+    B, N, K = 3, 17, 5
+    large = torch.randn(N, K, dtype=torch.float64)
+    small = torch.randn(B, K, K, dtype=torch.float64)
+    result = chunked_matmul(large=large, small=small, num_divide=num_divide)
+    assert result.shape == (
+        B,
+        N,
+        K,
+    ), f"unexpected shape {result.shape=} vs {(B, N, K)=}"
+    for b in range(B):
+        assert torch.allclose(
+            result[b], large @ small[b]
+        ), f"slice {b=} differs from its own plain matmul, {num_divide=}"
+
+
+def test_inplace_rejects_batched_small() -> None:
+    """inplace=True with a batched small raises an assertion (the product is wider than large, leaving nothing to overwrite in place)."""
+    large = torch.randn(10, 5, dtype=torch.float64)
+    small = torch.randn(3, 5, 5, dtype=torch.float64)
+    with pytest.raises(AssertionError):
+        chunked_matmul(large=large, small=small, inplace=True)
 
 
 def test_rejects_non_square_small() -> None:
