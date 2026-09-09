@@ -118,8 +118,9 @@ goal: re-design pc dtype contract/provenance
    1. where the obj's fields and the record's fields differ:
       1. a field the record names that the obj no longer holds is not saved.
       2. a field the obj holds that the record does not name takes its target dtype and target layout from the field itself and from the override.
-   2. the record is the target for every field it names, including when it records int64 for a ply save.
-   3. dtype: the dtype recorded for each source column is its save target. the actual ply storage dtype follows the lossless casting rule in Type Casting.
+   2. the target is the record amended by the override: the record supplies every half the override leaves unstated, and the override replaces the half it states. the record itself is never rewritten by a save, so the target is a value the save carries to the writer rather than something read back off the obj.
+      1. a field the override leaves alone is written at the record's own dtype, including when that is int64 for a ply save.
+   3. dtype: the target dtype of each source column is the one the override states for its field, or the recorded dtype where the override states none. the actual ply storage dtype follows the lossless casting rule in Type Casting.
       1. the ply u4 example is therefore saved as u4.
    4. layout: output columns follow the reverse mapping defined by Layout Mapping. the save format must support the target layout. one it cannot express hard-asserts and aborts.
 
