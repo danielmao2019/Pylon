@@ -14,7 +14,7 @@ point_cloud.py
 ├── COLOR_COLUMN_NAMES  # the column-name groups a source calls its colours, in the order they are tried: ('red', 'green', 'blue') as ply and las name them, ('colors',) as open3d does, and ('rgb',) as a caller handing one in-memory block in does
 └── class PointCloud
     ├── # One point cloud: named per-point fields, every one a torch tensor of the same length on one device, over one meta data entry per field of what that field's source held.
-    ├── # A cloud is constructed out of the source's own columns under the Layout Mapping that source defines, or out of another cloud's fields under the record that comes with them, and becomes the cloud a caller wanted only once a load or a save has run apply_meta_data over the halves that source left for the caller to state.
+    ├── # A cloud is constructed out of the source's own columns under the Layout Mapping that source defines, and becomes the cloud a caller wanted only once apply_meta_data has run over the halves that source left for the caller to state.
     ├── # apply_meta_data runs once inside every construction and again on each load and save, so it names the source columns back out of the fields it has already assembled rather than assuming it meets them unassembled.
     ├── # The four underscore names below — _fields, _meta_data, _length, _device — are this class's own slots, and a bare one in any node means the slot on self; __setattr__ routes exactly those to the base setter and everything else to a validated field.
     ├── def __init__(self, xyz: Optional[Union[np.ndarray, torch.Tensor]] = None, data: Optional[Dict[str, Union[np.ndarray, torch.Tensor]]] = None, meta_data: Optional[Dict[str, Dict[str, Any]]] = None, device: Optional[Union[str, torch.device]] = None) -> None
@@ -41,9 +41,8 @@ point_cloud.py
     │   ├── impls data, device = the values it returned
     │   ├── impls _device = device
     │   ├── impls _length = the row count of the first value of data
-    │   ├── impls _fields = each column of data raised to two dimensions and handed to torch on self._device, under its own name  # the source's columns, not yet the fields a record names
     │   ├── def _build_meta_data [local]
-    │   │   ├── impls column_dtypes = CONCEPTUAL_NAME of each column of self._fields, keyed by that column's own name
+    │   │   ├── impls column_dtypes = CONCEPTUAL_NAME of each column of data, keyed by that column's own name  # read off the SOURCE columns, since uint16, uint32 and float128 reach torch only in the width TORCH_DTYPE parks them in, where their own names are gone
     │   │   ├── impls record = an empty dict
     │   │   ├── for each group in COORDINATE_COLUMN_NAMES
     │   │   │   └── if record names no coordinate field and every name in group sits in column_dtypes
