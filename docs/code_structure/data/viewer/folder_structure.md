@@ -223,6 +223,23 @@ tests/data/viewer/
 ├── dataset/          # dataset-app integration tests
 ├── fixtures/         # shared mock-dataset fixtures
 ├── utils/            # viewer-utils tests + per-display-modality test packages mirroring the displays code modules above
+│   └── displays/
+│       ├── point_cloud_display/
+│       │   ├── test_dash_points_style_args.py
+│       │   ├── test_point_cloud_display.py                    # the range a colour dtype declares, read off what the field means
+│       │   ├── test_point_cloud_display_invalid_cases.py
+│       │   ├── test_point_cloud_id_utils.py
+│       │   ├── test_point_cloud_integration.py
+│       │   ├── test_point_cloud_lod.py
+│       │   ├── test_point_cloud_stats.py
+│       │   ├── test_point_cloud_utilities.py
+│       │   └── test_point_cloud_utilities_invalid_cases.py
+│       └── segmentation_display/
+│           ├── test_segmentation_display.py
+│           ├── test_segmentation_display_invalid_cases.py
+│           ├── test_segmentation_display_stats.py
+│           ├── test_segmentation_display_stats_invalid_cases.py
+│           └── test_segmentation_pc_colorization.py           # the ply column names a recoloured cloud is written back under
 └── test_debounce.py  # debounce helper test
 ```
 
