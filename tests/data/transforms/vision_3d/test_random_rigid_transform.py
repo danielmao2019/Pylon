@@ -107,6 +107,24 @@ def test_random_rigid_transform_deterministic():
     ), "Transforms are not deterministic with the same seed"
 
 
+def test_a_posed_cloud_inherits_the_meta_data_it_came_from():
+    """A pose builds a cloud from another cloud's fields, so the meta data travels rather than being rebuilt from the tensors."""
+    src_pc = create_point_cloud(
+        torch.randn(size=(16, 3), dtype=torch.float32, device=DEVICE)
+    )
+    tgt_pc = create_point_cloud(
+        torch.randn(size=(16, 3), dtype=torch.float32, device=DEVICE)
+    )
+    transform = torch.eye(4, dtype=torch.float32, device=DEVICE)
+
+    random_rigid_transform = RandomRigidTransform(rot_mag=45.0, trans_mag=0.5)
+    new_src_pc, new_tgt_pc, new_transform = random_rigid_transform(
+        src_pc, tgt_pc, transform, seed=0
+    )
+
+    assert new_src_pc.meta_data == src_pc.meta_data
+
+
 def create_random_point_cloud(num_points=1000):
     """Create a random point cloud."""
     return torch.randn(size=(num_points, 3), dtype=torch.float32, device=DEVICE)
