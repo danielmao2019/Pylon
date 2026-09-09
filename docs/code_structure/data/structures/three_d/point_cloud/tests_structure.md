@@ -30,9 +30,9 @@ test_point_cloud.py
 │   └── with pytest.raises(AttributeError)
 │       └── impls reads the feat attribute
 ├── def test_point_cloud_requires_xyz
-│   ├── # A field dict with no coordinates in it is refused.
-│   └── with pytest.raises(AssertionError)
-│       └── calls PointCloud(data=a dict carrying feat alone)
+│   ├── # A cloud whose columns assemble into no coordinate field is legal here, a positional reader building exactly one, and load_point_cloud's own door is where a loaded cloud without coordinates is refused.
+│   ├── calls PointCloud(data=a dict carrying feat alone)
+│   └── impls assert it carries feat and no xyz
 ├── def test_point_cloud_rejects_nan_xyz
 │   ├── # Coordinates carrying NaN are refused, under the message that names the NaN.
 │   └── with pytest.raises(AssertionError, match="xyz tensor contains NaN")
@@ -92,8 +92,8 @@ test_point_cloud.py
 │   ├── # An integer color field is admitted whatever its width, because ply stores colors as u1 while las stores them as uint16.
 │   ├── calls PointCloud(data={'xyz': a [4, 3] float32 tensor, 'rgb': a [4, 3] uint8 tensor})
 │   ├── impls assert rgb reads back as uint8
-│   ├── calls PointCloud(data={'xyz': a [4, 3] float32 tensor, 'rgb': a [4, 3] int32 tensor holding uint16-range values})
-│   └── impls assert rgb reads back as int32
+│   ├── calls PointCloud(data={'xyz': a [4, 3] float32 numpy array, 'rgb': a [4, 3] uint16 numpy array})
+│   └── impls assert the meta data of rgb holds 'uint16' while its tensor is torch.int32  # a width naming no colour convention names no colour either, so what "any integer width" reaches is every width COLOR_RANGE bounds
 ├── def test_a_float_rgb_outside_zero_to_one_is_refused
 │   ├── # A float color field declares the 0 to 1 convention by its dtype, so a value outside that range is refused.
 │   └── with pytest.raises(AssertionError)
@@ -179,8 +179,8 @@ test_point_cloud_meta_data.py
 │   └── impls assert the stored intensity tensor is torch.int32
 ├── def test_a_meta_data_handed_over_is_kept_exactly_as_it_arrived
 │   ├── # A record handed over is already resolved, so the constructor keeps it rather than deriving a second one from the tensors it comes with.
-│   ├── calls PointCloud(data={'xyz': a [4, 3] float32 tensor, 'feat': a [4] float32 tensor}, meta_data={'xyz': a meta data entry, 'feat': {'dtype': 'float64', 'layout': ('a', 'b')}})
-│   ├── impls assert the meta data entry for feat holds 'float64' and the layout ('a', 'b')
+│   ├── calls PointCloud(data={'xyz': a [4, 3] float32 tensor, 'feat': a [4] float32 tensor}, meta_data={'xyz': a meta data entry, 'feat': {'dtype': 'float64', 'layout': ('a',)}})
+│   ├── impls assert the meta data entry for feat holds 'float64' and the layout ('a',)  # a layout names one column per column the field carries, so a record handed over states as many names as the field it comes with
 │   └── impls assert the stored feat tensor is still torch.float32  # the record says what the field means; the constructor casts nothing on its account
 ├── def test_the_constructor_casts_nothing_a_caller_did_not_hand_it
 │   ├── # A caller wanting another dtype hands the field over in it, so the one cast here is the crossing into torch and a float64 field stays float64.
@@ -279,8 +279,8 @@ test_point_cloud_meta_data.py
 │   ├── impls assigns a [4, 2] float64 tensor to the feat attribute
 │   ├── impls assert the meta data names feat nowhere
 │   ├── impls assert its tensor is float64, which is what a field outside the meta data means
-│   └── with pytest.raises(AssertionError)
-│       └── impls reads the meta data entry for feat
+│   └── with pytest.raises(KeyError)
+│       └── impls reads the meta data entry for feat  # the record is a plain mapping, so a name it does not hold is missing rather than refused
 ├── def test_a_meta_data_handed_over_says_what_a_field_means
 │   ├── # The meta data is the only thing that can say an int32 tensor holds a uint16 colour, so a cloud built from another obj's stored fields is handed it whole rather than deriving it again from the tensors.
 │   ├── calls PointCloud(data={'xyz': a [4, 3] float32 tensor, 'intensity': a [4] int32 tensor}, meta_data={'xyz': a meta data entry, 'intensity': {'dtype': 'uint16', 'layout': ('intensity',)}})
@@ -321,9 +321,9 @@ test_point_cloud_meta_data.py
 ├── def test_a_field_assembled_from_columns_can_be_split_back_into_them
 │   ├── # A later application names the source columns back out of the field the record already assembled, which is what makes the same columns reachable however they were last grouped.
 │   ├── calls PointCloud(data={'x': a [4] float32 tensor, 'y': a [4] float32 tensor, 'z': a [4] float32 tensor})
-│   ├── calls pc.apply_meta_data(meta_data={'xyz': {'layout': ('x', 'y')}, 'z': {'layout': ('z',)}})
-│   ├── impls assert xyz is two columns wide and z is its own field
-│   └── impls assert the meta data maps xyz onto ('x', 'y')
+│   ├── calls pc.apply_meta_data(meta_data={'ground_plane': {'layout': ('x', 'y')}, 'z': {'layout': ('z',)}})
+│   ├── impls assert ground_plane is two columns wide and z is its own field  # the coordinates are three columns wherever they are named xyz, so a regrouping onto two carries its own name
+│   └── impls assert the meta data maps ground_plane onto ('x', 'y')
 ├── def test_a_layout_override_enters_the_record_while_the_dtype_override_does_not
 │   ├── # The mapping's loaded side is what a caller asked for, and its dtype half stays what the source held whatever width the values were moved to.
 │   ├── calls PointCloud(data={'0': a [4] float64 tensor, '1': a [4] float64 tensor, '2': a [4] float64 tensor}, meta_data={'xyz': {'dtype': 'float32', 'layout': ('0', '1', '2')}})

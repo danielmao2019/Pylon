@@ -39,8 +39,8 @@ the ts point cloud display's colour range
 
 ```text
 test_segmentation_pc_colorization.py
-├── import torch
-├── from plyfile import PlyData
+├── import numpy as np
+├── from plyfile import PlyData, PlyElement
 ├── from data.viewer.utils.displays.points.ts.backend.apis import _map_segmentation_pc_to_rgb
 ├── def test_a_cloud_with_no_colour_is_written_under_the_ply_column_names
 │   ├── # An in-memory field's name stands for its whole block, so both coordinates and colour would write one column against three until the save is told the ply names.

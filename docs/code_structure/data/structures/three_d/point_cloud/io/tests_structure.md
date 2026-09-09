@@ -262,52 +262,53 @@ test_point_cloud_loading.py
 │   ├── calls write_off(filepath, four vertices, comment='made by something')
 │   ├── calls load_point_cloud(filepath=filepath, device='cpu')
 │   └── impls assert xyz is [4, 3] and holds the written coordinates
-├── def test_load_from_ply_returns_columns_and_their_layout
-│   ├── # The PLY reader hands back the file's own columns and how PLY names their layout; assembly into xyz and rgb happens later.
+├── def test_load_from_ply_returns_the_file_s_own_columns_as_a_raw_cloud
+│   ├── # The PLY reader builds the cloud the file's own column names define, and the record it comes with is how PLY names their layout.
 │   ├── calls write_ply(filepath, with_rgb=True, extra_field='intensity')
-│   ├── calls _load_from_ply(filepath=filepath)
-│   ├── impls columns, layout = what it returned
-│   ├── impls assert the keys of columns are x, y, z, red, green, blue and intensity  # impls-node-one-step:skip — names the keys
-│   ├── impls assert each column is an np.ndarray in the dtype the file stored it in
-│   ├── impls assert layout maps xyz to ('x', 'y', 'z') and rgb to ('red', 'green', 'blue')
-│   └── impls assert layout maps intensity to ('intensity',)
+│   ├── calls _load_from_ply(filepath=filepath, device='cpu')
+│   ├── impls pc = the raw cloud it built
+│   ├── impls assert its fields are xyz, rgb and intensity
+│   ├── impls assert each field carries the conceptual dtype the file stored its columns in
+│   ├── impls assert the meta data of xyz holds the layout ('x', 'y', 'z') and that of rgb holds ('red', 'green', 'blue')
+│   └── impls assert the meta data of intensity holds the layout ('intensity',)
 ├── def test_load_from_txt_returns_its_columns_under_their_indices
-│   ├── # The text reader names its columns by position and nothing else, so a seven-column file hands back seven float64 arrays and no field names at all.
+│   ├── # The text reader names its columns by position and nothing else, so a seven-column file hands back seven float64 fields and no field names at all.
 │   ├── calls write_txt(filepath, num_columns=7)
-│   ├── calls _load_from_txt(filepath=filepath)
-│   ├── impls assert its keys are '0' through '6'
-│   ├── impls assert every column is float64
-│   └── impls assert the layout it returned is None  # the file defines none, which is what makes the caller's meta data required rather than optional
+│   ├── calls _load_from_txt(filepath=filepath, device='cpu')
+│   ├── impls assert its fields are '0' through '6'
+│   ├── impls assert every field is float64
+│   └── impls assert its fields carry no xyz  # the file defines no coordinate columns, which is what makes the caller's meta data required rather than optional
 ├── def test_load_from_txt_divines_no_fields_from_the_column_count
 │   ├── # Seven columns named xyz, rgb and feat was the reader's own invention, and the width now decides nothing, which is what the dataset's stated meta data replaced.
 │   ├── calls write_txt(filepath, num_columns=7)
-│   ├── calls _load_from_txt(filepath=filepath)
-│   └── impls assert its keys carry no xyz, no rgb and no feat
+│   ├── calls _load_from_txt(filepath=filepath, device='cpu')
+│   └── impls assert its fields carry no xyz, no rgb and no feat
 ├── def test_load_from_txt_reads_columns_however_they_are_spaced
 │   ├── # Point cloud text is written aligned as often as it is written with single spaces, so the reader splits on runs of whitespace rather than on one named space character.
 │   ├── calls write_txt(filepath, num_columns=3, spacing='aligned')
-│   ├── calls _load_from_txt(filepath=filepath)
-│   ├── impls assert it returned three columns of the written values
+│   ├── calls _load_from_txt(filepath=filepath, device='cpu')
+│   ├── impls assert it returned three fields of the written values
 │   ├── calls write_txt(filepath, num_columns=3, spacing='single')
-│   ├── calls _load_from_txt(filepath=filepath)
-│   └── impls assert it returned the same three columns  # one delimiter reads both files, where naming a single space reads only the second
+│   ├── calls _load_from_txt(filepath=filepath, device='cpu')
+│   └── impls assert it returned the same three fields  # one delimiter reads both files, where naming a single space reads only the second
 ├── def test_a_txt_of_one_row_still_has_columns_to_key
 │   ├── # numpy drops the column axis for a file holding one row, so a single-point cloud would arrive with scalars where the columns keyed by index should be.
 │   ├── calls write_txt(filepath, num_points=1, num_columns=3)
-│   ├── calls _load_from_txt(filepath=filepath)
-│   ├── impls assert its keys are '0', '1' and '2'
-│   └── impls assert each of those columns holds exactly one entry
-├── def test_load_from_pth_returns_a_field_dict
-│   ├── # The .pth reader hands back a dict in whatever form the file was saved in.
+│   ├── calls _load_from_txt(filepath=filepath, device='cpu')
+│   ├── impls assert its fields are '0', '1' and '2'
+│   └── impls assert each of those fields holds exactly one entry
+├── def test_load_from_pth_returns_a_raw_cloud
+│   ├── # The .pth reader builds a cloud whose fields are the block's columns under their own indices, its coordinates unnamed until the caller's meta data names them.
 │   ├── calls write_pth(filepath, a [N, 4] torch tensor)
-│   ├── calls _load_from_pth(filepath=filepath)
-│   └── impls assert its xyz is a torch.Tensor
-├── def test_load_from_off_returns_a_field_dict
-│   ├── # The OFF reader hands back a dict of plain float32 columns; device placement is PointCloud's, which is why the readers take no device.
+│   ├── calls _load_from_pth(filepath=filepath, device='cpu')
+│   ├── impls assert it is a PointCloud
+│   └── impls assert its fields are '0' through '3' and carry no xyz
+├── def test_load_from_off_returns_a_raw_cloud
+│   ├── # The OFF format declares its vertex block to be the coordinates, so the reader names them and the cloud it builds already carries xyz.
 │   ├── calls write_off(filepath, four vertices)
-│   ├── calls _load_from_off(filepath=filepath)
-│   ├── impls assert its columns are float32 np.ndarrays of shape [4]
-│   └── impls assert the layout it returned is {'xyz': ('x', 'y', 'z')}
+│   ├── calls _load_from_off(filepath=filepath, device='cpu')
+│   ├── impls assert its xyz is a [4, 3] float32 tensor
+│   └── impls assert the meta data of xyz holds the layout ('x', 'y', 'z')
 ├── def test_missing_file_is_rejected
 │   ├── # A path naming no file is rejected before any reader is chosen.
 │   └── with pytest.raises(AssertionError)
@@ -552,7 +553,7 @@ test_precision_handling.py
 ├── def test_text_coordinates_keep_their_precision
 │   ├── # The text reader parses in float64, so a long decimal survives the same way.
 │   ├── impls a text file whose coordinates carry nine decimal places
-│   ├── calls load_point_cloud(filepath=filepath, device='cpu')
+│   ├── calls load_point_cloud(filepath=filepath, meta_data={'xyz': {'layout': ('0', '1', '2')}}, device='cpu')
 │   └── impls assert the loaded coordinates match the written ones to 1e-9
 ├── def test_device_transfer_keeps_precision
 │   ├── # Moving to another device changes where the values live and not what they are.
@@ -583,7 +584,8 @@ test_ply_saving.py
 ├── import torch
 ├── from plyfile import PlyData
 ├── from data.structures.three_d.point_cloud.point_cloud import PointCloud
-├── from data.structures.three_d.point_cloud.io import load_point_cloud, save_point_cloud
+├── from data.structures.three_d.point_cloud.io.load_point_cloud import load_point_cloud
+├── from data.structures.three_d.point_cloud.io.save_point_cloud import save_point_cloud
 ├── @pytest.fixture def pc()
 │   ├── # The in-memory cloud every case below saves, handed in as the three separately named columns a ply file holds rather than as one coordinate block.
 │   ├── # A block handed in under one name reverse-maps to one column of three values, which ply cannot express, so a fixture built that way would make every case here a test of that refusal instead of of what it means to test.
@@ -796,7 +798,7 @@ test_ply_saving.py
 │   ├── calls save_point_cloud(pc, filepath)
 │   ├── calls load_point_cloud(filepath)
 │   ├── impls assert the loaded indices hold the saved values
-│   └── impls assert the loaded indices are torch.int64
+│   └── impls assert the loaded indices are torch.int32  # ply carries no 64-bit integer, so the width that comes back is the one its i4 column names
 ├── def test_an_int64_target_goes_to_an_i4_column
 │   ├── # ply has no 64-bit integer, so the ply column takes the same narrowing rule torch storage uses: the largest narrower dtype it carries, with the values deciding.
 │   ├── impls filepath = the path of a tempfile.NamedTemporaryFile with suffix '.ply'
