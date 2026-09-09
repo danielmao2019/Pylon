@@ -71,6 +71,33 @@ prepare_points_for_rendering.py
     └── impls set bounds_mask to the in-bounds test over current_points columns 0/1 against render_width / render_height
 ```
 
+`models/three_d/point_cloud/render/common/validate_rendering_inputs.py`
+
+```text
+validate_rendering_inputs.py
+├── from typing import Optional, Tuple, Union
+├── import torch
+├── from data.structures.three_d.camera.camera import Camera
+├── from data.structures.three_d.point_cloud.point_cloud import PointCloud
+└── def validate_rendering_inputs(pc: PointCloud, camera: Camera, resolution: Tuple[int, int], ignore_value: Optional[Union[int, float]] = None, return_mask: bool = False, point_size: float = 1.0) -> None
+    ├── # The precondition the depth, rgb, segmentation and normal entries assert before projecting: a point cloud sharing one device with its camera, a positive (height, width) pair, a point size of at least one pixel.
+    ├── assert isinstance(pc, PointCloud)  # f"{type(pc)=}"
+    ├── assert isinstance(camera, Camera)  # f"{type(camera)=}"
+    ├── impls points = pc.xyz
+    ├── impls intrinsics = camera.intrinsics
+    ├── impls extrinsics = camera.extrinsics
+    ├── assert intrinsics.device == points.device             # f"points device {points.device} != camera_intrinsics device {intrinsics.device}"
+    ├── assert extrinsics.device == points.device             # f"points device {points.device} != camera_extrinsics device {extrinsics.device}"
+    ├── assert isinstance(resolution, (tuple, list))          # f"resolution must be tuple or list, got {type(resolution)}"
+    ├── assert len(resolution) == 2                           # f"resolution must have 2 elements (height, width), got {len(resolution)}"
+    ├── assert every element of resolution is a positive int  # f"resolution must be positive integers, got {resolution}"
+    ├── if ignore_value is not None
+    │   └── assert isinstance(ignore_value, (int, float))  # f"ignore_value must be int or float, got {type(ignore_value)}"
+    ├── assert isinstance(return_mask, bool)         # f"return_mask must be bool, got {type(return_mask)}"
+    ├── assert isinstance(point_size, (int, float))  # f"point_size must be numeric, got {type(point_size)}"
+    └── assert point_size >= 1.0                     # f"point_size must be >= 1.0, got {point_size}"
+```
+
 `models/three_d/point_cloud/render/render_depth.py`
 
 ```text
@@ -115,34 +142,357 @@ render_mask.py
     └── return valid_mask
 ```
 
+`models/three_d/point_cloud/render/render_normal.py`
+
+```text
+render_normal.py
+├── from typing import Tuple, Union
+├── import torch
+├── from data.structures.three_d.camera.camera import Camera
+├── from data.structures.three_d.point_cloud.point_cloud import PointCloud
+├── from models.three_d.point_cloud.render.common.apply_point_size_postprocessing import apply_point_size_postprocessing
+├── from models.three_d.point_cloud.render.common.prepare_points_for_rendering import prepare_points_for_rendering
+├── from models.three_d.point_cloud.render.common.validate_rendering_inputs import validate_rendering_inputs
+├── from models.three_d.point_cloud.render.render_depth import render_depth_from_rendering_points
+├── from models.three_d.point_cloud.render.render_mask import render_mask_from_rendering_points
+├── def render_normal_from_point_cloud_3d(pc: PointCloud, camera: Camera, resolution: Tuple[int, int], ignore_value: float = 0.0, return_mask: bool = False, point_size: float = 1.0) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]
+│   ├── # Renders the normals a point cloud already carries through the camera to a normal map, chaining validation, projection, rasterization, and point-size dilation.
+│   ├── assert isinstance(pc, PointCloud)  # f"{type(pc)=}"
+│   ├── assert hasattr(pc, "normals")      # "PointCloud must contain normals field"
+│   ├── calls validate_rendering_inputs(pc=pc, camera=camera, resolution=resolution, ignore_value=ignore_value, return_mask=return_mask, point_size=point_size)
+│   ├── calls prepare_points_for_rendering(pc=pc, camera=camera, resolution=resolution)
+│   ├── impls rendering_points, original_data_indices = the pair it returned
+│   ├── calls render_normal_from_rendering_points_3d(rendering_points=rendering_points, original_data_indices=original_data_indices, pc_data=pc, camera=camera, resolution=resolution, ignore_value=ignore_value)
+│   ├── impls normal_map = the map it rasterized
+│   ├── if point_size > 1.0
+│   │   ├── calls render_depth_from_rendering_points(rendering_points=rendering_points, resolution=resolution, ignore_value=float("inf"), return_mask=False)
+│   │   ├── impls depth_map = the depth map it rasterized
+│   │   ├── calls apply_point_size_postprocessing(rendered_image=normal_map, depth_map=depth_map, point_size=point_size, ignore_value=float("inf"))
+│   │   ├── impls normal_map = the dilated map it returned
+│   │   ├── impls valid_pixels = the pixels where any normal_map channel differs from ignore_value
+│   │   └── impls normal_map at valid_pixels = those columns unit-normalized over the channel dim
+│   ├── if return_mask
+│   │   ├── calls render_mask_from_rendering_points(rendering_points=rendering_points, resolution=resolution, device=rendering_points.device)
+│   │   ├── impls valid_mask = the mask it rasterized
+│   │   ├── if point_size > 1.0
+│   │   │   ├── calls render_depth_from_rendering_points(rendering_points=rendering_points, resolution=resolution, ignore_value=float("inf"), return_mask=False)
+│   │   │   ├── impls depth_map = the depth map it rasterized
+│   │   │   ├── calls apply_point_size_postprocessing(rendered_image=valid_mask.float(), depth_map=depth_map, point_size=point_size, ignore_value=float("inf"))
+│   │   │   └── impls valid_mask = the bool cast of the dilated mask it returned
+│   │   └── return  # (normal_map, valid_mask)
+│   └── else
+│       └── return  # normal_map
+└── def render_normal_from_rendering_points_3d(rendering_points: torch.Tensor, original_data_indices: torch.Tensor, pc_data: PointCloud, camera: Camera, resolution: Tuple[int, int], ignore_value: float = 0.0) -> torch.Tensor
+    ├── # Rasterizes already-projected points into a normal map, rotating each visible point's world normal into the opencv camera frame on the way.
+    ├── impls render_height, render_width = resolution
+    ├── impls world_normals = pc_data.normals
+    ├── assert world_normals.shape[0] == pc_data.xyz.shape[0]  # f"Normals count {world_normals.shape[0]} must match points count {pc_data.xyz.shape[0]}"
+    ├── assert world_normals.shape[1] == 3                     # f"Normals must be 3D vectors, got shape {world_normals.shape}"
+    ├── impls world_normals = world_normals unit-normalized over its last dim
+    ├── impls visible_world_normals = world_normals indexed by original_data_indices
+    ├── calls camera.to(device=rendering_points.device, extr_convention="opencv")
+    ├── impls camera = the opencv-convention copy on the rendering_points device it returned
+    ├── impls rotation_matrix = the top-left 3x3 block of camera's w2c matrix
+    ├── impls camera_normals = visible_world_normals right-multiplied by the transposed rotation_matrix
+    ├── impls camera_normals = camera_normals unit-normalized over its last dim
+    ├── impls normal_map = a [3, render_height, render_width] float32 tensor filled with ignore_value on the rendering_points device
+    ├── impls pixel_coords_y = the long-cast column 1 of rendering_points
+    ├── impls pixel_coords_x = the long-cast column 0 of rendering_points
+    ├── impls assign the transposed float-cast camera_normals into normal_map at rows pixel_coords_y, cols pixel_coords_x
+    └── return normal_map
+```
+
+`models/three_d/point_cloud/render/render_rgb.py`
+
+```text
+render_rgb.py
+├── from typing import Tuple, Union
+├── import torch
+├── from data.structures.three_d.camera.camera import Camera
+├── from data.structures.three_d.point_cloud.point_cloud import PointCloud
+├── from models.three_d.point_cloud.render.common.apply_point_size_postprocessing import apply_point_size_postprocessing
+├── from models.three_d.point_cloud.render.common.prepare_points_for_rendering import prepare_points_for_rendering
+├── from models.three_d.point_cloud.render.common.validate_rendering_inputs import validate_rendering_inputs
+├── from models.three_d.point_cloud.render.render_depth import render_depth_from_rendering_points
+├── from models.three_d.point_cloud.render.render_mask import render_mask_from_rendering_points
+├── def render_rgb_from_point_cloud(pc: PointCloud, camera: Camera, resolution: Tuple[int, int], ignore_value: float = 0.0, return_mask: bool = False, point_size: float = 1.0) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]
+│   ├── # Renders a point cloud's colours through the camera to an RGB image, chaining validation, projection, rasterization, and point-size dilation.
+│   ├── assert isinstance(pc, PointCloud)  # f"{type(pc)=}"
+│   ├── assert hasattr(pc, "rgb")          # "PointCloud must contain rgb field"
+│   ├── calls validate_rendering_inputs(pc=pc, camera=camera, resolution=resolution, ignore_value=ignore_value, return_mask=return_mask, point_size=point_size)
+│   ├── calls prepare_points_for_rendering(pc=pc, camera=camera, resolution=resolution)
+│   ├── impls rendering_points, original_data_indices = the pair it returned
+│   ├── calls render_rgb_from_rendering_points(rendering_points=rendering_points, original_data_indices=original_data_indices, pc=pc, resolution=resolution, ignore_value=ignore_value)
+│   ├── impls rgb_image = the image it rasterized
+│   ├── if point_size > 1.0
+│   │   ├── calls render_depth_from_rendering_points(rendering_points=rendering_points, resolution=resolution, ignore_value=float("inf"), return_mask=False)
+│   │   ├── impls depth_map = the depth map it rasterized
+│   │   ├── calls apply_point_size_postprocessing(rendered_image=rgb_image, depth_map=depth_map, point_size=point_size, ignore_value=float("inf"))
+│   │   └── impls rgb_image = the dilated image it returned
+│   ├── if return_mask
+│   │   ├── calls render_mask_from_rendering_points(rendering_points=rendering_points, resolution=resolution, device=rendering_points.device)
+│   │   ├── impls valid_mask = the mask it rasterized
+│   │   ├── if point_size > 1.0
+│   │   │   ├── calls render_depth_from_rendering_points(rendering_points=rendering_points, resolution=resolution, ignore_value=float("inf"), return_mask=False)
+│   │   │   ├── impls depth_map = the depth map it rasterized
+│   │   │   ├── calls apply_point_size_postprocessing(rendered_image=valid_mask.float(), depth_map=depth_map, point_size=point_size, ignore_value=float("inf"))
+│   │   │   └── impls valid_mask = the bool cast of the dilated mask it returned
+│   │   └── return  # (rgb_image, valid_mask)
+│   └── else
+│       └── return  # rgb_image
+└── def render_rgb_from_rendering_points(rendering_points: torch.Tensor, original_data_indices: torch.Tensor, pc: PointCloud, resolution: Tuple[int, int], ignore_value: float = 0.0) -> torch.Tensor
+    ├── # Rasterizes already-projected points into an RGB image by writing each point's colour at its pixel.
+    ├── assert hasattr(pc, "rgb")  # "PointCloud missing rgb field"
+    ├── impls render_height, render_width = resolution
+    ├── impls colors = pc.rgb
+    ├── assert colors.numel() > 0  # f"Colors tensor must not be empty, got {colors.numel()} elements"
+    ├── impls colors = a clone of colors
+    ├── impls integer_dtypes = the torch integer dtypes uint8 through int64
+    ├── impls is_integer_dtype = whether the colors dtype is one of integer_dtypes
+    ├── impls is_in_255_range = whether colors sits within [0, 255] with a maximum above 1.0
+    ├── if is_integer_dtype or is_in_255_range
+    │   └── impls colors = colors divided by 255.0
+    ├── impls colors = colors clamped to [0.0, 1.0]
+    ├── impls pixel_colors = colors indexed by original_data_indices
+    ├── impls rgb_image = a [3, render_height, render_width] float32 tensor filled with ignore_value on the rendering_points device
+    ├── impls assign the transposed float-cast pixel_colors into rgb_image by advanced indexing at rows from rendering_points' long-cast column 1, cols from its long-cast column 0
+    └── return rgb_image
+```
+
 `models/three_d/point_cloud/render/render_rgb_volumetric.py`
 
 ```text
 render_rgb_volumetric.py
 ├── import itertools
-├── from typing import List
+├── import json
+├── import logging
+├── import math
+├── import subprocess
+├── import tempfile
+├── import time
+├── from pathlib import Path
+├── from typing import Any, Dict, List, Tuple
+├── import numpy as np
+├── import torch
+├── from PIL import Image
+├── from data.structures.three_d.camera.camera import Camera
+├── from data.structures.three_d.camera.cameras import Cameras
+├── from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
+├── from data.structures.three_d.nerfstudio.nerfstudio_data import NerfStudio_Data
+├── from data.structures.three_d.point_cloud.io.save_point_cloud import save_point_cloud
+├── from data.structures.three_d.point_cloud.point_cloud import PointCloud
+├── from data.structures.three_d.point_cloud.select import Select
+├── from models.three_d.point_cloud.render.common.prepare_points_for_rendering import prepare_points_for_rendering
+├── from models.three_d.point_cloud.render.render_rgb import render_rgb_from_point_cloud
+├── from models.three_d.splatfacto.load_splatfacto import load_splatfacto_model
+├── from models.three_d.splatfacto.render import render_rgb_from_splatfacto
+├── def render_rgb_from_point_cloud_volumetric(pc: PointCloud, camera: Camera, resolution: Tuple[int, int], debug: bool = False) -> torch.Tensor
+│   ├── # Renders one view volumetrically: cull to the points that project, ring the view with auxiliary cameras, train a splatfacto model on that tiny dataset, evaluate it back at the original camera.
+│   ├── impls total_start = time.time()
+│   ├── impls log the pipeline start
+│   ├── assert isinstance(pc, PointCloud)  # f"{type(pc)=}"
+│   ├── assert isinstance(camera, Camera)  # f"{type(camera)=}"
+│   ├── impls render_height, render_width = resolution
+│   ├── assert both render dimensions are positive  # "Render resolution must be positive"
+│   ├── impls intrinsics = camera.intrinsics
+│   ├── impls extrinsics = camera.extrinsics
+│   ├── impls convention = camera.extrinsics.extr_convention
+│   ├── impls native_width = twice intrinsics.cx, rounded to an int
+│   ├── impls native_height = twice intrinsics.cy, rounded to an int
+│   ├── assert both native dimensions are positive  # "Invalid image dimensions inferred from intrinsics"
+│   ├── impls downscale_ratio_w = native_width / render_width
+│   ├── impls downscale_ratio_h = native_height / render_height
+│   ├── impls downscale_estimate = the mean of the two ratios
+│   ├── impls valid_factors = [1, 2, 4, 8]
+│   ├── impls downscale_factor = the valid factor nearest downscale_estimate
+│   ├── assert math.isfinite(downscale_estimate) with both ratios within 0.01 of downscale_factor  # "Render resolution does not correspond to a supported downscale factor"
+│   ├── impls stage_start = time.time()
+│   ├── calls prepare_points_for_rendering(pc=pc, camera=camera, resolution=resolution)
+│   ├── impls image_plane_points_indices = the second of the pair it returned
+│   ├── calls Select(indices=image_plane_points_indices)
+│   ├── impls pc = that selector applied to pc, keeping only the points that projected into the image
+│   ├── calls gen_auxiliary_cameras(points=pc.xyz, camera=camera)
+│   ├── impls aux_cameras = the shell of offset cameras it built
+│   ├── impls train_extrinsics = the primary extrinsics followed by each auxiliary camera's extrinsics
+│   ├── impls log the culling stage duration with the training-camera count
+│   ├── impls stage_start = time.time()
+│   ├── impls images, masks = two empty lists
+│   ├── for each _extrinsics in train_extrinsics
+│   │   ├── calls Camera(intrinsics=intrinsics, extrinsics=_extrinsics, device=pc.device)
+│   │   ├── impls render_camera = the camera it built
+│   │   ├── calls render_rgb_from_point_cloud(pc=pc, camera=render_camera, resolution=resolution, return_mask=True)
+│   │   └── impls images, masks each gain the image, mask pair it returned
+│   ├── impls log the base-render stage duration with the image count
+│   ├── impls target_device = pc.xyz.device
+│   ├── if debug
+│   │   ├── impls tempdir = ./test_volumetric_rendering, created with its parents
+│   │   ├── impls cleanup_fn = None
+│   │   └── impls log the retained workspace path
+│   ├── else
+│   │   ├── impls temp_dir_context = a tempfile.TemporaryDirectory()
+│   │   ├── impls tempdir = the context's name as a Path
+│   │   └── impls cleanup_fn = the context's bound cleanup
+│   ├── try
+│   │   ├── impls stage_start = time.time()
+│   │   ├── impls log the tempdir the dataset is written to
+│   │   ├── calls _create_images(images=images, output_root=tempdir, downscale_factor=downscale_factor)
+│   │   ├── calls _create_masks(masks=masks, output_root=tempdir, downscale_factor=downscale_factor)
+│   │   ├── calls _create_ply(pc=pc, output_root=tempdir)
+│   │   ├── calls _create_nerfstudio(intrinsics=intrinsics, train_extrinsics=train_extrinsics, eval_extrinsics=extrinsics, convention=convention, output_root=tempdir)
+│   │   ├── impls log the dataset-write stage duration
+│   │   ├── impls dataset_root = Path(tempdir)
+│   │   ├── impls stage_start = time.time()
+│   │   ├── calls _run_ns_train_splatfacto(dataset_root=dataset_root, downscale_factor=downscale_factor)
+│   │   ├── impls model_dir = the run directory it returned
+│   │   ├── impls log the ns-train stage duration
+│   │   ├── impls stage_start = time.time()
+│   │   ├── calls _assert_checkpoint_exists(model_dir=model_dir)
+│   │   ├── calls load_splatfacto_model(model_dir=str(model_dir), device=target_device)
+│   │   ├── impls pipeline = the model it loaded
+│   │   ├── impls log the model-load stage duration
+│   │   ├── impls stage_start = time.time()
+│   │   ├── calls render_rgb_from_splatfacto(model=pipeline, camera=camera, resolution=resolution)
+│   │   ├── impls rendered_image = the image it rendered
+│   │   └── impls log the evaluation-render stage duration
+│   ├── finally
+│   │   └── if cleanup_fn is not None
+│   │       └── impls invoke cleanup_fn to drop the temporary workspace
+│   ├── impls log the total pipeline duration
+│   ├── impls rendered_image = rendered_image moved onto target_device
+│   └── return rendered_image
+├── def gen_auxiliary_cameras(points: torch.Tensor, camera: Camera) -> List[Camera]
+│   ├── # Rings the primary view with offset cameras, so one input view still gives a volumetric fit a spread of poses to train against.
+│   ├── impls device = points.device
+│   ├── impls center = the mean of points over its point axis, as float32 on device
+│   ├── calls camera.to(device=device, extr_convention='standard')
+│   ├── impls extrinsics_standard = the extrinsics matrix of the camera it returned
+│   ├── impls camera_position = the translation column of extrinsics_standard
+│   ├── impls distance = the norm of camera_position minus center
+│   ├── assert distance is positive  # a camera sitting on the centre names no direction to step away along
+│   ├── impls step = half of distance
+│   ├── impls direction_specs = the normalized float32 vectors over itertools.product of minus one, zero and one taken three at a time, the all-zero one dropped  # impls-node-one-step:skip — one step; the "and" names what it is made of
+│   ├── impls auxiliary_cameras = an empty list
+│   ├── for each direction_unit in direction_specs
+│   │   ├── assert direction_unit is a 3-vector
+│   │   ├── impls position = camera_position stepped along direction_unit by step
+│   │   ├── impls aux_standard = a [4, 4] float32 block carrying the rotation of extrinsics_standard, position in its translation column, and one in its corner  # impls-node-one-step:skip — one step; the "and" names what it is made of
+│   │   ├── calls CameraExtrinsics(extrinsics=aux_standard, extr_convention='standard', device=device)
+│   │   ├── impls aux_extrinsics = the extrinsics it built
+│   │   ├── calls Camera(intrinsics=camera.intrinsics, extrinsics=aux_extrinsics, device=device)
+│   │   └── impls auxiliary_cameras gains that camera brought to the convention camera now carries, which the rebinding above left standard
+│   └── return auxiliary_cameras
+├── def _create_images(images: List[torch.Tensor], output_root: str, downscale_factor: int) -> None
+│   ├── # Writes the rendered RGB tensors out as the downscale-suffixed images directory a nerfstudio dataset reads.
+│   ├── impls root = Path(output_root)
+│   ├── impls suffix = the underscored downscale_factor when it exceeds one, else the empty string
+│   ├── impls image_dir = root / f"images{suffix}"
+│   ├── impls create image_dir with its parents
+│   └── for each idx, image in enumerate(images)
+│       ├── impls tensor = image detached onto cpu, clamped to [0.0, 1.0], as float32
+│       ├── impls array = tensor permuted to HWC, scaled by 255.0, rounded, cast to np.uint8
+│       ├── impls file_path = image_dir / f"image_{idx:02d}.png"
+│       └── impls write array to file_path as a PIL Image
+├── def _create_masks(masks: List[torch.Tensor], output_root: str, downscale_factor: int) -> None
+│   ├── # Writes the rendered coverage masks out as the downscale-suffixed masks directory a nerfstudio dataset reads.
+│   ├── impls root = Path(output_root)
+│   ├── impls suffix = the underscored downscale_factor when it exceeds one, else the empty string
+│   ├── impls mask_dir = root / f"masks{suffix}"
+│   ├── impls create mask_dir with its parents
+│   └── for each idx, mask in enumerate(masks)
+│       ├── impls tensor = mask detached onto cpu, as bool
+│       ├── impls array = tensor as np.uint8 scaled by 255
+│       ├── impls file_path = mask_dir / f"mask_{idx:02d}.png"
+│       └── impls write array to file_path as a mode-"L" PIL Image
+├── def _create_ply(pc: PointCloud, output_root: str) -> None
+│   ├── # Writes the culled point cloud as the point_cloud.ply the nerfstudio dataset seeds its gaussians from.
+│   ├── impls root = Path(output_root)
+│   ├── impls ply_path = root / "point_cloud.ply"
+│   ├── assert isinstance(pc, PointCloud)  # f"{type(pc)=}"
+│   └── calls save_point_cloud(pc, str(ply_path))
+├── def _create_nerfstudio(cameras: List[Camera], output_root: Path) -> None
+│   ├── # Writes the transforms.json a nerfstudio dataset is read through, carrying the shared intrinsics beside every training pose.
+│   ├── impls root = Path(output_root)
+│   ├── assert cameras is non-empty  # "At least one camera required to write transforms.json"
+│   ├── impls nerfstudio_path = root / "transforms.json"
+│   ├── impls create the parent directory of nerfstudio_path
+│   ├── impls camera_names = the name of each camera
+│   ├── assert no entry of camera_names is None  # f"{camera_names=}"
+│   ├── impls camera_intrinsics = the intrinsics of the first camera
+│   ├── impls intrinsic_params = a dict of fl_x, fl_y, cx, cy off camera_intrinsics, its four distortion terms zeroed
+│   ├── impls resolution = twice camera_intrinsics.cy by twice camera_intrinsics.cx, each rounded to an int
+│   ├── impls camera_model = "OPENCV"
+│   ├── impls intrinsics = the [3, 3] float32 pinhole matrix of camera_intrinsics on the first camera's device
+│   ├── impls applied_transform = the [3, 4] float32 array sending (x, y, z) to (x, z, -y)
+│   ├── calls Cameras(intrinsics=[camera.intrinsics for camera in cameras], extrinsics=[camera.extrinsics for camera in cameras], names=camera_names, ids=[camera.id for camera in cameras], device=cameras[0].device)
+│   ├── impls nerfstudio_cameras = the Cameras it built
+│   ├── impls modalities = ["image"]
+│   ├── impls payload = an empty Dict[str, Any]
+│   ├── calls NerfStudio_Data(data=payload, device=cameras[0].device, intrinsic_params=intrinsic_params, resolution=resolution, camera_model=camera_model, intrinsics=intrinsics, applied_transform=applied_transform, ply_file_path="point_cloud.ply", cameras=nerfstudio_cameras, modalities=modalities, train_filenames=None, val_filenames=None, test_filenames=None)
+│   ├── impls nerfstudio_data = the NerfStudio_Data it built
+│   └── calls nerfstudio_data.save(output_path=nerfstudio_path)
+├── def _run_ns_train_splatfacto(dataset_root: Path, downscale_factor: int) -> Path
+│   ├── # Trains a splatfacto model on the written dataset by shelling out to nerfstudio's ns-train, handing back the run directory it produced.
+│   ├── impls output_dir = dataset_root / "outputs"
+│   ├── impls create output_dir with its parents
+│   ├── impls ns_train_cmd = the ns-train splatfacto argv over output_dir, dataset_root, the downscale factor, with sharing off, quit-on-train-completion on, a nerfstudio-data fraction eval mode at a 1.0 train split
+│   ├── impls run ns_train_cmd through subprocess with check=True
+│   ├── impls config_paths = every config.yml under output_dir, newest mtime first
+│   ├── assert config_paths is non-empty  # f"ns-train did not create any configs under {output_dir}"
+│   ├── impls model_dir = the parent directory of the newest entry of config_paths
+│   └── return model_dir
+└── def _assert_checkpoint_exists(model_dir: Path) -> Path
+    ├── # Refuses a run that stopped short of the 30K-iteration checkpoint the volumetric render loads.
+    ├── impls checkpoint_path = model_dir / "nerfstudio_models" / f"step-000029999.ckpt"
+    ├── assert checkpoint_path.is_file()  # f"Training did not reach 30K iterations; missing checkpoint {checkpoint_path}"
+    └── return checkpoint_path
+```
+
+`models/three_d/point_cloud/render/render_segmentation.py`
+
+```text
+render_segmentation.py
+├── from typing import Tuple, Union
 ├── import torch
 ├── from data.structures.three_d.camera.camera import Camera
-├── from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
-└── def gen_auxiliary_cameras(points: torch.Tensor, camera: Camera) -> List[Camera]
-    ├── # Rings the primary view with offset cameras, so one input view still gives a volumetric fit a spread of poses to train against.
-    ├── impls device = points.device
-    ├── impls center = the mean of points over its point axis, as float32 on device
-    ├── calls camera.to(device=device, extr_convention='standard')
-    ├── impls extrinsics_standard = the extrinsics matrix of the camera it returned
-    ├── impls camera_position = the translation column of extrinsics_standard
-    ├── impls distance = the norm of camera_position minus center
-    ├── assert distance is positive  # a camera sitting on the centre names no direction to step away along
-    ├── impls step = half of distance
-    ├── impls direction_specs = the normalized float32 vectors over itertools.product of minus one, zero and one taken three at a time, the all-zero one dropped  # impls-node-one-step:skip — one step; the "and" names what it is made of
-    ├── impls auxiliary_cameras = an empty list
-    ├── for each direction_unit in direction_specs
-    │   ├── assert direction_unit is a 3-vector
-    │   ├── impls position = camera_position stepped along direction_unit by step
-    │   ├── impls aux_standard = a [4, 4] float32 block carrying the rotation of extrinsics_standard, position in its translation column, and one in its corner  # impls-node-one-step:skip — one step; the "and" names what it is made of
-    │   ├── calls CameraExtrinsics(extrinsics=aux_standard, extr_convention='standard', device=device)
-    │   ├── impls aux_extrinsics = the extrinsics it built
-    │   ├── calls Camera(intrinsics=camera.intrinsics, extrinsics=aux_extrinsics, device=device)
-    │   └── impls auxiliary_cameras gains that camera brought to the convention camera now carries, which the rebinding above left standard
-    └── return auxiliary_cameras
+├── from data.structures.three_d.point_cloud.point_cloud import PointCloud
+├── from models.three_d.point_cloud.render.common.apply_point_size_postprocessing import apply_point_size_postprocessing
+├── from models.three_d.point_cloud.render.common.prepare_points_for_rendering import prepare_points_for_rendering
+├── from models.three_d.point_cloud.render.common.validate_rendering_inputs import validate_rendering_inputs
+├── from models.three_d.point_cloud.render.render_depth import render_depth_from_rendering_points
+├── from models.three_d.point_cloud.render.render_mask import render_mask_from_rendering_points
+├── def render_segmentation_from_point_cloud(pc: PointCloud, key: str, camera: Camera, resolution: Tuple[int, int], ignore_value: int = 255, return_mask: bool = False, point_size: float = 1.0) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]
+│   ├── # Renders the labels a point cloud carries under key through the camera to a segmentation map, chaining validation, projection, rasterization, and point-size dilation.
+│   ├── assert isinstance(pc, PointCloud)  # f"{type(pc)=}"
+│   ├── assert hasattr(pc, key)            # f"PointCloud must contain '{key}' field"
+│   ├── calls validate_rendering_inputs(pc=pc, camera=camera, resolution=resolution, ignore_value=ignore_value, return_mask=return_mask, point_size=point_size)
+│   ├── calls prepare_points_for_rendering(pc=pc, camera=camera, resolution=resolution)
+│   ├── impls rendering_points, original_data_indices = the pair it returned
+│   ├── calls render_segmentation_from_rendering_points(rendering_points=rendering_points, original_data_indices=original_data_indices, pc=pc, key=key, resolution=resolution, ignore_value=ignore_value)
+│   ├── impls seg_map = the map it rasterized
+│   ├── if point_size > 1.0
+│   │   ├── calls render_depth_from_rendering_points(rendering_points=rendering_points, resolution=resolution, ignore_value=float("inf"), return_mask=False)
+│   │   ├── impls depth_map = the depth map it rasterized
+│   │   ├── calls apply_point_size_postprocessing(rendered_image=seg_map.float(), depth_map=depth_map, point_size=point_size, ignore_value=float("inf"))
+│   │   └── impls seg_map = the long cast of the dilated map it returned
+│   ├── if return_mask
+│   │   ├── calls render_mask_from_rendering_points(rendering_points=rendering_points, resolution=resolution, device=rendering_points.device)
+│   │   ├── impls valid_mask = the mask it rasterized
+│   │   ├── if point_size > 1.0
+│   │   │   ├── calls render_depth_from_rendering_points(rendering_points=rendering_points, resolution=resolution, ignore_value=float("inf"), return_mask=False)
+│   │   │   ├── impls depth_map = the depth map it rasterized
+│   │   │   ├── calls apply_point_size_postprocessing(rendered_image=valid_mask.float(), depth_map=depth_map, point_size=point_size, ignore_value=float("inf"))
+│   │   │   └── impls valid_mask = the bool cast of the dilated mask it returned
+│   │   └── return  # (seg_map, valid_mask)
+│   └── else
+│       └── return  # seg_map
+└── def render_segmentation_from_rendering_points(rendering_points: torch.Tensor, original_data_indices: torch.Tensor, pc: PointCloud, key: str, resolution: Tuple[int, int], ignore_value: int = 255) -> torch.Tensor
+    ├── # Rasterizes already-projected points into a segmentation map by writing each point's label at its pixel.
+    ├── assert hasattr(pc, key)  # f"PointCloud missing '{key}' field"
+    ├── impls render_height, render_width = resolution
+    ├── impls labels = the pc attribute named by key
+    ├── assert labels.numel() > 0  # f"Labels tensor must not be empty, got {labels.numel()} elements"
+    ├── impls pixel_labels = labels indexed by original_data_indices
+    ├── impls seg_map = a [render_height, render_width] int64 tensor filled with ignore_value on the rendering_points device
+    ├── impls assign the int64-cast pixel_labels into seg_map by advanced indexing at rows from rendering_points' long-cast column 1, cols from its long-cast column 0
+    └── return seg_map
 ```

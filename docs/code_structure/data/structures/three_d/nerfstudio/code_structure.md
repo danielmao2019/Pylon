@@ -36,3 +36,33 @@ convert.py
     │   └── impls points[point_id] = the point record it built
     └── return points
 ```
+
+`data/structures/three_d/nerfstudio/load.py`
+
+```text
+load.py
+├── from pathlib import Path
+├── from typing import Any, Dict, List, Optional, Union
+├── import torch
+├── from data.structures.three_d.camera.cameras import Cameras
+├── from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
+├── from data.structures.three_d.camera.intrinsics.camera_intrinsics import CameraIntrinsics, build_camera_intrinsics
+└── def load_cameras(data: Dict[str, Any], device: Union[str, torch.device] = torch.device("cpu")) -> Cameras
+    ├── # Reads the frames of one NerfStudio transforms record as the cameras that posed them.
+    ├── impls frames: List[Any] = the frames the record lists
+    ├── impls intrinsics_params = the record's fl_x, fl_y, cx, cy as float fx, fy, cx, cy, its h, w as ints
+    ├── for each of frames  # every entry is the record's one top-level pinhole
+    │   ├── calls build_camera_intrinsics(model="pinhole", params=intrinsics_params, intr_convention="standard", device=device)
+    │   └── impls intrinsics: List[CameraIntrinsics] gains the CameraIntrinsics it built
+    ├── for each frame in frames
+    │   ├── calls CameraExtrinsics(extrinsics=that frame's transform_matrix as a float32 tensor on device, extr_convention="opengl", device=device)
+    │   └── impls extrinsics gains the CameraExtrinsics it built
+    ├── impls names: List[Optional[str]] = the stem of each frame's file_path as a Path
+    ├── for each frame in frames
+    │   ├── if frame carries a colmap_im_id
+    │   │   └── impls ids gains that colmap_im_id
+    │   └── else
+    │       └── impls ids gains None
+    ├── calls Cameras(intrinsics=intrinsics, extrinsics=extrinsics, names=names, ids=ids, device=device)
+    └── return  # the cameras it built
+```

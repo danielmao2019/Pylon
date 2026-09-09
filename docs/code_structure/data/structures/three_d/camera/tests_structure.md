@@ -31,7 +31,7 @@ test_conventions.py
 │   └── return
 ├── def test_extrinsics_conversion_preserves_physical_axes_and_center
 │   ├── # Converting a CameraExtrinsics between extr_conventions preserves its physical right / forward / up axes and center.
-│   ├── calls CameraExtrinsics
+│   ├── calls _build_extrinsics(extr_convention=the source extr_convention)
 │   ├── for each target extr_convention
 │   │   ├── calls extrinsics.to
 │   │   ├── impls assert the converted right / forward / up axes equal the source ones under torch.allclose
@@ -40,23 +40,24 @@ test_conventions.py
 ├── def test_extrinsics_direct_and_via_standard_conversion_match
 │   ├── # Converting a CameraExtrinsics directly between two extr_conventions matches converting via the standard one.
 │   ├── for each (source, target) extr_convention pair
-│   │   ├── calls CameraExtrinsics(extrinsics=the same pose, extr_convention=the source extr_convention)
+│   │   ├── calls _build_extrinsics(extr_convention=the source extr_convention)
 │   │   ├── calls extrinsics.to(extr_convention=the target extr_convention)
+│   │   ├── impls converted_direct = the extrinsics it returned
 │   │   ├── calls extrinsics.to(extr_convention="standard")
-│   │   ├── calls standardized.to(extr_convention=the target extr_convention)
+│   │   ├── impls converted_via_standard = that result carried on to the target extr_convention by a second to
 │   │   └── impls assert the two target-frame 4x4 matrices agree under torch.allclose
 │   └── return
 ├── def test_extrinsics_round_trip_returns_original_matrix
 │   ├── # Converting a CameraExtrinsics to another extr_convention and back returns the original 4x4 matrix.
-│   ├── calls CameraExtrinsics
+│   ├── calls _build_extrinsics(extr_convention=the source extr_convention)
 │   ├── for each target extr_convention
 │   │   ├── calls extrinsics.to(extr_convention=the target extr_convention)
-│   │   ├── calls converted.to(extr_convention=the original extr_convention)
+│   │   ├── impls round_trip = that result carried back to the source extr_convention by a second to
 │   │   └── impls assert the round-tripped 4x4 matrix equals the original under torch.allclose
 │   └── return
 ├── def test_extrinsics_w2c_is_inverse_of_extrinsics
 │   ├── # CameraExtrinsics.w2c is the inverse of the 4x4 camera-to-world extrinsics matrix.
-│   ├── calls CameraExtrinsics
+│   ├── calls _build_extrinsics(extr_convention=the pose frame the case names)
 │   ├── impls assert w2c @ extrinsics equals the 4x4 identity under torch.allclose
 │   └── return
 ├── def test_transform_extrinsics_applies_the_similarity_and_restabilizes
@@ -73,6 +74,25 @@ test_conventions.py
 │   ├── calls cameras.transform_extrinsics(scale=that same factor, rotation=that same rotation, translation=that same offset)
 │   ├── impls assert every camera in the batch carries that same result
 │   └── return
+├── def test_camera_and_cameras_to_keep_tensor_state_on_the_autograd_path
+│   ├── # Camera.to and Cameras.to each keep the tensor state handed to them on the autograd path, the moved camera and the moved collection backpropagating separately to the same source params and cam2world.
+│   ├── calls _build_extrinsics_matrix
+│   ├── impls matrix = the cam2world matrix it built, marked requires_grad in place
+│   ├── calls build_camera_intrinsics(model="pinhole", params=tensor scalar params whose four projection entries require grad, intr_convention="standard", device="cpu")
+│   ├── calls CameraExtrinsics(extrinsics=matrix, extr_convention="standard", device="cpu")
+│   ├── calls Camera(intrinsics=intrinsics, extrinsics=extrinsics, device="cpu")
+│   ├── calls camera.to(dtype=a floating torch dtype, extr_convention="pytorch3d")
+│   ├── impls camera_loss = moved_camera.intrinsics.fx + moved_camera.extrinsics.center.sum()
+│   ├── calls camera_loss.backward(retain_graph=True)
+│   ├── impls assert the source fx param receives a gradient
+│   ├── impls assert the source cam2world tensor receives a gradient
+│   ├── calls Cameras(intrinsics=[intrinsics], extrinsics=[extrinsics], device="cpu")
+│   ├── calls cameras.to(dtype=a floating torch dtype, extr_convention="pytorch3d")
+│   ├── impls cameras_loss = moved_cameras.intrinsics[0].fx + moved_cameras.extrinsics[0].center.sum()
+│   ├── calls cameras_loss.backward
+│   ├── impls assert the source fx param receives a gradient
+│   ├── impls assert the source cam2world tensor receives a gradient
+│   └── return
 ├── def test_transform_extrinsics_normalizes_rotation_input
 │   ├── # CameraExtrinsics.transform_extrinsics accepts each validated rotation representation and normalizes it to the pose tensor's placement.
 │   ├── for each rotation in {a (3, 3) numpy array, a (3, 3) torch tensor, a length-3 nested numeric list}
@@ -87,23 +107,49 @@ test_conventions.py
 │   └── return
 ├── def test_cameras_conversion_preserves_physical_axes_and_center
 │   ├── # Converting a Cameras collection between extr_conventions preserves each camera's physical axes and center.
-│   ├── for each pose in the collection
-│   │   ├── calls build_camera_intrinsics
-│   │   └── calls CameraExtrinsics
-│   ├── calls Cameras
+│   ├── calls _build_cameras(extr_convention=the source pose frame of the pair)
 │   ├── for each target extr_convention
 │   │   ├── calls cameras.to
 │   │   ├── impls assert the converted [N, 3] right / forward / up stacks equal the source ones under torch.allclose
 │   │   └── impls assert the converted [N, 3] center stack equals the source one under torch.allclose
 │   └── return
+├── def _build_cameras
+│   ├── # Builds the three-camera Cameras fixture the collection conversions run on, its poses distinct so a per-camera axis or centre error cannot hide behind one shared pose.
+│   ├── calls _build_extrinsics_matrices
+│   ├── impls pose_matrices = the three distinct cam2world matrices it built
+│   ├── for each of pose_matrices
+│   │   └── calls build_camera_intrinsics(model="pinhole", params=one fixed pinhole param set, intr_convention="standard", device="cpu")
+│   ├── impls intrinsics = one entry per pose, every entry that same pinhole
+│   ├── for each pose_matrix in pose_matrices
+│   │   └── calls CameraExtrinsics(extrinsics=pose_matrix, extr_convention=the pose frame asked for, device="cpu")
+│   ├── impls extrinsics = the per-pose extrinsics it built
+│   ├── calls Cameras(intrinsics=intrinsics, extrinsics=extrinsics, device="cpu")
+│   └── return  # that three-camera collection
 ├── def test_every_supported_extr_convention_is_right_handed
 │   ├── # A camera carries no change of handedness: each supported pose frame's (right, forward, up) triple is positively oriented, so converting between two of them keeps the rotation determinant at +1.
-│   ├── calls CameraExtrinsics
+│   ├── calls _build_extrinsics(extr_convention="standard")
 │   ├── for each target extr_convention
 │   │   ├── calls extrinsics.to
 │   │   ├── impls assert the converted right / forward / up triple has a positive scalar triple product
 │   │   └── impls assert the converted rotation block's determinant is +1
 │   └── return
+├── def _build_extrinsics
+│   ├── # Builds the one-camera CameraExtrinsics fixture the pose-frame conversions run on, in whichever frame the case asks for.
+│   ├── calls _build_extrinsics_matrix
+│   ├── calls CameraExtrinsics(extrinsics=the matrix it built, extr_convention=the pose frame asked for, device="cpu")
+│   └── return  # that extrinsics
+├── def _build_extrinsics_matrices
+│   ├── # Builds the three distinct cam2world matrices the multi-camera fixture poses its cameras with.
+│   ├── calls _build_extrinsics_matrix
+│   ├── impls rotation_about_z = the matrix it built
+│   ├── impls identity_rotation = a 4x4 float32 identity whose translation column carries its own centre
+│   ├── impls rotation_about_x = a 4x4 float32 cam2world turning about x, with its own centre
+│   └── return  # rotation_about_z, identity_rotation and rotation_about_x, in that order
+├── def _build_extrinsics_matrix
+│   ├── # Builds the one cam2world matrix the fixtures start from, its rotation block a proper rotation.
+│   ├── impls build a 4x4 float32 literal whose rotation block is a quarter turn about z
+│   ├── impls set its translation column to a fixed camera centre
+│   └── return  # that matrix
 ├── def test_validate_intr_convention_accepts_all_supported
 │   ├── # The intrinsics name their own frame from a closed set, so every supported image-plane frame validates and anything else is rejected.
 │   ├── calls validate_intr_convention
@@ -181,11 +227,16 @@ test_conventions.py
 │   └── return
 ├── def test_a_frame_change_is_measured_against_the_intrinsics_own_resolution
 │   ├── # The resolution is what fixes where a centred origin sits and what a normalized unit is worth, so the conversion reads the h and w the params already carry rather than a resolution the caller supplies and could get wrong.
+│   ├── calls _build_pinhole_params(height=a fixed height, width=each of two differing widths)
 │   ├── calls build_camera_intrinsics
-│   ├── calls intrinsics.to
-│   ├── impls assert two intrinsics whose projection params match but whose h and w differ convert to different results                   # impls-node-one-step:skip
+│   ├── impls narrow, wide = each build's result carried to "opengl" by a chained to                                     # impls-node-one-step:skip
+│   ├── impls assert two intrinsics whose projection params match but whose h and w differ convert to different results  # impls-node-one-step:skip
 │   ├── impls assert the converted intrinsics carries the same h and w it was built with, the image being the same image in either frame  # impls-node-one-step:skip
 │   └── return
+├── def _build_pinhole_params
+│   ├── # Builds the pinhole params dict the intrinsics cases are stated with, its h and w the only thing a case varies.
+│   ├── impls build a params dict of fixed fx, fy, cx and cy under the height and width asked for  # impls-node-one-step:skip — one step; the "and" names what it is made of
+│   └── return  # that params dict
 ├── def test_an_intrinsics_without_a_resolution_is_refused
 │   ├── # A principal point in the standard frame names a location only against a resolution, so params missing h or w are refused for every camera model.
 │   ├── with pytest.raises(AssertionError)
@@ -202,9 +253,7 @@ test_conventions.py
 ├── def test_extrinsics_tensor_matrix_stays_differentiable_through_pose_accessors
 │   ├── # Tensor-valued extrinsics stay on the autograd path through pose accessors.
 │   ├── calls CameraExtrinsics(extrinsics=a valid cam2world tensor with tensor-valued translation, extr_convention="standard")
-│   ├── calls extrinsics.w2c
-│   ├── calls extrinsics.center
-│   ├── impls loss = w2c.sum() + center.sum()
+│   ├── impls loss = extrinsics.w2c.sum() + extrinsics.center.sum()
 │   ├── calls loss.backward
 │   └── impls assert the source extrinsics tensor receives a gradient
 ├── def test_extrinsics_constructor_applies_requested_device_dtype_through_to
@@ -250,46 +299,84 @@ test_io.py
 ├── from data.structures.three_d.camera.io import deserialize_cameras, load_cameras, save_cameras, serialize_cameras
 ├── def test_single_camera_json_round_trip
 │   ├── # A single Camera survives a save then load round trip through the json format.
-│   ├── calls build_camera_intrinsics
-│   ├── calls CameraExtrinsics
-│   ├── calls Camera
+│   ├── calls _make_single_camera
+│   ├── calls serialize_cameras(cameras=camera, format="json")
+│   ├── impls serialized = the payload it produced
+│   ├── impls assert serialized is a dict whose keys are the json key set
+│   ├── impls assert serialized equals what camera.serialize(format="json") returns
+│   ├── calls deserialize_cameras(payload=serialized, device="cpu", format="json")
+│   ├── calls Camera.deserialize(payload=serialized, device="cpu", format="json")
+│   ├── calls _assert_camera_fields_equal(loaded=each of those two, original=camera)
 │   ├── calls camera.save(camera_path=a .json path under tmp_path)
-│   ├── calls Camera.load
-│   ├── impls assert the loaded object is a Camera instance
-│   ├── impls assert its intrinsics model / params, extrinsics matrix / extr_convention, name, and id match the saved camera's  # impls-node-one-step:skip
+│   ├── impls assert the file on disk parses back to serialized
+│   ├── calls load_cameras(cameras_path=that path, device="cpu")
+│   ├── calls Camera.load(camera_path=that path, device="cpu")
+│   ├── calls _assert_camera_fields_equal(loaded=each of those two, original=camera)
 │   └── return
 ├── def test_single_camera_npz_round_trip
 │   ├── # A single Camera survives a save then load round trip through the npz format.
-│   ├── calls build_camera_intrinsics
-│   ├── calls CameraExtrinsics
-│   ├── calls Camera
+│   ├── calls _make_single_camera
+│   ├── calls serialize_cameras(cameras=camera, format="npz")
+│   ├── impls serialized = the payload it produced
+│   ├── impls assert serialized is a dict whose keys are the npz key set
+│   ├── impls assert its extrinsics entry has shape (4, 4)
+│   ├── calls deserialize_cameras(payload=serialized, device="cpu", format="npz")
+│   ├── calls _assert_camera_fields_equal(loaded=what it returned, original=camera)
 │   ├── calls camera.save(camera_path=a .npz path under tmp_path)
-│   ├── calls Camera.load
-│   ├── impls assert the loaded object is a Camera instance
-│   ├── impls assert its intrinsics model / params, extrinsics matrix / extr_convention, name, and id match the saved camera's  # impls-node-one-step:skip
+│   ├── impls assert the archive on disk carries exactly the npz key set
+│   ├── calls load_cameras(cameras_path=that path, device="cpu")
+│   ├── calls Camera.load(camera_path=that path, device="cpu")
+│   ├── calls _assert_camera_fields_equal(loaded=each of those two, original=camera)
 │   └── return
+├── def _make_single_camera
+│   ├── # Builds the one-camera Camera fixture both single round trips run on, carrying a name and an id so the round trip has both to preserve.
+│   ├── calls build_camera_intrinsics(model="pinhole", params=that model's param set, intr_convention="standard", device="cpu")
+│   ├── impls intrinsics = the intrinsics it built
+│   ├── calls _make_extrinsics(translation=a camera centre, extr_convention="opengl")
+│   ├── impls extrinsics = the extrinsics it built
+│   ├── calls Camera(intrinsics=intrinsics, extrinsics=extrinsics, name=a label, id=an identifier, device="cpu")
+│   └── return  # that camera
 ├── def test_multi_cameras_json_round_trip
 │   ├── # A Cameras collection survives a save then load round trip through the json format.
-│   ├── for each camera in the collection
-│   │   ├── calls build_camera_intrinsics
-│   │   └── calls CameraExtrinsics
-│   ├── calls Cameras
-│   ├── calls save_cameras(cameras=the Cameras, cameras_path=a .json path under tmp_path)
-│   ├── calls load_cameras
-│   ├── impls assert the loaded object is a Cameras of the same length
-│   ├── impls assert each loaded camera's intrinsics, extrinsics, name, and id match the saved one's at that index  # impls-node-one-step:skip
+│   ├── calls _make_multi_cameras
+│   ├── calls serialize_cameras(cameras=cameras, format="json")
+│   ├── impls serialized = the payload it produced
+│   ├── impls assert serialized is one dict per camera, each keyed by the json key set
+│   ├── calls deserialize_cameras(payload=serialized, device="cpu", format="json")
+│   ├── calls _assert_cameras_fields_equal(loaded=what it returned, original=cameras)
+│   ├── calls save_cameras(cameras=cameras, cameras_path=a .json path under tmp_path)
+│   ├── impls assert the file on disk parses back to serialized
+│   ├── calls load_cameras(cameras_path=that path, device="cpu")
+│   ├── calls _assert_cameras_fields_equal(loaded=what it loaded, original=cameras)
 │   └── return
 ├── def test_multi_cameras_npz_round_trip
 │   ├── # A Cameras collection survives a save then load round trip through the npz format.
-│   ├── for each camera in the collection
-│   │   ├── calls build_camera_intrinsics
-│   │   └── calls CameraExtrinsics
-│   ├── calls Cameras
-│   ├── calls save_cameras(cameras=the Cameras, cameras_path=a .npz path under tmp_path)
-│   ├── calls load_cameras
-│   ├── impls assert the loaded object is a Cameras of the same length
-│   ├── impls assert each loaded camera's intrinsics, extrinsics, name, and id match the saved one's at that index  # impls-node-one-step:skip
+│   ├── calls _make_multi_cameras
+│   ├── calls serialize_cameras(cameras=cameras, format="npz")
+│   ├── impls serialized = the payload it produced
+│   ├── impls assert serialized is a dict whose keys are the npz key set
+│   ├── impls assert its extrinsics entry has one 4x4 block per camera
+│   ├── calls deserialize_cameras(payload=serialized, device="cpu", format="npz")
+│   ├── calls _assert_cameras_fields_equal(loaded=what it returned, original=cameras)
+│   ├── calls save_cameras(cameras=cameras, cameras_path=a .npz path under tmp_path)
+│   ├── impls assert the archive on disk carries exactly the npz key set
+│   ├── calls load_cameras(cameras_path=that path, device="cpu")
+│   ├── calls _assert_cameras_fields_equal(loaded=what it loaded, original=cameras)
 │   └── return
+├── def _make_multi_cameras
+│   ├── # Builds the three-camera Cameras fixture both collection round trips run on, its cameras differing in model, pose frame, name and id so the payload spans every path the format has to carry.
+│   ├── calls build_camera_intrinsics(model="pinhole", params=that model's param set, intr_convention="standard", device="cpu")
+│   ├── calls build_camera_intrinsics(model="simple_pinhole", params=that model's param set, intr_convention="standard", device="cpu")
+│   ├── calls build_camera_intrinsics(model="ortho", params=that model's param set, intr_convention="standard", device="cpu")
+│   ├── impls intrinsics = those three, in that order
+│   ├── calls _make_extrinsics(translation=a first camera centre, extr_convention="opengl")
+│   ├── calls _make_extrinsics(translation=a second camera centre, extr_convention="opencv")
+│   ├── calls _make_extrinsics(translation=a third camera centre, extr_convention="standard")
+│   ├── impls extrinsics = those three, in that order
+│   ├── impls names = a label for every camera but the second
+│   ├── impls ids = an id for every camera but the third
+│   ├── calls Cameras(intrinsics=intrinsics, extrinsics=extrinsics, names=names, ids=ids, device="cpu")
+│   └── return  # that three-camera collection
 ├── def test_the_intr_convention_and_resolution_survive_round_trip
 │   ├── # An intrinsics' params name nothing without the frame they are stated in, so a payload that dropped it would deserialize into a different camera; the resolution needs no key of its own, riding inside those params.
 │   ├── calls serialize_cameras
@@ -303,7 +390,7 @@ test_io.py
 │   ├── for each format in {json, npz}
 │   │   └── for each of the three camera models
 │   │       ├── calls build_camera_intrinsics
-│   │       ├── calls CameraExtrinsics
+│   │       ├── calls _make_extrinsics
 │   │       ├── calls Camera
 │   │       ├── calls camera.save(camera_path=a tmp_path file with that format's suffix)
 │   │       ├── calls Camera.load
@@ -314,22 +401,43 @@ test_io.py
 │   ├── # Tensor-valued intrinsics params round-trip through camera I/O as serialized numeric values.
 │   ├── for each format in {json, npz}
 │   │   ├── calls build_camera_intrinsics(model="ortho", params=tensor scalar params, intr_convention="standard")
-│   │   ├── calls CameraExtrinsics
+│   │   ├── calls _make_extrinsics
 │   │   ├── calls Camera
 │   │   ├── calls camera.save(camera_path=a tmp_path file with that format's suffix)
 │   │   ├── calls Camera.load
 │   │   └── impls assert the loaded params equal the source tensor values materialized as numeric scalars
 │   └── return
-└── def test_extrinsics_and_extr_convention_survive_round_trip
-    ├── # A Camera's extrinsics matrix and extr_convention survive a save then load round trip through both the json and npz formats.
-    ├── for each format in {json, npz}
-    │   └── for each supported extr_convention
-    │       ├── calls build_camera_intrinsics
-    │       ├── calls CameraExtrinsics
-    │       ├── calls Camera
-    │       ├── calls camera.save(camera_path=a tmp_path file with that format's suffix)
-    │       ├── calls Camera.load
-    │       ├── impls assert the loaded 4x4 extrinsics matrix equals the saved one exactly
-    │       └── impls assert the loaded extr_convention equals the saved extr_convention
+├── def test_extrinsics_and_extr_convention_survive_round_trip
+│   ├── # A Camera's extrinsics matrix and extr_convention survive a save then load round trip through both the json and npz formats.
+│   ├── for each format in {json, npz}
+│   │   └── for each supported extr_convention
+│   │       ├── calls build_camera_intrinsics
+│   │       ├── calls _make_extrinsics
+│   │       ├── calls Camera
+│   │       ├── calls camera.save(camera_path=a tmp_path file with that format's suffix)
+│   │       ├── calls Camera.load
+│   │       ├── impls assert the loaded 4x4 extrinsics matrix equals the saved one exactly
+│   │       └── impls assert the loaded extr_convention equals the saved extr_convention
+│   └── return
+├── def _make_extrinsics
+│   ├── # Builds one CameraExtrinsics whose rotation is identity, so a round trip is measured on the centre and the pose frame alone.
+│   ├── impls matrix = a 4x4 float32 identity whose translation column is set to the translation asked for
+│   ├── calls CameraExtrinsics(extrinsics=matrix, extr_convention=the pose frame asked for, device="cpu")
+│   └── return  # that extrinsics
+├── def _assert_cameras_fields_equal
+│   ├── # Checks a loaded Cameras against the original by running the single-camera check at every index.
+│   ├── impls assert the loaded object is a Cameras of the same length
+│   ├── for each index of the original
+│   │   └── calls _assert_camera_fields_equal(loaded=the loaded camera at that index, original=the original at that index)
+│   └── return
+└── def _assert_camera_fields_equal
+    ├── # Checks a loaded Camera against the original on the fields serialization has to carry.
+    ├── impls assert the loaded object is a Camera
+    ├── impls assert its intrinsics model equals the original's
+    ├── impls assert its intrinsics params equal the original's
+    ├── impls assert its extrinsics matrix equals the original's
+    ├── impls assert its extr_convention equals the original's
+    ├── impls assert its name equals the original's
+    ├── impls assert its id equals the original's
     └── return
 ```
