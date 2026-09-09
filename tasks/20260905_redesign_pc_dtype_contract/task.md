@@ -150,6 +150,7 @@ goal: re-design pc dtype contract/provenance
             2. a reader never widens a field it builds.
          2. fields are assembled according to Layout Mapping.
          3. each field enters under the dtype its source defines, as Type Casting defines it.
+         4. a loaded cloud carries coordinates, so a load whose assembled fields include no xyz hard-asserts and aborts.
       2. save point cloud
          1. strictly follows the meta data: it applies the meta data and then writes the cloud that comes back, so writing does not need to be aware of the dtype mismatch at all.
             1. the target's dtype and layout come from the record and the override as specified by New Meta Data API, and the dtype casts follow Type Casting.
