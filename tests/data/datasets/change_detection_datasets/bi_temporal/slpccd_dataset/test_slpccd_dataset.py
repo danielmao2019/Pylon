@@ -20,18 +20,33 @@ def validate_inputs(inputs: Dict[str, Any]) -> None:
         assert 'xyz' in inputs[pc_key]
         assert isinstance(inputs[pc_key]['xyz'], torch.Tensor)
         assert inputs[pc_key]['xyz'].shape[1] == 3  # xyz coordinates
+        # decimal text parses as float64 and no load narrows it any more, so this is the width the dataset narrows to itself
+        assert (
+            inputs[pc_key]['xyz'].dtype == torch.float32
+        ), f"the coordinates of a cloud are not the width the dataset narrows to: {pc_key=}, {inputs[pc_key]['xyz'].dtype=}"
 
 
 def validate_labels(labels: Dict[str, Any]) -> None:
     assert isinstance(labels, dict), f"{type(labels)=}"
     assert set(labels.keys()) == set(SLPCCDDataset.LABEL_NAMES)
     assert isinstance(labels['change_map'], torch.Tensor)
+    # a caller-stated layout is the whole field set over a text source, so a label column the dataset forgot to name would leave a change map of nothing rather than an error
+    assert (
+        labels['change_map'].ndim == 1
+    ), f"the change map does not carry one entry per point: {labels['change_map'].shape=}"
+    assert (
+        labels['change_map'].unique().numel() > 1
+    ), f"the change map holds one value everywhere: {labels['change_map'].unique()=}, {labels['change_map'].shape=}"
 
 
 def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
     assert isinstance(meta_info, dict), f"{type(meta_info)=}"
-    assert 'idx' in meta_info, f"meta_info should contain 'idx' key: {meta_info.keys()=}"
-    assert meta_info['idx'] == datapoint_idx, f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {datapoint_idx=}"
+    assert (
+        'idx' in meta_info
+    ), f"meta_info should contain 'idx' key: {meta_info.keys()=}"
+    assert (
+        meta_info['idx'] == datapoint_idx
+    ), f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {datapoint_idx=}"
     assert 'pc_1_filepath' in meta_info
     assert 'pc_2_filepath' in meta_info
 

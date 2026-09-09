@@ -355,17 +355,18 @@ def test_an_ordinary_field_narrowing_out_of_range_is_refused_too():
     with tempfile.NamedTemporaryFile(suffix='.ply', delete=False) as tmp_file:
         filepath = tmp_file.name
 
+    coordinates = np.arange(24, dtype=np.float32).reshape(8, 3)
+    pc = PointCloud(
+        data={
+            'x': coordinates[:, 0],
+            'y': coordinates[:, 1],
+            'z': coordinates[:, 2],
+            'intensity': np.full(8, 300, dtype=np.uint16),
+        },
+        device='cpu',
+    )
+
     with pytest.raises(AssertionError):
-        coordinates = np.arange(24, dtype=np.float32).reshape(8, 3)
-        pc = PointCloud(
-            data={
-                'x': coordinates[:, 0],
-                'y': coordinates[:, 1],
-                'z': coordinates[:, 2],
-                'intensity': np.full(8, 300, dtype=np.uint16),
-            },
-            device='cpu',
-        )
         save_point_cloud(
             pc,
             filepath,
@@ -465,17 +466,18 @@ def test_a_layout_naming_the_wrong_number_of_columns_is_refused():
     with tempfile.NamedTemporaryFile(suffix='.ply', delete=False) as tmp_file:
         filepath = tmp_file.name
 
+    coordinates = np.arange(24, dtype=np.float32).reshape(8, 3)
+    pc = PointCloud(
+        data={
+            'x': coordinates[:, 0],
+            'y': coordinates[:, 1],
+            'z': coordinates[:, 2],
+        },
+        device='cpu',
+    )
+    pc.feat = torch.arange(24, dtype=torch.float32).reshape(8, 3)
+
     with pytest.raises(AssertionError):
-        coordinates = np.arange(24, dtype=np.float32).reshape(8, 3)
-        pc = PointCloud(
-            data={
-                'x': coordinates[:, 0],
-                'y': coordinates[:, 1],
-                'z': coordinates[:, 2],
-            },
-            device='cpu',
-        )
-        pc.feat = torch.arange(24, dtype=torch.float32).reshape(8, 3)
         save_point_cloud(
             pc,
             filepath,
@@ -488,10 +490,11 @@ def test_a_multi_column_identity_layout_is_refused_by_the_column_count():
     with tempfile.NamedTemporaryFile(suffix='.ply', delete=False) as tmp_file:
         filepath = tmp_file.name
 
+    pc = PointCloud(
+        xyz=torch.arange(24, dtype=torch.float32).reshape(8, 3), device='cpu'
+    )
+
     with pytest.raises(AssertionError):
-        pc = PointCloud(
-            xyz=torch.arange(24, dtype=torch.float32).reshape(8, 3), device='cpu'
-        )
         save_point_cloud(pc, filepath)
 
 
@@ -822,17 +825,18 @@ def test_an_int64_target_whose_values_exceed_i4_is_refused():
     with tempfile.NamedTemporaryFile(suffix='.ply', delete=False) as tmp_file:
         filepath = tmp_file.name
 
+    coordinates = np.arange(24, dtype=np.float32).reshape(8, 3)
+    pc = PointCloud(
+        data={
+            'x': coordinates[:, 0],
+            'y': coordinates[:, 1],
+            'z': coordinates[:, 2],
+            'label': np.full(8, 2**40, dtype=np.int64),
+        },
+        device='cpu',
+    )
+
     with pytest.raises(AssertionError):
-        coordinates = np.arange(24, dtype=np.float32).reshape(8, 3)
-        pc = PointCloud(
-            data={
-                'x': coordinates[:, 0],
-                'y': coordinates[:, 1],
-                'z': coordinates[:, 2],
-                'label': np.full(8, 2**40, dtype=np.int64),
-            },
-            device='cpu',
-        )
         save_point_cloud(pc, filepath, meta_data={'label': {'dtype': 'int64'}})
 
 
@@ -841,17 +845,18 @@ def test_a_cast_that_would_lose_a_value_is_refused():
     with tempfile.NamedTemporaryFile(suffix='.ply', delete=False) as tmp_file:
         filepath = tmp_file.name
 
+    coordinates = np.arange(24, dtype=np.float32).reshape(8, 3)
+    pc = PointCloud(
+        data={
+            'x': coordinates[:, 0],
+            'y': coordinates[:, 1],
+            'z': coordinates[:, 2],
+            'label': np.full(8, 2**40, dtype=np.int64),
+        },
+        device='cpu',
+    )
+
     with pytest.raises(AssertionError):
-        coordinates = np.arange(24, dtype=np.float32).reshape(8, 3)
-        pc = PointCloud(
-            data={
-                'x': coordinates[:, 0],
-                'y': coordinates[:, 1],
-                'z': coordinates[:, 2],
-                'label': np.full(8, 2**40, dtype=np.int64),
-            },
-            device='cpu',
-        )
         save_point_cloud(
             pc,
             filepath,

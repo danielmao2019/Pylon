@@ -43,7 +43,7 @@ def test_an_f8_ply_gives_float64_coordinates(temp_dir):
 
     assert result.xyz.dtype == torch.float64, f"{result.xyz.dtype=}"
     assert np.allclose(
-        result.xyz.numpy(), UTM_COORDINATES, atol=1e-9
+        result.xyz.numpy(), UTM_COORDINATES, rtol=0, atol=1e-9
     ), f"{result.xyz.numpy()=}, {UTM_COORDINATES=}"
 
 
@@ -95,7 +95,7 @@ def test_text_coordinates_keep_their_precision(temp_dir):
     )
 
     assert np.allclose(
-        result.xyz.numpy(), UTM_COORDINATES, atol=1e-9
+        result.xyz.numpy(), UTM_COORDINATES, rtol=0, atol=1e-9
     ), f"{result.xyz.numpy()=}, {UTM_COORDINATES=}"
 
 
