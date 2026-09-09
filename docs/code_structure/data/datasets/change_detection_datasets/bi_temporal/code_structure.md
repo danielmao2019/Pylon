@@ -38,13 +38,15 @@ slpccd_dataset.py
         ├── impls pc_1_filepath, pc_2_filepath = the two paths this index's annotation names
         ├── impls pc_2_seg_filepath = pc_2_filepath with '.txt' replaced by '_seg.txt'
         ├── impls has_seg_file = whether pc_2_seg_filepath exists
-        ├── calls load_point_cloud(pc_1_filepath, dtype=torch.float32)
-        ├── calls load_point_cloud(pc_2_filepath, dtype=torch.float32)
-        ├── impls pc_1, pc_2 = the two clouds it loaded
+        ├── impls meta_data = {'xyz': {'layout': ('0', '1', '2')}}  # decimal text names none of its own columns, so the dataset states the layout the reader's positional split used to supply, and takes the float64 the text parses as
+        ├── calls load_point_cloud(pc_1_filepath, meta_data=meta_data)
+        ├── calls load_point_cloud(pc_2_filepath, meta_data=meta_data)
+        ├── impls pc_1, pc_2 = the two clouds it loaded, their coordinates narrowed to float32  # a load never narrows any more, so the dataset that wants the single-precision width its models train at does the narrowing itself
         ├── impls pc_2_seg = None
         ├── if has_seg_file
-        │   ├── calls load_point_cloud(pc_2_seg_filepath, dtype=torch.float32)
-        │   └── impls pc_2_seg = the segmentation cloud it loaded
+        │   ├── impls seg_meta_data = meta_data carrying {'change_map': {'layout': ('6',)}}  # a caller-stated layout is the whole field set over a source that numbers its columns, so the label column the positional split used to pick out is named here or it is not loaded at all
+        │   ├── calls load_point_cloud(pc_2_seg_filepath, meta_data=seg_meta_data)
+        │   └── impls pc_2_seg = the segmentation cloud it loaded, narrowed the same way
         └── return  # the two clouds, pc_2_seg, has_seg_file, and the two paths
 ```
 
