@@ -112,13 +112,13 @@ goal: re-design pc dtype contract/provenance
    2. it is optional where the source defines a half, and it replaces that half when it states one.
    3. it is required where the source does not define a half: the caller supplies that half, and a construction or load without it hard-asserts and aborts.
    4. an override changes the fields the obj stores and never the recorded meta data: `__init__`, load point cloud and save point cloud all bring the fields onto it through the `apply_meta_data` API, while the record stays exactly what the source data held, per the immutability rule.
-   5. a dtype override changes the target dtype without changing the source dtype the record keeps.
-   6. a layout override chooses which source columns are assembled into a field. the target mapping's loaded side is what the override asked for, while its source side stays the columns the source held, and the record goes on holding the mapping the source defined.
+   5. a dtype override moves the field's values onto the dtype it states, casting them per Type Casting and converting them per Color Data Convention Conversion where the field is rgb.
+   6. a layout override chooses which source columns are assembled into a field, and the field the obj stores afterwards is the block those columns make.
 6. save point cloud: each field is written under a target dtype and a target layout, and save derives nothing else.
    1. where the obj's fields and the record's fields differ:
       1. a field the record names that the obj no longer holds is not saved.
       2. a field the obj holds that the record does not name takes its target dtype and target layout from the field itself and from the override.
-   2. the target is the record amended by the override: the record supplies every half the override leaves unstated, and the override replaces the half it states. the record itself is never rewritten by a save, so the target is a value the save carries to the writer rather than something read back off the obj.
+   2. the target is the record amended by the override: the record supplies every half the override leaves unstated, and the override replaces the half it states. save brings the fields onto that target through `apply_meta_data` before anything is written, so what reaches the file is the cloud as it then stands and the writing itself reads no meta data.
       1. a field the override leaves alone is written at the record's own dtype, including when that is int64 for a ply save.
    3. dtype: the target dtype of each source column is the one the override states for its field, or the recorded dtype where the override states none. the actual ply storage dtype follows the lossless casting rule in Type Casting.
       1. the ply u4 example is therefore saved as u4.
@@ -152,8 +152,8 @@ goal: re-design pc dtype contract/provenance
          2. fields are assembled according to Layout Mapping.
          3. each field enters under the dtype its source defines, as Type Casting defines it.
       2. save point cloud
-         1. strictly follows the meta data. it does not need to be aware of the dtype mismatch at all.
-            1. save point cloud recovers both halves of the record as specified by New Meta Data API, and its dtype casts follow Type Casting.
+         1. strictly follows the meta data: it applies the meta data and then writes the cloud that comes back, so writing does not need to be aware of the dtype mismatch at all.
+            1. both halves of the target come from the record and the override as specified by New Meta Data API, and the dtype casts follow Type Casting.
          2. save converts colors between conventions.
             1. rgb is the one field it converts, and every other field reaches its target by a dtype cast alone.
             2. save applies Color Data Convention Conversion from the field's current color convention to the convention defined by the target conceptual dtype.
