@@ -732,8 +732,7 @@ def assert_roll_locked_camera(records: List[Dict[str, Any]]) -> None:
     unsound_records = [
         record
         for record in records
-        if record["callback_error"] is not None
-        or record["callback_assertion_failures"]
+        if record["callback_error"] is not None or record["callback_assertion_failures"]
     ]
     assert not unsound_records, (
         "The roll lock must hold for every camera the panel can report, so the callback "
