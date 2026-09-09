@@ -10,15 +10,6 @@ test_rotation_stabilize_validate_compat.py
 ├── import torch
 ├── from data.structures.three_d.camera.extrinsics.camera_extrinsics import _stabilize_rotation_matrix
 ├── from data.structures.three_d.camera.extrinsics.validation import validate_camera_extrinsics, validate_rotation_matrix
-├── def _random_rotation
-│   ├── # One reproducible proper rotation per seed, so every rotation-building test starts from a real rotation instead of a hand-written matrix.
-│   ├── impls draw a seeded random (3, 3) float64 matrix
-│   ├── impls take the QR decomposition of that matrix
-│   ├── impls canonicalize the orthonormal factor by the signs of the triangular factor's diagonal
-│   ├── if that orthonormal factor has a negative determinant
-│   │   └── impls negate its first column
-│   ├── impls cast the orthonormal factor to the requested dtype
-│   └── return
 ├── def test_stabilize_accepts_float32_and_float64
 │   ├── # _stabilize_rotation_matrix accepts a float32 or float64 near-orthogonal rotation, returns the same dtype, and its output passes validate_rotation_matrix.
 │   ├── for each dtype in {torch.float32, torch.float64}
@@ -70,5 +61,14 @@ test_rotation_stabilize_validate_compat.py
     │   └── calls validate_rotation_matrix(obj=that determinant -1 matrix)
     ├── with pytest.raises(AssertionError)
     │   └── calls validate_camera_extrinsics(obj=a cam2world batch carrying that reflection)
+├── def _random_rotation
+│   ├── # One reproducible proper rotation per seed, so every rotation-building test starts from a real rotation instead of a hand-written matrix.
+│   ├── impls draw a seeded random (3, 3) float64 matrix
+│   ├── impls take the QR decomposition of that matrix
+│   ├── impls canonicalize the orthonormal factor by the signs of the triangular factor's diagonal
+│   ├── if that orthonormal factor has a negative determinant
+│   │   └── impls negate its first column
+│   ├── impls cast the orthonormal factor to the requested dtype
+│   └── return
     └── return
 ```
