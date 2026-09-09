@@ -415,6 +415,7 @@ core_points_display.py
 ├── from typing import Optional
 ├── import plotly.graph_objects as go
 ├── from dash import dcc
+├── from utils.dtypes import convert_color_convention
 ├── from data.structures.three_d.point_cloud.point_cloud import PointCloud
 ├── from data.viewer.utils.controls.camera.camera_controls.dash.trackball_camera_controls import create_dash_trackball_camera_controls
 ├── DEFAULT_POINT_SIZE_FLOOR = 0.005  # absolute floor for visibility at typical canonical-world camera framings; used by the bounding-sphere heuristic when point_size is not supplied
@@ -432,8 +433,11 @@ core_points_display.py
 │   ├── impls effective_size = point_size if point_size is not None else max(DEFAULT_POINT_SIZE_FLOOR, bounding_radius * DEFAULT_POINT_SIZE_RATIO)
 │   ├── if point_color is not None
 │   │   └── impls effective_color = point_color
-│   ├── elif point_cloud has per-point rgb
-│   │   └── impls effective_color = point_cloud.per_point_rgb
+│   ├── elif 'rgb' sits in point_cloud.field_names()
+│   │   ├── impls rgb_dtype = the 'dtype' of point_cloud.meta_data['rgb'], which is what the colour means rather than what the tensor parking it carries
+│   │   ├── impls rgb_array = the rgb field detached, moved to cpu and handed to numpy  # Plotly reads no torch tensor, and the range mapping takes the array form
+│   │   ├── calls convert_color_convention(values=rgb_array, source_dtype=rgb_dtype, target_dtype='uint8')  # Plotly's per-point colour is the 0-to-255 range uint8 names, so a float 0-to-1 field and a uint16 las field both arrive correct
+│   │   └── impls effective_color = the colours it mapped, a uint16 one rounding onto the display's coarser grid because a display tolerates the loss the cloud whose record these are would refuse
 │   ├── else
 │   │   └── impls effective_color = DEFAULT_POINT_COLOR
 │   ├── impls trace = go.Scatter3d(x=..., y=..., z=..., mode="markers", marker=dict(size=effective_size, color=effective_color))
@@ -504,14 +508,15 @@ apis.py
 │   ├── impls assert isinstance(segmentation_pc_path, str)
 │   ├── impls assert isinstance(class_id_to_rgb, dict)
 │   ├── calls load_point_cloud(filepath=segmentation_pc_path, device="cpu")
-│   ├── impls label = the loaded cloud's own class ids, cast to torch.int64
-│   ├── impls rgb = a float32 zeros tensor of shape (segmentation_pc.num_points, 3) on the cloud's device
+│   ├── impls pc = the loaded cloud, read for its coordinates and its class ids alone
+│   ├── impls label = the class ids pc carries, cast to torch.int64
+│   ├── impls class_rgb = a uint8 zeros tensor of shape (pc.num_points, 3) on pc.device  # the class-colour map is 0 to 255, and an integer dtype is what declares that convention
 │   ├── for each class_id, color in class_id_to_rgb.items()
-│   │   └── impls rgb[label == int(class_id)] = color  # a label with no mapping entry keeps rgb 0
-│   ├── impls colorized_data = the cloud's fields other than xyz / rgb / colors, carrying rgb under the "rgb" key
-│   ├── impls colorized_pc = PointCloud(xyz=segmentation_pc.xyz, data=colorized_data)
+│   │   └── impls class_rgb[label == int(class_id)] = color  # a label with no mapping entry keeps its colour 0
+│   ├── calls PointCloud(xyz=pc.xyz, data={'rgb': class_rgb})
+│   ├── impls colorized_pc = the display cloud it built  # a fresh cloud rather than a colour written over the source's own, whose record would otherwise say this uint8 colour means the convention the file declared
 │   ├── impls output_path = the deterministic colorized display path derived from segmentation_pc_path
-│   ├── calls save_point_cloud(pc=colorized_pc, output_filepath=str(output_path))
+│   ├── calls save_point_cloud(pc=colorized_pc, output_filepath=str(output_path), meta_data={'xyz': {'layout': ('x', 'y', 'z')}, 'rgb': {'layout': ('red', 'green', 'blue')}})  # an in-memory field's name stands for its whole block, so each of the two writes one ply column against three until the layout says otherwise
 │   ├── impls colorized_pc_path = str(output_path)
 │   └── return colorized_pc_path  # the colorized point-cloud path the response serves
 └── def _build_segmentation_pc_meta_info(class_id_to_rgb: Dict[int, Tuple[int, int, int]]) -> Dict[str, Any]
@@ -622,12 +627,20 @@ core_points_display.ts
 │   ├── if header.format === "ascii"
 │   │   ├── impls geometry = the post-header lines split on whitespace, read into the vertex position/color attributes
 │   │   ├── impls a color channel the header's properties leave out reads 180
+│   │   ├── calls convertColorConvention({ color: geometry.color, sourceType: header.colorPropertyType })
 │   │   └── return geometry
 │   ├── if header.format === "binary_little_endian"
 │   │   ├── impls geometry = the post-header bytes read little-endian at each property's own offset/type, into the vertex position/color attributes
 │   │   ├── impls a color channel the header's properties leave out reads 180
+│   │   ├── calls convertColorConvention({ color: geometry.color, sourceType: header.colorPropertyType })
 │   │   └── return geometry
 │   └── throw new Error(`unsupported PLY format ${header.format}`)
+├── function convertColorConvention({ color, sourceType }: { color: Float32Array; sourceType: string }): Float32Array
+│   ├── # Brings a PLY colour column onto the 0-to-1 range THREE reads a Float32 vertex-colour attribute in, reading the convention off the column's declared ply type rather than off the values.
+│   ├── impls declaredRange = 0 to 1 for a float ply type, and the type's own integer range for an integer one  # the same rule the lib states, applied to the ply type the header declares
+│   ├── if declaredRange is already 0 to 1
+│   │   └── return color
+│   └── return  # the colours mapped from declaredRange onto the 0-to-1 range THREE reads a Float32 colour attribute in, where Plotly's per-point colour is 0 to 255 and each display converts onto its own renderer's range
 ├── function createThreePoints({ geometry, pointSize, pointColor }: { geometry: THREE.BufferGeometry; pointSize?: number; pointColor?: string }): THREE.Points
 │   ├── # Sync-builds THREE.PointsMaterial + THREE.Points from the loaded geometry.
 │   ├── impls geometry.computeBoundingSphere(); boundingRadius = geometry.boundingSphere.radius
