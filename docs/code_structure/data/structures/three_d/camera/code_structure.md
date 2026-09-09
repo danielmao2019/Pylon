@@ -431,17 +431,17 @@ io.py
 │   ├── calls CameraExtrinsics(extrinsics=torch.as_tensor(extrinsics, dtype=torch.float32, device=device), extr_convention=extr_convention, device=device)  # the whole [N, 4, 4] stack at once
 │   ├── calls Cameras(intrinsics=intrinsics, extrinsics=extrinsics_batched, names=names, ids=ids, device=device)  # field-validates the batch
 │   └── return
-├── def _serialize_intrinsics_params(params: Dict[str, torch.Tensor]) -> Dict[str, Union[int, float]]
-│   ├── # Map scalar tensor intrinsics params to numeric scalar values at the camera I/O boundary.
+├── def _serialize_intrinsics_params(params: Dict[str, torch.Tensor]) -> Dict[str, Union[List[int], List[float]]]
+│   ├── # Map the batch's [N] tensor intrinsics params to the numeric columns the camera I/O boundary spells them in.
 │   ├── impls serialized_params = an empty dict
 │   ├── for each param key/value
-│   │   └── impls materialize the scalar tensor value as its Python numeric scalar
+│   │   └── impls materialize the [N] column as the Python numeric list its entries spell
 │   └── return serialized_params
-├── def _deserialize_intrinsics_params(params: Dict[str, Union[int, float, List[int], List[float]]], device: torch.device, dtype: torch.dtype = torch.float32) -> Dict[str, torch.Tensor]
-│   ├── # Map serialized numeric intrinsics params back to tensors at the camera I/O boundary, a column becoming the [N] param a batch carries.
+├── def _deserialize_intrinsics_params(params: Dict[str, Union[List[int], List[float]]], device: torch.device, dtype: torch.dtype = torch.float32) -> Dict[str, torch.Tensor]
+│   ├── # Map the serialized numeric columns back to the [N] tensor params a batch carries, at the camera I/O boundary.
 │   ├── impls tensor_params = an empty dict
 │   ├── for each param key/value
-│   │   └── impls convert the numeric scalar or column to a torch tensor with the requested device and dtype  # impls-node-one-step:skip
+│   │   └── impls convert the numeric column to an [N] torch tensor with the requested device and dtype
 │   └── return tensor_params
 ├── def _normalize_payload_to_plural(payload: Union[Dict[str, Any], List[Dict[str, Any]]], format: str) -> Tuple[Union[Dict[str, Any], List[Dict[str, Any]]], bool]
 │   ├── # Restore a payload to its format's plural form, reporting whether it arrived carrying one camera.

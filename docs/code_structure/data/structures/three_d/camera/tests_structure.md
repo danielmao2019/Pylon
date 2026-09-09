@@ -70,7 +70,7 @@ test_conventions.py
 │   ├── calls Camera
 │   ├── calls camera.transform_extrinsics(scale=that same factor, rotation=that same rotation, translation=that same offset)
 │   ├── impls assert its extrinsics matrix equals the standalone CameraExtrinsics result
-│   ├── calls _batch_one_camera(camera=that camera)
+│   ├── calls Cameras
 │   ├── calls cameras.transform_extrinsics(scale=that same factor, rotation=that same rotation, translation=that same offset)
 │   ├── impls assert every camera in the batch carries that same result
 │   └── return
@@ -86,9 +86,9 @@ test_conventions.py
 │   ├── calls camera_loss.backward(retain_graph=True)
 │   ├── impls assert the source fx param receives a gradient
 │   ├── impls assert the source cam2world tensor receives a gradient
-│   ├── calls _batch_one_camera(camera=camera)
+│   ├── calls Cameras(intrinsics=intrinsics[None], extrinsics=extrinsics[None], device="cpu")
 │   ├── calls cameras.to(dtype=a floating torch dtype, extr_convention="pytorch3d")
-│   ├── impls cameras_loss = moved_cameras[0].intrinsics.fx + moved_cameras[0].extrinsics.center.sum()  # the batch is indexed to one camera, whose own components then answer
+│   ├── impls cameras_loss = moved_cameras.intrinsics[0].fx + moved_cameras.extrinsics[0].center.sum()
 │   ├── calls cameras_loss.backward
 │   ├── impls assert the source fx param receives a gradient
 │   ├── impls assert the source cam2world tensor receives a gradient
@@ -270,26 +270,19 @@ test_conventions.py
 │   ├── impls assert the returned cam2world tensor has the requested dtype
 │   ├── impls assert copy=True returns a tensor with distinct storage from the source extrinsics
 │   └── return
-├── def test_camera_and_cameras_to_preserve_tensor_parameter_graphs
-│   ├── # Camera.to and Cameras.to keep tensor-valued intrinsics and extrinsics on their autograd paths.
-│   ├── calls build_camera_intrinsics(model="ortho", params=tensor scalar params with requires_grad, intr_convention="standard")
-│   ├── calls CameraExtrinsics(extrinsics=a valid cam2world tensor with tensor-valued translation, extr_convention="standard")
-│   ├── calls Camera
-│   ├── calls camera.to(device=the current device, dtype=a floating torch dtype, extr_convention="pytorch3d")
-│   ├── calls _batch_one_camera(camera=camera)
-│   ├── calls cameras.to(device=the current device, dtype=a floating torch dtype, extr_convention="pytorch3d")
-│   ├── impls loss = moved_camera.intrinsics.project(points).sum() + moved_cameras.center.sum()
-│   ├── calls loss.backward
-│   ├── impls assert source intrinsics params receive gradients
-│   ├── impls assert source extrinsics receive gradients
-│   └── return
-└── def _batch_one_camera(camera: Camera) -> Cameras
-    ├── # Makes one Camera into a length-one Cameras, which the components cannot do themselves since neither is subscriptable.
-    ├── impls batched_params = each of the camera's intrinsics params under a leading axis of one
-    ├── calls build_camera_intrinsics(model=camera.intrinsics.model, params=batched_params, intr_convention=camera.intrinsics.intr_convention)
-    ├── calls CameraExtrinsics(extrinsics=the cam2world matrix under a leading axis of one, extr_convention=camera.extrinsics.extr_convention)
-    ├── calls Cameras(intrinsics=the intrinsics it built, extrinsics=the extrinsics it built, names=[camera.name], ids=[camera.id])
-    └── return  # that length-one batch
+└── def test_camera_and_cameras_to_preserve_tensor_parameter_graphs
+    ├── # Camera.to and Cameras.to keep tensor-valued intrinsics and extrinsics on their autograd paths.
+    ├── calls build_camera_intrinsics(model="ortho", params=tensor scalar params with requires_grad, intr_convention="standard")
+    ├── calls CameraExtrinsics(extrinsics=a valid cam2world tensor with tensor-valued translation, extr_convention="standard")
+    ├── calls Camera
+    ├── calls camera.to(device=the current device, dtype=a floating torch dtype, extr_convention="pytorch3d")
+    ├── calls Cameras(intrinsics=intrinsics[None], extrinsics=extrinsics[None])
+    ├── calls cameras.to(device=the current device, dtype=a floating torch dtype, extr_convention="pytorch3d")
+    ├── impls loss = moved_camera.intrinsics.project(points).sum() + moved_cameras.center.sum()
+    ├── calls loss.backward
+    ├── impls assert source intrinsics params receive gradients
+    ├── impls assert source extrinsics receive gradients
+    └── return
 ```
 
 `tests/data/structures/three_d/camera/test_io.py`
