@@ -872,7 +872,7 @@ def create_dash_points_display(
             bounding-sphere heuristic computes the size.
         point_color: Optional uniform marker color override (CSS color string);
             when None per-point colors or the lib default color is used.
-        lock_roll: Optional axis to lock camera roll about, as an `(x, y, z)` world-space direction in the point cloud's own world frame. When supplied, the rendered camera uses Plotly gl3d `dragmode="turntable"` with `camera.up` pinned to the normalized axis, so left-drag rotation never changes camera roll. When None, the display renders no camera configuration at all, so it renders exactly the camera it rendered before this argument existed.
+        lock_roll: Optional axis to lock camera roll about, as an `(x, y, z)` world-space direction in the point cloud's own world frame. When supplied, the rendered camera uses Plotly gl3d `dragmode="orbit"` with `camera.up` seeded from the normalized axis; holding camera roll through a drag additionally needs `register_dash_roll_lock_callback` registered on this graph. When None, the display renders no camera configuration at all, so it renders exactly the camera it rendered before this argument existed.
 
     Returns:
         Dash `dcc.Graph` wrapping the point-cloud scene.

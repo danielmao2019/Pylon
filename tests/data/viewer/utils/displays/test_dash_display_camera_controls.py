@@ -124,9 +124,15 @@ def test_a_supplied_axis_renders_a_roll_locked_camera(
     display = build_display(lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL)
 
     scene = display.figure.layout.scene
-    assert scene.dragmode == "turntable", (
-        "A display given a roll-lock axis must render the Plotly dragmode that pins "
-        f"the camera up vector. {display_kind=} {scene.dragmode=}"
+    assert scene.dragmode != "turntable", (
+        "plotly.js discards any camera up vector whose normalized z falls below 0.999 "
+        "under the turntable dragmode and substitutes (0, 0, 1), so a display that "
+        "renders turntable shows the unlocked camera for every axis more than ~2.5 "
+        f"degrees off world +Z. {display_kind=} {scene.dragmode=}"
+    )
+    assert scene.dragmode == "orbit", (
+        "A display given a roll-lock axis must render the Plotly dragmode that "
+        f"carries that axis through re-render. {display_kind=} {scene.dragmode=}"
     )
     up = expected_camera_up(NON_AXIS_ALIGNED_LOCK_ROLL)
     assert (scene.camera.up.x, scene.camera.up.y, scene.camera.up.z) == (

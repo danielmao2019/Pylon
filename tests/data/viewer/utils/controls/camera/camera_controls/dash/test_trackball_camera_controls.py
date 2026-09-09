@@ -1,15 +1,19 @@
 """Tests for the Dash trackball camera controls and their guards."""
 
+import json
 import math
 from typing import Dict, Tuple
 
+import plotly.graph_objects as go
 import pytest
+from dash import Dash, dcc, html
 
 from data.viewer.utils.controls.camera.camera_controls.dash.trackball_camera_controls import (
     assert_dash_no_camera_pose_clamps,
     assert_dash_roll_lock,
     assert_dash_trackball_camera_controls,
     create_dash_trackball_camera_controls,
+    register_dash_roll_lock_callback,
 )
 from data.viewer.utils.displays.mesh.dash.core_mesh_display import (
     TEXTURED_MESH_VIEWER_SCRIPT_PATH,
@@ -20,6 +24,8 @@ NON_AXIS_ALIGNED_LOCK_ROLL = (0.3, 0.9, -0.2)
 # The same direction at a length far from 1, so a construction that forwards the
 # caller's axis unnormalized cannot pass.
 NON_UNIT_LOCK_ROLL = (3.0, 9.0, -2.0)
+# The component id the roll-locked graph is registered under in the callback tests.
+ROLL_LOCKED_GRAPH_ID = "roll-locked-graph"
 
 
 def build_free_trackball_renderer_controls() -> str:
@@ -106,19 +112,37 @@ def test_no_axis_renders_no_camera_configuration() -> None:
     )
 
 
-def test_a_supplied_axis_is_held_through_a_drag() -> None:
-    """Constructing with a lock_roll pins the Plotly camera up vector to that supplied axis."""
+def test_a_supplied_axis_is_carried_into_the_rendered_camera() -> None:
+    """Constructing with a lock_roll seeds the Plotly camera up vector with that supplied axis."""
     controls = create_dash_trackball_camera_controls(
         lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
     )
 
-    assert controls["dragmode"] == "turntable", (
-        "Roll-locked controls must select the Plotly gl3d dragmode that pins the "
-        f"camera up vector. {controls=}"
+    assert controls["dragmode"] == "orbit", (
+        "Roll-locked controls must select the Plotly gl3d dragmode that carries an "
+        f"arbitrary camera up vector through re-render. {controls=}"
     )
     assert controls["camera"]["up"] == expected_camera_up(NON_AXIS_ALIGNED_LOCK_ROLL), (
-        "Roll-locked controls must pin the camera up vector to the caller's axis. "
+        "Roll-locked controls must seed the camera up vector with the caller's axis. "
         f"{controls=} {NON_AXIS_ALIGNED_LOCK_ROLL=}"
+    )
+
+
+def test_the_roll_locked_dragmode_never_clamps_the_camera_up_vector() -> None:
+    """The roll-locked branch never emits the pose-clamping dragmode, under which plotly.js discards the caller's axis outright."""
+    controls = create_dash_trackball_camera_controls(
+        lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
+    )
+
+    assert controls["dragmode"] != "turntable", (
+        "plotly.js discards any camera up vector whose normalized z falls below "
+        "0.999 under the turntable dragmode and substitutes (0, 0, 1), so a "
+        "turntable-emitting roll lock renders the unlocked camera for every axis "
+        f"more than ~2.5 degrees off world +Z. {controls=}"
+    )
+    assert_dash_no_camera_pose_clamps(
+        controls=controls,
+        lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
     )
 
 
@@ -215,6 +239,137 @@ def test_assert_dash_no_camera_pose_clamps_rejects_a_roll_restricting_dragmode()
         assert_dash_no_camera_pose_clamps(
             controls={"dragmode": "turntable"},
             lock_roll=None,
+        )
+
+
+# ================================================================================
+# The clientside callback that re-imposes the roll lock after every drag
+# ================================================================================
+
+
+def build_roll_locked_app() -> Dash:
+    """Build a Dash app holding one roll-locked graph and nothing else.
+
+    Args:
+        None.
+
+    Returns:
+        A Dash app whose layout is a single `dcc.Graph` with id `ROLL_LOCKED_GRAPH_ID`
+        and no callbacks registered.
+    """
+    app = Dash(__name__)
+    app.layout = html.Div(
+        children=[
+            dcc.Graph(
+                id=ROLL_LOCKED_GRAPH_ID,
+                figure=go.Figure(
+                    layout=go.Layout(
+                        scene=create_dash_trackball_camera_controls(
+                            lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
+                        ),
+                    ),
+                ),
+            ),
+        ],
+    )
+    return app
+
+
+def test_the_roll_lock_callback_is_registered_against_the_named_graph() -> None:
+    """Registering the roll lock adds one clientside callback driven by the named graph's own camera changes."""
+    app = build_roll_locked_app()
+
+    register_dash_roll_lock_callback(
+        app=app,
+        graph_id=ROLL_LOCKED_GRAPH_ID,
+        lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
+    )
+
+    registrations = [
+        registration
+        for registration in app._callback_list
+        if registration["clientside_function"] is not None
+    ]
+    assert len(registrations) == 1, (
+        "Registering the roll lock must add exactly one clientside callback. "
+        f"{registrations=}"
+    )
+    assert registrations[0]["inputs"] == [
+        {"id": ROLL_LOCKED_GRAPH_ID, "property": "relayoutData"}
+    ], (
+        "The roll-lock callback must be driven by the named graph's own relayout "
+        f"events, which is how every camera change reaches it. {registrations[0]=} "
+        f"{ROLL_LOCKED_GRAPH_ID=}"
+    )
+
+
+def test_the_roll_lock_callback_carries_its_source_inline() -> None:
+    """The callback source reaches the browser inlined in the app, so a consuming app needs no assets folder to serve it."""
+    app = build_roll_locked_app()
+
+    register_dash_roll_lock_callback(
+        app=app,
+        graph_id=ROLL_LOCKED_GRAPH_ID,
+        lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
+    )
+
+    inline_source = "\n".join(app._inline_scripts)
+    assert "Plotly.relayout" in inline_source, (
+        "The inlined callback must write the re-derived camera up vector back to the "
+        f"panel. {inline_source=}"
+    )
+    assert ".js-plotly-plot" in inline_source, (
+        "`dcc.Graph` renders its component id onto a wrapper div, so the inlined "
+        "callback must resolve the Plotly graph div inside that wrapper. "
+        f"{inline_source=}"
+    )
+    assert json.dumps(ROLL_LOCKED_GRAPH_ID) in inline_source, (
+        "The inlined callback must carry the graph id it was registered against. "
+        f"{inline_source=} {ROLL_LOCKED_GRAPH_ID=}"
+    )
+
+
+def test_the_roll_lock_callback_normalizes_the_caller_axis() -> None:
+    """The caller's axis need not be unit length, so the same direction at any length inlines the same axis."""
+    unit_app = build_roll_locked_app()
+    scaled_app = build_roll_locked_app()
+
+    register_dash_roll_lock_callback(
+        app=unit_app,
+        graph_id=ROLL_LOCKED_GRAPH_ID,
+        lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
+    )
+    register_dash_roll_lock_callback(
+        app=scaled_app,
+        graph_id=ROLL_LOCKED_GRAPH_ID,
+        lock_roll=NON_UNIT_LOCK_ROLL,
+    )
+
+    assert unit_app._inline_scripts == scaled_app._inline_scripts, (
+        "A roll-lock axis is a direction, so scaling it must not change the inlined "
+        f"callback. {unit_app._inline_scripts=} {scaled_app._inline_scripts=}"
+    )
+    up = expected_camera_up(NON_UNIT_LOCK_ROLL)
+    assert json.dumps([up["x"], up["y"], up["z"]]) in "\n".join(
+        scaled_app._inline_scripts
+    ), (
+        "The inlined callback must carry the caller's axis at unit length. "
+        f"{scaled_app._inline_scripts=} {up=}"
+    )
+
+
+def test_the_roll_lock_callback_rejects_a_zero_axis() -> None:
+    """A zero axis names no direction to hold roll about, so registration refuses it rather than registering a callback that cannot normalize it."""
+    app = build_roll_locked_app()
+
+    with pytest.raises(
+        AssertionError,
+        match="Roll lock axis must be a non-zero 3-tuple of floats",
+    ):
+        register_dash_roll_lock_callback(
+            app=app,
+            graph_id=ROLL_LOCKED_GRAPH_ID,
+            lock_roll=(0.0, 0.0, 0.0),
         )
 
 
