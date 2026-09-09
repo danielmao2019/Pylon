@@ -441,11 +441,11 @@ io.py
 │   ├── for each param key/value
 │   │   └── impls materialize the scalar tensor value as its Python numeric scalar
 │   └── return serialized_params
-├── def _deserialize_intrinsics_params(params: Dict[str, Union[int, float]], device: torch.device, dtype: torch.dtype = torch.float32) -> Dict[str, torch.Tensor]
-│   ├── # Map serialized numeric scalar intrinsics params back to scalar tensors at the camera I/O boundary.
+├── def _deserialize_intrinsics_params(params: Dict[str, Union[int, float, List[int], List[float]]], device: torch.device, dtype: torch.dtype = torch.float32) -> Dict[str, torch.Tensor]
+│   ├── # Map serialized numeric intrinsics params back to tensors at the camera I/O boundary, a column becoming the [N] param a batch carries.
 │   ├── impls tensor_params = an empty dict
 │   ├── for each param key/value
-│   │   └── impls convert the numeric scalar to a torch scalar tensor with the requested device and dtype  # impls-node-one-step:skip
+│   │   └── impls convert the numeric scalar or column to a torch tensor with the requested device and dtype  # impls-node-one-step:skip
 │   └── return tensor_params
 ├── def _normalize_payload_to_plural(payload: Union[Dict[str, Any], List[Dict[str, Any]]], format: str) -> Tuple[Union[Dict[str, Any], List[Dict[str, Any]]], bool]
 │   ├── # Restore a payload to its format's plural form, reporting whether it arrived carrying one camera.
