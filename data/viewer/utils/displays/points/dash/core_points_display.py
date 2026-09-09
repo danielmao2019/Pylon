@@ -713,6 +713,7 @@ def create_point_cloud_display(
     lod_config: Optional[Dict[str, Any]] = None,
     point_cloud_id: Optional[Union[str, Tuple[str, int, str]]] = None,
     axis_ranges: Optional[Dict[str, Tuple[float, float]]] = None,
+    lock_roll: Optional[Tuple[float, float, float]] = None,
     **kwargs: Any,
 ) -> go.Figure:
     """Create point cloud display with LOD optimization.
@@ -736,6 +737,7 @@ def create_point_cloud_display(
             - For "discrete": {"camera_state": dict, ...other params...}
         point_cloud_id: Unique identifier for LOD caching
         axis_ranges: Optional fixed axis ranges for consistent scaling
+        lock_roll: Optional axis to lock camera roll about, as an `(x, y, z)` world-space direction in the point cloud's own world frame. When supplied, the returned figure's `layout.scene` carries Plotly gl3d `dragmode="orbit"` with `camera.up` seeded from the normalized axis, merged over whatever `camera_state` already placed there; holding camera roll through a drag additionally needs `register_dash_roll_lock_callback` registered on the graph rendering this figure. When None, no camera configuration is applied at all, so the scene is exactly the one `camera_state` and Plotly's own gl3d defaults produce.
         **kwargs: Additional arguments
 
     Returns:
@@ -808,6 +810,16 @@ def create_point_cloud_display(
             axis_ranges, dict
         ), f"axis_ranges must be dict, got {type(axis_ranges)}"
 
+    assert lock_roll is None or (
+        isinstance(lock_roll, tuple)
+        and len(lock_roll) == 3
+        and all(isinstance(component, float) for component in lock_roll)
+        and any(component != 0.0 for component in lock_roll)
+    ), (
+        "Expected `lock_roll` to be None or a non-zero 3-tuple of floats. "
+        f"{lock_roll=}"
+    )
+
     original_count = len(points)
 
     # Apply LOD processing
@@ -849,6 +861,11 @@ def create_point_cloud_display(
         title=title,
         uirevision='camera',  # This ensures camera views stay in sync
     )
+
+    if lock_roll is not None:
+        fig.update_layout(
+            scene=create_dash_trackball_camera_controls(lock_roll=lock_roll),
+        )
 
     return fig
 
