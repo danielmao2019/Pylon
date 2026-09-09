@@ -29,7 +29,7 @@ apply_transform.py
 │   │   └── return  # the transformed numpy points
 │   └── else
 │       ├── impls points_h = the points with a ones homogeneous column appended
-│       ├── calls chunked_matmul(points_h, the normalized transform transposed over its trailing two axes, max_divide=max_divide, num_divide=num_divide)  # chunked over the point rows
+│       ├── calls chunked_matmul(points_h, transform_normalized transposed over its trailing two axes, max_divide=max_divide, num_divide=num_divide)  # chunked over the point rows
 │       ├── impls drop the homogeneous coordinate from the chunked-matmul result
 │       ├── if points_was_batched
 │       │   └── impls add back the batch dimension
