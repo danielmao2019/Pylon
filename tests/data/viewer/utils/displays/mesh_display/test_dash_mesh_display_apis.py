@@ -1,11 +1,12 @@
 """Tests for the Dash mesh display artifact-path APIs."""
 
+import re
 from pathlib import Path
 from typing import Callable
 
 import pytest
 import torch
-from dash import dcc
+from dash import Dash, dcc
 
 from data.structures.three_d.mesh import Mesh, MeshTextureVertexColor
 from data.viewer.utils.displays.mesh.dash.apis import (
@@ -30,6 +31,15 @@ LOCK_ROLL_AXIS_NORMALIZED = {
     "y": 0.0,
     "z": 0.9535826651341417,
 }
+# Component id the roll-locked displays below are built under, and therefore the id
+# the registration each of them performs must address.
+LOCKED_GRAPH_ID = "locked-mesh-graph"
+# The rejection each missing half of the lock target must be named by. Matching the
+# display factory's own wording rather than the word `app` or `graph_id` alone is what
+# keeps these clauses from passing on the registration helper's type assertions, which
+# report a wrong type instead of naming what the lock is missing.
+MISSING_APP_MESSAGE = re.escape("Expected an `app` alongside `lock_roll`")
+MISSING_GRAPH_ID_MESSAGE = re.escape("Expected a `graph_id` alongside `lock_roll`")
 
 
 def _write_mesh_artifact(tmp_path: Path) -> str:
@@ -82,6 +92,8 @@ def test_mesh_display_api_forwards_lock_roll_to_the_scene(
     display = create_display(
         _write_mesh_artifact(tmp_path=tmp_path),
         lock_roll=LOCK_ROLL_AXIS,
+        app=Dash(__name__),
+        graph_id=LOCKED_GRAPH_ID,
     )
 
     scene = display.figure.layout.scene
@@ -152,7 +164,12 @@ def test_mesh_display_api_lock_roll_changes_only_the_camera(
 
     mesh_path = _write_mesh_artifact(tmp_path=tmp_path)
     without_axis = create_display(mesh_path)
-    with_axis = create_display(mesh_path, lock_roll=LOCK_ROLL_AXIS)
+    with_axis = create_display(
+        mesh_path,
+        lock_roll=LOCK_ROLL_AXIS,
+        app=Dash(__name__),
+        graph_id=LOCKED_GRAPH_ID,
+    )
 
     without_axis_figure = without_axis.figure.to_plotly_json()
     with_axis_figure = with_axis.figure.to_plotly_json()
@@ -166,3 +183,81 @@ def test_mesh_display_api_lock_roll_changes_only_the_camera(
         "`scene.camera`. "
         f"{without_axis_figure['layout']=} {with_axis_figure['layout']=}"
     )
+
+
+@pytest.mark.parametrize(
+    "create_display",
+    MESH_DISPLAY_APIS,
+    ids=MESH_DISPLAY_API_IDS,
+)
+def test_mesh_display_api_forwards_the_lock_to_the_app(
+    create_display: Callable[..., dcc.Graph],
+    tmp_path: Path,
+) -> None:
+    """Register the roll lock on the supplied app against the supplied graph id, so an artifact-path caller needs no second call of its own.
+
+    Args:
+        create_display: Mesh display API under test, called with an artifact path.
+        tmp_path: Pytest-provided temporary directory the mesh artifact is written into.
+
+    Returns:
+        None.
+    """
+
+    app = Dash(__name__)
+
+    display = create_display(
+        _write_mesh_artifact(tmp_path=tmp_path),
+        lock_roll=LOCK_ROLL_AXIS,
+        app=app,
+        graph_id=LOCKED_GRAPH_ID,
+    )
+
+    registrations = [
+        registration
+        for registration in app._callback_list
+        if registration["clientside_function"] is not None
+    ]
+    assert len(registrations) == 1, (
+        "An artifact-path API given a roll-lock axis must forward the app it was "
+        "handed, so the lock ends up registered rather than dropped on the way. "
+        f"{registrations=}"
+    )
+    assert registrations[0]["inputs"] == [
+        {"id": LOCKED_GRAPH_ID, "property": "relayoutData"}
+    ], (
+        "An artifact-path API must forward the graph id it was handed, so the lock "
+        f"addresses the graph it returned. {registrations[0]=} {LOCKED_GRAPH_ID=}"
+    )
+    assert display.id == LOCKED_GRAPH_ID, (
+        "An artifact-path API must forward the graph id onto the graph it returns, "
+        f"which is what the lock addresses. {display.to_plotly_json()['props'].keys()=} "
+        f"{LOCKED_GRAPH_ID=}"
+    )
+
+
+@pytest.mark.parametrize(
+    "create_display",
+    MESH_DISPLAY_APIS,
+    ids=MESH_DISPLAY_API_IDS,
+)
+def test_mesh_display_api_rejects_an_axis_without_the_lock_target(
+    create_display: Callable[..., dcc.Graph],
+    tmp_path: Path,
+) -> None:
+    """Reject a supplied axis that names neither the app nor the graph the lock would be registered on, rather than returning a display that only looks locked.
+
+    Args:
+        create_display: Mesh display API under test, called with an artifact path.
+        tmp_path: Pytest-provided temporary directory the mesh artifact is written into.
+
+    Returns:
+        None.
+    """
+
+    mesh_path = _write_mesh_artifact(tmp_path=tmp_path)
+
+    with pytest.raises(AssertionError, match=MISSING_APP_MESSAGE):
+        create_display(mesh_path, lock_roll=LOCK_ROLL_AXIS, graph_id=LOCKED_GRAPH_ID)
+    with pytest.raises(AssertionError, match=MISSING_GRAPH_ID_MESSAGE):
+        create_display(mesh_path, lock_roll=LOCK_ROLL_AXIS, app=Dash(__name__))

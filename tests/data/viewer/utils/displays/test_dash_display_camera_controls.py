@@ -6,11 +6,12 @@ here reads the rendered `figure.layout` rather than the factory's inputs.
 """
 
 import math
-from typing import Any, Callable, Dict, Tuple
+import re
+from typing import Any, Callable, Dict, List, Tuple
 
 import pytest
 import torch
-from dash import dcc
+from dash import Dash, dcc
 
 from data.structures.three_d.mesh import Mesh, MeshTextureVertexColor
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
@@ -23,6 +24,15 @@ from data.viewer.utils.displays.points.dash.core_points_display import (
 
 # Deliberately non-axis-aligned, so nothing can pass by coinciding with a world axis.
 NON_AXIS_ALIGNED_LOCK_ROLL = (0.3, 0.9, -0.2)
+# Component id the roll-locked display below is built under, and therefore the id the
+# registration it performs must address.
+LOCKED_GRAPH_ID = "locked-display-graph"
+# The rejection each missing half of the lock target must be named by. Matching the
+# display factory's own wording rather than the word `app` or `graph_id` alone is what
+# keeps these clauses from passing on the registration helper's type assertions, which
+# report a wrong type instead of naming what the lock is missing.
+MISSING_APP_MESSAGE = re.escape("Expected an `app` alongside `lock_roll`")
+MISSING_GRAPH_ID_MESSAGE = re.escape("Expected a `graph_id` alongside `lock_roll`")
 
 
 def build_dash_mesh_display(**kwargs: Any) -> dcc.Graph:
@@ -72,6 +82,24 @@ DASH_3D_DISPLAY_FACTORIES: Tuple[Tuple[str, Callable[..., dcc.Graph]], ...] = (
     ("mesh", build_dash_mesh_display),
     ("points", build_dash_points_display),
 )
+
+
+def clientside_registrations(app: Dash) -> List[Dict[str, Any]]:
+    """Collect the clientside callbacks registered on a Dash app.
+
+    Args:
+        app: Dash app whose callback registrations are read.
+
+    Returns:
+        List of the app's callback registration dicts whose
+        `clientside_function` is set, each carrying an `inputs` list of
+        `{"id", "property"}` dicts.
+    """
+    return [
+        registration
+        for registration in app._callback_list
+        if registration["clientside_function"] is not None
+    ]
 
 
 def expected_camera_up(lock_roll: Tuple[float, float, float]) -> Dict[str, float]:
@@ -127,7 +155,11 @@ def test_a_supplied_axis_renders_a_roll_locked_camera(
     build_display: Callable[..., dcc.Graph],
 ) -> None:
     """A display given a lock_roll renders the roll-locking dragmode with the caller's axis as the camera up vector."""
-    display = build_display(lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL)
+    display = build_display(
+        lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
+        app=Dash(__name__),
+        graph_id=LOCKED_GRAPH_ID,
+    )
 
     scene = display.figure.layout.scene
     assert scene.dragmode != "turntable", (
@@ -163,10 +195,123 @@ def test_the_two_roll_settings_render_different_cameras(
     """The rendered camera differs between the locked and unlocked settings, so the axis cannot be silently discarded."""
     free_scene = build_display(lock_roll=None).figure.layout.scene
     locked_scene = build_display(
-        lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL
+        lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
+        app=Dash(__name__),
+        graph_id=LOCKED_GRAPH_ID,
     ).figure.layout.scene
 
     assert free_scene != locked_scene, (
         "Naming a roll-lock axis must change the rendered camera. "
         f"{display_kind=} {free_scene=} {locked_scene=}"
+    )
+
+
+@pytest.mark.parametrize(
+    "display_kind, build_display",
+    DASH_3D_DISPLAY_FACTORIES,
+    ids=[display_kind for display_kind, _ in DASH_3D_DISPLAY_FACTORIES],
+)
+def test_an_axis_alone_locks_the_display(
+    display_kind: str,
+    build_display: Callable[..., dcc.Graph],
+) -> None:
+    """A display handed an axis registers the roll lock itself, so a caller that names the axis is not left with an unlocked panel for want of a second call it had to know about."""
+    app = Dash(__name__)
+
+    build_display(
+        lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
+        app=app,
+        graph_id=LOCKED_GRAPH_ID,
+    )
+
+    registrations = clientside_registrations(app=app)
+    assert len(registrations) == 1, (
+        "A display given a roll-lock axis must put the lock on the app itself, "
+        "since seeding the rendered camera up vector holds roll through re-render "
+        "but never through a drag. "
+        f"{display_kind=} {registrations=}"
+    )
+    assert registrations[0]["inputs"] == [
+        {"id": LOCKED_GRAPH_ID, "property": "relayoutData"}
+    ], (
+        "The lock a display registers must be driven by that display's own graph, "
+        "which is how every camera change on it reaches the lock. "
+        f"{display_kind=} {registrations[0]=} {LOCKED_GRAPH_ID=}"
+    )
+
+
+@pytest.mark.parametrize(
+    "display_kind, build_display",
+    DASH_3D_DISPLAY_FACTORIES,
+    ids=[display_kind for display_kind, _ in DASH_3D_DISPLAY_FACTORIES],
+)
+def test_the_locked_display_graph_carries_the_registered_id(
+    display_kind: str,
+    build_display: Callable[..., dcc.Graph],
+) -> None:
+    """The graph the factory returns carries the supplied id, without which the lock it registered addresses nothing."""
+    display = build_display(
+        lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
+        app=Dash(__name__),
+        graph_id=LOCKED_GRAPH_ID,
+    )
+
+    assert display.id == LOCKED_GRAPH_ID, (
+        "The lock is registered against the supplied graph id, so the graph the "
+        "factory returns must be the one carrying it. "
+        f"{display_kind=} {display.to_plotly_json()['props'].keys()=} "
+        f"{LOCKED_GRAPH_ID=}"
+    )
+
+
+@pytest.mark.parametrize(
+    "display_kind, build_display",
+    DASH_3D_DISPLAY_FACTORIES,
+    ids=[display_kind for display_kind, _ in DASH_3D_DISPLAY_FACTORIES],
+)
+def test_an_axis_without_the_app_is_rejected(
+    display_kind: str,
+    build_display: Callable[..., dcc.Graph],
+) -> None:
+    """Naming an axis with no app to register the lock on is rejected, rather than silently rendering a panel that only looks locked."""
+    with pytest.raises(AssertionError, match=MISSING_APP_MESSAGE):
+        build_display(
+            lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
+            graph_id=LOCKED_GRAPH_ID,
+        )
+
+
+@pytest.mark.parametrize(
+    "display_kind, build_display",
+    DASH_3D_DISPLAY_FACTORIES,
+    ids=[display_kind for display_kind, _ in DASH_3D_DISPLAY_FACTORIES],
+)
+def test_an_axis_without_the_graph_id_is_rejected(
+    display_kind: str,
+    build_display: Callable[..., dcc.Graph],
+) -> None:
+    """Naming an axis with no graph id for the lock to address is rejected, rather than silently rendering a panel that only looks locked."""
+    with pytest.raises(AssertionError, match=MISSING_GRAPH_ID_MESSAGE):
+        build_display(
+            lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
+            app=Dash(__name__),
+        )
+
+
+@pytest.mark.parametrize(
+    "display_kind, build_display",
+    DASH_3D_DISPLAY_FACTORIES,
+    ids=[display_kind for display_kind, _ in DASH_3D_DISPLAY_FACTORIES],
+)
+def test_no_axis_leaves_the_returned_graph_where_it_was(
+    display_kind: str,
+    build_display: Callable[..., dcc.Graph],
+) -> None:
+    """A display named no axis, no app, and no graph id returns the graph it returned before those parameters existed, so no existing call site moves."""
+    display = build_display(lock_roll=None)
+
+    assert set(display.to_plotly_json()["props"]) == {"figure"}, (
+        "An unlocked display must return a graph carrying nothing but its figure, "
+        "which is what every existing call site already gets. "
+        f"{display_kind=} {display.to_plotly_json()['props'].keys()=}"
     )
