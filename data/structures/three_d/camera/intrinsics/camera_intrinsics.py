@@ -490,19 +490,19 @@ class CameraIntrinsics(ABC):
             source_intr_convention=self._intr_convention,
             target_intr_convention="standard",
         )
-        standard = type(self)(
-            params=params,
-            intr_convention="standard",
-        )
+        if type(self).MODEL == "simple_pinhole":
+            fx, fy = params["f"], params["f"]
+        else:
+            fx, fy = params["fx"], params["fy"]
         source_matrix = torch.zeros(
-            standard.fx.shape + (3, 3),
+            fx.shape + (3, 3),
             dtype=self._dtype,
             device=self._device,
         )
-        source_matrix[..., 0, 0] = standard.fx
-        source_matrix[..., 1, 1] = standard.fy
-        source_matrix[..., 0, 2] = standard.cx
-        source_matrix[..., 1, 2] = standard.cy
+        source_matrix[..., 0, 0] = fx
+        source_matrix[..., 1, 1] = fy
+        source_matrix[..., 0, 2] = params["cx"]
+        source_matrix[..., 1, 2] = params["cy"]
         source_matrix[..., 2, 2] = 1.0
         target_matrix = transform @ source_matrix
         if type(self).MODEL == "simple_pinhole":
