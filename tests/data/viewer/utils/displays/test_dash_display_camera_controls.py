@@ -97,17 +97,23 @@ def expected_camera_up(lock_roll: Tuple[float, float, float]) -> Dict[str, float
     DASH_3D_DISPLAY_FACTORIES,
     ids=[display_kind for display_kind, _ in DASH_3D_DISPLAY_FACTORIES],
 )
-def test_no_axis_renders_no_camera_configuration(
+def test_no_axis_renders_the_free_roll_dragmode(
     display_kind: str,
     build_display: Callable[..., dcc.Graph],
 ) -> None:
-    """A display given no lock_roll renders no scene configuration at all, so it renders the camera it rendered before this argument existed."""
+    """A display given no lock_roll renders the dragmode under which roll is reachable, never the pose-clamping one Plotly runs when the layout names no dragmode."""
     display = build_display(lock_roll=None)
 
-    layout = display.figure.layout.to_plotly_json()
-    assert "scene" not in layout, (
-        "A display given no roll-lock axis must add no scene entry to the rendered "
-        f"layout. {display_kind=} {sorted(layout)=}"
+    scene = display.figure.layout.scene
+    assert scene.dragmode != "turntable", (
+        "plotly.js pins the camera up vector to (0, 0, 1) under the turntable "
+        "dragmode, so a display that renders turntable is roll-locked about world "
+        f"+Z, an axis its caller never named. {display_kind=} {scene.dragmode=}"
+    )
+    assert scene.dragmode == "orbit", (
+        "A display given no roll-lock axis must render the Plotly dragmode that "
+        "leaves the camera up vector free to tilt, which is what an unlocked "
+        f"display means. {display_kind=} {scene.dragmode=}"
     )
 
 

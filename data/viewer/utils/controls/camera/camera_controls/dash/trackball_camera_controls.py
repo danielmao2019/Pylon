@@ -29,14 +29,13 @@ ROLL_LOCKED_DASH_CAMERA_CONTROL_PATTERNS: Final[Tuple[str, ...]] = (
 # +Z axis: plotly.js discards any supplied up whose normalized z component falls below
 # 0.999 and substitutes `(0, 0, 1)`, so this dragmode restricts the camera pose.
 PLOTLY_POSE_CLAMPING_DRAGMODE: Final[str] = "turntable"
-# Plotly gl3d `layout.scene.dragmode` a roll-locked scene renders: it carries the
-# caller's camera up vector through `Plotly.newPlot` unchanged, at the price of leaving
-# roll free through a drag for `register_dash_roll_lock_callback` to take back.
-PLOTLY_ROLL_LOCKED_DRAGMODE: Final[str] = "orbit"
+# Plotly gl3d `layout.scene.dragmode` that leaves roll free: it carries whatever camera up vector it is handed through `Plotly.newPlot` instead of substituting its own, and lets a drag tilt it.
+PLOTLY_FREE_ROLL_DRAGMODE: Final[str] = "orbit"
 # Plotly gl3d `layout.scene.dragmode` values whose left-drag rotates the camera; a
-# scene configuration carrying no dragmode leaves Plotly's own gl3d default in force.
+# scene configuration carrying no dragmode leaves Plotly's own gl3d default in force,
+# and that default is PLOTLY_POSE_CLAMPING_DRAGMODE.
 PLOTLY_ROTATION_DRAGMODES: Final[Tuple[str, ...]] = (
-    PLOTLY_ROLL_LOCKED_DRAGMODE,
+    PLOTLY_FREE_ROLL_DRAGMODE,
     PLOTLY_POSE_CLAMPING_DRAGMODE,
 )
 # The clientside callback source `register_dash_roll_lock_callback` inlines into the
@@ -52,12 +51,13 @@ def create_dash_trackball_camera_controls(
     """Create Dash renderer trackball camera controls.
 
     Args:
-        lock_roll: Optional axis to lock camera roll about, as an `(x, y, z)` world-space direction in the renderer's own world frame; the axis is the caller's and need not be unit length. When supplied, the controls set Plotly gl3d `layout.scene.dragmode` to `"orbit"` and seed `camera.up` with the normalized axis, which is the framing the roll lock starts from; holding the camera right axis perpendicular to that axis through a drag is `register_dash_roll_lock_callback`'s job, which the caller registers on the graph rendering this configuration. When None, the controls carry no scene configuration at all, so the display renders exactly the camera it rendered before this argument existed.
+        lock_roll: Optional axis to lock camera roll about, as an `(x, y, z)` world-space direction in the renderer's own world frame; the axis is the caller's and need not be unit length. When supplied, the controls set Plotly gl3d `layout.scene.dragmode` to `"orbit"` and seed `camera.up` with the normalized axis, which is the framing the roll lock starts from; holding the camera right axis perpendicular to that axis through a drag is `register_dash_roll_lock_callback`'s job, which the caller registers on the graph rendering this configuration. When None, the controls still set that same `"orbit"` dragmode and pin no axis, so the display's roll is genuinely free; Plotly's own gl3d default `"turntable"` would instead pin `camera.up` to world +Z and make roll unreachable, which is a roll lock about an axis the caller never named.
 
     Returns:
         Plotly gl3d `layout.scene` camera configuration for trackball camera
-        controls: empty when no axis is supplied, and carrying `dragmode` plus
-        the unit-length `camera.up` axis roll is held about when one is.
+        controls: the free-roll `dragmode` alone when no axis is supplied, and
+        that `dragmode` plus the unit-length `camera.up` axis roll is held about
+        when one is.
     """
 
     def _validate_inputs() -> None:
@@ -93,7 +93,7 @@ def create_dash_renderer_trackball_camera_controls(
             the caller's and need not be unit length.
 
     Returns:
-        Plotly gl3d `layout.scene` camera configuration: the roll-locked dragmode plus the normalized `camera.up` axis when an axis is supplied, and the empty configuration when none is.
+        Plotly gl3d `layout.scene` camera configuration: the free-roll dragmode plus the normalized `camera.up` axis when an axis is supplied, and that dragmode alone when none is.
     """
 
     def _validate_inputs() -> None:
@@ -112,7 +112,7 @@ def create_dash_renderer_trackball_camera_controls(
     if lock_roll is not None:
         length = math.sqrt(sum(component * component for component in lock_roll))
         return {
-            "dragmode": PLOTLY_ROLL_LOCKED_DRAGMODE,
+            "dragmode": PLOTLY_FREE_ROLL_DRAGMODE,
             "camera": {
                 "up": {
                     "x": lock_roll[0] / length,
@@ -121,7 +121,7 @@ def create_dash_renderer_trackball_camera_controls(
                 },
             },
         }
-    return {}
+    return {"dragmode": PLOTLY_FREE_ROLL_DRAGMODE}
 
 
 def register_dash_roll_lock_callback(
@@ -309,12 +309,14 @@ def assert_dash_no_camera_pose_clamps(
     )
     if isinstance(controls, dict):
         assert (
-            "dragmode" not in controls
-            or controls["dragmode"] != PLOTLY_POSE_CLAMPING_DRAGMODE
+            "dragmode" in controls
+            and controls["dragmode"] != PLOTLY_POSE_CLAMPING_DRAGMODE
         ), (
             "restricted camera pose controls are forbidden. The Plotly gl3d %r "
             "dragmode clamps the camera up vector onto world +Z, discarding any "
-            "other axis. controls=%r" % (PLOTLY_POSE_CLAMPING_DRAGMODE, controls)
+            "other axis, and a scene configuration naming no dragmode at all "
+            "runs exactly that gl3d default. controls=%r"
+            % (PLOTLY_POSE_CLAMPING_DRAGMODE, controls)
         )
         return
     restricted_patterns = [
@@ -382,7 +384,7 @@ def assert_dash_roll_lock(
             return
         assert (
             "dragmode" in controls
-            and controls["dragmode"] == PLOTLY_ROLL_LOCKED_DRAGMODE
+            and controls["dragmode"] == PLOTLY_FREE_ROLL_DRAGMODE
             and "camera" in controls
             and "up" in controls["camera"]
         ), (

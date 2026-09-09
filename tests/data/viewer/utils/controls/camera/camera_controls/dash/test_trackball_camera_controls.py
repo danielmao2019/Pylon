@@ -95,8 +95,8 @@ def expected_camera_up(lock_roll: Tuple[float, float, float]) -> Dict[str, float
 # ================================================================================
 
 
-def test_no_axis_renders_no_camera_configuration() -> None:
-    """A caller that names no lock_roll gets no camera configuration at all, identical to an explicit lock_roll=None construction."""
+def test_no_axis_selects_the_free_roll_dragmode() -> None:
+    """A caller that names no lock_roll gets the dragmode under which roll is reachable, identical to an explicit lock_roll=None construction."""
     defaulted_controls = create_dash_trackball_camera_controls()
     explicit_controls = create_dash_trackball_camera_controls(lock_roll=None)
 
@@ -105,10 +105,27 @@ def test_no_axis_renders_no_camera_configuration() -> None:
         "lock_roll=None construction. "
         f"{defaulted_controls=} {explicit_controls=}"
     )
-    assert defaulted_controls == {}, (
-        "Naming no roll-lock axis must add no camera configuration, so the display "
-        "renders the camera it rendered before this argument existed. "
+    assert defaulted_controls["dragmode"] == "orbit", (
+        "Naming no roll-lock axis must select the Plotly gl3d dragmode that leaves "
+        "the camera up vector free to tilt, which is what an unlocked display means. "
         f"{defaulted_controls=}"
+    )
+    assert_dash_no_camera_pose_clamps(controls=defaulted_controls, lock_roll=None)
+
+
+def test_no_axis_never_selects_the_pose_clamping_dragmode() -> None:
+    """The unlocked construction never leaves the pose-clamping dragmode in force, which is what an omitted dragmode would run and what would roll-lock the display to world +Z."""
+    controls = create_dash_trackball_camera_controls(lock_roll=None)
+
+    assert "dragmode" in controls, (
+        "A scene configuration naming no dragmode runs Plotly's own gl3d default, "
+        "which is the turntable that pins the camera up vector to world +Z, so an "
+        f"unlocked display must name its dragmode outright. {controls=}"
+    )
+    assert controls["dragmode"] != "turntable", (
+        "plotly.js pins the camera up vector to (0, 0, 1) under the turntable "
+        "dragmode, making roll unreachable, so an unlocked display that renders "
+        f"turntable is roll-locked about an axis its caller never named. {controls=}"
     )
 
 
@@ -240,6 +257,15 @@ def test_assert_dash_no_camera_pose_clamps_rejects_a_roll_restricting_dragmode()
             controls={"dragmode": "turntable"},
             lock_roll=None,
         )
+
+
+def test_assert_dash_no_camera_pose_clamps_rejects_an_omitted_dragmode() -> None:
+    """A configuration naming no dragmode runs Plotly's own gl3d turntable default, so it is rejected exactly as an explicit turntable is."""
+    with pytest.raises(
+        AssertionError,
+        match="restricted camera pose controls are forbidden",
+    ):
+        assert_dash_no_camera_pose_clamps(controls={}, lock_roll=None)
 
 
 # ================================================================================
