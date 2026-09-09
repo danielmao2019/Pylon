@@ -61,10 +61,11 @@ test_chunked_matmul.py
 │   ├── # a [B, K, K] small gives a [B, N, K] product whose every slice equals large @ that slice's own small, across num_divide splits.
 │   ├── for each num_divide over several splits, the unchunked default among them
 │   │   ├── calls chunked_matmul(large=large, small=a [B, K, K] small, num_divide=num_divide)
-│   │   └── impls assert each slice b of the result equals large @ small[b]
+│   │   └── for each slice b of the result
+│   │       └── impls assert it equals large @ small[b]
 │   └── return
 ├── def test_inplace_rejects_batched_small
-│   ├── # inplace=True with a batched small raises an assertion (the product is wider than large, so large has no room to be overwritten by it).
+│   ├── # inplace=True with a batched small raises an assertion (the product is wider than large, leaving nothing to overwrite in place).
 │   ├── with pytest.raises(AssertionError)
 │   │   └── calls chunked_matmul(large=large, small=a [B, K, K] small, inplace=True)
 │   └── return
