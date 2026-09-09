@@ -144,7 +144,7 @@ cameras.py
 ├── import torch
 ├── from data.structures.three_d.camera.camera import Camera
 ├── from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
-├── from data.structures.three_d.camera.intrinsics.camera_intrinsics import CameraIntrinsics, build_camera_intrinsics
+├── from data.structures.three_d.camera.intrinsics.camera_intrinsics import CameraIntrinsics
 ├── from data.structures.three_d.camera.validation import validate_cameras_attributes
 └── class Cameras
     ├── # A batch of cameras: one CameraIntrinsics and one CameraExtrinsics carrying a leading batch axis, so every method they already have operates on the whole batch.
@@ -199,9 +199,8 @@ cameras.py
     │   ├── # Index the batch by slicing the leading axis of both components, never by selecting from stored per-camera objects.
     │   ├── if isinstance(index, str)
     │   │   └── impls index = self._name_to_index[index]
-    │   ├── impls params = every param of self._intrinsics indexed along its leading axis  # a pass over the model's few param names, never over the cameras
-    │   ├── calls build_camera_intrinsics(model=self._intrinsics.model, params=params, intr_convention=self._intrinsics.intr_convention)
-    │   ├── calls CameraExtrinsics(extrinsics=self._extrinsics.extrinsics[index], extr_convention=self._extrinsics.extr_convention)
+    │   ├── impls intrinsics = self._intrinsics[index]
+    │   ├── impls extrinsics = self._extrinsics[index]
     │   ├── if isinstance(index, int)
     │   │   └── return  # Camera(intrinsics=intrinsics, extrinsics=extrinsics, name=..., id=...)
     │   └── return  # Cameras(intrinsics=intrinsics, extrinsics=extrinsics, ...)
