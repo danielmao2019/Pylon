@@ -54,19 +54,19 @@ validation.py
 │   └── return params
 ├── def _validate_camera_intrinsics_params_simple_pinhole(params: Any) -> Dict[str, torch.Tensor]
 │   ├── # Validate simple_pinhole params: a single shared focal length f plus the principal point cx / cy.
-│   ├── impls asserts every param is a scalar torch.Tensor
+│   ├── impls asserts every param is a torch.Tensor
 │   ├── impls asserts params is a Dict[str, torch.Tensor] with exactly keys {f, cx, cy, h, w}
 │   ├── impls asserts f > 0 and cx and cy are finite  # impls-node-one-step:skip; where on the image the principal point may fall is the frame's to say
 │   └── return params
 ├── def _validate_camera_intrinsics_params_pinhole(params: Any) -> Dict[str, torch.Tensor]
 │   ├── # Validate pinhole params: independent focal lengths fx / fy plus the principal point cx / cy.
-│   ├── impls asserts every param is a scalar torch.Tensor
+│   ├── impls asserts every param is a torch.Tensor
 │   ├── impls asserts params is a Dict[str, torch.Tensor] with exactly keys {fx, fy, cx, cy, h, w}
 │   ├── impls asserts fx > 0 and fy > 0 and cx and cy are finite  # impls-node-one-step:skip
 │   └── return params
 ├── def _validate_camera_intrinsics_params_ortho(params: Any) -> Dict[str, torch.Tensor]
 │   ├── # Validate ortho (weak-perspective) params: focal scales fx / fy plus the principal-point offset cx / cy.
-│   ├── impls asserts every param is a scalar torch.Tensor
+│   ├── impls asserts every param is a torch.Tensor
 │   ├── impls asserts params is a Dict[str, torch.Tensor] with exactly keys {fx, fy, cx, cy, h, w}
 │   ├── impls asserts fx > 0 and fy > 0 and cx and cy are finite  # impls-node-one-step:skip
 │   └── return params
@@ -327,7 +327,7 @@ camera_intrinsics.py
 │   ├── def transform_intrinsics(self, transform: torch.Tensor, resolution: Tuple[int, int]) -> "CameraIntrinsics"
 │   │   ├── # Return this CameraIntrinsics restated onto another image by a pixel-frame affine, the raster that image is named alongside it because a 3x3 carries no size of its own.
 │   │   ├── def _validate_inputs [local]
-│   │   │   ├── impls assert transform is a [..., 3, 3] float32 whose last row is [0, 0, 1], its leading axes broadcasting against the params' own
+│   │   │   ├── impls assert transform is a [..., 3, 3] float32 whose last row is [0, 0, 1]
 │   │   │   └── impls assert resolution is an (h, w) pair of positive ints
 │   │   ├── calls _validate_inputs
 │   │   ├── calls transform_intr_convention(params=self._params, model=type(self).MODEL, source_intr_convention=self._intr_convention, target_intr_convention="standard")  # -> params, in pixels; an affine between two rasters composes only with a K stated in them
