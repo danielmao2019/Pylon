@@ -107,15 +107,14 @@ goal: re-design pc dtype contract/provenance
    1. Select preserves it.
    2. serializing a `PointCloud` and restoring it preserves it. a cache is not a source, so restoring builds no new record.
    3. constructing a `PointCloud` from another obj's fields inherits that obj's record. another obj is not a source, so construction builds no new record.
-5. for `__init__` and load point cloud, the target dtype is the source dtype where the override states none.
-6. the meta data override:
+5. the meta data override:
    1. `__init__`, load point cloud and save point cloud each accept one, and it reaches both halves at each.
    2. it is optional where the source defines a half, and it replaces that half when it states one.
    3. it is required where the source does not define a half: the caller supplies that half, and a construction or load without it hard-asserts and aborts.
    4. an override changes the fields the obj stores and never the recorded meta data: `__init__`, load point cloud and save point cloud all bring the fields onto it through the `apply_meta_data` API, while the record stays exactly what the source data held, per the immutability rule.
    5. a dtype override changes the target dtype without changing the source dtype the record keeps.
    6. a layout override chooses which source columns are assembled into a field. the target mapping's loaded side is what the override asked for, while its source side stays the columns the source held, and the record goes on holding the mapping the source defined.
-7. save point cloud: each field is written under a target dtype and a target layout, and save derives nothing else.
+6. save point cloud: each field is written under a target dtype and a target layout, and save derives nothing else.
    1. where the obj's fields and the record's fields differ:
       1. a field the record names that the obj no longer holds is not saved.
       2. a field the obj holds that the record does not name takes its target dtype and target layout from the field itself and from the override.
