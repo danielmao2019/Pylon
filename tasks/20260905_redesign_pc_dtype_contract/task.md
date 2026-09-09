@@ -137,9 +137,8 @@ goal: re-design pc dtype contract/provenance
    2. point cloud I/O:
       1. load point cloud
          1. load point cloud preserves everything whenever possible, and applies Type Casting only for the dtype mismatch between torch and the format it is reading.
-            1. a reader neither widens nor narrows what the file holds.
-            2. a reader never widens a field it builds.
-         2. fields are assembled according to Layout Mapping.
+            1. the load preserves every value the file holds exactly, whichever torch dtype stores it.
+         2. each column becomes a field under the name Layout Mapping assigns it.
          3. each field enters under the dtype its source defines, as Type Casting defines it.
          4. a loaded cloud carries coordinates, so a load whose assembled fields include no xyz hard-asserts and aborts.
       2. save point cloud
