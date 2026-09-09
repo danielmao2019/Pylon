@@ -123,7 +123,7 @@ save_point_cloud.py
 ├── import numpy as np
 ├── from plyfile import PlyData, PlyElement
 ├── from data.structures.three_d.point_cloud.point_cloud import PointCloud
-├── from utils.dtypes import COLOR_RANGE, CONCEPTUAL_NAME, NUMPY_DTYPE, PLY_CHAR, cast_lossless
+├── from utils.dtypes import NUMPY_DTYPE, PLY_CHAR, cast_lossless
 ├── def save_point_cloud(pc: PointCloud, output_filepath: str, meta_data: Optional[Dict[str, Dict[str, Any]]] = None) -> None
 │   ├── # Applies the meta data to the cloud and writes it through the writer that owns the output file's extension.
 │   ├── def _validate_inputs [local]
@@ -140,7 +140,7 @@ save_point_cloud.py
 │   │   └── calls _save_as_ply(pc, output_filepath)
 │   └── return
 └── def _save_as_ply(pc: PointCloud, output_filepath: str) -> None
-    ├── # Writes a point cloud whose meta data is already applied, each field going to the columns and the ply dtype its entry names.
+    ├── # Writes a point cloud whose meta data is already applied, each field going to the columns and the ply dtype its own entry names, with every value already on the convention and the width that entry states.
     ├── impls vertex_dtype = an empty list of (column name, ply dtype character) pairs
     ├── impls vertex_arrays = an empty dict
     ├── for each field_name in pc.field_names()
@@ -155,14 +155,6 @@ save_point_cloud.py
     │   ├── assert column_names names exactly as many columns as field_data carries
     │   ├── assert no name in column_names is already a key of vertex_arrays  # two fields writing one ply column would silently overwrite each other
     │   ├── impls dtype_char = PLY_CHAR[current_dtype]  # an int64 field goes to i4 and a uint64 one to u4, and the per-column cast below is where the values decide whether that survives
-    │   ├── if field_name == 'rgb'
-    │   │   ├── assert current_dtype sits in COLOR_RANGE  # a colour whose dtype names no convention is refused rather than having one invented for it
-    │   │   ├── impls source_low, source_high = COLOR_RANGE[CONCEPTUAL_NAME[the dtype of field_data]]
-    │   │   ├── impls target_low, target_high = COLOR_RANGE[current_dtype]
-    │   │   ├── impls converted = field_data mapped from the source bounds onto the target ones, rounded where the target names an integer convention
-    │   │   ├── impls recovered = converted mapped back onto the source bounds
-    │   │   ├── assert recovered equals field_data  # a file is read back, so a colour that rounded into the target grid would return as a different colour than the one saved
-    │   │   └── impls field_data = converted
     │   └── for each column index i and column_name in column_names
     │       ├── calls cast_lossless(column i of field_data, np.dtype(dtype_char))
     │       ├── impls vertex_dtype gains the pair (column_name, dtype_char)
