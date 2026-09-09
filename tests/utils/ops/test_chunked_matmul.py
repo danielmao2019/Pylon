@@ -193,17 +193,17 @@ def test_inplace_rejects_batched_small() -> None:
 
 
 def test_rejects_non_square_small() -> None:
-    """a 2D but non-square small raises an assertion (small must be square)."""
+    """a non-square small raises an assertion (small must be square in its trailing two axes)."""
     large = torch.randn(5, 4, dtype=torch.float64)
-    small = torch.randn(4, 3, dtype=torch.float64)
+    small = torch.randn(3, 4, 3, dtype=torch.float64)
     with pytest.raises(AssertionError):
         chunked_matmul(large=large, small=small)
 
 
 def test_rejects_mismatched_inner_dim() -> None:
-    """large.shape[1] != small.shape[0] raises an assertion (inner dimensions must match)."""
+    """large.shape[1] != small.shape[-2] raises an assertion (inner dimensions must match)."""
     large = torch.randn(5, 4, dtype=torch.float64)
-    small = torch.randn(3, 3, dtype=torch.float64)
+    small = torch.randn(4, 3, 3, dtype=torch.float64)
     with pytest.raises(AssertionError):
         chunked_matmul(large=large, small=small)
 
