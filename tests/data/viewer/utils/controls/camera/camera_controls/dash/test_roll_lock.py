@@ -1,4 +1,4 @@
-"""Tests for the geometry the Dash roll-lock clientside callback runs on a gl3d camera."""
+"""Tests for the roll lock the Dash clientside callback holds a shipped gl3d view controller to."""
 
 import json
 import math
@@ -6,12 +6,22 @@ import subprocess
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
+import plotly
+
 from data.viewer.utils.controls.camera.camera_controls.dash.trackball_camera_controls import (
     ROLL_LOCK_CALLBACK_SCRIPT_PATH,
 )
 
-# The Node harness standing in for the Plotly panel the callback corrects.
+REPO_ROOT = Path(__file__).resolve().parents[8]
+# The Node harness standing in for the browser the shipped gl3d view controller runs in.
 ROLL_LOCK_HARNESS_SCRIPT_PATH = Path(__file__).resolve().parent / "roll_lock_harness.js"
+# The harness resolves `jsdom` and the shipped `plotly.js` release out of this tree, so a checkout that has not run `npm install` under `web` cannot run these tests.
+NODE_MODULES_PATH = REPO_ROOT / "web" / "node_modules"
+# The gl3d view controller under the harness comes out of this release, and Dash serves the bundle built from it, so the two must be the same release for the harness to be driving what ships.
+HARNESS_PLOTLY_BUNDLE_PATH = NODE_MODULES_PATH / "plotly.js" / "dist" / "plotly.min.js"
+SERVED_PLOTLY_BUNDLE_PATH = (
+    Path(plotly.__file__).resolve().parent / "package_data" / "plotly.min.js"
+)
 # The component id the roll-locked graph is registered under.
 ROLL_LOCKED_GRAPH_ID = "roll-locked-graph"
 # Deliberately non-axis-aligned, so nothing can pass by coinciding with a world axis.
@@ -28,30 +38,34 @@ UNIT_LENGTH_TOLERANCE = 1e-9
 EYE_MOVED_DISTANCE = 1e-6
 # Polar angle, in radians, at or below which the camera stands at the pole.
 POLE_REACHED_RADIANS = 1e-3
-# Yaw and pitch, in radians, of one turn in each block of the pole-crossing sequence.
-TURNING_DRAG = {"yaw": 0.30, "pitch": -0.20}
-POLE_DRAG = {"yaw": 0.0, "pitch": -0.55}
-YAW_DRAG = {"yaw": 0.45, "pitch": 0.0}
-RETURN_DRAG = {"yaw": 0.0, "pitch": 0.55}
-# How many turns each block of the pole-crossing sequence runs. The pole block runs well past the turn that first reaches the pole, so the sequence covers the turns a camera without the clamp spends tumbling out the far side.
+# Pointer travel, in pixels, of one drag in each block of the pole-crossing sequence.
+TURNING_DRAG = {"dx": 28, "dy": 19}
+POLE_DRAG = {"dx": 0, "dy": 52}
+YAW_DRAG = {"dx": 43, "dy": 0}
+RETURN_DRAG = {"dx": 0, "dy": -52}
+# How many drags each block of the pole-crossing sequence runs. The pole block runs well past the drag that first reaches the pole, so the sequence covers the drags a camera without the clamp spends tumbling out the far side.
 TURNING_DRAG_COUNT = 4
 POLE_DRAG_COUNT = 8
 YAW_DRAG_COUNT = 4
 RETURN_DRAG_COUNT = 4
-# Yaw and pitch, in radians, of one pointer move of the live drag, sized so the whole run sweeps the camera well off its start without any single move jumping it there.
-LIVE_DRAG_MOVE = {"yaw": 0.06, "pitch": -0.045}
+# Pointer travel, in pixels, of one pointer move of the live drag, sized so the whole run sweeps the camera well off its start without any single move jumping it there.
+LIVE_DRAG_MOVE = {"dx": 6, "dy": -4}
 # How many pointer moves the live drag runs, which is how many the panel reports nothing of.
 LIVE_DRAG_MOVE_COUNT = 24
+# Pointer travel, in pixels, of one pointer move of the live drag that pitches the camera into the pole and keeps pushing past it. A pure-vertical drag introduces no roll of its own, so the horizon reads the same under a locked and an unlocked panel and only the up vector's side of the lock axis separates them.
+LIVE_POLE_MOVE = {"dx": 0, "dy": 26}
+# How many pointer moves that drag runs, which carries it well past the move that first reaches the pole.
+LIVE_POLE_MOVE_COUNT = 24
 
 
-def build_pole_crossing_drags() -> List[Dict[str, float]]:
+def build_pole_crossing_drags() -> List[Dict[str, int]]:
     """Build the drag sequence that turns the camera, drives it into the pole, yaws there, and pitches back out.
 
     Args:
         None.
 
     Returns:
-        One `{"yaw", "pitch"}` record per simulated `orbit` left-drag, in radians.
+        One `{"dx", "dy"}` record per simulated `orbit` left-drag, in pixels of pointer travel.
     """
     return (
         [dict(TURNING_DRAG)] * TURNING_DRAG_COUNT
@@ -73,10 +87,9 @@ def build_equator_eye(lock_roll: Tuple[float, float, float]) -> List[float]:
     axis_length = math.sqrt(sum(component * component for component in lock_roll))
     axis = [component / axis_length for component in lock_roll]
     seed = [1.0, 0.0, 0.0] if abs(axis[0]) < 0.9 else [0.0, 1.0, 0.0]
+    projection = sum(a * s for a, s in zip(axis, seed, strict=True))
     perpendicular = [
-        seed[0] - axis[0] * sum(a * s for a, s in zip(axis, seed, strict=True)),
-        seed[1] - axis[1] * sum(a * s for a, s in zip(axis, seed, strict=True)),
-        seed[2] - axis[2] * sum(a * s for a, s in zip(axis, seed, strict=True)),
+        seed[index] - axis[index] * projection for index in range(len(axis))
     ]
     perpendicular_length = math.sqrt(
         sum(component * component for component in perpendicular)
@@ -90,24 +103,28 @@ def run_roll_lock_harness(
     lock_roll: Tuple[float, float, float],
     eye: List[float],
     up: List[float],
-    turns: List[Dict[str, float]],
-    reports_each_turn: bool = True,
+    drags: List[Dict[str, int]],
+    reports_each_drag: bool = True,
 ) -> List[Dict[str, Any]]:
-    """Drive the shipped roll-lock callback through a scripted gl3d drag under Node and read back the camera it left behind.
+    """Drive the shipped roll-lock callback over the shipped gl3d view controller through a scripted drag under Node and read back the camera each rendered frame drew.
 
     Args:
         lock_roll: Axis to lock camera roll about, as a non-zero `(x, y, z)` world-space direction of any length.
         eye: The `[x, y, z]` eye position the panel is seeded with, in the scene's own world frame.
         up: The `[x, y, z]` camera up vector the panel is seeded with, in the scene's own world frame.
-        turns: One `{"yaw", "pitch"}` record per simulated `orbit` rotation of the camera, in radians.
-        reports_each_turn: The cadence the panel reports those turns to the callback at. True makes each turn a drag of its own, reported at the mouse-up gl3d emits `plotly_relayout` on; False makes the turns the pointer moves of one live drag, which the panel reports nothing of until it ends.
+        drags: One `{"dx", "dy"}` record per simulated `orbit` pointer move, in pixels of pointer travel.
+        reports_each_drag: The cadence the panel reports those moves to the callback at. True makes each move a drag of its own, released at the mouse-up gl3d emits `plotly_relayout` on and reported there; False makes them the pointer moves of one live drag, which the panel reports nothing of until the button comes up.
 
     Returns:
-        One record for the seeded camera followed by one per turn, each carrying `right_along_axis`, `up_along_axis`, `up_length`, `camera_right_axis_length`, `polar`, `eye`, `up`, `camera_right_axis`, and `finite`.
+        One record for the seeded camera followed by one per pointer move, each carrying `right_along_axis`, `up_along_axis`, `up_length`, `camera_right_axis_length`, `polar`, `eye`, `up`, `camera_right_axis`, and `finite`.
     """
     assert ROLL_LOCK_HARNESS_SCRIPT_PATH.is_file(), (
         "The roll-lock Node harness must sit beside this test. ROLL_LOCK_HARNESS_SCRIPT_PATH=%r"
         % (ROLL_LOCK_HARNESS_SCRIPT_PATH,)
+    )
+    assert NODE_MODULES_PATH.is_dir(), (
+        "The harness runs the shipped gl3d view controller out of the web workspace's installed packages, so `npm install` must have run under `web`. "
+        f"{NODE_MODULES_PATH=}"
     )
 
     completed_process = subprocess.run(
@@ -116,14 +133,15 @@ def run_roll_lock_harness(
             str(ROLL_LOCK_HARNESS_SCRIPT_PATH),
             json.dumps(
                 {
+                    "node_modules_path": str(NODE_MODULES_PATH),
                     "source_path": str(ROLL_LOCK_CALLBACK_SCRIPT_PATH),
                     "graph_id": ROLL_LOCKED_GRAPH_ID,
                     "lock_roll": list(lock_roll),
                     "eye": eye,
                     "center": [0.0, 0.0, 0.0],
                     "up": up,
-                    "turns": turns,
-                    "reports_each_turn": reports_each_turn,
+                    "drags": drags,
+                    "reports_each_drag": reports_each_drag,
                 }
             ),
         ],
@@ -137,11 +155,37 @@ def run_roll_lock_harness(
         f"{completed_process.returncode=} {completed_process.stderr=}"
     )
     records = json.loads(completed_process.stdout)
-    assert len(records) == len(turns) + 1, (
-        "The harness must report the seeded camera and one camera per turn. "
-        f"{len(records)=} {len(turns)=}"
+    assert len(records) == len(drags) + 1, (
+        "The harness must report the seeded camera and one camera per pointer move. "
+        f"{len(records)=} {len(drags)=}"
     )
     return records
+
+
+def test_the_harness_runs_the_view_controller_the_app_serves() -> None:
+    """The `plotly.js` release the harness takes its gl3d view controller from is the release Dash serves the panel, so the spline, the idle and the recalc under test are the ones that ship rather than a differently versioned fork of them.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    assert HARNESS_PLOTLY_BUNDLE_PATH.is_file(), (
+        "The harness's `plotly.js` release must be installed under the web workspace, so `npm install` must have run under `web`. "
+        f"{HARNESS_PLOTLY_BUNDLE_PATH=}"
+    )
+    assert SERVED_PLOTLY_BUNDLE_PATH.is_file(), (
+        "Dash serves the panel the bundle the installed `plotly` distribution carries, so that bundle must be on disk. "
+        f"{SERVED_PLOTLY_BUNDLE_PATH=}"
+    )
+
+    harness_bundle = HARNESS_PLOTLY_BUNDLE_PATH.read_bytes()
+    served_bundle = SERVED_PLOTLY_BUNDLE_PATH.read_bytes()
+    assert harness_bundle == served_bundle, (
+        "The harness must drive the same `plotly.js` release the app serves, or it certifies a view controller nobody runs. Pin the `plotly.js` version in `web/package.json` to the one the installed `plotly` distribution carries. "
+        f"{HARNESS_PLOTLY_BUNDLE_PATH=} {len(harness_bundle)=} {SERVED_PLOTLY_BUNDLE_PATH=} {len(served_bundle)=}"
+    )
 
 
 def test_a_camera_looking_down_the_lock_axis_keeps_a_usable_frame() -> None:
@@ -157,7 +201,7 @@ def test_a_camera_looking_down_the_lock_axis_keeps_a_usable_frame() -> None:
         lock_roll=TOP_DOWN_LOCK_ROLL,
         eye=[0.0, 0.0, ORBIT_RADIUS],
         up=list(TOP_DOWN_LOCK_ROLL),
-        turns=[],
+        drags=[],
     )
 
     unusable_records = [
@@ -202,7 +246,7 @@ def test_a_pole_crossing_drag_holds_the_horizon_level() -> None:
         lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
         eye=build_equator_eye(lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL),
         up=list(NON_AXIS_ALIGNED_LOCK_ROLL),
-        turns=build_pole_crossing_drags(),
+        drags=build_pole_crossing_drags(),
     )
 
     tilted_records = [
@@ -229,7 +273,7 @@ def test_a_pole_crossing_drag_never_hangs_the_scene_upside_down() -> None:
         lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
         eye=build_equator_eye(lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL),
         up=list(NON_AXIS_ALIGNED_LOCK_ROLL),
-        turns=build_pole_crossing_drags(),
+        drags=build_pole_crossing_drags(),
     )
 
     inverted_records = [
@@ -254,7 +298,7 @@ def test_the_pole_clamp_leaves_the_camera_turning() -> None:
         lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
         eye=build_equator_eye(lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL),
         up=list(NON_AXIS_ALIGNED_LOCK_ROLL),
-        turns=build_pole_crossing_drags(),
+        drags=build_pole_crossing_drags(),
     )
 
     parked_polar_angle = records[TURNING_DRAG_COUNT + POLE_DRAG_COUNT]["polar"]
@@ -281,7 +325,7 @@ def test_the_pole_clamp_leaves_the_camera_turning() -> None:
 
 
 def run_live_drag() -> List[Dict[str, Any]]:
-    """Drive one live `orbit` left-drag past the callback, which the panel reports nothing of until it ends, and read back the camera at every pointer move of it.
+    """Drive one live `orbit` left-drag past the callback, which the panel reports nothing of until it ends, and read back the camera every rendered frame of it drew.
 
     Args:
         None.
@@ -293,8 +337,8 @@ def run_live_drag() -> List[Dict[str, Any]]:
         lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
         eye=build_equator_eye(lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL),
         up=list(NON_AXIS_ALIGNED_LOCK_ROLL),
-        turns=[dict(LIVE_DRAG_MOVE)] * LIVE_DRAG_MOVE_COUNT,
-        reports_each_turn=False,
+        drags=[dict(LIVE_DRAG_MOVE)] * LIVE_DRAG_MOVE_COUNT,
+        reports_each_drag=False,
     )
 
 
@@ -339,4 +383,37 @@ def test_a_live_drag_keeps_the_camera_turning_at_every_pointer_move() -> None:
     assert not still_records, (
         "Every pointer move of a live drag must move the camera, so a roll lock that holds the horizon level through the drag by pinning the camera in place is caught here rather than read as a lock. "
         f"{still_records=} {EYE_MOVED_DISTANCE=}"
+    )
+
+
+def test_a_live_drag_never_hangs_the_scene_upside_down() -> None:
+    """The camera up vector stays on the lock axis's own side at every pointer move of a live pure-vertical drag that pushes well past the pole, which is the half of the lock a level horizon never says on its own and the only half a drag introducing no roll can be read by.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    records = run_roll_lock_harness(
+        lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
+        eye=build_equator_eye(lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL),
+        up=list(NON_AXIS_ALIGNED_LOCK_ROLL),
+        drags=[dict(LIVE_POLE_MOVE)] * LIVE_POLE_MOVE_COUNT,
+        reports_each_drag=False,
+    )
+
+    reached_pole_records = [
+        record for record in records if record["polar"] <= POLE_REACHED_RADIANS
+    ]
+    assert reached_pole_records, (
+        "The drag must actually carry the camera to the pole, or nothing about being held on the lock axis's own side is under test. "
+        f"{[record['polar'] for record in records]=} {POLE_REACHED_RADIANS=}"
+    )
+    inverted_records = [
+        record for record in records if not record["up_along_axis"] >= 0
+    ]
+    assert not inverted_records, (
+        "A roll-locked camera must never hang the scene upside down at any pointer move of a live drag, since a panel that reports its camera only at mouse-up tumbles out the far side of the pole under the pointer and rights itself on release. "
+        f"{inverted_records=}"
     )
