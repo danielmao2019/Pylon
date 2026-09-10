@@ -266,14 +266,18 @@ camera_intrinsics.py
 │   ├── MODEL: ClassVar[str]  # each concrete subclass sets its camera-model identifier (simple_pinhole / pinhole / ortho)
 │   ├── def __init__(self, params: Dict[str, Union[int, float, np.ndarray, torch.Tensor]], intr_convention: str, device: Optional[Union[str, torch.device]] = None, dtype: Optional[torch.dtype] = None) -> None
 │   │   ├── # Construct a CameraIntrinsics from tensor-compatible named scalar params and the image-plane frame they are stated in.
-│   │   ├── calls validate_camera_intrinsics_attributes(model=type(self).MODEL, intr_convention=intr_convention, params=params, device=device, dtype=dtype)
+│   │   ├── def _validate_inputs [local]
+│   │   │   ├── impls asserts params is a dict of str to int, float, np.ndarray or torch.Tensor
+│   │   │   ├── impls asserts intr_convention is a str
+│   │   │   ├── impls asserts device is None or a str or torch.device
+│   │   │   └── impls asserts dtype is None or a floating torch dtype
+│   │   ├── calls _validate_inputs
 │   │   ├── def _normalize_inputs [local]
 │   │   │   ├── impls params = each value materialized as a torch.Tensor without applying the placement request
-│   │   │   ├── impls asserts every normalized param is a scalar torch.Tensor or a one-axis batch, all sharing one leading batch shape  # a scalar param is the empty-batch case
-│   │   │   ├── impls asserts every normalized param shares one device
-│   │   │   ├── impls asserts every normalized param shares one dtype
 │   │   │   └── return params
 │   │   ├── calls _normalize_inputs(params=params)
+│   │   ├── impls params = the returned value from _normalize_inputs
+│   │   ├── calls validate_camera_intrinsics_attributes(model=type(self).MODEL, intr_convention=intr_convention, params=params, device=device, dtype=dtype)  # the attributes, not the inputs, so it runs on the normalized params it asserts are tensors
 │   │   ├── impls self._params = params
 │   │   ├── impls self._intr_convention = intr_convention
 │   │   ├── impls self._device = the common device of self._params values
