@@ -159,14 +159,16 @@ cameras.py
     │   │   ├── if device is not None or dtype is not None
     │   │   │   ├── calls intrinsics.to(device=device, dtype=dtype)
     │   │   │   └── calls extrinsics.to(device=device, dtype=dtype)
-    │   │   └── return intrinsics, extrinsics
-    │   ├── calls _normalize_inputs(intrinsics=intrinsics, extrinsics=extrinsics, device=device, dtype=dtype)
-    │   ├── impls intrinsics, extrinsics = the returned values from _normalize_inputs
+    │   │   ├── impls names = names, or one None per camera when the batch was named by omission
+    │   │   ├── impls ids = ids, or one None per camera when the batch was identified by omission
+    │   │   └── return intrinsics, extrinsics, names, ids
+    │   ├── calls _normalize_inputs(intrinsics=intrinsics, extrinsics=extrinsics, names=names, ids=ids, device=device, dtype=dtype)
+    │   ├── impls intrinsics, extrinsics, names, ids = the returned values from _normalize_inputs
     │   ├── impls self._intrinsics = intrinsics  # params each [B]
     │   ├── impls self._extrinsics = extrinsics  # matrix [B, 4, 4]
     │   ├── impls self._names = names
     │   ├── impls self._ids = ids
-    │   └── impls self._name_to_index = the name -> index map
+    │   └── impls self._name_to_index = the index of each named camera, keyed by its name  # the unnamed cameras contribute no entry, and a name two cameras share is refused rather than silently resolving to one of them
     ├── def intrinsics(self) -> CameraIntrinsics  # @property
     │   ├── # The batch's intrinsics, whose params carry the batch axis so its own project / scale_intrinsics cover every camera at once.
     │   └── return self._intrinsics
@@ -408,7 +410,9 @@ io.py
 │   └── return
 ├── def _serialize_cameras_npz(cameras: "Cameras") -> Dict[str, Any]
 │   ├── # Map a Cameras to the plural batched-array npz payload.
-│   ├── calls _serialize_intrinsics_params(params=cameras.intrinsics.params)  # the params are already [N] columns, which is the shape npz stores
+│   ├── for each camera in cameras
+│   │   └── calls _serialize_intrinsics_params(params=camera.intrinsics.params)
+│   ├── impls params_array = each camera's serialized params json-encoded, as an [N] string array  # npz holds arrays, not a dict, so the params ride as one encoded row per camera
 │   ├── impls models, intr_conventions, extr_conventions = the batch's single model and two frames broadcast to [N] arrays  # the format keeps a column per camera where the batch keeps one value
 │   ├── impls extrinsics = cameras.extrinsics.extrinsics, the [N, 4, 4] stack the format stores as-is
 │   ├── impls names, has_names, ids, has_ids = the metadata columns, "" and -1 standing in wherever the flag is unset  # impls-node-one-step:skip
@@ -428,16 +432,17 @@ io.py
 │   ├── impls model_array, params_array, intr_convention_array, extr_convention_array, name_array, has_name_array, id_array, has_id_array — the eight per-camera arrays read from payload
 │   ├── impls asserts model_array, intr_convention_array and extr_convention_array are each constant over the batch  # one model and one frame pair is what lets the batch share a single projection expression
 │   ├── impls names, ids = the name and id arrays as lists, each entry taken only where its has_name / has_id flag is set  # impls-node-one-step:skip
-│   ├── calls _deserialize_intrinsics_params(params=params_array, device=device)  # the payload is already columnar, so this yields [N] param tensors without visiting a camera
+│   ├── impls params_columns = the per-camera json rows decoded and re-gathered into one column per param name
+│   ├── calls _deserialize_intrinsics_params(params=params_columns, device=device)
 │   ├── calls build_camera_intrinsics(model=model, params=tensor_params, intr_convention=intr_convention, device=device)  # validates the model, its params and the image-plane frame those params name
 │   ├── calls CameraExtrinsics(extrinsics=torch.as_tensor(extrinsics, dtype=torch.float32, device=device), extr_convention=extr_convention, device=device)  # the whole [N, 4, 4] stack at once
 │   ├── calls Cameras(intrinsics=intrinsics, extrinsics=extrinsics_batched, names=names, ids=ids, device=device)  # field-validates the batch
 │   └── return
-├── def _serialize_intrinsics_params(params: Dict[str, torch.Tensor]) -> Dict[str, Union[List[int], List[float]]]
-│   ├── # Map the batch's [N] tensor intrinsics params to the numeric columns the camera I/O boundary spells them in.
+├── def _serialize_intrinsics_params(params: Dict[str, torch.Tensor]) -> Dict[str, Union[int, float]]
+│   ├── # Map one camera's tensor intrinsics params to the numbers the camera I/O boundary spells them in.
 │   ├── impls serialized_params = an empty dict
 │   ├── for each param key/value
-│   │   └── impls materialize the [N] column as the Python numeric list its entries spell
+│   │   └── impls materialize the param as the Python number it spells
 │   └── return serialized_params
 ├── def _deserialize_intrinsics_params(params: Dict[str, Union[List[int], List[float]]], device: torch.device, dtype: torch.dtype = torch.float32) -> Dict[str, torch.Tensor]
 │   ├── # Map the serialized numeric columns back to the [N] tensor params a batch carries, at the camera I/O boundary.
