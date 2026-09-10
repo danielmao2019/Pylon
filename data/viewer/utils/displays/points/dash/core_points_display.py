@@ -935,36 +935,49 @@ def create_dash_points_scene(
         f"{type(point_color)=}"
     )
 
+    def _normalize_inputs(point_size: Optional[float]) -> float:
+        if point_size is None:
+            points_np = point_cloud.xyz.detach().cpu().numpy()
+            center = points_np.mean(axis=0)
+            bounding_radius = float(np.linalg.norm(points_np - center, axis=1).max())
+            point_size = max(
+                DEFAULT_POINT_SIZE_FLOOR, bounding_radius * DEFAULT_POINT_SIZE_RATIO
+            )
+        return point_size
+
+    point_size = _normalize_inputs(point_size=point_size)
+
+    def _resolve_marker_color() -> Union[str, np.ndarray]:
+        """Colours the markers by the caller's colour when one is given, else by the cloud's own colours on the 0-to-255 range Plotly reads, else by the default.
+
+        Args:
+            None.
+
+        Returns:
+            The marker colour: `point_color` as a CSS color string when supplied, else the `rgb` field mapped onto the uint8 0-to-255 convention as an `np.float64` array of shape [N, 3], else `DEFAULT_POINT_COLOR`.
+        """
+        if point_color is not None:
+            effective_color = point_color
+        elif "rgb" in point_cloud.field_names():
+            # the convention is what the field MEANS, which the record names; the tensor parking a uint16 colour is an int32 one and names nothing about the range
+            rgb_dtype = point_cloud.meta_data["rgb"]["dtype"]
+            rgb_array = point_cloud.rgb.detach().cpu().numpy()
+            effective_color = convert_color_convention(
+                values=rgb_array, source_dtype=rgb_dtype, target_dtype="uint8"
+            )
+        else:
+            effective_color = DEFAULT_POINT_COLOR
+        return effective_color
+
+    effective_color = _resolve_marker_color()
+
     points_np = point_cloud.xyz.detach().cpu().numpy()
-    center = points_np.mean(axis=0)
-    bounding_radius = float(np.linalg.norm(points_np - center, axis=1).max())
-
-    if point_size is not None:
-        effective_size = point_size
-    else:
-        effective_size = max(
-            DEFAULT_POINT_SIZE_FLOOR, bounding_radius * DEFAULT_POINT_SIZE_RATIO
-        )
-
-    if point_color is not None:
-        effective_color = point_color
-    elif "rgb" in point_cloud.field_names():
-        # the convention is what the field MEANS, which the record names; the tensor
-        # parking a uint16 colour is an int32 one and names nothing about the range
-        rgb_dtype = point_cloud.meta_data["rgb"]["dtype"]
-        rgb_array = point_cloud.rgb.detach().cpu().numpy()
-        effective_color = convert_color_convention(
-            values=rgb_array, source_dtype=rgb_dtype, target_dtype="uint8"
-        )
-    else:
-        effective_color = DEFAULT_POINT_COLOR
-
     trace = go.Scatter3d(
         x=points_np[:, 0],
         y=points_np[:, 1],
         z=points_np[:, 2],
         mode="markers",
-        marker=dict(size=effective_size, color=effective_color),
+        marker=dict(size=point_size, color=effective_color),
     )
     return trace
 
