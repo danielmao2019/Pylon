@@ -10,7 +10,7 @@ test_dtypes.py
 ├── import numpy as np
 ├── import pytest
 ├── import torch
-├── from utils.dtypes import COLOR_RANGE, CONCEPTUAL_NAME, NUMPY_DTYPE, PLY_CHAR, TORCH_DTYPE, cast_lossless, convert_color_convention
+├── from utils.dtypes import COLOR_RANGE, CONCEPTUAL_NAME, NUMPY_DTYPE, PLY_CHAR, TORCH_DTYPE, cast_lossless, conceptual_name_of, convert_color_convention
 ├── def test_one_name_covers_both_systems_that_carry_the_dtype()
 │   ├── # A numpy uint16 array and the uint16 array plyfile hands back for a u2 column name the same conceptual dtype, which is what lets one meta data entry describe either source.
 │   ├── assert CONCEPTUAL_NAME[np.dtype('uint16')] is 'uint16'
@@ -60,6 +60,11 @@ test_dtypes.py
 │   ├── # A bool or int32 colour has no convention to be read on, and its absence here is what refuses it rather than a branch somewhere else.
 │   ├── assert 'bool' is absent from COLOR_RANGE
 │   └── assert 'int32' is absent from COLOR_RANGE
+├── def test_a_recorded_dtype_is_what_its_own_storage_means()
+│   ├── # A uint16 colour parked in an int32 tensor means uint16, an int32 tensor nothing recorded means int32, and data an override brought onto another storage means the storage it is held at.
+│   ├── assert conceptual_name_of(torch.int32, 'uint16') is 'uint16'
+│   ├── assert conceptual_name_of(torch.int32, None) is 'int32'
+│   └── assert conceptual_name_of(torch.uint8, 'uint16') is 'uint8'
 ├── def test_a_lossless_cast_hands_back_the_target_dtype()
 │   ├── # A cast whose values survive produces the named dtype carrying the same values.
 │   ├── calls cast_lossless(an int64 array of small values, np.dtype('int32'))

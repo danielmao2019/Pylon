@@ -7,7 +7,7 @@
 ```text
 dtypes.py
 ├── # The conceptual dtype universe and the dtype each system stores a conceptual dtype in, as tables rather than as a containment rule: the set of dtypes is closed and small, so what a containment walk would compute is written down once here.
-├── from typing import Union
+├── from typing import Optional, Union
 ├── import numpy as np
 ├── import torch
 ├── CONCEPTUAL_NAME  # np.dtype or torch.dtype -> conceptual dtype name; one table over both systems, since a numpy uint16 array and a ply u2 column plyfile hands back as uint16 name one dtype
@@ -15,6 +15,11 @@ dtypes.py
 ├── NUMPY_DTYPE  # conceptual dtype name -> the np.dtype spelling the same torch storage, which is the dtype a numpy source is cast to before it crosses into torch; bfloat16 has no entry, numpy carrying no such width
 ├── PLY_CHAR  # conceptual dtype name -> the ply dtype character its column is stored as: i1, u1, i2, u2, i4, u4, f4, f8, with int64 to i4, uint64 to u4, bool to u1, float16 and bfloat16 to f4 and float128 to f8
 ├── COLOR_RANGE  # conceptual dtype name -> the low and high bound of the colour convention that dtype names: uint8 0 to 255, int8 -128 to 127, uint16 0 to 65535, every float 0.0 to 1.0; a dtype absent here names no convention and a colour of it is refused
+├── def conceptual_name_of(dtype: torch.dtype, recorded: Optional[str]) -> str
+│   ├── # Names the conceptual dtype data held at a torch dtype means, given the conceptual dtype it was recorded as, which is what tells an int32 tensor holding a uint16 colour apart from an int32 one.
+│   ├── if recorded is not None and TORCH_DTYPE[recorded] is dtype
+│   │   └── return recorded  # data still held at the storage its recorded dtype names means that recorded dtype
+│   └── return CONCEPTUAL_NAME[dtype]  # data brought onto another storage since it was recorded, or never recorded at all, means the dtype it is held at
 ├── def cast_lossless(values: Union[np.ndarray, torch.Tensor], dtype: Union[np.dtype, torch.dtype]) -> Union[np.ndarray, torch.Tensor]
 │   ├── # Casts values to a dtype and aborts rather than handing back values the cast changed, which is the promise every cast this module's callers make.
 │   ├── impls cast = values cast to dtype
