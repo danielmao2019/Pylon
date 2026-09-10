@@ -93,7 +93,7 @@ goal: re-design pc dtype contract/provenance
 
 #### 1.1.4. New Meta Data API
 
-1. what it is: meta data records what the source looked like, upon construction. it records the source of the data, wherever the data comes from: a load from disk, or a construction from a torch tensor or a numpy array. it records two things.
+1. structure: it has two parts
    1. dtype:
       1. the record always keeps the source dtype.
       2. it records the conceptual dtype. a field entering as ply u2, as numpy uint16, or as an open3d UInt16 all record the same thing.
@@ -104,26 +104,36 @@ goal: re-design pc dtype contract/provenance
 2. granularity: the record is one whole, created when the obj is constructed. inside it, the dtype and the layout are both keyed on the source columns.
 3. immutability: the record is never mutable. adding a field, deleting a field, and overwriting an existing field all leave it exactly as it was.
    1. user of PointCloud obj may however modify the fields, but the meta data stays constant and immutable once created.
-4. the meta data travels with the obj.
-   1. Select preserves it.
-   2. serializing a `PointCloud` and restoring it preserves it. a cache is not a source, so restoring builds no new record.
-   3. constructing a `PointCloud` from another obj's fields inherits that obj's record. another obj is not a source, so construction builds no new record.
+4. types of meta data: there are four meta data: the recorded meta data, the override meta data, the default meta data, and the target meta data the other three resolve into.
+   1. recorded meta data: meta data records what the source looked like, upon construction. it records the source of the data, wherever the data comes from: a load from disk, or a construction from a torch tensor or a numpy array. the meta data travels with the obj.
+      1. Select preserves it.
+      2. serializing a `PointCloud` and restoring it preserves it. a cache is not a source, so restoring builds no new record.
+      3. constructing a `PointCloud` from another obj's fields inherits that obj's record. another obj is not a source, so construction builds no new record.
+   2. override meta data:
+      1. `__init__`, load point cloud and save point cloud each accept an override, and it reaches both the dtype and the layout at each.
+   3. default meta data (default layout):
+      1. when you see x, y, and z, default to stacking them into one field called xyz.
+      2. when you see red, green, and blue, default to stacking them into one field called rgb.
+      3. no other defaults defined for now.
+   4. target meta data:
+      1. the target has one entry for each field the obj holds:
+      2. definition:
+         1. the entry takes whichever dtype and layout the override states.
+         2. it takes the default layout wherever the override states none.
+         3. it takes the recorded ones wherever neither the override nor the default states any.
+         4. where the record names the field nowhere, the field supplies both: its name serves as the layout, and the dtype it carries as the dtype.
 5. applying meta data:
-   1. `__init__`, load point cloud and save point cloud each accept an override, and it reaches both the dtype and the layout at each.
-   2. the target has one entry for each field the obj holds:
-      1. the entry takes whichever dtype and layout the override states.
-      2. it takes the recorded ones wherever the override states none.
-      3. where the record names the field nowhere, the field supplies both: its name serves as the layout, and the dtype it carries as the dtype.
-   3. how the derived target is applied:
-      1. layout:
-         1. the target's layout assembles the field from the columns it names
-      2. dtype (and convention):
+   1. how the derived target is applied. the target resolves first, and the layout mapping is checked only after that:
+      1. dtype (and convention):
          1. color conversion happens in two steps:
             1. where a conversion is defined for the pair, the values are mapped from the convention the current dtype names to the convention the target dtype names.
             2. after convention conversion, type casting happens normally.
          2. every other field goes through a direct type cast.
          3. lossless is asserted. the target is applied if it's lossless. the program hard asserts if lossless cannot be achieved.
-   4. applying the target changes the fields the obj stores and never the record, which stays exactly what the source data held.
+      2. layout:
+         1. the target's layout assembles the field from the columns it names
+         2. if the columns a target layout merges into one field still hold different dtypes once the target dtype has been applied, the program hard asserts and aborts.
+   3. applying the target changes the fields the obj stores and never the record, which stays exactly what the source data held.
 
 #### 1.1.5. Point Cloud Data Structure Construction and I/O
 
@@ -133,36 +143,36 @@ goal: re-design pc dtype contract/provenance
          1. rgb enters and is held exactly as it arrived, like every other field.
          2. fields keep their own names.
    2. validation:
-      1. the columns a field is assembled from must all hold one dtype. disagreeing column dtypes hard-assert and abort rather than being promoted to a dtype covering them all.
+      1. the columns a field is assembled from must all hold one dtype once the target dtype has been applied. disagreeing column dtypes hard-assert and abort rather than being promoted to a dtype covering them all.
       2. `PointCloud` keeps validating xyz and rgb by field name.
          1. xyz is any floating point dtype.
          2. `PointCloud` enforces that rgb values lie inside the range of their current color convention, as Color Data Convention Conversion defines it.
             1. a floating point rgb carrying a value outside 0 to 1 is refused. `PointCloud` hard-asserts and the program aborts, both when the field enters and on every later assignment to it.
    3. replacing rgb with a clone preserves its existing color convention.
-2. consumers/users of `PointCloud`:
+2. load point cloud
+   1. load point cloud never silently casts a dtype. the only silent cast is the one that resolves a dtype system mismatch, and nothing beyond it happens silently. any further lossless dtype change is the user's to instruct through the override.
+   2. the per-format helpers
+      1. they load and
+         1. do necessary type casting when the dtype systems mismatch and when the type cast can be lossless.
+         2. never change layout.
+      2. they construct the meta data record from the data in disk, NOT from the type-casted data stored in the PointCloud obj. i.e., the recorded meta data is a consequence of what's inside the file in disk and nothing else.
+   3. the main load API
+      1. accepts a `meta_data` optional arg override.
+      2. calls the `PointCloud.apply_meta_data` passing down the `meta_data` optional arg after the per-format helpers return.
+3. save point cloud
+   1. the per-format helpers
+      1. they save and
+         1. do necessary type casting when dtype systems mismatch and when type cast can be lossless.
+         2. never change layout
+      2. meta data reaches a helper in no form at all: not the record, not the override, and not a target derived from either, whatever it is called. it's just completely unrelated to the job of the per-format helpers.
+   2. the main save API
+      1. accepts a `meta_data` optional arg override.
+      2. calls the `PointCloud.apply_meta_data` passing down the `meta_data` optional arg, then passes the point cloud obj with meta data applied to the per-format helpers.
+4. consumers/users of `PointCloud`:
    1. any consumer of PointCloud in Pylon should be adjusted to work with the new design of PointCloud and its I/O.
       1. every caller passing dtype is updated to the meta data override.
       2. Select asserts that indices are int64 at the point of use.
       3. the point cloud displays under `data/viewer/utils/displays/points/dash` and `data/viewer/utils/displays/points/ts` assume 0 to 255 colors, and each applies Color Data Convention Conversion to rgb in its input normalization.
-   2. point cloud I/O:
-      1. load point cloud
-         1. the per-format helpers
-            1. they load and
-               1. do necessary type casting when the dtype systems mismatch and when the type cast can be lossless.
-               2. never change layout.
-            2. they construct the meta data record from the data in disk, NOT from the type-casted data stored in the PointCloud obj. i.e., the recorded meta data is a consequence of what's inside the file in disk and nothing else.
-         2. the main load API
-            1. accepts a `meta_data` optional arg override.
-            2. calls the `PointCloud.apply_meta_data` passing down the `meta_data` optional arg after the per-format helpers return.
-      2. save point cloud
-         1. the per-format helpers
-            1. they save and
-               1. do necessary type casting when dtype systems mismatch and when type cast can be lossless.
-               2. never change layout
-            2. meta data reaches a helper in no form at all: not the record, not the override, and not a target derived from either, whatever it is called. it's just completely unrelated to the job of the per-format helpers.
-         2. the main save API
-            1. accepts a `meta_data` optional arg override.
-            2. calls the `PointCloud.apply_meta_data` passing down the `meta_data` optional arg, then passes the point cloud obj with meta data applied to the per-format helpers.
 
 #### 1.1.6. What Becomes Stale Design
 
@@ -177,7 +187,7 @@ goal: re-design pc dtype contract/provenance
       1. loading a .pth taking columns zero through two as xyz and every column past the third as feat.
       2. loading a .txt taking column six alone as feat when the file holds seven or more columns and every column past the third otherwise.
    3. deriving x, y, z and red, green, blue from the field name, and the feat_0, feat_1 suffix fallback for anything else.
-   4. load point cloud naming a field xyz or rgb from the columns it read, for every source's own coordinate and color names.
+   4. load point cloud naming a field xyz or rgb from the columns it read, for any source names beyond the x, y, z and red, green, blue the default meta data covers.
 - retired load point cloud arguments:
    1. the meta data override replaces the existing dtype arg, which cast xyz alone, and controls dtype per field.
    2. name_feat is removed, and the meta data override covers the dtype it formerly forced.
@@ -208,6 +218,8 @@ The following are mistakes repeated again and again and every time when i asked 
 3. Confirmation message that this task is all done and this branch is good to merge.
 
 ### 2.1. Project Consumers be Refactored
+
+consumers are equivalently refactored: what a consumer does is what it did before, and only the API it reaches PointCloud through changes.
 
 This commit "[Project][Tasks] Merge 20260903_integrate_blend_texture_not_render (#17)" in the iVISION project made a patch to `data/structures/three_d/point_cloud/io/load_point_cloud.py` to silence the dtype bug with point clouds. This task should be considered as the official solution to be adopted. Once this task's branch is merged into `Pylon:main`, the iVISION project should have their main rebased onto `Pylon:main` (a mirror `lib` in the iVISION project), so that the patch to `data/structures/three_d/point_cloud/io/load_point_cloud.py` is discarded from that commit and the new design by this task is adopted in the iVISION project.
 
