@@ -14,7 +14,6 @@ convert.py
 ├── from data.structures.three_d.nerfstudio.nerfstudio_data import NerfStudio_Data
 ├── from data.structures.three_d.point_cloud.io.load_point_cloud import load_point_cloud
 ├── from data.structures.three_d.point_cloud.point_cloud import PointCloud
-├── from utils.dtypes import convert_color_convention
 ├── def convert_nerfstudio_to_colmap(transforms: NerfStudio_Data, point_cloud_path: Union[str, Path]) -> COLMAP_Data
 │   ├── # Rewrites one NerfStudio capture as the COLMAP record of the same scene.
 │   ├── impls colmap_cameras = the camera record the sibling builder makes
@@ -25,16 +24,23 @@ convert.py
 │   └── return  # the record it built
 └── def _build_colmap_points(point_cloud_path: Path) -> Dict[int, ColmapPoint3D]
     ├── # Builds one COLMAP point per point of the cloud a NerfStudio capture ships beside its frames.
-    ├── impls meta_data = {'xyz': {'dtype': 'float32'}}  # COLMAP records a point's coordinates as float32, and a load casts only losslessly, so stating the width refuses a capture that is not already at it
-    ├── calls load_point_cloud(filepath=str(point_cloud_path), meta_data=meta_data, device='cpu')
-    ├── impls pc = the PointCloud it loaded
-    ├── assert pc carries an rgb field  # a COLMAP point has a color, and a cloud without one cannot make the record
-    ├── impls positions = the coordinates of pc as a numpy array
-    ├── calls convert_color_convention(values=the rgb field of pc, source_dtype=the 'dtype' of pc.meta_data['rgb'], target_dtype='uint8')
-    ├── impls colors = the colours it mapped, as a numpy array  # COLMAP records a colour on the 0-to-255 range uint8 names, so a float 0-to-1 field and a uint16 las field are each mapped onto it rather than cast into it
-    ├── impls points = an empty dict
-    ├── for each point_id in range(pc.num_points)
-    │   ├── calls ColmapPoint3D(id=point_id, xyz=that row's coordinate as np.float32, rgb=that row's color as np.uint8, error=0.0, image_ids=an empty int32 array, point2D_idxs=an empty int32 array)
-    │   └── impls points[point_id] = the point record it built
-    └── return points
+    ├── def _load_capture_cloud [local]
+    │   ├── # Loads the capture's cloud at the float32 coordinates and the uint8 colours a COLMAP point is recorded with.
+    │   ├── impls meta_data = {'xyz': {'dtype': 'float32'}, 'rgb': {'dtype': 'uint8'}}  # COLMAP records a point's coordinates as float32 and its colour on the 0-to-255 range uint8 names, and a load casts and converts only losslessly, so stating both refuses a capture not already exactly at them rather than rounding it
+    │   ├── calls load_point_cloud(filepath=str(point_cloud_path), meta_data=meta_data, device='cpu')
+    │   ├── impls pc = the PointCloud it loaded  # a cloud with no rgb field aborts inside the load, its rgb dtype naming a field the cloud does not hold, which is the refusal a COLMAP point's colour needs
+    │   └── return pc
+    ├── calls _load_capture_cloud()
+    ├── impls pc = the cloud it loaded
+    ├── def _rows_to_colmap_points [local]
+    │   ├── # Makes one COLMAP point per row of the cloud, pairing that row's coordinate with its colour under the row's index.
+    │   ├── impls positions = the coordinates of pc as a numpy array
+    │   ├── impls colors = the colours of pc as a numpy array
+    │   ├── impls points = an empty dict
+    │   ├── for each point_id in range(pc.num_points)
+    │   │   ├── calls ColmapPoint3D(id=point_id, xyz=that row of positions as np.float32, rgb=that row of colors as np.uint8, error=0.0, image_ids=an empty int32 array, point2D_idxs=an empty int32 array)
+    │   │   └── impls points[point_id] = the point it built
+    │   └── return points
+    ├── calls _rows_to_colmap_points(pc=pc)
+    └── return  # the points it made
 ```
