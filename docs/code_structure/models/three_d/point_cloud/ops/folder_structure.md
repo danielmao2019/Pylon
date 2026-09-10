@@ -35,4 +35,7 @@ models/three_d/point_cloud/ops/
 
 ```text
 tests/models/three_d/point_cloud/ops/
+├── apply_transform/
+│   └── test_apply_transform.py  # applying a transform to points: the type/dtype/device normalization and the shapes it accepts
+└── test_world_to_camera_transform.py  # the world-to-camera entry: the camera batch axis it carries onto its result, and the inplace it refuses for one
 ```
