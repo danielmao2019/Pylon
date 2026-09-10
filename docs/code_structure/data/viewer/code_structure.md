@@ -1084,7 +1084,7 @@ placeholder_display.ts
 ```text
 video_display.py
 ├── from dash import html
-└── def create_video_display(src: str | None, title: str) -> html.Div
+└── def create_video_display(src: Optional[str], title: str) -> html.Div
     ├── # Builds the Dash video display from an optional video source url and a title.
     ├── impls assert src is None or isinstance(src, str)
     ├── impls assert isinstance(title, str)
