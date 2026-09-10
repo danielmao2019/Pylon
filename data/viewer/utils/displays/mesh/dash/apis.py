@@ -3,7 +3,7 @@
 from typing import Optional, Tuple
 
 import torch
-from dash import Dash, dcc
+from dash import dcc
 
 from data.structures.three_d.mesh.mesh import Mesh
 from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import (
@@ -33,8 +33,6 @@ def create_color_mesh_display(
     mesh_opacity: Optional[float] = None,
     mesh_side: Optional[str] = None,
     lock_roll: Optional[Tuple[float, float, float]] = None,
-    app: Optional[Dash] = None,
-    graph_id: Optional[str] = None,
 ) -> dcc.Graph:
     """Render a color mesh display from a color mesh artifact path.
 
@@ -47,12 +45,7 @@ def create_color_mesh_display(
             default opacity is used.
         mesh_side: Optional side mode override; when None the lib default side
             mode is used.
-        lock_roll: Optional axis to lock camera roll about, as an `(x, y, z)` world-space direction in the mesh's own world frame, forwarded to `create_dash_mesh_display`. When supplied, the rendered camera uses Plotly gl3d `dragmode="orbit"` with `camera.up` seeded from the normalized axis, and the roll lock holding that axis through a drag is registered on `app` against `graph_id`. When None, the rendered camera still uses that same `dragmode="orbit"` and pins no axis, so the display's roll is genuinely free.
-        app: Dash app the roll lock is registered on, forwarded to `create_dash_mesh_display`; required when `lock_roll` is supplied, read for nothing else, and rejected without one because there would be nothing to register and the display would come back unlocked.
-        graph_id: Component id assigned to the returned `dcc.Graph`, forwarded
-            to `create_dash_mesh_display`, which is the id the roll lock
-            addresses it by; required when `lock_roll` is supplied and
-            otherwise only names the returned graph.
+        lock_roll: Optional axis to lock camera roll about, as an `(x, y, z)` world-space direction in the mesh's own world frame, forwarded to `create_dash_mesh_display`. When supplied, the rendered camera uses Plotly gl3d `dragmode="orbit"` with `camera.up` seeded from the normalized axis; holding camera roll additionally needs `register_dash_roll_lock_callback` registered on this graph, which holds it through the drag rather than at each drag's end. When None, the rendered camera still uses that same `dragmode="orbit"` and pins no axis, so the display's roll is genuinely free.
 
     Returns:
         Dash `dcc.Graph` wrapping the color mesh scene.
@@ -79,12 +72,6 @@ def create_color_mesh_display(
         "Expected `lock_roll` to be None or a non-zero 3-tuple of floats. "
         f"{lock_roll=}"
     )
-    assert app is None or lock_roll is not None, (
-        "Expected a `lock_roll` alongside `app`. An `app` is read for nothing "
-        "but registering the roll lock, so with no axis named there is nothing "
-        "to register and the display handed back would be an unlocked one. "
-        f"{app=} {lock_roll=}"
-    )
 
     mesh = Mesh.load(path=color_mesh_path)
     return create_dash_mesh_display(
@@ -93,8 +80,6 @@ def create_color_mesh_display(
         mesh_opacity=mesh_opacity,
         mesh_side=mesh_side,
         lock_roll=lock_roll,
-        app=app,
-        graph_id=graph_id,
     )
 
 
@@ -103,8 +88,6 @@ def create_segmentation_mesh_display(
     mesh_opacity: Optional[float] = None,
     mesh_side: Optional[str] = None,
     lock_roll: Optional[Tuple[float, float, float]] = None,
-    app: Optional[Dash] = None,
-    graph_id: Optional[str] = None,
 ) -> dcc.Graph:
     """Render a backend-colorized segmentation mesh display.
 
@@ -118,12 +101,7 @@ def create_segmentation_mesh_display(
             default opacity is used.
         mesh_side: Optional side mode override; when None the lib default side
             mode is used.
-        lock_roll: Optional axis to lock camera roll about, as an `(x, y, z)` world-space direction in the mesh's own world frame, forwarded to `create_dash_mesh_display`. When supplied, the rendered camera uses Plotly gl3d `dragmode="orbit"` with `camera.up` seeded from the normalized axis, and the roll lock holding that axis through a drag is registered on `app` against `graph_id`. When None, the rendered camera still uses that same `dragmode="orbit"` and pins no axis, so the display's roll is genuinely free.
-        app: Dash app the roll lock is registered on, forwarded to `create_dash_mesh_display`; required when `lock_roll` is supplied, read for nothing else, and rejected without one because there would be nothing to register and the display would come back unlocked.
-        graph_id: Component id assigned to the returned `dcc.Graph`, forwarded
-            to `create_dash_mesh_display`, which is the id the roll lock
-            addresses it by; required when `lock_roll` is supplied and
-            otherwise only names the returned graph.
+        lock_roll: Optional axis to lock camera roll about, as an `(x, y, z)` world-space direction in the mesh's own world frame, forwarded to `create_dash_mesh_display`. When supplied, the rendered camera uses Plotly gl3d `dragmode="orbit"` with `camera.up` seeded from the normalized axis; holding camera roll additionally needs `register_dash_roll_lock_callback` registered on this graph, which holds it through the drag rather than at each drag's end. When None, the rendered camera still uses that same `dragmode="orbit"` and pins no axis, so the display's roll is genuinely free.
 
     Returns:
         Dash `dcc.Graph` wrapping the colorized segmentation mesh scene.
@@ -146,12 +124,6 @@ def create_segmentation_mesh_display(
     ), (
         "Expected `lock_roll` to be None or a non-zero 3-tuple of floats. "
         f"{lock_roll=}"
-    )
-    assert app is None or lock_roll is not None, (
-        "Expected a `lock_roll` alongside `app`. An `app` is read for nothing "
-        "but registering the roll lock, so with no axis named there is nothing "
-        "to register and the display handed back would be an unlocked one. "
-        f"{app=} {lock_roll=}"
     )
 
     segmentation_mesh = Mesh.load(path=segmentation_mesh_path)
@@ -180,8 +152,6 @@ def create_segmentation_mesh_display(
         mesh_opacity=mesh_opacity,
         mesh_side=mesh_side,
         lock_roll=lock_roll,
-        app=app,
-        graph_id=graph_id,
     )
 
 
@@ -190,8 +160,6 @@ def create_heatmap_mesh_display(
     mesh_opacity: Optional[float] = None,
     mesh_side: Optional[str] = None,
     lock_roll: Optional[Tuple[float, float, float]] = None,
-    app: Optional[Dash] = None,
-    graph_id: Optional[str] = None,
 ) -> dcc.Graph:
     """Render a backend-colorized heatmap mesh display.
 
@@ -205,12 +173,7 @@ def create_heatmap_mesh_display(
             default opacity is used.
         mesh_side: Optional side mode override; when None the lib default side
             mode is used.
-        lock_roll: Optional axis to lock camera roll about, as an `(x, y, z)` world-space direction in the mesh's own world frame, forwarded to `create_dash_mesh_display`. When supplied, the rendered camera uses Plotly gl3d `dragmode="orbit"` with `camera.up` seeded from the normalized axis, and the roll lock holding that axis through a drag is registered on `app` against `graph_id`. When None, the rendered camera still uses that same `dragmode="orbit"` and pins no axis, so the display's roll is genuinely free.
-        app: Dash app the roll lock is registered on, forwarded to `create_dash_mesh_display`; required when `lock_roll` is supplied, read for nothing else, and rejected without one because there would be nothing to register and the display would come back unlocked.
-        graph_id: Component id assigned to the returned `dcc.Graph`, forwarded
-            to `create_dash_mesh_display`, which is the id the roll lock
-            addresses it by; required when `lock_roll` is supplied and
-            otherwise only names the returned graph.
+        lock_roll: Optional axis to lock camera roll about, as an `(x, y, z)` world-space direction in the mesh's own world frame, forwarded to `create_dash_mesh_display`. When supplied, the rendered camera uses Plotly gl3d `dragmode="orbit"` with `camera.up` seeded from the normalized axis; holding camera roll additionally needs `register_dash_roll_lock_callback` registered on this graph, which holds it through the drag rather than at each drag's end. When None, the rendered camera still uses that same `dragmode="orbit"` and pins no axis, so the display's roll is genuinely free.
 
     Returns:
         Dash `dcc.Graph` wrapping the colorized heatmap mesh scene.
@@ -233,12 +196,6 @@ def create_heatmap_mesh_display(
         "Expected `lock_roll` to be None or a non-zero 3-tuple of floats. "
         f"{lock_roll=}"
     )
-    assert app is None or lock_roll is not None, (
-        "Expected a `lock_roll` alongside `app`. An `app` is read for nothing "
-        "but registering the roll lock, so with no axis named there is nothing "
-        "to register and the display handed back would be an unlocked one. "
-        f"{app=} {lock_roll=}"
-    )
 
     heatmap_mesh = Mesh.load(path=heatmap_mesh_path)
     if isinstance(heatmap_mesh.texture, MeshTextureVertexColor):
@@ -260,8 +217,6 @@ def create_heatmap_mesh_display(
         mesh_opacity=mesh_opacity,
         mesh_side=mesh_side,
         lock_roll=lock_roll,
-        app=app,
-        graph_id=graph_id,
     )
 
 

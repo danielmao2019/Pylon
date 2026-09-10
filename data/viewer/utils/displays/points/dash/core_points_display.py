@@ -19,7 +19,7 @@ from typing import Any, Dict, Optional, Tuple, Union
 import numpy as np
 import plotly.graph_objects as go
 import torch
-from dash import Dash, dcc
+from dash import dcc
 
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from data.structures.three_d.point_cloud.random_select import RandomSelect
@@ -27,7 +27,6 @@ from data.transforms.vision_3d.pclod import create_lod_function
 from data.viewer.dataset.context import get_viewer_context
 from data.viewer.utils.controls.camera.camera_controls.dash.trackball_camera_controls import (
     create_dash_trackball_camera_controls,
-    register_dash_roll_lock_callback,
 )
 from data.viewer.utils.segmentation import get_color
 
@@ -715,8 +714,6 @@ def create_point_cloud_display(
     point_cloud_id: Optional[Union[str, Tuple[str, int, str]]] = None,
     axis_ranges: Optional[Dict[str, Tuple[float, float]]] = None,
     lock_roll: Optional[Tuple[float, float, float]] = None,
-    app: Optional[Dash] = None,
-    graph_id: Optional[str] = None,
     **kwargs: Any,
 ) -> go.Figure:
     """Create point cloud display with LOD optimization.
@@ -740,9 +737,7 @@ def create_point_cloud_display(
             - For "discrete": {"camera_state": dict, ...other params...}
         point_cloud_id: Unique identifier for LOD caching
         axis_ranges: Optional fixed axis ranges for consistent scaling
-        lock_roll: Optional axis to lock camera roll about, as an `(x, y, z)` world-space direction in the point cloud's own world frame. When supplied, the returned figure's `layout.scene` carries Plotly gl3d `dragmode="orbit"` with `camera.up` seeded from the normalized axis, merged over whatever `camera_state` already placed there, and the roll lock holding that axis through a drag is registered on `app` against `graph_id`. When None, that same `dragmode="orbit"` is still merged over whatever `camera_state` placed there and no axis is pinned, so the display's roll is genuinely free; Plotly's own gl3d default `"turntable"` would instead pin `camera.up` to world +Z and make roll unreachable.
-        app: Dash app the roll lock is registered on; required when `lock_roll` is supplied, read for nothing else, and rejected without one because there would be nothing to register and the figure would come back unlocked.
-        graph_id: Component id of the `dcc.Graph` the caller mounts the returned figure under, which is the id the roll lock addresses it by; required when `lock_roll` is supplied, since the lock resolves the graph in the DOM by that id rather than through any component object, and rejected without one because a figure carries no id of its own and the id would reach nothing.
+        lock_roll: Optional axis to lock camera roll about, as an `(x, y, z)` world-space direction in the point cloud's own world frame. When supplied, the returned figure's `layout.scene` carries Plotly gl3d `dragmode="orbit"` with `camera.up` seeded from the normalized axis, merged over whatever `camera_state` already placed there; holding camera roll additionally needs `register_dash_roll_lock_callback` registered on the graph rendering this figure, which holds it through the drag rather than at each drag's end. When None, that same `dragmode="orbit"` is still merged over whatever `camera_state` placed there and no axis is pinned, so the display's roll is genuinely free; Plotly's own gl3d default `"turntable"` would instead pin `camera.up` to world +Z and make roll unreachable.
         **kwargs: Additional arguments
 
     Returns:
@@ -824,39 +819,6 @@ def create_point_cloud_display(
         "Expected `lock_roll` to be None or a non-zero 3-tuple of floats. "
         f"{lock_roll=}"
     )
-    assert lock_roll is None or app is not None, (
-        "Expected an `app` alongside `lock_roll`. A roll lock lives on the Dash "
-        "app rather than on the figure, so without one the axis would only seed "
-        "`camera.up` and the returned display would look locked while its roll "
-        f"stayed free through every drag. {lock_roll=} {app=}"
-    )
-    assert lock_roll is None or graph_id is not None, (
-        "Expected a `graph_id` alongside `lock_roll`. The roll lock is driven by "
-        "the graph's own camera changes and so must address it by id; without "
-        "one the returned display would look locked while its roll stayed free "
-        f"through every drag. {lock_roll=} {graph_id=}"
-    )
-
-    assert app is None or isinstance(app, Dash), (
-        "Expected `app` to be None or a `Dash` instance. " f"{type(app)=}"
-    )
-    assert app is None or lock_roll is not None, (
-        "Expected a `lock_roll` alongside `app`. An `app` is read for nothing "
-        "but registering the roll lock, so with no axis named there is nothing "
-        "to register and the display handed back would be an unlocked one. "
-        f"{app=} {lock_roll=}"
-    )
-
-    assert graph_id is None or (isinstance(graph_id, str) and graph_id != ""), (
-        "Expected `graph_id` to be None or a non-empty string. " f"{graph_id=}"
-    )
-    assert graph_id is None or lock_roll is not None, (
-        "Expected a `lock_roll` alongside `graph_id`. A figure carries no component "
-        "id of its own, so a `graph_id` is read for nothing but addressing the roll "
-        "lock on the graph the caller mounts this figure under; with no axis named "
-        "there is nothing to register and the figure handed back would carry the id "
-        f"nowhere. {graph_id=} {lock_roll=}"
-    )
 
     original_count = len(points)
 
@@ -904,12 +866,6 @@ def create_point_cloud_display(
         scene=create_dash_trackball_camera_controls(lock_roll=lock_roll),
     )
 
-    if lock_roll is not None:
-        register_dash_roll_lock_callback(
-            app=app,
-            graph_id=graph_id,
-            lock_roll=lock_roll,
-        )
     return fig
 
 
@@ -918,8 +874,6 @@ def create_dash_points_display(
     point_size: Optional[float] = None,
     point_color: Optional[str] = None,
     lock_roll: Optional[Tuple[float, float, float]] = None,
-    app: Optional[Dash] = None,
-    graph_id: Optional[str] = None,
 ) -> dcc.Graph:
     """Render a Dash point-cloud display element.
 
@@ -934,69 +888,30 @@ def create_dash_points_display(
             bounding-sphere heuristic computes the size.
         point_color: Optional uniform marker color override (CSS color string);
             when None per-point colors or the lib default color is used.
-        lock_roll: Optional axis to lock camera roll about, as an `(x, y, z)` world-space direction in the point cloud's own world frame. When supplied, the rendered camera uses Plotly gl3d `dragmode="orbit"` with `camera.up` seeded from the normalized axis, and the roll lock holding that axis through a drag is registered on `app` against `graph_id`. When None, the rendered camera still uses that same `dragmode="orbit"` and pins no axis, so the display's roll is genuinely free; Plotly's own gl3d default `"turntable"` would instead pin `camera.up` to world +Z and make roll unreachable.
-        app: Dash app the roll lock is registered on; required when `lock_roll` is supplied, read for nothing else, and rejected without one because there would be nothing to register and the display would come back unlocked.
-        graph_id: Component id assigned to the returned `dcc.Graph`, which is
-            the id the roll lock addresses it by; required when `lock_roll` is
-            supplied and otherwise only names the returned graph.
+        lock_roll: Optional axis to lock camera roll about, as an `(x, y, z)` world-space direction in the point cloud's own world frame. When supplied, the rendered camera uses Plotly gl3d `dragmode="orbit"` with `camera.up` seeded from the normalized axis; holding camera roll additionally needs `register_dash_roll_lock_callback` registered on this graph, which holds it through the drag rather than at each drag's end. When None, the rendered camera still uses that same `dragmode="orbit"` and pins no axis, so the display's roll is genuinely free; Plotly's own gl3d default `"turntable"` would instead pin `camera.up` to world +Z and make roll unreachable.
 
     Returns:
-        Dash `dcc.Graph` wrapping the point-cloud scene, carrying `graph_id` as
-        its id when one is supplied.
+        Dash `dcc.Graph` wrapping the point-cloud scene.
     """
-
-    def _validate_inputs() -> None:
-        assert isinstance(point_cloud, PointCloud), (
-            "Expected `point_cloud` to be a `PointCloud` instance. "
-            f"{type(point_cloud)=}"
-        )
-
-        assert point_size is None or isinstance(point_size, (int, float)), (
-            "Expected `point_size` to be None or numeric. " f"{type(point_size)=}"
-        )
-
-        assert point_color is None or isinstance(point_color, str), (
-            "Expected `point_color` to be None or a CSS color string. "
-            f"{type(point_color)=}"
-        )
-
-        assert lock_roll is None or (
-            isinstance(lock_roll, tuple)
-            and len(lock_roll) == 3
-            and all(isinstance(component, float) for component in lock_roll)
-            and any(component != 0.0 for component in lock_roll)
-        ), (
-            "Expected `lock_roll` to be None or a non-zero 3-tuple of floats. "
-            f"{lock_roll=}"
-        )
-        assert lock_roll is None or app is not None, (
-            "Expected an `app` alongside `lock_roll`. A roll lock lives on the Dash "
-            "app rather than on the figure, so without one the axis would only seed "
-            "`camera.up` and the returned display would look locked while its roll "
-            f"stayed free through every drag. {lock_roll=} {app=}"
-        )
-        assert lock_roll is None or graph_id is not None, (
-            "Expected a `graph_id` alongside `lock_roll`. The roll lock is driven by "
-            "the graph's own camera changes and so must address it by id; without "
-            "one the returned display would look locked while its roll stayed free "
-            f"through every drag. {lock_roll=} {graph_id=}"
-        )
-
-        assert app is None or isinstance(app, Dash), (
-            "Expected `app` to be None or a `Dash` instance. " f"{type(app)=}"
-        )
-        assert app is None or lock_roll is not None, (
-            "Expected a `lock_roll` alongside `app`. An `app` is read for nothing "
-            "but registering the roll lock, so with no axis named there is nothing "
-            "to register and the display handed back would be an unlocked one. "
-            f"{app=} {lock_roll=}"
-        )
-
-        assert graph_id is None or (isinstance(graph_id, str) and graph_id != ""), (
-            "Expected `graph_id` to be None or a non-empty string. " f"{graph_id=}"
-        )
-
-    _validate_inputs()
+    assert isinstance(point_cloud, PointCloud), (
+        "Expected `point_cloud` to be a `PointCloud` instance. " f"{type(point_cloud)=}"
+    )
+    assert point_size is None or isinstance(point_size, (int, float)), (
+        "Expected `point_size` to be None or numeric. " f"{type(point_size)=}"
+    )
+    assert point_color is None or isinstance(point_color, str), (
+        "Expected `point_color` to be None or a CSS color string. "
+        f"{type(point_color)=}"
+    )
+    assert lock_roll is None or (
+        isinstance(lock_roll, tuple)
+        and len(lock_roll) == 3
+        and all(isinstance(component, float) for component in lock_roll)
+        and any(component != 0.0 for component in lock_roll)
+    ), (
+        "Expected `lock_roll` to be None or a non-zero 3-tuple of floats. "
+        f"{lock_roll=}"
+    )
 
     scene = create_dash_points_scene(
         point_cloud=point_cloud,
@@ -1004,18 +919,10 @@ def create_dash_points_display(
         point_color=point_color,
     )
     controls = create_dash_trackball_camera_controls(lock_roll=lock_roll)
-    display = create_dash_points_component(
+    return create_dash_points_component(
         scene=scene,
         controls=controls,
-        graph_id=graph_id,
     )
-    if lock_roll is not None:
-        register_dash_roll_lock_callback(
-            app=app,
-            graph_id=graph_id,
-            lock_roll=lock_roll,
-        )
-    return display
 
 
 def create_dash_points_scene(
@@ -1078,7 +985,6 @@ def create_dash_points_scene(
 def create_dash_points_component(
     scene: go.Scatter3d,
     controls: Dict[str, Any],
-    graph_id: Optional[str] = None,
 ) -> dcc.Graph:
     """Wrap the point-cloud scene and camera controls into a Dash component.
 
@@ -1086,13 +992,10 @@ def create_dash_points_component(
         scene: Plotly `go.Scatter3d` marker trace for the point cloud.
         controls: Plotly gl3d `layout.scene` camera configuration built by
             `create_dash_trackball_camera_controls`.
-        graph_id: Optional component id for the returned `dcc.Graph`; when None
-            the graph is returned unnamed.
 
     Returns:
         Dash `dcc.Graph` rendering the point-cloud scene under the supplied
-        camera configuration, carrying `graph_id` as its id when one is
-        supplied.
+        camera configuration.
     """
     assert isinstance(scene, go.Scatter3d), (
         "Expected `scene` to be a Plotly `go.Scatter3d` trace. " f"{type(scene)=}"
@@ -1101,16 +1004,9 @@ def create_dash_points_component(
         "Expected `controls` to be a Plotly gl3d scene camera configuration. "
         f"{type(controls)=}"
     )
-    assert graph_id is None or (isinstance(graph_id, str) and graph_id != ""), (
-        "Expected `graph_id` to be None or a non-empty string. " f"{graph_id=}"
+    return dcc.Graph(
+        figure=go.Figure(data=[scene], layout=go.Layout(scene=controls)),
     )
-
-    graph_kwargs: Dict[str, Any] = {
-        "figure": go.Figure(data=[scene], layout=go.Layout(scene=controls)),
-    }
-    if graph_id is not None:
-        graph_kwargs["id"] = graph_id
-    return dcc.Graph(**graph_kwargs)
 
 
 def get_point_cloud_display_stats(

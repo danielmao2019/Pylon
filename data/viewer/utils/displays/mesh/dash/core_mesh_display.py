@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 import plotly.graph_objects as go
 import torch
-from dash import Dash, dcc, html
+from dash import dcc, html
 from PIL import Image
 
 from data.structures.three_d.mesh.mesh import Mesh
@@ -23,7 +23,6 @@ from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import (
 from data.viewer.utils.controls.camera.camera_controls.dash.trackball_camera_controls import (
     assert_dash_trackball_camera_controls,
     create_dash_trackball_camera_controls,
-    register_dash_roll_lock_callback,
 )
 from data.viewer.utils.controls.camera.camera_sync.threejs import (
     build_threejs_camera_sync_script,
@@ -1086,8 +1085,6 @@ def create_dash_mesh_display(
     mesh_opacity: Optional[float] = None,
     mesh_side: Optional[str] = None,
     lock_roll: Optional[Tuple[float, float, float]] = None,
-    app: Optional[Dash] = None,
-    graph_id: Optional[str] = None,
 ) -> dcc.Graph:
     """Render a Dash mesh display element.
 
@@ -1106,72 +1103,33 @@ def create_dash_mesh_display(
             `DEFAULT_MESH_OPACITY` is used.
         mesh_side: Optional side mode override; when None `DEFAULT_MESH_SIDE`
             is used.
-        lock_roll: Optional axis to lock camera roll about, as an `(x, y, z)` world-space direction in the mesh's own world frame. When supplied, the rendered camera uses Plotly gl3d `dragmode="orbit"` with `camera.up` seeded from the normalized axis, and the roll lock holding that axis through a drag is registered on `app` against `graph_id`. When None, the rendered camera still uses that same `dragmode="orbit"` and pins no axis, so the display's roll is genuinely free; Plotly's own gl3d default `"turntable"` would instead pin `camera.up` to world +Z and make roll unreachable.
-        app: Dash app the roll lock is registered on; required when `lock_roll` is supplied, read for nothing else, and rejected without one because there would be nothing to register and the display would come back unlocked.
-        graph_id: Component id assigned to the returned `dcc.Graph`, which is
-            the id the roll lock addresses it by; required when `lock_roll` is
-            supplied and otherwise only names the returned graph.
+        lock_roll: Optional axis to lock camera roll about, as an `(x, y, z)` world-space direction in the mesh's own world frame. When supplied, the rendered camera uses Plotly gl3d `dragmode="orbit"` with `camera.up` seeded from the normalized axis; holding camera roll additionally needs `register_dash_roll_lock_callback` registered on this graph, which holds it through the drag rather than at each drag's end. When None, the rendered camera still uses that same `dragmode="orbit"` and pins no axis, so the display's roll is genuinely free; Plotly's own gl3d default `"turntable"` would instead pin `camera.up` to world +Z and make roll unreachable.
 
     Returns:
-        Dash `dcc.Graph` wrapping the mesh scene, carrying `graph_id` as its id
-        when one is supplied.
+        Dash `dcc.Graph` wrapping the mesh scene.
     """
-
-    def _validate_inputs() -> None:
-        assert isinstance(mesh, Mesh), (
-            "Expected `mesh` to be a `Mesh` instance. " f"{type(mesh)=}"
-        )
-
-        assert mesh_color is None or isinstance(mesh_color, str), (
-            "Expected `mesh_color` to be None or a CSS color string. "
-            f"{type(mesh_color)=}"
-        )
-
-        assert mesh_opacity is None or isinstance(mesh_opacity, (int, float)), (
-            "Expected `mesh_opacity` to be None or numeric. " f"{type(mesh_opacity)=}"
-        )
-
-        assert mesh_side is None or isinstance(mesh_side, str), (
-            "Expected `mesh_side` to be None or a string. " f"{type(mesh_side)=}"
-        )
-
-        assert lock_roll is None or (
-            isinstance(lock_roll, tuple)
-            and len(lock_roll) == 3
-            and all(isinstance(component, float) for component in lock_roll)
-            and any(component != 0.0 for component in lock_roll)
-        ), (
-            "Expected `lock_roll` to be None or a non-zero 3-tuple of floats. "
-            f"{lock_roll=}"
-        )
-        assert lock_roll is None or app is not None, (
-            "Expected an `app` alongside `lock_roll`. A roll lock lives on the Dash "
-            "app rather than on the figure, so without one the axis would only seed "
-            "`camera.up` and the returned display would look locked while its roll "
-            f"stayed free through every drag. {lock_roll=} {app=}"
-        )
-        assert lock_roll is None or graph_id is not None, (
-            "Expected a `graph_id` alongside `lock_roll`. The roll lock is driven by "
-            "the graph's own camera changes and so must address it by id; without "
-            "one the returned display would look locked while its roll stayed free "
-            f"through every drag. {lock_roll=} {graph_id=}"
-        )
-
-        assert app is None or isinstance(app, Dash), (
-            "Expected `app` to be None or a `Dash` instance. " f"{type(app)=}"
-        )
-        assert app is None or lock_roll is not None, (
-            "Expected a `lock_roll` alongside `app`. An `app` is read for nothing "
-            "but registering the roll lock, so with no axis named there is nothing "
-            "to register and the display handed back would be an unlocked one. "
-            f"{app=} {lock_roll=}"
-        )
-
-        assert graph_id is None or (isinstance(graph_id, str) and graph_id != ""), (
-            "Expected `graph_id` to be None or a non-empty string. " f"{graph_id=}"
-        )
-
-    _validate_inputs()
+    assert isinstance(mesh, Mesh), (
+        "Expected `mesh` to be a `Mesh` instance. " f"{type(mesh)=}"
+    )
+    assert mesh_color is None or isinstance(mesh_color, str), (
+        "Expected `mesh_color` to be None or a CSS color string. "
+        f"{type(mesh_color)=}"
+    )
+    assert mesh_opacity is None or isinstance(mesh_opacity, (int, float)), (
+        "Expected `mesh_opacity` to be None or numeric. " f"{type(mesh_opacity)=}"
+    )
+    assert mesh_side is None or isinstance(mesh_side, str), (
+        "Expected `mesh_side` to be None or a string. " f"{type(mesh_side)=}"
+    )
+    assert lock_roll is None or (
+        isinstance(lock_roll, tuple)
+        and len(lock_roll) == 3
+        and all(isinstance(component, float) for component in lock_roll)
+        and any(component != 0.0 for component in lock_roll)
+    ), (
+        "Expected `lock_roll` to be None or a non-zero 3-tuple of floats. "
+        f"{lock_roll=}"
+    )
 
     scene = create_dash_mesh_scene(
         mesh=mesh,
@@ -1180,18 +1138,10 @@ def create_dash_mesh_display(
         mesh_side=mesh_side,
     )
     controls = create_dash_trackball_camera_controls(lock_roll=lock_roll)
-    display = create_dash_mesh_component(
+    return create_dash_mesh_component(
         scene=scene,
         controls=controls,
-        graph_id=graph_id,
     )
-    if lock_roll is not None:
-        register_dash_roll_lock_callback(
-            app=app,
-            graph_id=graph_id,
-            lock_roll=lock_roll,
-        )
-    return display
 
 
 def create_dash_mesh_scene(
@@ -1408,7 +1358,6 @@ def _create_dash_uv_texture_map_mesh_scene(
 def create_dash_mesh_component(
     scene: go.Mesh3d,
     controls: Dict[str, Any],
-    graph_id: Optional[str] = None,
 ) -> dcc.Graph:
     """Wrap the mesh scene and camera controls into a Dash component.
 
@@ -1416,12 +1365,10 @@ def create_dash_mesh_component(
         scene: Plotly `go.Mesh3d` trace for the mesh.
         controls: Plotly gl3d `layout.scene` camera configuration built by
             `create_dash_trackball_camera_controls`.
-        graph_id: Optional component id for the returned `dcc.Graph`; when None
-            the graph is returned unnamed.
 
     Returns:
         Dash `dcc.Graph` rendering the mesh scene under the supplied camera
-        configuration, carrying `graph_id` as its id when one is supplied.
+        configuration.
     """
     assert isinstance(scene, go.Mesh3d), (
         "Expected `scene` to be a Plotly `go.Mesh3d` trace. " f"{type(scene)=}"
@@ -1430,13 +1377,6 @@ def create_dash_mesh_component(
         "Expected `controls` to be a Plotly gl3d scene camera configuration. "
         f"{type(controls)=}"
     )
-    assert graph_id is None or (isinstance(graph_id, str) and graph_id != ""), (
-        "Expected `graph_id` to be None or a non-empty string. " f"{graph_id=}"
+    return dcc.Graph(
+        figure=go.Figure(data=[scene], layout=go.Layout(scene=controls)),
     )
-
-    graph_kwargs: Dict[str, Any] = {
-        "figure": go.Figure(data=[scene], layout=go.Layout(scene=controls)),
-    }
-    if graph_id is not None:
-        graph_kwargs["id"] = graph_id
-    return dcc.Graph(**graph_kwargs)
