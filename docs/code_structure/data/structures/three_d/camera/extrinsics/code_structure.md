@@ -121,8 +121,8 @@ camera_extrinsics.py
 │   │   ├── # Construct a CameraExtrinsics from an array-like 4x4 cam2world matrix and the pose frame it is expressed in.
 │   │   ├── calls validate_camera_extrinsics_attributes(extrinsics=extrinsics, extr_convention=extr_convention, device=device, dtype=dtype)
 │   │   ├── def _normalize_inputs(extrinsics: Union[np.ndarray, torch.Tensor, List[List[Union[int, float]]]], device: Union[str, torch.device], dtype: torch.dtype) -> Tuple[torch.Tensor, torch.device] [local]
+│   │   │   ├── impls device = torch.device(device), its index filled in when the spelling leaves one out  # one physical device has one spelling here, so a cuda and a cuda:0 naming it never compare unequal
 │   │   │   ├── impls extrinsics = torch.as_tensor(extrinsics, device=device, dtype=dtype)
-│   │   │   ├── impls device = torch.device(device)
 │   │   │   └── return extrinsics, device
 │   │   ├── calls _normalize_inputs(extrinsics=extrinsics, device=device, dtype=dtype)
 │   │   ├── impls extrinsics, device = the returned values from _normalize_inputs
@@ -199,18 +199,18 @@ camera_extrinsics.py
 │       │   └── impls assert translation is a length-3 numeric array-like or a torch Tensor with shape (3,)
 │       ├── calls _validate_inputs
 │       ├── def _normalize_inputs [local]
-│       │   ├── impls scale = torch.as_tensor(scale, device=self.device, dtype=self.dtype)
+│       │   ├── impls scale = torch.as_tensor(scale, device=self._device, dtype=self._dtype)
 │       │   ├── impls asserts scale.shape == ()
-│       │   ├── impls asserts scale.device == self.device
-│       │   ├── impls asserts scale.dtype == self.dtype
-│       │   ├── impls rotation = torch.as_tensor(rotation, device=self.device, dtype=self.dtype)
+│       │   ├── impls asserts scale.device == self._device
+│       │   ├── impls asserts scale.dtype == self._dtype
+│       │   ├── impls rotation = torch.as_tensor(rotation, device=self._device, dtype=self._dtype)
 │       │   ├── impls asserts rotation.shape == (3, 3)
-│       │   ├── impls asserts rotation.device == self.device
-│       │   ├── impls asserts rotation.dtype == self.dtype
-│       │   ├── impls translation = torch.as_tensor(translation, device=self.device, dtype=self.dtype)
+│       │   ├── impls asserts rotation.device == self._device
+│       │   ├── impls asserts rotation.dtype == self._dtype
+│       │   ├── impls translation = torch.as_tensor(translation, device=self._device, dtype=self._dtype)
 │       │   ├── impls asserts translation.shape == (3,)
-│       │   ├── impls asserts translation.device == self.device
-│       │   ├── impls asserts translation.dtype == self.dtype
+│       │   ├── impls asserts translation.device == self._device
+│       │   ├── impls asserts translation.dtype == self._dtype
 │       │   └── return scale, rotation, translation
 │       ├── calls _normalize_inputs
 │       ├── impls scale, rotation, translation = the returned values from _normalize_inputs
