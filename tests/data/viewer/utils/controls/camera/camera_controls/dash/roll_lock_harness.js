@@ -4,7 +4,7 @@
 //
 // Three browser capabilities jsdom lacks are supplied. Layout: the container reports the size the renderer would give it, since the controller scales pointer travel by it. The clock: `performance.now` is a counter the harness advances one frame at a time, which is what makes a run reproducible and what puts the frames at the spacing a 60fps browser puts them at. Font metrics: a computed `font-size` comes back in the unit it was written in rather than in pixels, and the controller's wheel listener measures its line height by reading one back, so the pixel resolution a browser does is done here.
 //
-// Usage: node roll_lock_harness.js '<spec-json>', where the spec carries `node_modules_path`, `source_path`, `graph_id`, `lock_roll`, `eye`, `center`, `up`, `drags`, and `reports_each_drag`. One JSON record per drag is written to stdout.
+// Usage: node roll_lock_harness.js '<spec-json>', where the spec carries `node_modules_path`, `source_path`, `graph_id`, `lock_roll`, `eye`, `center`, `up`, `drags`, and `reports_each_drag`. One JSON record per drag is written to stdout, as a single array followed by the terminator byte the reader reads completeness off.
 
 const fs = require("fs");
 const path = require("path");
@@ -23,6 +23,8 @@ const POINTER_ORIGIN_X = 400;
 const POINTER_ORIGIN_Y = 300;
 // The font size a browser resolves a computed `font-size` to, in pixels.
 const RESOLVED_FONT_SIZE = "16px";
+// The byte the records are followed by. A write to a pipe delivers a prefix of what it was given, so this last byte arriving is what says the whole payload did, and the reader checks for it before parsing.
+const RECORDS_TERMINATOR = "\n";
 
 // The harness clock, read by the shipped controller through `performance.now` for every keyframe timestamp it writes and every frame it draws.
 let clock = 0;
@@ -220,7 +222,8 @@ async function run() {
     if (!spec.reports_each_drag) {
         dispatchMouse("mouseup", 0);
     }
-    process.stdout.write(JSON.stringify(records));
+    // Written straight to the file descriptor rather than through `process.stdout`, whose write to a pipe is queued and is discarded unwritten by the `process.exit` below once the payload outgrows the pipe buffer.
+    fs.writeSync(1, JSON.stringify(records) + RECORDS_TERMINATOR);
     process.exit(0);
 }
 

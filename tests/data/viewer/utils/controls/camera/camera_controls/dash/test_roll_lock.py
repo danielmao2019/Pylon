@@ -41,6 +41,8 @@ def resolve_repo_root() -> Path:
 REPO_ROOT = resolve_repo_root()
 # The Node harness standing in for the browser the shipped gl3d view controller runs in.
 ROLL_LOCK_HARNESS_SCRIPT_PATH = Path(__file__).resolve().parent / "roll_lock_harness.js"
+# The byte the harness writes after its records. A write to a pipe delivers a prefix of what it was given, so this last byte arriving is what says the whole payload did, and a payload missing it was truncated in transit rather than malformed at the source.
+HARNESS_PAYLOAD_TERMINATOR = "\n"
 # The harness resolves `jsdom` and the shipped `plotly.js` release out of this tree, so a checkout that has not run `npm install` under `web` cannot run these tests.
 NODE_MODULES_PATH = REPO_ROOT / "web" / "node_modules"
 # The gl3d view controller under the harness comes out of this release, and Dash serves the bundle built from it, so the two must be the same release for the harness to be driving what ships.
@@ -308,6 +310,11 @@ def run_roll_lock_harness(
     assert completed_process.returncode == 0, (
         "Expected the roll-lock Node harness to succeed. "
         f"{completed_process.returncode=} {completed_process.stderr=}"
+    )
+    payload_is_complete = completed_process.stdout.endswith(HARNESS_PAYLOAD_TERMINATOR)
+    assert payload_is_complete, (
+        "The roll-lock Node harness reported an incomplete payload: what reached this side is a truncated prefix of the records it wrote, not a whole set of them, so nothing about the camera is under test here. "
+        f"{len(completed_process.stdout)=} {completed_process.stdout[-40:]=} {completed_process.stderr=}"
     )
     records = json.loads(completed_process.stdout)
     assert len(records) == len(drags) + 1, (
