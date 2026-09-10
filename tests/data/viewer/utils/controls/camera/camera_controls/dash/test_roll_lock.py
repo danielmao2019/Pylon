@@ -54,6 +54,10 @@ ROLL_LOCKED_GRAPH_ID = "roll-locked-graph"
 NON_AXIS_ALIGNED_LOCK_ROLL = (0.3, 0.9, -0.2)
 # A lock axis the camera is seeded looking straight down, which is the one framing where the view direction runs parallel to the lock axis and the cross product that re-derives the camera right axis collapses.
 TOP_DOWN_LOCK_ROLL = (0.0, 0.0, 1.0)
+# The meridian the callback's fallback stands on for that lock roll. An axis aligned with the world z axis leans on the world x and y axes alike - on neither - so the fallback takes the first of the two and crosses the axis with it, landing on the world y axis; crossing the axis with its own basis vector is the collapse that pick steps around.
+TOP_DOWN_FALLBACK_MERIDIAN = (0.0, 1.0, 0.0)
+# Distance between two unit-length meridians above which they are different meridians.
+MERIDIAN_TOLERANCE = 1e-9
 # Distance from the scene centre the simulated camera orbits at.
 ORBIT_RADIUS = 10.0
 # Magnitude of `right . axis` above which the horizon is no longer level.
@@ -365,8 +369,10 @@ def test_the_harness_runs_the_view_controller_the_app_serves() -> None:
     )
 
 
-def test_a_camera_looking_down_the_lock_axis_keeps_a_usable_frame() -> None:
-    """A camera seeded looking straight down the lock axis is left with a real camera frame, rather than the direction the collapsed cross product between the view direction and the lock axis cannot define.
+def test_an_axis_aligned_lock_roll_bands_a_degenerate_eye_onto_the_fallback_meridian() -> (
+    None
+):
+    """An eye sitting on the lock axis stands on every meridian at once, so it is banded onto the fallback the callback crosses off the world basis vector the axis leans on least, and a lock roll aligned with a world axis is the one lock roll where that pick has to skip a basis vector rather than name any of the three.
 
     Args:
         None.
@@ -381,7 +387,31 @@ def test_a_camera_looking_down_the_lock_axis_keeps_a_usable_frame() -> None:
         drags=[],
     )
 
-    assert_roll_locked_camera(records=records)
+    axis = normalize_vector(vector=list(TOP_DOWN_LOCK_ROLL))
+    seeded_eye = records[0]["eye"]
+    axial_distance = sum(
+        eye_component * axis_component
+        for eye_component, axis_component in zip(seeded_eye, axis, strict=True)
+    )
+    banded_offset = [
+        eye_component - axis_component * axial_distance
+        for eye_component, axis_component in zip(seeded_eye, axis, strict=True)
+    ]
+    banded_distance = math.sqrt(
+        sum(component * component for component in banded_offset)
+    )
+    assert banded_distance > 0, (
+        "The eye seeded on the lock axis must be banded off it, or it still stands on no meridian and nothing about which meridian the fallback names is under test. "
+        f"{seeded_eye=} {axis=} {banded_distance=}"
+    )
+    meridian_distance = math.dist(
+        normalize_vector(vector=banded_offset),
+        TOP_DOWN_FALLBACK_MERIDIAN,
+    )
+    assert meridian_distance <= MERIDIAN_TOLERANCE, (
+        "A lock roll aligned with a world axis must band an eye sitting on it onto the meridian crossed off the world basis vector the axis leans on least, since crossing that axis with its own basis vector names no direction at all. "
+        f"{meridian_distance=} {seeded_eye=} {TOP_DOWN_FALLBACK_MERIDIAN=} {MERIDIAN_TOLERANCE=}"
+    )
 
 
 def test_a_pole_crossing_drag_holds_the_horizon_level() -> None:
