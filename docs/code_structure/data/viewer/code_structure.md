@@ -429,18 +429,28 @@ core_points_display.py
 │   └── return
 ├── def create_dash_points_scene(point_cloud: PointCloud, point_size: Optional[float] = None, point_color: Optional[str] = None) -> go.Scatter3d
 │   ├── # Sync-builds the Plotly Scatter3d trace from the point cloud.
-│   ├── impls bounding_radius = point_cloud bounding-sphere radius
-│   ├── impls effective_size = point_size if point_size is not None else max(DEFAULT_POINT_SIZE_FLOOR, bounding_radius * DEFAULT_POINT_SIZE_RATIO)
-│   ├── if point_color is not None
-│   │   └── impls effective_color = point_color
-│   ├── elif 'rgb' sits in point_cloud.field_names()
-│   │   ├── impls rgb_dtype = the 'dtype' of point_cloud.meta_data['rgb'], which is what the colour means rather than what the tensor parking it carries
-│   │   ├── impls rgb_array = the rgb field detached, moved to cpu and handed to numpy  # Plotly reads no torch tensor, and the range mapping takes the array form
-│   │   ├── calls convert_color_convention(values=rgb_array, source_dtype=rgb_dtype, target_dtype='uint8')  # Plotly's per-point colour is the 0-to-255 range uint8 names, so a float 0-to-1 field and a uint16 las field both arrive correct
-│   │   └── impls effective_color = the colours it mapped, a uint16 one rounding onto the display's coarser grid because a display tolerates the loss the cloud whose record these are would refuse
-│   ├── else
-│   │   └── impls effective_color = DEFAULT_POINT_COLOR
-│   ├── impls trace = go.Scatter3d(x=..., y=..., z=..., mode="markers", marker=dict(size=effective_size, color=effective_color))
+│   ├── def _normalize_inputs [local]
+│   │   ├── if point_size is None
+│   │   │   ├── impls bounding_radius = point_cloud bounding-sphere radius
+│   │   │   └── impls point_size = max(DEFAULT_POINT_SIZE_FLOOR, bounding_radius * DEFAULT_POINT_SIZE_RATIO)
+│   │   └── return point_size
+│   ├── calls _normalize_inputs(point_size=point_size)
+│   ├── impls point_size = the value it returned
+│   ├── def _resolve_marker_color [local]
+│   │   ├── # Colours the markers by the caller's colour when one is given, else by the cloud's own colours on the 0-to-255 range Plotly reads, else by the default.
+│   │   ├── if point_color is not None
+│   │   │   └── impls effective_color = point_color
+│   │   ├── elif 'rgb' sits in point_cloud.field_names()
+│   │   │   ├── impls rgb_dtype = the 'dtype' of point_cloud.meta_data['rgb'], which is what the colour means rather than what the tensor parking it carries
+│   │   │   ├── impls rgb_array = the rgb field detached, moved to cpu and handed to numpy  # Plotly reads no torch tensor, and the range mapping takes the array form
+│   │   │   ├── calls convert_color_convention(values=rgb_array, source_dtype=rgb_dtype, target_dtype='uint8')  # Plotly's per-point colour is the 0-to-255 range uint8 names, so a float 0-to-1 field and a uint16 las field both arrive correct
+│   │   │   └── impls effective_color = the colours it mapped, a uint16 one rounding onto the display's coarser grid because a display tolerates the loss the cloud whose record these are would refuse
+│   │   ├── else
+│   │   │   └── impls effective_color = DEFAULT_POINT_COLOR
+│   │   └── return effective_color
+│   ├── calls _resolve_marker_color()
+│   ├── impls effective_color = the colour it resolved
+│   ├── impls trace = go.Scatter3d(x=..., y=..., z=..., mode="markers", marker=dict(size=point_size, color=effective_color))
 │   └── return trace
 └── def create_dash_points_component
     ├── # Assembles the Dash component that hosts the point-cloud scene and its trackball camera controls.
