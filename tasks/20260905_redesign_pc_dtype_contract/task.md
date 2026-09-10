@@ -167,7 +167,9 @@ goal: re-design pc dtype contract/provenance
       2. meta data reaches a helper in no form at all: not the record, not the override, and not a target derived from either, whatever it is called. it's just completely unrelated to the job of the per-format helpers.
    2. the main save API
       1. accepts a `meta_data` optional arg override.
-      2. calls the `PointCloud.apply_meta_data` passing down the `meta_data` optional arg, then passes the point cloud obj with meta data applied to the per-format helpers.
+      2. calls the `PointCloud.apply_meta_data` passing down the `meta_data` optional arg. e.g.:
+         1. turns each multi-column field back into one field per output column, each named by the reverse mapping, so a cloud holding xyz becomes fields x, y and z.
+      3. passes that cloud to the per-format helpers.
 4. consumers/users of `PointCloud`:
    1. any consumer of PointCloud in Pylon should be adjusted to work with the new design of PointCloud and its I/O.
       1. every caller passing dtype is updated to the meta data override.
