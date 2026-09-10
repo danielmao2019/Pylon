@@ -9,33 +9,30 @@ point_cloud.py
 ├── from typing import Any, Dict, Optional, Tuple, Union
 ├── import numpy as np
 ├── import torch
-├── from utils.dtypes import COLOR_RANGE, CONCEPTUAL_NAME, TORCH_DTYPE, cast_lossless, convert_color_convention
-├── COORDINATE_COLUMN_NAMES  # the column-name groups a source calls its coordinates, in the order they are tried: ('x', 'y', 'z') as ply, las and off name them, ('positions',) as open3d does, and ('xyz',) as a caller handing one in-memory block in does
-├── COLOR_COLUMN_NAMES  # the column-name groups a source calls its colours, in the order they are tried: ('red', 'green', 'blue') as ply and las name them, ('colors',) as open3d does, and ('rgb',) as a caller handing one in-memory block in does
+├── from utils.dtypes import COLOR_RANGE, CONCEPTUAL_NAME, TORCH_DTYPE, cast_lossless, conceptual_name_of, convert_color_convention
 └── class PointCloud
-    ├── # One point cloud: named per-point fields, every one a torch tensor of the same length on one device, over one meta data entry per field of what that field's source held.
-    ├── # A cloud is constructed out of the source's own columns under the Layout Mapping that source defines, and becomes the cloud a caller wanted only once apply_meta_data has run over the halves that source left for the caller to state.
-    ├── # apply_meta_data runs once inside every construction and again on each load and save, so it names the source columns back out of the fields it has already assembled rather than assuming it meets them unassembled.
+    ├── # One point cloud: named per-point fields, every one a torch tensor of the same length on one device, beside the record of what each of its source columns held.
+    ├── # The record is keyed on the source columns, holding for each the conceptual dtype that column held and the field it was assembled into when the cloud was constructed, and nothing after construction changes it.
     ├── # The four underscore names below — _fields, _meta_data, _length, _device — are this class's own slots, and a bare one in any node means the slot on self; __setattr__ routes exactly those to the base setter and everything else to a validated field.
     ├── def __init__(self, xyz: Optional[Union[np.ndarray, torch.Tensor]] = None, data: Optional[Dict[str, Union[np.ndarray, torch.Tensor]]] = None, meta_data: Optional[Dict[str, Dict[str, Any]]] = None, device: Optional[Union[str, torch.device]] = None) -> None
-    │   ├── # Builds a point cloud from the source's own columns, recording what each column held or standing the record it is handed in place of that, and then bringing the fields onto it.
+    │   ├── # Builds a point cloud from the source's own columns, recording what each column held and the field it is assembled into, and then brings the fields onto the target the construction's meta data resolves into.
     │   ├── def _validate_inputs [local]
     │   │   ├── assert xyz is None or xyz is an np.ndarray or a torch.Tensor
     │   │   ├── assert xyz is None or CONCEPTUAL_NAME[the dtype of xyz] is not 'uint64'  # uint64 is unsupported as a source dtype whatever the values are
-    │   │   ├── assert data is None or data is a dict whose keys are all str
+    │   │   ├── assert data is None or data is a dict whose keys are all str and whose values are all np.ndarray or torch.Tensor
     │   │   ├── assert data is None or no value of data carries a uint64 dtype  # the same refusal for the columns handed in through data
     │   │   ├── assert xyz is not None or data is not None
     │   │   ├── assert xyz is None or data is None or 'xyz' does not sit in data  # the coordinates arg becomes one more column under that name, so a data entry already holding it would be overwritten without a word
     │   │   ├── assert meta_data is None or meta_data is a dict whose keys are all str
-    │   │   ├── assert every entry meta_data holds is a dict whose keys are exactly 'dtype' and 'layout'  # a record arrives resolved rather than half-stated, so a misspelled key, a lone half and an entry stating nothing are all refused here rather than read past
-    │   │   ├── assert every dtype meta_data holds sits in TORCH_DTYPE and is not 'uint64'
-    │   │   ├── assert every layout meta_data holds is a tuple of at least one str naming no column twice
+    │   │   ├── assert no dtype meta_data states is 'uint64'  # an override at this door is refused a uint64 the way a source is
     │   │   └── assert device is None or device names a torch device
     │   ├── calls _validate_inputs()
     │   ├── def _normalize_inputs [local]
     │   │   ├── if xyz is not None
     │   │   │   └── impls data = xyz under the name 'xyz' followed by every entry of data in its own order, or by nothing when data is None  # the coordinates arg is one more source column, so the two ways of handing them in are one dict from here on
     │   │   ├── impls device = device when it is given, else the device of the first value of data when it is a torch.Tensor, else the cpu device
+    │   │   ├── if device names cuda without an index
+    │   │   │   └── impls device = the cuda device carrying the index cuda is currently on  # a field lands on the current cuda device whatever index the name leaves out, so the slot names the index every field is checked against
     │   │   └── return data, device
     │   ├── calls _normalize_inputs(xyz=xyz, data=data, device=device)
     │   ├── impls data, device = the values it returned
