@@ -437,11 +437,11 @@ core_points_display.py
 │   │   └── impls effective_color = DEFAULT_POINT_COLOR
 │   ├── impls trace = go.Scatter3d(x=..., y=..., z=..., mode="markers", marker=dict(size=effective_size, color=effective_color))
 │   └── return trace
-└── def create_dash_points_component
-    ├── # Assembles the Dash component that hosts the point-cloud scene and its trackball camera controls.
-    ├── impls assert isinstance(scene, go.Scatter3d)
-    ├── impls display = dcc.Graph(figure=go.Figure(data=[scene]))
-    └── return display  # the point-cloud display element
+├── def create_dash_points_component
+│   ├── # Assembles the Dash component that hosts the point-cloud scene and its trackball camera controls.
+│   ├── impls assert isinstance(scene, go.Scatter3d)
+│   ├── impls display = dcc.Graph(figure=go.Figure(data=[scene]))
+│   └── return display  # the point-cloud display element
 ```
 
 ### Backend schemas
