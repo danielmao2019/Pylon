@@ -253,7 +253,8 @@ conventions.py
 
 ```text
 camera_intrinsics.py
-├── from abc import ABC
+├── import math
+├── from abc import ABC, abstractmethod
 ├── from typing import ClassVar, Dict, List, Optional, Tuple, Union
 ├── import numpy as np
 ├── import torch
