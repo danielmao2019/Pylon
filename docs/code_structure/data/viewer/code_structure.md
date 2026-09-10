@@ -1849,10 +1849,10 @@ apis.py
 ```text
 core_gaussians_display.py
 ├── from data.viewer.utils.controls.camera.camera_controls.dash.trackball_camera_controls import create_dash_trackball_camera_controls
-├── def create_dash_gaussians_display(lock_roll=None)
+├── def create_dash_gaussians_display
 │   ├── # Renders a Dash Gaussian-splat display element with trackball camera controls.
 │   ├── calls create_dash_gaussians_scene
-│   ├── calls create_dash_trackball_camera_controls(lock_roll=lock_roll)
+│   ├── calls create_dash_trackball_camera_controls
 │   ├── calls create_dash_gaussians_component
 │   └── return
 ├── def create_dash_gaussians_scene
