@@ -25,6 +25,8 @@ validation.py
     ├── from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics  # inline runtime import; the top-level import is TYPE_CHECKING-only
     ├── impls asserts isinstance(intrinsics, CameraIntrinsics)
     ├── impls asserts isinstance(extrinsics, CameraExtrinsics)
+    ├── impls asserts intrinsics.device == extrinsics.device
+    ├── impls asserts intrinsics.dtype == extrinsics.dtype
     ├── impls asserts name is None or a str
     ├── impls asserts id is None or an int
     ├── impls asserts device is None or a valid torch device spec
