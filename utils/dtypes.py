@@ -1,6 +1,6 @@
 """The conceptual dtype universe and the dtype each system stores a conceptual dtype in, as tables rather than as a containment rule: the set of dtypes is closed and small, so what a containment walk would compute is written down once here."""
 
-from typing import Union
+from typing import Optional, Union
 
 import numpy as np
 import torch
@@ -110,6 +110,23 @@ COLOR_RANGE = {
     'float64': (0.0, 1.0),
     'float128': (0.0, 1.0),
 }
+
+
+def conceptual_name_of(dtype: torch.dtype, recorded: Optional[str]) -> str:
+    """Names the conceptual dtype data held at a torch dtype means, given the conceptual dtype it was recorded as, which is what tells an int32 tensor holding a uint16 colour apart from an int32 one.
+
+    Args:
+        dtype: The torch.dtype the data is held at now, as a key of CONCEPTUAL_NAME.
+        recorded: The conceptual dtype name the data was recorded as, as a key of TORCH_DTYPE, or None when nothing was recorded.
+
+    Returns:
+        The conceptual dtype name the data means, as a string: recorded when the data is still held at the torch.dtype TORCH_DTYPE names for it, otherwise the conceptual name of dtype itself.
+    """
+    if recorded is not None and TORCH_DTYPE[recorded] is dtype:
+        # data still held at the storage its recorded dtype names means that recorded dtype
+        return recorded
+    # data brought onto another storage since it was recorded, or never recorded at all, means the dtype it is held at
+    return CONCEPTUAL_NAME[dtype]
 
 
 def cast_lossless(

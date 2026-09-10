@@ -11,6 +11,7 @@ from utils.dtypes import (
     PLY_CHAR,
     TORCH_DTYPE,
     cast_lossless,
+    conceptual_name_of,
     convert_color_convention,
 )
 
@@ -154,6 +155,19 @@ def test_a_dtype_naming_no_convention_is_absent_from_the_table():
     assert (
         'int32' not in COLOR_RANGE
     ), f"int32 names a colour convention it has no bounds for: COLOR_RANGE['int32']={COLOR_RANGE['int32']}"
+
+
+def test_a_recorded_dtype_is_what_its_own_storage_means():
+    """A uint16 colour parked in an int32 tensor means uint16, an int32 tensor nothing recorded means int32, and data an override brought onto another storage means the storage it is held at."""
+    assert (
+        conceptual_name_of(torch.int32, 'uint16') == 'uint16'
+    ), f"a uint16 colour still parked in its int32 storage is named something other than uint16: conceptual_name_of(torch.int32, 'uint16')={conceptual_name_of(torch.int32, 'uint16')}"
+    assert (
+        conceptual_name_of(torch.int32, None) == 'int32'
+    ), f"an int32 tensor nothing recorded is named something other than int32: conceptual_name_of(torch.int32, None)={conceptual_name_of(torch.int32, None)}"
+    assert (
+        conceptual_name_of(torch.uint8, 'uint16') == 'uint8'
+    ), f"data brought onto uint8 storage since it was recorded as uint16 is named something other than uint8: conceptual_name_of(torch.uint8, 'uint16')={conceptual_name_of(torch.uint8, 'uint16')}"
 
 
 def test_a_lossless_cast_hands_back_the_target_dtype():
