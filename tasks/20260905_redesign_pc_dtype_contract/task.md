@@ -111,10 +111,11 @@ goal: re-design pc dtype contract/provenance
       3. constructing a `PointCloud` from another obj's fields inherits that obj's record. another obj is not a source, so construction builds no new record.
    2. override meta data:
       1. `__init__`, load point cloud and save point cloud each accept an override, and it reaches both the dtype and the layout at each.
-   3. default meta data (default layout):
-      1. when you see x, y, and z, default to stacking them into one field called xyz.
-      2. when you see red, green, and blue, default to stacking them into one field called rgb.
-      3. no other defaults defined for now.
+   3. default meta data (default layout): each format's per-format helper defines the default layout for its own format, on load and on save alike.
+      1. .ply and .las/.laz on load: when you see x, y, and z, default to stacking them into one field called xyz. when you see red, green, and blue, default to stacking them into one field called rgb.
+      2. .ply on save: xyz splits back into x, y and z, and rgb splits back into red, green and blue.
+      3. .pcd, .pth, .txt and .off: no default.
+      4. no other defaults defined for now.
    4. target meta data:
       1. the target has one entry for each field the obj holds:
       2. definition:
