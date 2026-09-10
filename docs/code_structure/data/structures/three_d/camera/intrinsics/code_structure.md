@@ -156,10 +156,10 @@ scaling.py
 
 ```text
 conventions.py
-├── from typing import Dict, Tuple
+├── from typing import Dict, Tuple, Union
 ├── import torch
 ├── from data.structures.three_d.camera.intrinsics.scaling import rescale_intr_params
-├── def transform_intr_convention(params: Dict[str, torch.Tensor], model: str, source_intr_convention: str, target_intr_convention: str) -> Dict[str, torch.Tensor]
+├── def transform_intr_convention(params: Dict[str, Union[int, float, torch.Tensor]], model: str, source_intr_convention: str, target_intr_convention: str) -> Dict[str, Union[int, float, torch.Tensor]]
 │   ├── # Restates one camera model's named params from the image-plane frame they were stated in into another, routed through the standard frame so each frame brings its own two helpers rather than one against every frame already here.
 │   ├── if source_intr_convention == target_intr_convention
 │   │   └── return params
