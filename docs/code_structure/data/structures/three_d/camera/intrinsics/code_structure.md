@@ -103,7 +103,7 @@ scaling.py
 ├── from typing import Dict, List, Optional, Tuple, Union
 ├── import numpy as np
 ├── import torch
-├── def rescale_intr_params(params: Dict[str, torch.Tensor], model: str, unit_x: Union[int, float, torch.Tensor], unit_y: Union[int, float, torch.Tensor]) -> Dict[str, torch.Tensor]
+├── def rescale_intr_params(params: Dict[str, Union[int, float, torch.Tensor]], model: str, unit_x: Union[int, float, torch.Tensor], unit_y: Union[int, float, torch.Tensor]) -> Dict[str, Union[int, float, torch.Tensor]]
 │   ├── # Restates params measured in the image-plane unit; cx / cy are coordinates for perspective models and weak-perspective offsets for ortho.
 │   ├── impls params = a copy of params
 │   ├── impls cx = unit_x * cx
