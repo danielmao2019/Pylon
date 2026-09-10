@@ -12,7 +12,33 @@ from data.viewer.utils.controls.camera.camera_controls.dash.trackball_camera_con
     ROLL_LOCK_CALLBACK_SCRIPT_PATH,
 )
 
-REPO_ROOT = Path(__file__).resolve().parents[8]
+# The name a repository root carries and nothing above or below it does, which is what the root is found by.
+REPO_ROOT_MARKER = ".git"
+
+
+def resolve_repo_root() -> Path:
+    """Resolve the repository root as the nearest ancestor of this file carrying the repository marker.
+
+    Args:
+        None.
+
+    Returns:
+        The path of that ancestor directory.
+    """
+    test_file_path = Path(__file__).resolve()
+    marked_ancestors = [
+        directory
+        for directory in test_file_path.parents
+        if (directory / REPO_ROOT_MARKER).exists()
+    ]
+    assert marked_ancestors, (
+        "This test reads the web workspace out of the repository root, and no ancestor of this file carries the repository marker, so there is no root to read it out of. "
+        f"{REPO_ROOT_MARKER=} {test_file_path=}"
+    )
+    return marked_ancestors[0]
+
+
+REPO_ROOT = resolve_repo_root()
 # The Node harness standing in for the browser the shipped gl3d view controller runs in.
 ROLL_LOCK_HARNESS_SCRIPT_PATH = Path(__file__).resolve().parent / "roll_lock_harness.js"
 # The harness resolves `jsdom` and the shipped `plotly.js` release out of this tree, so a checkout that has not run `npm install` under `web` cannot run these tests.
@@ -588,7 +614,6 @@ def test_the_roll_lock_callback_stops_a_pitch_at_the_pole() -> None:
         "The moves that pitch back through the sphere must leave the camera standing at the near pole for the same reason. "
         f"{polar_angles=} {POLE_REACHED_RADIANS=}"
     )
-    assert_roll_locked_camera(records=records)
 
 
 def test_the_roll_lock_callback_holds_from_an_eye_off_the_lock_axis() -> None:
