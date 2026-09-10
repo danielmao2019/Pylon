@@ -95,6 +95,18 @@ LIVE_PITCH_MOVE = {"dx": 0, "dy": -26}
 REVERSED_LIVE_PITCH_MOVE = {"dx": 0, "dy": 26}
 # How many pointer moves each half of that pitch runs, enough to reach its own pole from every framing below and to keep pushing well past the move that first reaches it.
 LIVE_PITCH_MOVE_COUNT = 16
+# Pointer travel, in pixels, of one pointer move of the pure-horizontal live drag. It carries no vertical share at all, so a roll lock turns it into yaw about the lock axis alone and the polar angle to that axis never moves.
+LIVE_YAW_MOVE = {"dx": 14, "dy": 0}
+# How many pointer moves the pure-horizontal live drag runs, enough to turn the camera well round the lock axis.
+LIVE_YAW_MOVE_COUNT = 24
+# Pointer travel, in pixels, of one pointer move of the pure-vertical live drag. It carries no horizontal share at all, so a roll lock turns it into pitch about the camera right axis alone and the azimuth about the lock axis never moves.
+LIVE_TILT_MOVE = {"dx": 0, "dy": -9}
+# How many pointer moves the pure-vertical live drag runs, few enough that from the equator it stops short of the pole, where the azimuth it measures stops being defined.
+LIVE_TILT_MOVE_COUNT = 5
+# Spread, in radians, above which a quantity a gesture must hold has moved under it.
+MOTION_HELD_TOLERANCE = 1e-9
+# Spread, in radians, a quantity a gesture must turn has to exceed, so a camera the gesture never moved cannot pass a hold clause by standing still.
+MOTION_TURNED_RADIANS = 0.1
 
 
 def build_pole_crossing_drags() -> List[Dict[str, int]]:
@@ -724,3 +736,107 @@ def test_the_roll_lock_callback_holds_from_an_already_inverted_camera() -> None:
 
 
 # A camera whose eye sits on its own rotation target is the one remaining degenerate framing the callback's own normalization cannot describe, and it has no test because a Plotly gl3d panel cannot report it. `Scene.initializeGLCamera` builds the panel's camera with `zoomMin: 0.01, zoomMax: 100`, which become the view controller's radius bounds `[log(0.01), log(100)]`; the eye-to-target distance is stored as that bounded radius and `setDistance` additionally ignores any non-positive distance outright, so no drag, no wheel, and no layout-seeded camera reaches a distance of 0. Measured against the plotly.js bundle the repo's `plotly` 6.7.0 ships.
+
+
+def measure_azimuths(
+    records: List[Dict[str, Any]],
+    lock_roll: Tuple[float, float, float],
+) -> List[float]:
+    """Measure each rendered eye's azimuth about the lock axis, unwrapped and relative to the first eye's meridian.
+
+    Args:
+        records: One record per rendered camera, as `run_roll_lock_harness` returns them, each `eye` measured from a rotation target at the origin.
+        lock_roll: Axis the azimuth is measured about, as a non-zero `(x, y, z)` world-space direction of any length.
+
+    Returns:
+        One azimuth in radians per record, unwrapped so consecutive azimuths never jump by a full turn, with the first record's at 0.
+    """
+    axis = normalize_vector(vector=list(lock_roll))
+
+    def _meridian(eye: List[float]) -> List[float]:
+        along_axis = sum(eye[index] * axis[index] for index in range(3))
+        return normalize_vector(
+            vector=[eye[index] - along_axis * axis[index] for index in range(3)]
+        )
+
+    reference_meridian = _meridian(eye=records[0]["eye"])
+    azimuths: List[float] = []
+    for record in records:
+        meridian = _meridian(eye=record["eye"])
+        turned = cross_vectors(left=reference_meridian, right=meridian)
+        azimuth = math.atan2(
+            sum(turned[index] * axis[index] for index in range(3)),
+            sum(reference_meridian[index] * meridian[index] for index in range(3)),
+        )
+        if azimuths:
+            azimuth += 2.0 * math.pi * round((azimuths[-1] - azimuth) / (2.0 * math.pi))
+        azimuths.append(azimuth)
+    return azimuths
+
+
+def test_a_pure_horizontal_live_drag_turns_the_camera_round_the_lock_axis_at_a_held_elevation() -> (
+    None
+):
+    """A drag with no vertical share turns the camera about the lock axis alone, so its polar angle to the axis holds at every pointer move while its azimuth turns.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    records = run_roll_lock_harness(
+        lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
+        eye=list(OFF_AXIS_EYE),
+        up=list(NON_AXIS_ALIGNED_LOCK_ROLL),
+        drags=[dict(LIVE_YAW_MOVE)] * LIVE_YAW_MOVE_COUNT,
+        reports_each_drag=False,
+    )
+    polar_angles = [record["polar"] for record in records[1:]]
+    azimuths = measure_azimuths(
+        records=records[1:], lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL
+    )
+
+    polar_spread = max(polar_angles) - min(polar_angles)
+    azimuth_spread = max(azimuths) - min(azimuths)
+    assert azimuth_spread > MOTION_TURNED_RADIANS, (
+        "A pure-horizontal drag must turn the camera round the lock axis, so the elevation it holds is held by a camera that moved. "
+        f"{azimuth_spread=} {MOTION_TURNED_RADIANS=}"
+    )
+    assert polar_spread <= MOTION_HELD_TOLERANCE, (
+        "A pure-horizontal drag must hold the camera's polar angle to the lock axis at every pointer move, since a roll lock turns it into yaw about that axis alone; a camera that flies the free trackball's path and only re-levels its horizon climbs and dives under the same drag. "
+        f"{polar_spread=} {MOTION_HELD_TOLERANCE=} {polar_angles=}"
+    )
+
+
+def test_a_pure_vertical_live_drag_pitches_the_camera_at_a_held_azimuth() -> None:
+    """A drag with no horizontal share pitches the camera about its right axis alone, so its azimuth about the lock axis holds at every pointer move while its polar angle turns.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    records = run_roll_lock_harness(
+        lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
+        eye=build_equator_eye(lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL),
+        up=list(NON_AXIS_ALIGNED_LOCK_ROLL),
+        drags=[dict(LIVE_TILT_MOVE)] * LIVE_TILT_MOVE_COUNT,
+        reports_each_drag=False,
+    )
+    polar_angles = [record["polar"] for record in records[1:]]
+    azimuths = measure_azimuths(
+        records=records[1:], lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL
+    )
+
+    polar_spread = max(polar_angles) - min(polar_angles)
+    azimuth_spread = max(azimuths) - min(azimuths)
+    assert polar_spread > MOTION_TURNED_RADIANS, (
+        "A pure-vertical drag must pitch the camera, so the azimuth it holds is held by a camera that moved. "
+        f"{polar_spread=} {MOTION_TURNED_RADIANS=}"
+    )
+    assert azimuth_spread <= MOTION_HELD_TOLERANCE, (
+        "A pure-vertical drag must hold the camera's azimuth about the lock axis at every pointer move, since a roll lock turns it into pitch about the camera right axis alone. "
+        f"{azimuth_spread=} {MOTION_HELD_TOLERANCE=} {azimuths=}"
+    )

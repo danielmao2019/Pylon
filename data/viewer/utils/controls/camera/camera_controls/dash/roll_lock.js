@@ -10,6 +10,8 @@
     const ROLL_LOCK_POLAR_ANGLE_EPSILON = 1e-6;
     // Squared distance between the reported up vector and the roll-locked one at or below which the camera is already roll-locked and no write is issued. Skipping the redundant write is what stops this module's own `Plotly.relayout` from driving an endless relayout -> correct -> relayout cycle, and what leaves a drag the wrapped rotation already locked reporting a camera this module writes nothing over.
     const ROLL_LOCK_VIOLATION_EPSILON = 1e-12;
+    // Radians a drag step turns per unit of the screen-space component the view controller hands its rotation. The controller's own trackball turns by `2 asin(|q|)` for a step of screen length `|q|`, so this keeps the locked panel's drag sensitivity equal to the free panel's.
+    const ROLL_LOCK_RADIANS_PER_DRAG_UNIT = 2;
 
     function vectorAdd(left, right) {
         return [left[0] + right[0], left[1] + right[1], left[2] + right[2]];
@@ -192,22 +194,50 @@
         });
     }
 
-    // Replaces the view controller's rotation with the roll-locked one. The wrapped call turns the camera exactly as the panel would have, and the roll-locked pose then goes back into the controller at the same keyframe timestamp that turn was written at, so what the renderer interpolates between is two locked poses and never the rolled one in between. Reading the turned camera back out means asking the controller for the pose at that timestamp, since the pose it publishes otherwise is the one it is drawing, which lags the keyframe just written.
+    // Rotates a vector about a unit axis by an angle in radians, right-handed.
+    function vectorRotateAboutAxis(vector, unitAxis, angle) {
+        const cosine = Math.cos(angle);
+        const sine = Math.sin(angle);
+        return vectorAdd(
+            vectorAdd(vectorScale(vector, cosine), vectorScale(vectorCross(unitAxis, vector), sine)),
+            vectorScale(unitAxis, vectorDot(unitAxis, vector) * (1 - cosine)),
+        );
+    }
+
+    // Turns a roll-locked pose by one drag step. The step's horizontal share yaws the eye about the lock axis and its vertical share pitches it about the camera right axis, the pitch stopping at the polar band, so a horizontal drag holds the elevation and a vertical one holds the azimuth - the motion a roll lock is, rather than the free trackball's motion with its roll taken out afterwards.
+    function resolveTurnedPose(eye, center, yaw, pitch) {
+        const yawedOffset = vectorRotateAboutAxis(
+            resolveBandedOffset(vectorSubtract(eye, center)),
+            axis,
+            ROLL_LOCK_RADIANS_PER_DRAG_UNIT * yaw,
+        );
+        const right = vectorNormalize(vectorCross(vectorNegate(yawedOffset), axis));
+        const radius = Math.sqrt(vectorLengthSquared(yawedOffset));
+        const polarAngle = Math.acos(Math.min(Math.max(vectorDot(yawedOffset, axis) / radius, -1), 1));
+        const pitchAngle = Math.min(
+            Math.max(
+                -ROLL_LOCK_RADIANS_PER_DRAG_UNIT * pitch,
+                ROLL_LOCK_POLAR_ANGLE_EPSILON - polarAngle,
+            ),
+            Math.PI - ROLL_LOCK_POLAR_ANGLE_EPSILON - polarAngle,
+        );
+        const offset = vectorRotateAboutAxis(yawedOffset, right, pitchAngle);
+        return {
+            eye: vectorAdd(center, offset),
+            up: vectorNormalize(vectorCross(right, vectorNormalize(vectorNegate(offset)))),
+        };
+    }
+
+    // Replaces the view controller's rotation with the roll-locked one. The controller's own rotation is never run: it turns the eye about the screen axes of a trackball, and on a pure-horizontal drag that alone moves the eye's polar angle to the lock axis, so keeping its eye and correcting only the up vector would fly the free trackball's path with a level horizon. The drag's screen components instead turn the pose the controller holds at that timestamp through `resolveTurnedPose`, and the turned pose is written back at the same timestamp, so the keyframe the renderer interpolates towards is the locked one.
     function holdRollLock(view) {
         if (view.rollLockHeld === true) {
             return;
         }
         view.rollLockHeld = true;
-        const rotate = view.rotate.bind(view);
         view.rotate = function (time, yaw, pitch, roll) {
-            rotate(time, yaw, pitch, roll);
             view.recalcMatrix(time);
             const center = view.computedCenter.slice();
-            const pose = resolveRollLockedPose({
-                eye: vectorToRecord(view.computedEye.slice()),
-                center: vectorToRecord(center),
-                up: vectorToRecord(view.computedUp.slice()),
-            });
+            const pose = resolveTurnedPose(view.computedEye.slice(), center, yaw, pitch);
             view.lookAt(time, pose.eye, center, pose.up);
         };
     }
