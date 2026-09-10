@@ -6,15 +6,19 @@ the figure the factory actually returns, so every assertion here reads the rende
 other half: it must render the free-roll dragmode and pin no axis, which the
 assertions below read as changing exactly one key -- the dragmode -- of the figure
 rendered before any camera-control configuration is merged into its scene.
+
+A lock lives on the Dash app rather than on a figure, so the axis reaching the rendered scene is only the framing the lock starts from. The clauses below therefore also read the app the factory was handed, which is where a caller who named an axis and nothing else would otherwise be left with a panel that only looks locked.
 """
 
 import json
 import math
-from typing import Any, Dict, Optional, Set, Tuple
+import re
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import plotly.graph_objects as go
 import pytest
 import torch
+from dash import Dash
 
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from data.viewer.utils.controls.camera.camera_controls.dash.trackball_camera_controls import (
@@ -28,6 +32,27 @@ from data.viewer.utils.displays.points.dash.core_points_display import (
 
 # Deliberately non-axis-aligned, so nothing can pass by coinciding with a world axis.
 NON_AXIS_ALIGNED_LOCK_ROLL = (0.3, 0.0, 0.95)
+# Component id of the graph the roll-locked figure below is mounted under, and
+# therefore the id the registration the factory performs must address.
+LOCKED_GRAPH_ID = "locked-display-graph"
+# The rejection each missing half of the lock target must be named by. Matching the
+# factory's own wording rather than the word `app` or `graph_id` alone is what keeps
+# these clauses from passing on the registration helper's type assertions, which
+# report a wrong type instead of naming what the lock is missing.
+MISSING_APP_MESSAGE = re.escape("Expected an `app` alongside `lock_roll`")
+MISSING_GRAPH_ID_MESSAGE = re.escape("Expected a `graph_id` alongside `lock_roll`")
+# The rejection an `app` handed in with no axis must be named by. Matching this
+# contract's own wording rather than the word `app` or `lock_roll` alone is what keeps
+# the clause from passing on some unrelated later failure that happens to mention one
+# of those words instead of naming what the lock is missing.
+MISSING_LOCK_ROLL_MESSAGE = re.escape("Expected a `lock_roll` alongside `app`")
+# The rejection a `graph_id` handed in with no axis must be named by. The sibling
+# component factories accept one, because there the id names the `dcc.Graph` they
+# return; a figure carries no id, so here the id is read for nothing but the lock and
+# this contract's own wording is what the clause matches.
+MISSING_LOCK_ROLL_FOR_GRAPH_ID_MESSAGE = re.escape(
+    "Expected a `lock_roll` alongside `graph_id`"
+)
 # The rendered JSON path the no-axis default is allowed to change, and the only one.
 DRAGMODE_JSON_PATH = "layout.scene.dragmode"
 # Call-site shapes whose rendered figures each carry scene content the merged camera
@@ -64,6 +89,24 @@ def point_cloud():
             )
         },
     )
+
+
+def clientside_registrations(app: Dash) -> List[Dict[str, Any]]:
+    """Collect the clientside callbacks registered on a Dash app.
+
+    Args:
+        app: Dash app whose callback registrations are read.
+
+    Returns:
+        List of the app's callback registration dicts whose
+        `clientside_function` is set, each carrying an `inputs` list of
+        `{"id", "property"}` dicts.
+    """
+    return [
+        registration
+        for registration in app._callback_list
+        if registration["clientside_function"] is not None
+    ]
 
 
 def expected_camera_up(lock_roll: Tuple[float, float, float]) -> Dict[str, float]:
@@ -180,6 +223,8 @@ def test_a_supplied_axis_reaches_the_rendered_scene(point_cloud):
         pc=point_cloud,
         title="Point Cloud",
         lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
+        app=Dash(__name__),
+        graph_id=LOCKED_GRAPH_ID,
     )
 
     scene = figure.layout.scene
@@ -195,6 +240,105 @@ def test_a_supplied_axis_reaches_the_rendered_scene(point_cloud):
     ), (
         "A display given a roll-lock axis must carry that axis into the rendered "
         f"camera up vector. {scene.camera.up=} {up=}"
+    )
+
+
+def test_an_axis_alone_locks_the_display(point_cloud):
+    """A figure built with an axis registers the roll lock itself, so a caller that names the axis is not left with an unlocked panel for want of a second call it had to know about."""
+    app = Dash(__name__)
+
+    create_point_cloud_display(
+        pc=point_cloud,
+        title="Point Cloud",
+        lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
+        app=app,
+        graph_id=LOCKED_GRAPH_ID,
+    )
+
+    registrations = clientside_registrations(app=app)
+    assert len(registrations) == 1, (
+        "A figure built with a roll-lock axis must put the lock on the app itself, "
+        "since seeding the rendered camera up vector holds roll through re-render "
+        f"but never through a drag. {registrations=}"
+    )
+    assert registrations[0]["inputs"] == [
+        {"id": LOCKED_GRAPH_ID, "property": "relayoutData"}
+    ], (
+        "The lock the factory registers must be driven by the graph the figure is "
+        "mounted under, which is how every camera change on it reaches the lock. "
+        f"{registrations[0]=} {LOCKED_GRAPH_ID=}"
+    )
+
+
+def test_an_axis_without_the_app_is_rejected(point_cloud):
+    """Naming an axis with no app to register the lock on is rejected, rather than silently returning a figure that only looks locked."""
+    with pytest.raises(AssertionError, match=MISSING_APP_MESSAGE):
+        create_point_cloud_display(
+            pc=point_cloud,
+            title="Point Cloud",
+            lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
+            graph_id=LOCKED_GRAPH_ID,
+        )
+
+
+def test_an_axis_without_the_graph_id_is_rejected(point_cloud):
+    """Naming an axis with no graph id for the lock to address is rejected, rather than silently returning a figure that only looks locked."""
+    with pytest.raises(AssertionError, match=MISSING_GRAPH_ID_MESSAGE):
+        create_point_cloud_display(
+            pc=point_cloud,
+            title="Point Cloud",
+            lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
+            app=Dash(__name__),
+        )
+
+
+def test_an_app_without_the_axis_is_rejected(point_cloud):
+    """Handing in an app with no axis for it to lock about is rejected, rather than silently returning the unlocked figure a caller who believed they were locking would otherwise get."""
+    with pytest.raises(AssertionError, match=MISSING_LOCK_ROLL_MESSAGE):
+        create_point_cloud_display(
+            pc=point_cloud,
+            title="Point Cloud",
+            app=Dash(__name__),
+        )
+    with pytest.raises(AssertionError, match=MISSING_LOCK_ROLL_MESSAGE):
+        create_point_cloud_display(
+            pc=point_cloud,
+            title="Point Cloud",
+            app=Dash(__name__),
+            graph_id=LOCKED_GRAPH_ID,
+        )
+
+
+def test_a_graph_id_without_the_axis_is_rejected(point_cloud):
+    """Handing in a graph id with no axis for the lock to address is rejected, because a figure carries no id of its own, so unlike the sibling component factories there is no graph here for a lone id to name."""
+    with pytest.raises(AssertionError, match=MISSING_LOCK_ROLL_FOR_GRAPH_ID_MESSAGE):
+        create_point_cloud_display(
+            pc=point_cloud,
+            title="Point Cloud",
+            graph_id=LOCKED_GRAPH_ID,
+        )
+
+
+def test_naming_none_of_the_three_changes_only_the_dragmode(point_cloud):
+    """Naming the axis, the app, and the graph id all as None renders the pre-camera-control figure changed at the dragmode alone, which is the figure the unlocked path rendered before a lock target existed, so no existing call site moves."""
+    before = json.loads(
+        render_before_camera_controls(pc=point_cloud, title="Point Cloud").to_json()
+    )
+    after = json.loads(
+        create_point_cloud_display(
+            pc=point_cloud,
+            title="Point Cloud",
+            lock_roll=None,
+            app=None,
+            graph_id=None,
+        ).to_json()
+    )
+
+    assert differing_json_paths(before=before, after=after) == {DRAGMODE_JSON_PATH}, (
+        "Naming no lock target must leave the rendered figure the unlocked path "
+        "always rendered, changed at the dragmode alone, so neither the app nor "
+        "the graph id reaches the figure. "
+        f"{differing_json_paths(before=before, after=after)=}"
     )
 
 
@@ -286,6 +430,8 @@ def test_the_two_roll_settings_render_different_scenes(point_cloud):
         pc=point_cloud,
         title="Point Cloud",
         lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
+        app=Dash(__name__),
+        graph_id=LOCKED_GRAPH_ID,
     ).layout.scene
 
     assert free_scene != locked_scene, (
@@ -306,6 +452,8 @@ def test_a_supplied_axis_composes_with_camera_state(point_cloud):
         title="Point Cloud",
         camera_state=camera_state,
         lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
+        app=Dash(__name__),
+        graph_id=LOCKED_GRAPH_ID,
     ).layout.scene.camera
 
     assert (camera.eye.x, camera.eye.y, camera.eye.z) == (1.25, 1.25, 1.25), (
