@@ -28,6 +28,71 @@ from data.structures.three_d.nerfstudio.validate import (
 )
 
 
+def load_nerfstudio_data(
+    filepath: str | Path,
+    device: str | torch.device = torch.device("cuda"),
+) -> Tuple[
+    Dict[str, Any],
+    Dict[str, float | int],
+    Tuple[int, int],
+    str,
+    torch.Tensor,
+    np.ndarray,
+    str,
+    Cameras,
+    List[str],
+    List[str] | None,
+    List[str] | None,
+    List[str] | None,
+]:
+    # Input validations
+    assert isinstance(filepath, (str, Path)), f"{type(filepath)=}"
+    assert isinstance(device, (str, torch.device)), f"{type(device)=}"
+
+    # Input normalizations
+    path = Path(filepath).resolve()
+    target_device = torch.device(device)
+
+    assert path.is_file(), f"transforms.json not found: {path}"
+    with path.open("r", encoding="utf-8") as handle:
+        data: Dict[str, Any] = json.load(handle)
+
+    validate_data(data)
+    validate_intrinsic_params(data)
+    validate_resolution_data(data)
+    validate_camera_model_data(data)
+    validate_intrinsics_data(data)
+    validate_applied_transform_data(data)
+    validate_ply_file_path_data(data=data, root_dir=path.parent)
+    validate_frames_data(data=data, root_dir=path.parent)
+    validate_split_filenames_data(data)
+
+    intrinsic_params = load_intrinsic_params(data)
+    resolution = load_resolution(data)
+    camera_model = load_camera_model(data)
+    intrinsics = load_intrinsics(data=data, device=target_device)
+    applied_transform = load_applied_transform(data)
+    ply_file_path = load_ply_file_path(data)
+    train_filenames, val_filenames, test_filenames = load_split_filenames(data)
+    cameras = load_cameras(data=data, device=target_device)
+    modalities = load_modalities(data)
+
+    return (
+        data,
+        intrinsic_params,
+        resolution,
+        camera_model,
+        intrinsics,
+        applied_transform,
+        ply_file_path,
+        cameras,
+        modalities,
+        train_filenames,
+        val_filenames,
+        test_filenames,
+    )
+
+
 def load_intrinsic_params(data: Dict[str, Any]) -> Dict[str, float | int]:
     keys = ["fl_x", "fl_y", "cx", "cy", "k1", "k2", "p1", "p2"]
     return {key: data[key] for key in keys}
@@ -151,69 +216,4 @@ def load_split_filenames(
         data["train_filenames"],
         data["val_filenames"],
         data["test_filenames"],
-    )
-
-
-def load_nerfstudio_data(
-    filepath: str | Path,
-    device: str | torch.device = torch.device("cuda"),
-) -> Tuple[
-    Dict[str, Any],
-    Dict[str, float | int],
-    Tuple[int, int],
-    str,
-    torch.Tensor,
-    np.ndarray,
-    str,
-    Cameras,
-    List[str],
-    List[str] | None,
-    List[str] | None,
-    List[str] | None,
-]:
-    # Input validations
-    assert isinstance(filepath, (str, Path)), f"{type(filepath)=}"
-    assert isinstance(device, (str, torch.device)), f"{type(device)=}"
-
-    # Input normalizations
-    path = Path(filepath).resolve()
-    target_device = torch.device(device)
-
-    assert path.is_file(), f"transforms.json not found: {path}"
-    with path.open("r", encoding="utf-8") as handle:
-        data: Dict[str, Any] = json.load(handle)
-
-    validate_data(data)
-    validate_intrinsic_params(data)
-    validate_resolution_data(data)
-    validate_camera_model_data(data)
-    validate_intrinsics_data(data)
-    validate_applied_transform_data(data)
-    validate_ply_file_path_data(data=data, root_dir=path.parent)
-    validate_frames_data(data=data, root_dir=path.parent)
-    validate_split_filenames_data(data)
-
-    intrinsic_params = load_intrinsic_params(data)
-    resolution = load_resolution(data)
-    camera_model = load_camera_model(data)
-    intrinsics = load_intrinsics(data=data, device=target_device)
-    applied_transform = load_applied_transform(data)
-    ply_file_path = load_ply_file_path(data)
-    train_filenames, val_filenames, test_filenames = load_split_filenames(data)
-    cameras = load_cameras(data=data, device=target_device)
-    modalities = load_modalities(data)
-
-    return (
-        data,
-        intrinsic_params,
-        resolution,
-        camera_model,
-        intrinsics,
-        applied_transform,
-        ply_file_path,
-        cameras,
-        modalities,
-        train_filenames,
-        val_filenames,
-        test_filenames,
     )

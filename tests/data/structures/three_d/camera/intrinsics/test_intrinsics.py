@@ -23,26 +23,6 @@ from data.structures.three_d.camera.intrinsics.validation import (
 )
 
 
-def _tensor_params(
-    params: Dict[str, Union[int, float]], requires_grad: bool = False
-) -> Dict[str, torch.Tensor]:
-    """Build scalar tensor intrinsics params from numeric values.
-
-    Args:
-        params: Numeric intrinsics params keyed by model field name.
-        requires_grad: Whether floating projection params should require gradients.
-
-    Returns:
-        A dict with every param represented as a scalar float32 tensor.
-    """
-    return {
-        key: torch.tensor(
-            float(value), dtype=torch.float32, requires_grad=requires_grad
-        )
-        for key, value in params.items()
-    }
-
-
 def test_validate_camera_model_accepts_all_supported() -> None:
     """validate_camera_model accepts simple_pinhole, pinhole, and ortho.
 
@@ -1677,3 +1657,23 @@ def test_scale_intrinsics_keeps_tensor_state_differentiable() -> None:
             "Expected the tensor scale factors to receive a gradient. "
             f"{model=} {scale.grad=}"
         )
+
+
+def _tensor_params(
+    params: Dict[str, Union[int, float]], requires_grad: bool = False
+) -> Dict[str, torch.Tensor]:
+    """Build scalar tensor intrinsics params from numeric values.
+
+    Args:
+        params: Numeric intrinsics params keyed by model field name.
+        requires_grad: Whether floating projection params should require gradients.
+
+    Returns:
+        A dict with every param represented as a scalar float32 tensor.
+    """
+    return {
+        key: torch.tensor(
+            float(value), dtype=torch.float32, requires_grad=requires_grad
+        )
+        for key, value in params.items()
+    }

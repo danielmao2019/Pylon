@@ -2,6 +2,49 @@
 
 ## Code implementation structure
 
+`models/three_d/point_cloud/render/common/apply_point_size_postprocessing.py`
+
+```text
+apply_point_size_postprocessing.py
+├── from typing import Union
+├── import torch
+├── from models.three_d.point_cloud.render.common.create_circular_kernel_offsets import create_circular_kernel_offsets
+└── def apply_point_size_postprocessing(rendered_image: torch.Tensor, depth_map: torch.Tensor, point_size: float, ignore_value: Union[int, float] = 0.0) -> torch.Tensor
+    ├── # Emulates a point_size splat after rasterization: a pixel takes the rendered value of the last circular-kernel neighbour, in kernel order, whose input depth is in front of its own, if any, depths == ignore_value counting as behind all others.
+    ├── if point_size <= 1.0
+    │   └── return rendered_image
+    ├── impls device = rendered_image.device
+    ├── impls is_multichannel = rendered_image.ndim == 3
+    ├── impls H, W = the last two dims of rendered_image's shape
+    ├── impls result = a clone of rendered_image
+    ├── calls create_circular_kernel_offsets(point_size, device)
+    ├── impls kernel_offsets = the (y, x) offsets it returned
+    ├── impls y_coords, x_coords = the ij-indexed meshgrid of arange(H) and arange(W) on device  # impls-node-one-step:skip
+    ├── for dy, dx in kernel_offsets
+    │   ├── impls neighbor_y = y_coords + dy
+    │   ├── impls neighbor_x = x_coords + dx
+    │   ├── impls valid_mask = the elementwise test that neighbor_y lies in [0, H) and neighbor_x lies in [0, W)  # impls-node-one-step:skip
+    │   ├── if not valid_mask.any()
+    │   │   └── continue
+    │   ├── impls curr_y = y_coords selected by valid_mask
+    │   ├── impls curr_x = x_coords selected by valid_mask
+    │   ├── impls neighbor_y = neighbor_y selected by valid_mask
+    │   ├── impls neighbor_x = neighbor_x selected by valid_mask
+    │   ├── impls neighbor_depths = depth_map at rows neighbor_y, cols neighbor_x
+    │   ├── impls current_depths = depth_map at rows curr_y, cols curr_x
+    │   ├── impls propagate_mask = neighbor_depths != ignore_value, and either current_depths == ignore_value or neighbor_depths < current_depths  # impls-node-one-step:skip
+    │   └── if propagate_mask.any()
+    │       ├── impls curr_y = curr_y selected by propagate_mask
+    │       ├── impls curr_x = curr_x selected by propagate_mask
+    │       ├── impls neighbor_y = neighbor_y selected by propagate_mask
+    │       ├── impls neighbor_x = neighbor_x selected by propagate_mask
+    │       ├── if is_multichannel
+    │       │   └── impls assign rendered_image[:, neighbor_y, neighbor_x] into result[:, curr_y, curr_x]
+    │       └── else
+    │           └── impls assign rendered_image[neighbor_y, neighbor_x] into result[curr_y, curr_x]
+    └── return result
+```
+
 `models/three_d/point_cloud/render/common/create_circular_kernel_offsets.py`
 
 ```text

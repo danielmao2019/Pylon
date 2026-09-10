@@ -7,11 +7,12 @@
 ```text
 test_intrinsics.py
 ├── import ast
+├── import numpy as np
 ├── import pytest
 ├── import torch
 ├── import warnings
 ├── from pathlib import Path
-├── from typing import Dict, Set, Tuple
+├── from typing import Dict, Set, Tuple, Union
 ├── from data.structures.three_d.camera.intrinsics.camera_intrinsics import CameraIntrinsicsOrtho, CameraIntrinsicsPinhole, CameraIntrinsicsSimplePinhole, build_camera_intrinsics
 ├── from data.structures.three_d.camera.intrinsics.validation import validate_camera_intrinsics_attributes, validate_camera_intrinsics_invariants, validate_camera_intrinsics_params, validate_camera_model
 ├── def test_validate_camera_model_accepts_all_supported
@@ -28,19 +29,23 @@ test_intrinsics.py
 ├── def test_validate_intrinsics_params_dispatches_per_model_tensor_keys
 │   ├── # validate_camera_intrinsics_params enforces each model's named scalar tensor keys beside the h and w every model carries.
 │   ├── for each (model, its named parameter keys)
+│   │   ├── calls _tensor_params(params=its own numeric key set)
 │   │   ├── calls validate_camera_intrinsics_params(model=this model, intr_convention="standard", params=its own key set)
 │   │   ├── impls assert the returned params dict equals the accepted one
 │   │   └── with pytest.raises(AssertionError)
+│   │       ├── calls _tensor_params(params=another model's numeric key set)
 │   │       └── calls validate_camera_intrinsics_params(model=this model, intr_convention="standard", params=another model's key set)
 │   └── return
 ├── def test_validate_intrinsics_params_rejects_a_params_dict_missing_the_resolution
 │   ├── # h and w are two of every model's own params rather than a resolution supplied beside them, so a dict carrying the projection keys alone is rejected ahead of the model's own dispatch.
 │   ├── for each model in {simple_pinhole, pinhole, ortho}
 │   │   └── with pytest.raises(AssertionError)
+│   │       ├── calls _tensor_params(params=its projection keys without h and w)
 │   │       └── calls validate_camera_intrinsics_params(model=this model, intr_convention="standard", params=its projection keys without h and w)
 │   └── return
 ├── def test_the_principal_point_must_lie_on_the_image_in_its_own_frames_extent
 │   ├── # A principal point is where the optical axis meets the image, so it lies on the image — and what that bound is depends on the frame, which is why the check reads the two together rather than either alone.
+│   ├── calls _tensor_params(params=an ortho key set whose principal point lies off the image)
 │   ├── calls validate_camera_intrinsics_invariants(model=a supported model, intr_convention=each frame in turn, params=a principal point placed against that frame's own extent)
 │   ├── impls assert a standard cx of w and cy of h pass, and either one past its own side fails                            # impls-node-one-step:skip
 │   ├── impls assert an opengl or vulkan principal point passes within plus or minus one on both axes and fails outside it  # impls-node-one-step:skip
@@ -49,6 +54,9 @@ test_intrinsics.py
 │   └── return
 ├── def test_a_centred_principal_point_survives_its_models_own_key_dispatch
 │   ├── # Every frame but standard puts the origin at the image's centre, so half of it carries a negative principal point — which the per-model key dispatch must not read as out of range, that bound belonging to the frame alone.
+│   ├── calls _tensor_params(params=simple_pinhole's key set at a negative cx and cy)
+│   ├── calls _tensor_params(params=pinhole's key set at a negative cx and cy)
+│   ├── calls _tensor_params(params=ortho's key set at a negative cx and cy)
 │   ├── for each model in {simple_pinhole, pinhole, ortho}
 │   │   ├── calls validate_camera_intrinsics_params(model=this model, intr_convention="opengl", params=its own key set at a negative cx and cy)
 │   │   └── impls assert the returned params dict equals the accepted one
@@ -63,9 +71,12 @@ test_intrinsics.py
 │   └── return
 ├── def test_validate_intrinsics_attributes_checks_model_intr_convention_params_device_dtype
 │   ├── # validate_camera_intrinsics_attributes validates the camera model, image-plane frame, tensor params, device, and dtype together.
+│   ├── calls _tensor_params(params=a pinhole key set)
 │   ├── calls validate_camera_intrinsics_attributes(model=a supported model, intr_convention="standard", params=its matching tensor params, device=a valid device, dtype=a floating torch dtype)
 │   ├── for each attribute broken in turn (the model, the intr_convention, the params, the device, the dtype)
 │   │   └── with pytest.raises(AssertionError)
+│   │       ├── if the params are the attribute broken
+│   │       │   └── calls _tensor_params(params=a simple_pinhole key set)
 │   │       └── calls validate_camera_intrinsics_attributes
 │   └── return
 ├── def test_validate_intrinsics_params_rejects_python_scalars
@@ -73,6 +84,22 @@ test_intrinsics.py
 │   ├── for each supported model
 │   │   └── with pytest.raises(AssertionError)
 │   │       └── calls validate_camera_intrinsics_params(model=model, intr_convention="standard", params=matching Python scalar params)
+│   └── return
+├── def test_intrinsics_constructor_normalizes_scalar_compatible_params_to_tensors
+│   ├── # build_camera_intrinsics turns Python, numpy (0-d or one-element) and tensor scalar params into 0-d tensors of the requested dtype, the intrinsics landing on the requested device and a tensor param keeping its autograd path through project.
+│   ├── impls fx = a float64 scalar tensor of 400.0 requiring grad
+│   ├── calls build_camera_intrinsics(model="pinhole", params={"fx": fx, "fy": np.array(410.0, dtype=np.float64), "cx": 160.0, "cy": np.array([120.0], dtype=np.float64), "h": 240, "w": 320}, intr_convention="standard", device="cpu", dtype=torch.float64)
+│   ├── impls intrinsics = the CameraIntrinsics it built
+│   ├── impls assert intrinsics.dtype == torch.float64
+│   ├── impls assert intrinsics.device == torch.device("cpu")
+│   ├── for key, value in intrinsics.params.items()
+│   │   ├── impls assert value is a torch.Tensor
+│   │   ├── impls assert value.shape == ()
+│   │   └── impls assert value.dtype == torch.float64
+│   ├── calls intrinsics.project(points_camera=a float64 [[1.0, 2.0, 4.0]] tensor)
+│   ├── impls loss = the sum of the image points it returned
+│   ├── calls loss.backward
+│   ├── impls assert fx.grad is not None
 │   └── return
 ├── def test_build_camera_intrinsics_dispatches_to_model_subclass
 │   ├── # build_camera_intrinsics returns the CameraIntrinsicsSimplePinhole / CameraIntrinsicsPinhole / CameraIntrinsicsOrtho instance for its model string.
@@ -83,6 +110,7 @@ test_intrinsics.py
 │   └── return
 ├── def test_intrinsics_constructor_applies_requested_device_dtype_through_to
 │   ├── # CameraIntrinsics.__init__ delegates requested device / dtype movement to the object's to method.
+│   ├── calls _tensor_params(params=a pinhole key set)
 │   ├── calls build_camera_intrinsics(model=a supported model, params=tensor scalar params, device=a valid device, dtype=a floating torch dtype)
 │   ├── impls assert every param tensor has the requested device
 │   ├── impls assert every param tensor has the requested dtype
@@ -91,6 +119,7 @@ test_intrinsics.py
 │   └── return
 ├── def test_intrinsics_to_follows_tensor_to_semantics
 │   ├── # CameraIntrinsics.to applies Tensor.to-style device / dtype / copy semantics to every scalar param tensor.
+│   ├── calls _tensor_params(params=a pinhole key set)
 │   ├── calls build_camera_intrinsics(model=a supported model, params=tensor scalar params)
 │   ├── calls intrinsics.to(device=a valid device, dtype=a floating torch dtype, copy=True)
 │   ├── impls assert every returned param tensor has the requested device
@@ -274,21 +303,27 @@ test_intrinsics.py
 ├── def test_intrinsics_tensor_state_stays_differentiable_through_project
 │   ├── # Tensor intrinsics state stays on the autograd path through projection.
 │   ├── for each of the three camera models
+│   │   ├── calls _tensor_params(params=that model's numeric key set, requires_grad=True)
 │   │   ├── calls build_camera_intrinsics(model=model, params=tensor scalar params with requires_grad, intr_convention="standard")
 │   │   ├── calls intrinsics.project(points_camera=valid camera-space points)
 │   │   ├── impls loss = image_points.sum()
 │   │   ├── calls loss.backward
 │   │   └── impls assert every source tensor param receives a gradient
 │   └── return
-└── def test_scale_intrinsics_keeps_tensor_state_differentiable
-    ├── # CameraIntrinsics.scale_intrinsics keeps tensor state and tensor scale factors on the autograd path.
-    ├── for each of the three camera models
-    │   ├── calls build_camera_intrinsics(model=model, params=tensor scalar params with requires_grad, intr_convention="standard")
-    │   ├── calls intrinsics.scale_intrinsics(scale=tensor scalar scale factors with requires_grad)
-    │   ├── calls scaled_intrinsics.project(points_camera=valid camera-space points)
-    │   ├── impls loss = image_points.sum()
-    │   ├── calls loss.backward
-    │   ├── impls assert source tensor params receive gradients
-    │   └── impls assert scale factors receive gradients
-    └── return
+├── def test_scale_intrinsics_keeps_tensor_state_differentiable
+│   ├── # CameraIntrinsics.scale_intrinsics keeps tensor state and tensor scale factors on the autograd path.
+│   ├── for each of the three camera models
+│   │   ├── calls _tensor_params(params=that model's numeric key set, requires_grad=True)
+│   │   ├── calls build_camera_intrinsics(model=model, params=tensor scalar params with requires_grad, intr_convention="standard")
+│   │   ├── calls intrinsics.scale_intrinsics(scale=tensor scalar scale factors with requires_grad)
+│   │   ├── calls scaled_intrinsics.project(points_camera=valid camera-space points)
+│   │   ├── impls loss = image_points.sum()
+│   │   ├── calls loss.backward
+│   │   ├── impls assert source tensor params receive gradients
+│   │   └── impls assert scale factors receive gradients
+│   └── return
+└── def _tensor_params(params: Dict[str, Union[int, float]], requires_grad: bool = False) -> Dict[str, torch.Tensor]
+    ├── # Restates each numeric intrinsics param it is given, h and w too when present, as a scalar float32 tensor, all sharing the one requires_grad flag.
+    ├── impls build the dict mapping each key of params to a scalar float32 tensor of float(its value), requiring grad when requires_grad
+    └── return  # the dict it built
 ```
