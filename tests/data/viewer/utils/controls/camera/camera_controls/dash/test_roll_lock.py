@@ -377,7 +377,7 @@ def test_a_camera_looking_down_the_lock_axis_keeps_a_usable_frame() -> None:
     records = run_roll_lock_harness(
         lock_roll=TOP_DOWN_LOCK_ROLL,
         eye=[0.0, 0.0, ORBIT_RADIUS],
-        up=list(TOP_DOWN_LOCK_ROLL),
+        up=build_up_across_lock_axis(lock_roll=TOP_DOWN_LOCK_ROLL),
         drags=[],
     )
 
