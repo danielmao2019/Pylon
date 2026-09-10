@@ -9,7 +9,7 @@ validation.py
 ├── from typing import TYPE_CHECKING, List, Optional, Union
 ├── import torch
 ├── if TYPE_CHECKING  # annotation-only imports; the runtime type checks import the two classes inline
-│   ├── from data.structures.three_d.camera.intrinsics.camera_intrinsics import CameraIntrinsics, build_camera_intrinsics
+│   ├── from data.structures.three_d.camera.intrinsics.camera_intrinsics import CameraIntrinsics
 │   └── from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
 ├── def validate_cameras_attributes(intrinsics: "CameraIntrinsics", extrinsics: "CameraExtrinsics", names: Optional[List[Optional[str]]], ids: Optional[List[Optional[int]]], device: Optional[Union[str, torch.device]], dtype: Optional[torch.dtype]) -> None
 │   ├── # Single-entry validation for Cameras.__init__: validate the batched component pair, the metadata parallel to its batch axis, and the optional tensor placement request.
