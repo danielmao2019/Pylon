@@ -7,7 +7,7 @@
 ```text
 convert.py
 ├── from pathlib import Path
-├── from typing import Dict
+├── from typing import Dict, Union
 ├── import numpy as np
 ├── from data.structures.three_d.colmap.colmap_data import COLMAP_Data
 ├── from data.structures.three_d.colmap.load import ColmapPoint3D
