@@ -11,6 +11,7 @@ models/three_d/point_cloud/render/
 │   ├── create_circular_kernel_offsets.py
 │   ├── prepare_points_for_rendering.py  # world-to-camera via world_to_camera_transform, camera-to-image via CameraIntrinsics.project, frustum cull, OOM-adaptive batching
 │   └── validate_rendering_inputs.py
+├── display.py  # renders a point cloud for on-screen display
 ├── render_depth.py
 ├── render_mask.py
 ├── render_normal.py
