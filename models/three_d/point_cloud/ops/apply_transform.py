@@ -125,38 +125,19 @@ def apply_transform(
     """Apply a 4x4 transformation matrix to points using homogeneous coordinates.
 
     Args:
-        points: Points to transform, numpy.ndarray or torch.Tensor of shape [N, 3]
-            or batched [1, N, 3], any float dtype. The type, dtype, and (for
-            tensors) device of the output match this input.
-        transform: 4x4 transformation matrix as a list, numpy.ndarray, or
-            torch.Tensor of shape [4, 4], or a stack [..., 4, 4] carrying
-            leading batch axes (a stack of one, [1, 4, 4], keeps its axis).
-            Normalized to the type, dtype, and device of points, its leading
-            axes left as they came in. A stack broadcasts over its leading
-            axes, so every matrix it carries transforms the same [N, 3] points.
-        inplace: If True, the transformed coordinates are copied back into points
-            and points is returned; if False, a new array/tensor is returned.
-            Requires a transform carrying no leading batch axes, since those yield
-            one copy of the points per entry and leave no single buffer to write
-            back into.
-        max_divide: Maximum number of times the torch matmul may halve its row
-            batch on CUDA OOM (forwarded to chunked_matmul); ignored on the numpy
-            path.
-        num_divide: If not None, the fixed number of halvings for the torch matmul
-            row batch (forwarded to chunked_matmul); ignored on the numpy path.
+        points: Points to transform, numpy.ndarray or torch.Tensor of shape [N, 3] or batched [1, N, 3], any float dtype. The type, dtype, and (for tensors) device of the output match this input.
+        transform: 4x4 transformation matrix as a list, numpy.ndarray, or torch.Tensor of shape [4, 4], or a stack [..., 4, 4] carrying leading batch axes (a stack of one, [1, 4, 4], keeps its axis). Normalized to the type, dtype, and device of points, its leading axes left as they came in. A stack broadcasts over its leading axes, so every matrix it carries transforms the same [N, 3] points.
+        inplace: If True, the transformed coordinates are copied back into points and points is returned; if False, a new array/tensor is returned. Requires a transform carrying no leading batch axes, since those yield one copy of the points per entry and leave no single buffer to write back into.
+        max_divide: Maximum number of times the torch matmul may halve its row batch on CUDA OOM (forwarded to chunked_matmul); ignored on the numpy path.
+        num_divide: If not None, the fixed number of halvings for the torch matmul row batch (forwarded to chunked_matmul); ignored on the numpy path.
 
     Returns:
-        Transformed points as the same type as points, numpy.ndarray or
-        torch.Tensor of shape [N, 3] or [1, N, 3], gaining the transform's
-        leading batch axes as [..., N, 3] when the transform carries any. When
-        inplace, this is the same object as points, which a transform carrying
-        leading batch axes therefore cannot be.
+        Transformed points as the same type as points, numpy.ndarray or torch.Tensor of shape [N, 3] or [1, N, 3], gaining the transform's leading batch axes as [..., N, 3] when the transform carries any. When inplace, this is the same object as points, which a transform carrying leading batch axes therefore cannot be.
     """
 
     def _validate_inputs() -> None:
         if inplace:
-            # Leading axes survive normalization, so even a [1, 4, 4] transform genuinely
-            # yields its own copy of the points and cannot be written back into points.
+            # Leading axes survive normalization, so even a [1, 4, 4] transform genuinely yields its own copy of the points and cannot be written back into points.
             assert (
                 len(np.shape(transform)) == 2
             ), f"inplace=True requires a transform with no leading axes: they yield one copy of the points per entry, leaving no single buffer to write back into, got {np.shape(transform)=}"
