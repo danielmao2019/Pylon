@@ -203,7 +203,10 @@ conventions.py
 │   └── return  # params, on the standard frame
 ├── def _pytorch3d_to_standard(params: Dict[str, Union[int, float, torch.Tensor]], model: str) -> Dict[str, Union[int, float, torch.Tensor]]
 │   ├── # The inbound half of the same frame, the three steps run in reverse.
-│   ├── impls unit = min(h, w) / 2
+│   ├── if h or w is a torch.Tensor
+│   │   └── impls unit = torch.minimum(h, w) / 2
+│   ├── else
+│   │   └── impls unit = min(h, w) / 2
 │   ├── calls rescale_intr_params(params=params, model=model, unit_x=unit, unit_y=unit)
 │   ├── calls _reverse_axes(params=params, axes=("x", "y"))
 │   ├── calls _uncentre_principal_point(params=params)
@@ -223,7 +226,10 @@ conventions.py
 │   └── return  # params, on the opengl frame
 ├── def _standard_to_pytorch3d(params: Dict[str, Union[int, float, torch.Tensor]], model: str) -> Dict[str, Union[int, float, torch.Tensor]]
 │   ├── # Restates pixel params on PyTorch3D's device frame, whose origin is the image's centre, whose x runs toward the left edge and y toward the top, and whose shorter side alone spans [-1, 1].
-│   ├── impls unit = 2 / min(h, w)  # the one frame here normalizing both axes by a single side, letting the longer one reach past $1$
+│   ├── if h or w is a torch.Tensor
+│   │   └── impls unit = 2 / torch.minimum(h, w)  # the one frame here normalizing both axes by a single side, letting the longer one reach past $1$
+│   ├── else
+│   │   └── impls unit = 2 / min(h, w)
 │   ├── calls _centre_principal_point(params=params)
 │   ├── calls _reverse_axes(params=params, axes=("x", "y"))  # standard runs x toward the right edge and y toward the bottom, PyTorch3D x toward the left and y toward the top
 │   ├── calls rescale_intr_params(params=params, model=model, unit_x=unit, unit_y=unit)
