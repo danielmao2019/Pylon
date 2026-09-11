@@ -411,7 +411,7 @@ apis.py
 
 ```text
 core_points_display.py
-├── from typing import Any, Dict, Optional, Tuple, Union
+├── from typing import Optional, Tuple
 ├── import plotly.graph_objects as go
 ├── from dash import dcc
 ├── from data.structures.three_d.point_cloud.point_cloud import PointCloud
@@ -1444,7 +1444,7 @@ scene_graph_display.ts
 
 ```text
 apis.py
-├── from typing import Optional, Tuple
+├── from typing import Optional
 ├── import torch
 ├── from dash import dcc
 ├── from data.viewer.utils.displays.mesh.dash.core_mesh_display import create_dash_mesh_display
