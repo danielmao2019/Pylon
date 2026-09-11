@@ -96,22 +96,12 @@ validation.py
     └── return
 ```
 
-`data/structures/three_d/camera/intrinsics/scaling.py`
-
-```text
-scaling.py
-├── from typing import Dict, List, Optional, Tuple, Union
-├── import numpy as np
-├── import torch
-```
-
 `data/structures/three_d/camera/intrinsics/conventions.py`
 
 ```text
 conventions.py
 ├── from typing import Dict, Tuple, Union
 ├── import torch
-├── from data.structures.three_d.camera.intrinsics.scaling import rescale_intr_params
 ├── def transform_intr_convention(params: Dict[str, Union[int, float, torch.Tensor]], model: str, source_intr_convention: str, target_intr_convention: str) -> Dict[str, Union[int, float, torch.Tensor]]
 │   ├── # Restates one camera model's named params from the image-plane frame they were stated in into another, routed through the standard frame so each frame brings its own two helpers rather than one against every frame already here.
 │   ├── if source_intr_convention == target_intr_convention
@@ -150,7 +140,7 @@ conventions.py
 ├── def _opengl_to_standard(params: Dict[str, Union[int, float, torch.Tensor]], model: str) -> Dict[str, Union[int, float, torch.Tensor]]
 │   ├── # The inbound half of the same frame, the three steps run in reverse so a round trip returns what it started as.
 │   ├── impls unit_x, unit_y = w / 2, h / 2
-│   ├── calls rescale_intr_params(params=params, model=model, unit_x=unit_x, unit_y=unit_y)
+│   ├── calls _rescale_intr_params(params=params, model=model, unit_x=unit_x, unit_y=unit_y)
 │   ├── calls _reverse_axes(params=params, axes=("y",))
 │   ├── calls _uncentre_principal_point(params=params)
 │   └── return  # params, on the standard frame
@@ -160,14 +150,14 @@ conventions.py
 │   │   └── impls unit = torch.minimum(h, w) / 2
 │   ├── else
 │   │   └── impls unit = min(h, w) / 2
-│   ├── calls rescale_intr_params(params=params, model=model, unit_x=unit, unit_y=unit)
+│   ├── calls _rescale_intr_params(params=params, model=model, unit_x=unit, unit_y=unit)
 │   ├── calls _reverse_axes(params=params, axes=("x", "y"))
 │   ├── calls _uncentre_principal_point(params=params)
 │   └── return  # params, on the standard frame
 ├── def _vulkan_to_standard(params: Dict[str, Union[int, float, torch.Tensor]], model: str) -> Dict[str, Union[int, float, torch.Tensor]]
 │   ├── # The inbound half of the same frame, the two steps run in reverse.
 │   ├── impls unit_x, unit_y = w / 2, h / 2
-│   ├── calls rescale_intr_params(params=params, model=model, unit_x=unit_x, unit_y=unit_y)
+│   ├── calls _rescale_intr_params(params=params, model=model, unit_x=unit_x, unit_y=unit_y)
 │   ├── calls _uncentre_principal_point(params=params)
 │   └── return  # params, on the standard frame
 ├── def _standard_to_opengl(params: Dict[str, Union[int, float, torch.Tensor]], model: str) -> Dict[str, Union[int, float, torch.Tensor]]
@@ -175,7 +165,7 @@ conventions.py
 │   ├── impls unit_x, unit_y = 2 / w, 2 / h              # each axis spans [-1, 1] across its own side
 │   ├── calls _centre_principal_point(params=params)     # -> params, off the top-left corner onto the image's centre
 │   ├── calls _reverse_axes(params=params, axes=("y",))  # standard's y runs toward the bottom edge and OpenGL's toward the top
-│   ├── calls rescale_intr_params(params=params, model=model, unit_x=unit_x, unit_y=unit_y)
+│   ├── calls _rescale_intr_params(params=params, model=model, unit_x=unit_x, unit_y=unit_y)
 │   └── return  # params, on the opengl frame
 ├── def _standard_to_pytorch3d(params: Dict[str, Union[int, float, torch.Tensor]], model: str) -> Dict[str, Union[int, float, torch.Tensor]]
 │   ├── # Restates pixel params on PyTorch3D's device frame, whose origin is the image's centre, whose x runs toward the left edge and y toward the top, and whose shorter side alone spans [-1, 1].
@@ -185,13 +175,13 @@ conventions.py
 │   │   └── impls unit = 2 / min(h, w)
 │   ├── calls _centre_principal_point(params=params)
 │   ├── calls _reverse_axes(params=params, axes=("x", "y"))  # standard runs x toward the right edge and y toward the bottom, PyTorch3D x toward the left and y toward the top
-│   ├── calls rescale_intr_params(params=params, model=model, unit_x=unit, unit_y=unit)
+│   ├── calls _rescale_intr_params(params=params, model=model, unit_x=unit, unit_y=unit)
 │   └── return  # params, on the pytorch3d frame
 ├── def _standard_to_vulkan(params: Dict[str, Union[int, float, torch.Tensor]], model: str) -> Dict[str, Union[int, float, torch.Tensor]]
 │   ├── # Restates pixel params on Vulkan's device frame, which agrees with standard on both axis directions and differs from OpenGL's in exactly that.
 │   ├── impls unit_x, unit_y = 2 / w, 2 / h
 │   ├── calls _centre_principal_point(params=params)
-│   ├── calls rescale_intr_params(params=params, model=model, unit_x=unit_x, unit_y=unit_y)
+│   ├── calls _rescale_intr_params(params=params, model=model, unit_x=unit_x, unit_y=unit_y)
 │   └── return  # params, on the vulkan frame
 ├── def _centre_principal_point(params: Dict[str, Union[int, float, torch.Tensor]]) -> Dict[str, Union[int, float, torch.Tensor]]
 │   ├── # Moves the principal point off the image's top-left corner onto its centre, the separation no axis reversal can carry and the largest of the three.
@@ -206,7 +196,7 @@ conventions.py
 │   ├── # Moves the principal point back off the image's centre onto its top-left corner.
 │   ├── impls cx, cy = cx + w / 2, cy + h / 2 in a copy of params
 │   └── return  # params, on a corner origin
-└── def rescale_intr_params(params: Dict[str, Union[int, float, torch.Tensor]], model: str, unit_x: Union[int, float, torch.Tensor], unit_y: Union[int, float, torch.Tensor]) -> Dict[str, Union[int, float, torch.Tensor]]
+└── def _rescale_intr_params(params: Dict[str, Union[int, float, torch.Tensor]], model: str, unit_x: Union[int, float, torch.Tensor], unit_y: Union[int, float, torch.Tensor]) -> Dict[str, Union[int, float, torch.Tensor]]
     ├── # Restates params measured in the image-plane unit; cx / cy are coordinates for perspective models and weak-perspective offsets for ortho.
     ├── impls params = a copy of params
     ├── impls cx = unit_x * cx
@@ -235,7 +225,6 @@ camera_intrinsics.py
 ├── import numpy as np
 ├── import torch
 ├── from data.structures.three_d.camera.intrinsics.conventions import transform_intr_convention
-├── from data.structures.three_d.camera.intrinsics.scaling import resolve_target_resolution
 ├── from data.structures.three_d.camera.intrinsics.validation import validate_camera_intrinsics_attributes, validate_intr_convention
 ├── class CameraIntrinsics(ABC)   [abstract]
 │   ├── # Abstract base for a camera's intrinsics: owns tensor named params, image-plane frame, device, and dtype, with each subclass being one camera model.
@@ -292,9 +281,9 @@ camera_intrinsics.py
 │   │   │   └── impls assert exactly one of resolution and scale is given  # impls-node-one-step:skip; a target resolution and a factor are two ways to name the same thing, and giving both leaves unstated which one wins
 │   │   ├── calls _validate_inputs
 │   │   ├── def _normalize_inputs [local]
-│   │   │   ├── calls resolve_target_resolution(params=self._params, resolution=resolution, scale=scale)  # -> resolution; the target the params are restated against, whichever of the two forms named it
+│   │   │   ├── calls _resolve_target_resolution(params=self._params, resolution=resolution, scale=scale)  # -> resolution; the target the params are restated against, whichever of the two forms named it
 │   │   │   ├── if scale is not None
-│   │   │   │   └── impls sx, sy = the caller's factor, per axis  # taken raw rather than re-derived from resolution, which resolve_target_resolution detached and rounded to whole pixels, severing a tensor factor from the autograd graph
+│   │   │   │   └── impls sx, sy = the caller's factor, per axis  # taken raw rather than re-derived from resolution, which _resolve_target_resolution detached and rounded to whole pixels, severing a tensor factor from the autograd graph
 │   │   │   ├── else
 │   │   │   │   └── impls sx, sy = resolution[1] / self._params["w"], resolution[0] / self._params["h"]  # the size the params are already stated against is two of those params, the one place every model states it
 │   │   │   └── return resolution, sx, sy
@@ -421,7 +410,7 @@ camera_intrinsics.py
 │       ├── impls in place: out[..., 0] = fx * out[..., 0] + cx  (mul_ / add_)                                      # impls-node-one-step:skip
 │       ├── impls in place: out[..., 1] = fy * out[..., 1] + cy  (mul_ / add_)                                      # impls-node-one-step:skip
 │       └── return  # out, the [..., 2] image points (a view into points_camera when inplace)
-├── def resolve_target_resolution(params: Dict[str, torch.Tensor], resolution: Optional[Union[int, Tuple[int, int], List[int], np.ndarray, torch.Tensor]] = None, scale: Optional[Union[int, float, Tuple[Union[int, float], Union[int, float]], List[Union[int, float]], np.ndarray, torch.Tensor]] = None) -> Tuple[Union[int, torch.Tensor], Union[int, torch.Tensor]]
+├── def _resolve_target_resolution(params: Dict[str, torch.Tensor], resolution: Optional[Union[int, Tuple[int, int], List[int], np.ndarray, torch.Tensor]] = None, scale: Optional[Union[int, float, Tuple[Union[int, float], Union[int, float]], List[Union[int, float]], np.ndarray, torch.Tensor]] = None) -> Tuple[Union[int, torch.Tensor], Union[int, torch.Tensor]]
 │   ├── # Resolves the two ways a caller names a target resolution — the size itself, or a factor on the size the params already carry — into the single form a rescale reads.
 │   ├── def _validate_inputs [local]
 │   │   ├── impls assert exactly one of resolution and scale is given  # impls-node-one-step:skip; a target resolution and a factor are two ways to name the same thing, and giving both leaves unstated which one wins
