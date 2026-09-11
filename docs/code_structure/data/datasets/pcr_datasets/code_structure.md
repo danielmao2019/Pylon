@@ -200,7 +200,7 @@ threedmatch_dataset.py
 │       ├── impls meta_data = {'xyz': {'layout': ('0', '1', '2')}}  # a fragment is a .pth block naming none of its columns, so the dataset states that its leading three are the coordinates
 │       ├── calls load_point_cloud(annotation['src_path'], meta_data=meta_data, device=self.device)
 │       ├── calls load_point_cloud(annotation['tgt_path'], meta_data=meta_data, device=self.device)
-│       ├── impls src_pc, tgt_pc = the two clouds it loaded, their coordinates narrowed to float32  # a load never narrows any more, so the dataset that wants the single-precision width its models train at does the narrowing itself
+│       ├── impls src_pc, tgt_pc = the two clouds it loaded
 │       ├── impls each of them gains a float32 ones column as feat
 │       ├── impls transform_tgt_to_src = the float32 [4, 4] the annotation's rotation and translation make  # impls-node-one-step:skip — one step; the "and" names what it is made of
 │       ├── impls transform = the inverse of transform_tgt_to_src
