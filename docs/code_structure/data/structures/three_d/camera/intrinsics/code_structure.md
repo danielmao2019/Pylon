@@ -163,7 +163,7 @@ conventions.py
 │   ├── # Restates one camera model's named params from the image-plane frame they were stated in into another, routed through the standard frame so each frame brings its own two helpers rather than one against every frame already here.
 │   ├── if source_intr_convention == target_intr_convention
 │   │   └── return params
-│   ├── def _to_standard(params: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor] [local]
+│   ├── def _to_standard(params: Dict[str, Union[int, float, torch.Tensor]]) -> Dict[str, Union[int, float, torch.Tensor]] [local]
 │   │   ├── # Dispatches the source frame onto its own inbound spoke, the standard frame being already there.
 │   │   ├── if source_intr_convention == "standard"
 │   │   │   └── return params
