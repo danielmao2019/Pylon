@@ -1,7 +1,5 @@
 """Test cases for normal-map rendering from point clouds."""
 
-from typing import Tuple
-
 import torch
 
 from data.structures.three_d.camera.camera import Camera
@@ -37,7 +35,7 @@ def test_render_normal_lands_on_the_pixel_of_its_own_point() -> None:
     )
 
     camera = _build_camera(focal=100.0, principal_point=50.0)
-    resolution: Tuple[int, int] = (100, 100)
+    resolution = (100, 100)
 
     normal_map = render_normal_from_point_cloud_3d(
         pc=pc_data,
@@ -45,9 +43,7 @@ def test_render_normal_lands_on_the_pixel_of_its_own_point() -> None:
         resolution=resolution,
     )
 
-    # The identity OpenGL pose reaches OpenCV as the world-to-camera rotation
-    # diag(1, -1, -1), so a world normal lands in the camera frame with its y
-    # and z components negated.
+    # The identity OpenGL pose reaches OpenCV as the world-to-camera rotation diag(1, -1, -1), so a world normal lands in the camera frame with its y and z components negated.
     camera_normals = pc_data.normals * torch.tensor(
         [1.0, -1.0, -1.0], dtype=torch.float32
     )
@@ -88,7 +84,7 @@ def test_render_normal_ignores_the_points_that_culled_out() -> None:
     )
 
     camera = _build_camera(focal=100.0, principal_point=50.0)
-    resolution: Tuple[int, int] = (100, 100)
+    resolution = (100, 100)
 
     normal_map = render_normal_from_point_cloud_3d(
         pc=pc_data,
@@ -105,9 +101,7 @@ def test_render_normal_ignores_the_points_that_culled_out() -> None:
         f"{painted.sum()=} {expected_painted.sum()=} {painted.nonzero().tolist()=}"
     )
 
-    # The identity OpenGL pose reaches OpenCV as the world-to-camera rotation
-    # diag(1, -1, -1), so a world normal lands in the camera frame with its y
-    # and z components negated.
+    # The identity OpenGL pose reaches OpenCV as the world-to-camera rotation diag(1, -1, -1), so a world normal lands in the camera frame with its y and z components negated.
     camera_normals = pc_data.normals * torch.tensor(
         [1.0, -1.0, -1.0], dtype=torch.float32
     )
@@ -142,7 +136,7 @@ def test_render_normal_takes_the_nearest_point_where_two_share_a_pixel() -> None
     )
 
     camera = _build_camera(focal=100.0, principal_point=50.0)
-    resolution: Tuple[int, int] = (100, 100)
+    resolution = (100, 100)
 
     normal_map = render_normal_from_point_cloud_3d(
         pc=pc_data,
@@ -150,9 +144,7 @@ def test_render_normal_takes_the_nearest_point_where_two_share_a_pixel() -> None
         resolution=resolution,
     )
 
-    # The identity OpenGL pose reaches OpenCV as the world-to-camera rotation
-    # diag(1, -1, -1), so a world normal lands in the camera frame with its y
-    # and z components negated.
+    # The identity OpenGL pose reaches OpenCV as the world-to-camera rotation diag(1, -1, -1), so a world normal lands in the camera frame with its y and z components negated.
     camera_normals = pc_data.normals * torch.tensor(
         [1.0, -1.0, -1.0], dtype=torch.float32
     )
@@ -170,8 +162,7 @@ def _build_camera(focal: float, principal_point: float) -> Camera:
         principal_point: Shared principal-point coordinate used for both cx and cy.
 
     Returns:
-        A Camera whose pinhole intrinsics are (fx, fy, cx, cy) and whose
-        extrinsics are the identity cam2world matrix in the opengl convention.
+        A Camera whose pinhole intrinsics are (fx, fy, cx, cy) and whose extrinsics are the identity cam2world matrix in the opengl convention.
     """
     return Camera(
         intrinsics=build_camera_intrinsics(

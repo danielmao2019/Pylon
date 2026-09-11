@@ -18,34 +18,36 @@ from models.three_d.meshes.texture.extract.visibility.texel_visibility_v2 import
 
 
 def _build_one_camera() -> Cameras:
-    """Build one identity OpenCV camera for focused visibility tests.
+    """Build one identity OpenCV CPU camera for the focused v2 visibility tests.
 
     Args:
         None.
 
     Returns:
-        One-camera batch on CPU.
+        A one-camera Cameras on CPU whose pinhole intrinsics are (fx, fy, cx, cy) = (1, 1, 0, 0) at (h, w) = (2, 2) and whose extrinsics are the identity cam2world matrix in the opencv convention.
     """
 
+    camera_intrinsics = build_camera_intrinsics(
+        model="pinhole",
+        params={
+            "fx": torch.tensor(1.0),
+            "fy": torch.tensor(1.0),
+            "cx": torch.tensor(0.0),
+            "cy": torch.tensor(0.0),
+            "h": torch.tensor(2.0),
+            "w": torch.tensor(2.0),
+        },
+        intr_convention="standard",
+        device="cpu",
+    )
+    camera_extrinsics = CameraExtrinsics(
+        extrinsics=torch.eye(4, dtype=torch.float32),
+        extr_convention="opencv",
+        device="cpu",
+    )
     return Cameras(
-        intrinsics=build_camera_intrinsics(
-            model="pinhole",
-            params={
-                "fx": torch.tensor([1.0]),
-                "fy": torch.tensor([1.0]),
-                "cx": torch.tensor([0.0]),
-                "cy": torch.tensor([0.0]),
-                "h": torch.tensor([2.0]),
-                "w": torch.tensor([2.0]),
-            },
-            intr_convention="standard",
-            device="cpu",
-        ),
-        extrinsics=CameraExtrinsics(
-            extrinsics=torch.eye(4, dtype=torch.float32)[None],
-            extr_convention="opencv",
-            device="cpu",
-        ),
+        intrinsics=camera_intrinsics[None],
+        extrinsics=camera_extrinsics[None],
         device="cpu",
     )
 
@@ -61,8 +63,7 @@ def _build_texel_face_map_with_three_texels(
         occupied_positions: Iterable of `(row, col)` texel coordinates.
 
     Returns:
-        Dict with `texel_face_index` `[2, 2]` int64 (`-1` at unoccupied
-        texels) and `texel_face_barycentric` `[2, 2, 3]` float32.
+        Dict with `texel_face_index` `[2, 2]` int64 (`-1` at unoccupied texels) and `texel_face_barycentric` `[2, 2, 3]` float32.
     """
 
     texel_face_index = torch.full((2, 2), fill_value=-1, dtype=torch.int64)
