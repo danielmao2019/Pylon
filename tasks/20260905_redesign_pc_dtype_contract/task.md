@@ -143,6 +143,7 @@ goal: re-design pc dtype contract/provenance
       1. no canonicalization: `PointCloud` does not canonicalize any field, color included.
          1. rgb enters and is held exactly as it arrived, like every other field.
          2. fields keep their own names.
+      2. the ONLY place init may ever have any type casting ops is by invoking the `apply_meta_data`.
    2. validation:
       1. the columns a field is assembled from must all hold one dtype once the target dtype has been applied. disagreeing column dtypes hard-assert and abort rather than being promoted to a dtype covering them all.
       2. `PointCloud` keeps validating xyz and rgb by field name.
