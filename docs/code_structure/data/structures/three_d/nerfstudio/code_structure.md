@@ -132,7 +132,7 @@ load.py
 │   ├── impls frames: List[Any] = data["frames"]
 │   ├── impls collect each modality of MODALITY_SPECS whose spec's first entry is a key of frames[0]
 │   └── return  # the modalities it collected
-└── def load_split_filenames(data: Dict[str, Any]) -> Tuple[List[str] | None, List[str] | None, List[str] | None]
+└── def load_split_filenames(data: Dict[str, Any]) -> Tuple[Optional[List[str]], Optional[List[str]], Optional[List[str]]]
     ├── # Reads the train, val and test filename lists of a NerfStudio transforms record, a None for each when it carries no train_filenames.
     ├── if "train_filenames" not in data
     │   └── return None, None, None
