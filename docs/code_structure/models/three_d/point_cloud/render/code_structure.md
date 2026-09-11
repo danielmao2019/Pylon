@@ -139,20 +139,20 @@ render_depth.py
 │   ├── calls prepare_points_for_rendering(pc=pc, camera=camera, resolution=resolution)
 │   ├── impls rendered_points, valid = the pair it returned
 │   ├── if point_size > 1.0
-│   │   ├── calls render_depth_from_rendering_points(rendering_points=rendered_points, valid=valid, resolution=resolution, ignore_value=float("inf"), return_mask=False)
+│   │   ├── calls render_depth_from_rendering_points(rendering_points=rendered_points, resolution=resolution, ignore_value=float("inf"), return_mask=False, valid=valid)
 │   │   ├── impls depth_map = the map it returned, positive infinity wherever no point landed
 │   │   ├── calls apply_point_size_postprocessing(rendered_image=depth_map, depth_map=depth_map, point_size=point_size, ignore_value=float("inf"))
 │   │   ├── impls depth_map = the dilated map it returned
 │   │   ├── impls covered = the finite pixels of depth_map  # the discs the dilation reached, read off the infinity sentinel rather than ignore_value, which may be NaN
 │   │   └── impls depth_map = depth_map with ignore_value written wherever covered is False
 │   ├── else
-│   │   ├── calls render_depth_from_rendering_points(rendering_points=rendered_points, valid=valid, resolution=resolution, ignore_value=ignore_value, return_mask=False)
+│   │   ├── calls render_depth_from_rendering_points(rendering_points=rendered_points, resolution=resolution, ignore_value=ignore_value, return_mask=False, valid=valid)
 │   │   └── impls depth_map = the map it returned
 │   ├── if return_mask
 │   │   ├── if point_size > 1.0
 │   │   │   └── impls valid_mask = covered  # the coverage the map's own dilation reached, so the mask and the map it describes cannot drift apart
 │   │   ├── else
-│   │   │   ├── calls render_mask_from_rendering_points(rendering_points=rendered_points, valid=valid, resolution=resolution, device=rendered_points.device)
+│   │   │   ├── calls render_mask_from_rendering_points(rendering_points=rendered_points, resolution=resolution, device=rendered_points.device, valid=valid)
 │   │   │   └── impls valid_mask = the mask it rasterized
 │   │   └── return  # (depth_map, valid_mask)
 │   └── else
@@ -163,7 +163,7 @@ render_depth.py
     ├── impls nearest_point_index = a [..., render_height, render_width] tensor holding, per pixel, the index along the point axis of the valid point with the smallest depth landing there, and -1 where none landed  # reduced per pixel rather than scattered, so occlusion does not depend on which write lands last
     ├── impls depth_map = column 2 of rendering_points gathered at nearest_point_index, float32, with ignore_value wherever nearest_point_index is -1  # impls-node-one-step:skip
     ├── if return_mask
-    │   ├── calls render_mask_from_rendering_points(rendering_points=rendering_points, valid=valid, resolution=resolution, device=rendering_points.device)  # -> valid_mask
+    │   ├── calls render_mask_from_rendering_points(rendering_points=rendering_points, resolution=resolution, device=rendering_points.device, valid=valid)  # -> valid_mask
     │   └── return  # (depth_map, valid_mask)
     └── else
         └── return  # depth_map
