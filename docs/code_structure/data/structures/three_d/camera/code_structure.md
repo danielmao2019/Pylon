@@ -451,7 +451,7 @@ io.py
 │   ├── for each param key/value
 │   │   └── impls materialize the param as the Python number it spells
 │   └── return serialized_params
-├── def _deserialize_intrinsics_params(params: Dict[str, Union[List[int], List[float]]], device: torch.device, dtype: torch.dtype = torch.float32) -> Dict[str, torch.Tensor]
+├── def _deserialize_intrinsics_params(params: Dict[str, Union[List[int], List[float]]], device: torch.device, dtype: torch.dtype) -> Dict[str, torch.Tensor]
 │   ├── # Map the serialized numeric columns back to the [N] tensor params a batch carries, at the camera I/O boundary.
 │   ├── impls tensor_params = an empty dict
 │   ├── for each param key/value
