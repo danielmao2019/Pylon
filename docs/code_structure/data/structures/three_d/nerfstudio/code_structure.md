@@ -48,7 +48,7 @@ load.py
 ├── import torch
 ├── from data.structures.three_d.camera.cameras import Cameras
 ├── from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
-├── from data.structures.three_d.camera.intrinsics.camera_intrinsics import CameraIntrinsics, build_camera_intrinsics
+├── from data.structures.three_d.camera.intrinsics.camera_intrinsics import build_camera_intrinsics
 ├── from data.structures.three_d.camera.intrinsics.validation import validate_camera_intrinsics_params
 ├── from data.structures.three_d.nerfstudio.validate import MODALITY_SPECS, validate_applied_transform_data, validate_camera_model_data, validate_data, validate_frames_data, validate_intrinsic_params, validate_intrinsics_data, validate_ply_file_path_data, validate_resolution_data, validate_split_filenames_data
 ├── def load_nerfstudio_data(filepath: str | Path, device: str | torch.device = torch.device("cuda")) -> Tuple[Dict[str, Any], Dict[str, float | int], Tuple[int, int], str, torch.Tensor, np.ndarray, str, Cameras, List[str], List[str] | None, List[str] | None, List[str] | None]
@@ -115,12 +115,10 @@ load.py
 │   ├── # Reads the frames of one NerfStudio transforms record as the cameras that posed them.
 │   ├── impls frames: List[Any] = the frames the record lists
 │   ├── impls intrinsics_params = the record's fl_x, fl_y, cx, cy as float fx, fy, cx, cy, its h, w as ints
-│   ├── for each of frames  # every entry is the record's one top-level pinhole
-│   │   ├── calls build_camera_intrinsics(model="pinhole", params=intrinsics_params, intr_convention="standard", device=device)
-│   │   └── impls intrinsics: List[CameraIntrinsics] gains the CameraIntrinsics it built
-│   ├── for each frame in frames
-│   │   ├── calls CameraExtrinsics(extrinsics=that frame's transform_matrix as a float32 tensor on device, extr_convention="opengl", device=device)
-│   │   └── impls extrinsics gains the CameraExtrinsics it built
+│   ├── calls build_camera_intrinsics(model="pinhole", params=each intrinsics_params value broadcast to a float32 [len(frames)] tensor on device, intr_convention="standard", device=device)  # the record's one top-level pinhole governs every frame
+│   ├── impls intrinsics = the batched CameraIntrinsics it built
+│   ├── calls CameraExtrinsics(extrinsics=every frame's transform_matrix stacked as a float32 [len(frames), 4, 4] tensor on device, extr_convention="opengl", device=device)
+│   ├── impls extrinsics = the batched CameraExtrinsics it built
 │   ├── impls names: List[Optional[str]] = the stem of each frame's file_path as a Path
 │   ├── for each frame in frames
 │   │   ├── if frame carries a colmap_im_id
