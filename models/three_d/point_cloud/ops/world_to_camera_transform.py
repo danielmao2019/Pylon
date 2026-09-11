@@ -14,11 +14,11 @@ def world_to_camera_transform(
 ) -> torch.Tensor:
     """Map world-frame points into the camera local frame.
 
-    High-level API that builds the world-to-camera matrix by inverting the camera-to-world extrinsics and applies it to the points via apply_transform, any leading axes on the extrinsics flowing through onto the result.
+    High-level API that builds the world-to-camera matrices by inverting each camera-to-world pose on its own and applies them to the points via apply_transform, any leading axes on the extrinsics flowing through onto the result.
 
     Args:
         points: Float torch.Tensor of shape [N, 3] in world coordinates, on the same device as extrinsics.
-        extrinsics: Float torch.Tensor of shape [..., 4, 4] representing the camera-to-world (pose) transform in the OpenCV convention, on the same device as points; the leading axes carry one matrix per camera and are inverted over the trailing two axes.
+        extrinsics: Float torch.Tensor of shape [..., 4, 4] representing the camera-to-world (pose) transform in the OpenCV convention, on the same device as points; the leading axes carry one matrix per camera, each [4, 4] pose inverted on its own.
         inplace: If True, the camera-frame coordinates are written back into points and points is returned; if False, a new tensor is returned. Requires extrinsics carrying no leading axis, since [N, 3] points in and [..., N, 3] out is a shape expansion that leaves no buffer to write back into.
         max_divide: Maximum number of times the matmul may halve its row batch on CUDA OOM (forwarded to apply_transform).
         num_divide: If not None, the fixed number of halvings for the matmul row batch (forwarded to apply_transform).
@@ -61,7 +61,10 @@ def world_to_camera_transform(
 
     _validate_inputs()
 
-    world_to_camera = torch.inverse(extrinsics)
+    # Invert each [4, 4] pose on its own: CUDA's batched inverse rounds differently from a single pose's, and a batch must map points exactly as each of its cameras does alone.
+    world_to_camera = torch.stack(
+        [torch.inverse(pose) for pose in extrinsics.reshape(-1, 4, 4)]
+    ).reshape(extrinsics.shape)
 
     return apply_transform(
         points=points,
