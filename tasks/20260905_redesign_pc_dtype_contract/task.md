@@ -157,9 +157,11 @@ goal: re-design pc dtype contract/provenance
          1. do necessary type casting when the dtype systems mismatch and when the type cast can be lossless.
          2. never change layout.
       2. they construct the meta data record from the data in disk, NOT from the type-casted data stored in the PointCloud obj. i.e., the recorded meta data is a consequence of what's inside the file in disk and nothing else.
+      3. they define and apply the default layout for each format.
    3. the main load API
       1. accepts a `meta_data` optional arg override.
       2. calls the `PointCloud.apply_meta_data` passing down the `meta_data` optional arg after the per-format helpers return.
+      3. it knows nothing about default layout.
 3. save point cloud
    1. the per-format helpers
       1. they save and

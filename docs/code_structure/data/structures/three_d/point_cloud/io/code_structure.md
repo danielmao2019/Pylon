@@ -14,10 +14,12 @@ load_point_cloud.py
 ├── import torch
 ├── from plyfile import PlyData
 ├── from data.structures.three_d.point_cloud.point_cloud import PointCloud
+├── DEFAULT_LAYOUTS  # file extension -> field name -> the source columns assembled into that field by default: '.ply', '.las' and '.laz' each assemble ('x', 'y', 'z') into xyz and ('red', 'green', 'blue') into rgb; no other format has an entry
 ├── def load_point_cloud(filepath: str, meta_data: Optional[Dict[str, Dict[str, Any]]] = None, device: Union[str, torch.device] = 'cuda') -> PointCloud
-│   ├── # Loads one point cloud file of any supported format as the cloud its own columns define, then applies the meta data over the halves that source leaves for the caller.
+│   ├── # Loads one point cloud file of any supported format as the cloud its own columns define, then applies the caller's meta data written over the layouts that format assembles by default.
 │   ├── def _validate_inputs [local]
-│   │   └── assert the extension of filepath is one of the supported formats
+│   │   ├── assert the extension of filepath is one of the supported formats
+│   │   └── assert meta_data is None or meta_data is a dict whose values are all dicts  # the default layouts are written under it before apply_meta_data checks the rest at its own door
 │   ├── calls _validate_inputs()
 │   ├── def _normalize_inputs [local]
 │   │   ├── impls filepath = filepath with its separators rewritten to forward slashes
