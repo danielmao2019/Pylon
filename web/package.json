@@ -6,8 +6,6 @@
   "devDependencies": {
     "@types/jsdom": "^28.0.3",
     "jsdom": "^29.1.1",
-    "plotly.js": "3.5.0",
-    "three": "^0.180.0",
     "tsx": "^4.22.1",
     "typescript": "^5.4.0"
   }
