@@ -47,11 +47,16 @@ test_random_rigid_transform.py
 │   ├── assert the two posed sources match
 │   └── assert the two adjusted transforms match
 ├── def test_a_posed_cloud_inherits_the_meta_data_it_came_from()
-│   ├── # A pose builds a cloud from another cloud's fields, so the meta data travels rather than being rebuilt from the tensors.
+│   ├── # A pose is not a source, so the posed cloud carries its source's record and target rather than building its own from the posed tensors.
+│   ├── calls PointCloud(xyz=a [N, 3] float32 coordinate block on DEVICE, data={'intensity': a [N] uint16 numpy array})
+│   ├── impls src_pc = the cloud it built
 │   ├── calls create_point_cloud(a [N, 3] float32 coordinate block on DEVICE)
+│   ├── impls tgt_pc = the cloud it built
 │   ├── calls RandomRigidTransform(rot_mag=45.0, trans_mag=0.5)
-│   ├── impls new_src_pc, new_tgt_pc, new_transform = what it returns for that pair at seed 0
-│   └── assert the meta data on new_src_pc is the one its source cloud carried
+│   ├── impls new_src_pc, new_tgt_pc, new_transform = what it returns for src_pc and tgt_pc at seed 0
+│   ├── assert the meta data on new_src_pc equals the one src_pc carries
+│   ├── assert new_src_pc.conceptual_dtype('intensity') is 'uint16'  # an int32 tensor still means the uint16 its source held once the pose has carried it across
+│   └── assert src_pc still holds the coordinates it was built with  # the pose lands on a copy, so the input cloud is left as it was handed in
 ├── def create_random_point_cloud(num_points=1000)
 │   ├── # Draws the float32 [N, 3] coordinate block the cases here pose.
 │   ├── impls points = num_points rows of three standard-normal values, as float32 on DEVICE
