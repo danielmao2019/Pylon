@@ -134,7 +134,7 @@ validate_rendering_inputs.py
 
 ```text
 render_depth.py
-├── from typing import Optional, Tuple, Union
+├── from typing import Tuple, Union
 ├── import torch
 ├── from data.structures.three_d.camera.camera import Camera
 ├── from data.structures.three_d.camera.cameras import Cameras
@@ -150,30 +150,31 @@ render_depth.py
 │   ├── calls prepare_points_for_rendering(pc=pc, camera=camera, resolution=resolution)
 │   ├── impls rendered_points, valid = the pair it returned
 │   ├── if point_size > 1.0
-│   │   ├── calls render_depth_from_rendering_points(rendering_points=rendered_points, resolution=resolution, ignore_value=float("inf"), return_mask=False, valid=valid)
+│   │   ├── calls render_depth_from_rendering_points(rendering_points=rendered_points, valid=valid, resolution=resolution, ignore_value=float("inf"), return_mask=False)
 │   │   ├── impls depth_map = the map it returned, positive infinity wherever no point landed
 │   │   ├── calls apply_point_size_postprocessing(rendered_image=depth_map, depth_map=depth_map, point_size=point_size, ignore_value=float("inf"))
 │   │   ├── impls depth_map = the dilated map it returned
 │   │   ├── impls covered = the finite pixels of depth_map  # the discs the dilation reached, read off the infinity sentinel rather than ignore_value, which may be NaN
 │   │   └── impls depth_map = depth_map with ignore_value written wherever covered is False
 │   ├── else
-│   │   ├── calls render_depth_from_rendering_points(rendering_points=rendered_points, resolution=resolution, ignore_value=ignore_value, return_mask=False, valid=valid)
+│   │   ├── calls render_depth_from_rendering_points(rendering_points=rendered_points, valid=valid, resolution=resolution, ignore_value=ignore_value, return_mask=False)
 │   │   └── impls depth_map = the map it returned
 │   ├── if return_mask
 │   │   ├── if point_size > 1.0
 │   │   │   └── impls valid_mask = covered  # the coverage the map's own dilation reached, so the mask and the map it describes cannot drift apart
 │   │   ├── else
-│   │   │   ├── calls render_mask_from_rendering_points(rendering_points=rendered_points, resolution=resolution, device=rendered_points.device, valid=valid)
+│   │   │   ├── calls render_mask_from_rendering_points(rendering_points=rendered_points, valid=valid, resolution=resolution, device=rendered_points.device)
 │   │   │   └── impls valid_mask = the mask it rasterized
 │   │   └── return  # (depth_map, valid_mask)
 │   └── else
 │       └── return  # depth_map
-└── def render_depth_from_rendering_points(rendering_points: torch.Tensor, resolution: Tuple[int, int], ignore_value: float = float('inf'), return_mask: bool = False, valid: Optional[torch.Tensor] = None) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]
+└── def render_depth_from_rendering_points(rendering_points: torch.Tensor, valid: torch.Tensor, resolution: Tuple[int, int], ignore_value: float = float('inf'), return_mask: bool = False) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]
     ├── # Rasterizes already-projected points into a depth map by reading the depth of the point that owns each pixel.
-    ├── impls winner = a [..., render_height, render_width] tensor holding, per pixel, the index along the point axis of the valid point with the smallest depth landing there, and -1 where none landed  # reduced per pixel rather than scattered, so occlusion does not depend on which write lands last
-    ├── impls depth_map = column 2 of rendering_points gathered at winner, float32, with ignore_value wherever winner is -1  # impls-node-one-step:skip
+    ├── impls render_height, render_width = resolution
+    ├── impls nearest_point_index = a [..., render_height, render_width] tensor holding, per pixel, the index along the point axis of the valid point with the smallest depth landing there, and -1 where none landed  # reduced per pixel rather than scattered, so occlusion does not depend on which write lands last
+    ├── impls depth_map = column 2 of rendering_points gathered at nearest_point_index, float32, with ignore_value wherever nearest_point_index is -1  # impls-node-one-step:skip
     ├── if return_mask
-    │   ├── calls render_mask_from_rendering_points(rendering_points=rendering_points, resolution=resolution, device=rendering_points.device, valid=valid)  # -> valid_mask
+    │   ├── calls render_mask_from_rendering_points(rendering_points=rendering_points, valid=valid, resolution=resolution, device=rendering_points.device)  # -> valid_mask
     │   └── return  # (depth_map, valid_mask)
     └── else
         └── return  # depth_map
@@ -183,13 +184,11 @@ render_depth.py
 
 ```text
 render_mask.py
-├── from typing import Optional, Tuple
+├── from typing import Tuple
 ├── import torch
-└── def render_mask_from_rendering_points(rendering_points: torch.Tensor, resolution: Tuple[int, int], device: torch.device, valid: Optional[torch.Tensor] = None) -> torch.Tensor
+└── def render_mask_from_rendering_points(rendering_points: torch.Tensor, valid: torch.Tensor, resolution: Tuple[int, int], device: torch.device) -> torch.Tensor
     ├── # Marks the pixels a surviving point landed on, which is what distinguishes a rendered image's covered pixels from its background.
     ├── impls render_height, render_width = resolution
-    ├── if valid is None
-    │   └── impls valid = an all-True [..., N] bool tensor over the point axis of rendering_points
     ├── impls nearest_point_index = a [..., render_height, render_width] tensor holding, per pixel, the index along the point axis of the valid point with the smallest depth landing there, and -1 where none landed  # reduced per pixel rather than scattered, so occlusion does not depend on which write lands last
     ├── impls valid_mask = nearest_point_index >= 0, on device, carrying the leading axes of rendering_points
     └── return valid_mask
@@ -227,7 +226,7 @@ render_normal.py
 │   ├── calls render_normal_from_rendering_points_3d(rendering_points=rendering_points, valid=valid, pc_data=pc, camera=camera, resolution=resolution, ignore_value=ignore_value)
 │   ├── impls normal_map = the map it rasterized
 │   ├── if point_size > 1.0
-│   │   ├── calls render_depth_from_rendering_points(rendering_points=rendering_points, resolution=resolution, ignore_value=float("inf"), return_mask=False, valid=valid)
+│   │   ├── calls render_depth_from_rendering_points(rendering_points=rendering_points, valid=valid, resolution=resolution, ignore_value=float("inf"), return_mask=False)
 │   │   ├── impls depth_map = the depth map it rasterized
 │   │   ├── calls apply_point_size_postprocessing(rendered_image=depth_map, depth_map=depth_map, point_size=point_size, ignore_value=float("inf"))
 │   │   ├── impls covered = the finite pixels of the dilated depth map  # the disc each surviving point reached, which is both this renderer's mask and its background
@@ -240,7 +239,7 @@ render_normal.py
 │   │   ├── if point_size > 1.0
 │   │   │   └── impls valid_mask = covered  # the coverage the image's own dilation reached, so the mask and the image it describes cannot drift apart
 │   │   ├── else
-│   │   │   ├── calls render_mask_from_rendering_points(rendering_points=rendering_points, resolution=resolution, device=rendering_points.device, valid=valid)
+│   │   │   ├── calls render_mask_from_rendering_points(rendering_points=rendering_points, valid=valid, resolution=resolution, device=rendering_points.device)
 │   │   │   └── impls valid_mask = the mask it rasterized
 │   │   └── return  # (normal_map, valid_mask)
 │   └── else
@@ -286,7 +285,7 @@ render_rgb.py
 │   ├── calls render_rgb_from_rendering_points(rendering_points=rendering_points, valid=valid, pc=pc, resolution=resolution, ignore_value=ignore_value)
 │   ├── impls rgb_image = the image it rasterized
 │   ├── if point_size > 1.0
-│   │   ├── calls render_depth_from_rendering_points(rendering_points=rendering_points, resolution=resolution, ignore_value=float("inf"), return_mask=False, valid=valid)
+│   │   ├── calls render_depth_from_rendering_points(rendering_points=rendering_points, valid=valid, resolution=resolution, ignore_value=float("inf"), return_mask=False)
 │   │   ├── impls depth_map = the depth map it rasterized
 │   │   ├── calls apply_point_size_postprocessing(rendered_image=depth_map, depth_map=depth_map, point_size=point_size, ignore_value=float("inf"))
 │   │   ├── impls covered = the finite pixels of the dilated depth map  # the disc each surviving point reached, which is both this renderer's mask and its background
@@ -297,7 +296,7 @@ render_rgb.py
 │   │   ├── if point_size > 1.0
 │   │   │   └── impls valid_mask = covered  # the coverage the image's own dilation reached, so the mask and the image it describes cannot drift apart
 │   │   ├── else
-│   │   │   ├── calls render_mask_from_rendering_points(rendering_points=rendering_points, resolution=resolution, device=rendering_points.device, valid=valid)
+│   │   │   ├── calls render_mask_from_rendering_points(rendering_points=rendering_points, valid=valid, resolution=resolution, device=rendering_points.device)
 │   │   │   └── impls valid_mask = the mask it rasterized
 │   │   └── return  # (rgb_image, valid_mask)
 │   └── else
@@ -315,9 +314,9 @@ render_rgb.py
     ├── if is_integer_dtype or is_in_255_range
     │   └── impls colors = colors divided by 255.0
     ├── impls colors = colors clamped to [0.0, 1.0]
-    ├── impls winner = a [render_height, render_width] tensor holding, per pixel, the index along the point axis of the valid point with the smallest depth landing there, and -1 where none landed  # reduced per pixel rather than scattered, so occlusion does not depend on which write lands last
-    ├── impls pixel_colors = colors gathered at winner, channel-first
-    ├── impls rgb_image = pixel_colors float-cast, with ignore_value wherever winner is -1  # impls-node-one-step:skip
+    ├── impls nearest_point_index = a [render_height, render_width] tensor holding, per pixel, the index along the point axis of the valid point with the smallest depth landing there, and -1 where none landed  # reduced per pixel rather than scattered, so occlusion does not depend on which write lands last
+    ├── impls pixel_colors = colors gathered at nearest_point_index, channel-first
+    ├── impls rgb_image = pixel_colors float-cast, with ignore_value wherever nearest_point_index is -1  # impls-node-one-step:skip
     └── return rgb_image
 ```
 
