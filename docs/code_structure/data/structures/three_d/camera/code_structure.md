@@ -421,7 +421,7 @@ io.py
 │   │   └── calls _serialize_intrinsics_params(params=camera.intrinsics.params)
 │   ├── impls params_array = each camera's serialized params json-encoded, as an [N] string array  # npz holds arrays, not a dict, so the params ride as one encoded row per camera
 │   ├── impls models, intr_conventions, extr_conventions = the batch's single model and two frames broadcast to [N] arrays  # the format keeps a column per camera where the batch keeps one value
-│   ├── impls extrinsics = cameras.extrinsics.extrinsics, the [N, 4, 4] stack the format stores as-is
+│   ├── impls extrinsics = cameras.extrinsics.extrinsics as a cpu ndarray, the [N, 4, 4] stack the format stores in the batch's own dtype  # the archive carries the dtype, so the loader rebuilds the batch in it
 │   ├── impls names, has_names, ids, has_ids = the metadata columns, "" and -1 standing in wherever the flag is unset  # impls-node-one-step:skip
 │   └── return
 ├── def _deserialize_cameras_npz(payload: Dict[str, Any], device: torch.device) -> "Cameras"
