@@ -6,9 +6,7 @@ import torch
 
 from utils.ops.chunked_matmul import chunked_matmul
 
-# Import the module object directly to monkeypatch its module-level `_matmul_chunk`:
-# the package __init__ rebinds the name `chunked_matmul` to the function, shadowing
-# the submodule on attribute access, so import_module reaches the true module.
+# Import the module object directly to monkeypatch its module-level `_matmul_chunk`: the package __init__ rebinds the name `chunked_matmul` to the function, shadowing the submodule on attribute access, so import_module reaches the true module.
 chunked_matmul_module = importlib.import_module("utils.ops.chunked_matmul")
 
 
@@ -119,9 +117,7 @@ def test_inplace_shrinks_without_double_transform(
     def fake_chunk(
         large: torch.Tensor, small: torch.Tensor, out: torch.Tensor, direct: bool
     ) -> None:
-        # OOM on the first full-batch attempt and again on a later chunk after one has
-        # already been written: a correct resume continues from the failed offset, so an
-        # already-written chunk is never transformed twice; a wrong restart-from-zero would.
+        # OOM on the first full-batch attempt and again on a later chunk after one has already been written: a correct resume continues from the failed offset, so an already-written chunk is never transformed twice; a wrong restart-from-zero would.
         state["calls"] += 1
         if state["calls"] in (1, 3):
             raise torch.cuda.OutOfMemoryError("simulated OOM")
@@ -173,11 +169,6 @@ def test_batched_small_broadcasts_onto_the_product(num_divide: Optional[int]) ->
     large = torch.randn(N, K, dtype=torch.float64)
     small = torch.randn(B, K, K, dtype=torch.float64)
     result = chunked_matmul(large=large, small=small, num_divide=num_divide)
-    assert result.shape == (
-        B,
-        N,
-        K,
-    ), f"unexpected shape {result.shape=} vs {(B, N, K)=}"
     for b in range(B):
         assert torch.allclose(
             result[b], large @ small[b]

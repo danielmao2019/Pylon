@@ -14,39 +14,36 @@ from models.three_d.meshes.texture.extract.visibility.vertex_visibility import (
 
 
 def _build_one_camera() -> Cameras:
-    """Build one identity OpenCV camera for focused visibility tests.
+    """Build one identity OpenCV CUDA camera for the focused vertex-visibility tests.
 
     Args:
         None.
 
     Returns:
-        One-camera batch on CPU.
+        A one-camera Cameras on CUDA whose pinhole intrinsics are (fx, fy, cx, cy) = (1, 1, 0, 0) at (h, w) = (2, 2) and whose extrinsics are the identity cam2world matrix in the opencv convention.
     """
 
-    assert torch.cuda.is_available(), (
-        "Expected CUDA to be available for vertex-visibility regression tests. "
-        f"{torch.cuda.is_available()=}"
+    camera_intrinsics = build_camera_intrinsics(
+        model="pinhole",
+        params={
+            "fx": torch.tensor(1.0),
+            "fy": torch.tensor(1.0),
+            "cx": torch.tensor(0.0),
+            "cy": torch.tensor(0.0),
+            "h": torch.tensor(2.0),
+            "w": torch.tensor(2.0),
+        },
+        intr_convention="standard",
+        device="cuda",
     )
-
+    camera_extrinsics = CameraExtrinsics(
+        extrinsics=torch.eye(4, dtype=torch.float32, device="cuda"),
+        extr_convention="opencv",
+        device="cuda",
+    )
     return Cameras(
-        intrinsics=build_camera_intrinsics(
-            model="pinhole",
-            params={
-                "fx": torch.tensor([1.0]),
-                "fy": torch.tensor([1.0]),
-                "cx": torch.tensor([0.0]),
-                "cy": torch.tensor([0.0]),
-                "h": torch.tensor([2.0]),
-                "w": torch.tensor([2.0]),
-            },
-            intr_convention="standard",
-            device="cuda",
-        ),
-        extrinsics=CameraExtrinsics(
-            extrinsics=torch.eye(4, dtype=torch.float32, device="cuda")[None],
-            extr_convention="opencv",
-            device="cuda",
-        ),
+        intrinsics=camera_intrinsics[None],
+        extrinsics=camera_extrinsics[None],
         device="cuda",
     )
 
