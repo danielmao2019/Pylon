@@ -51,7 +51,7 @@ load.py
 ├── from data.structures.three_d.camera.intrinsics.camera_intrinsics import build_camera_intrinsics
 ├── from data.structures.three_d.camera.intrinsics.validation import validate_camera_intrinsics_params
 ├── from data.structures.three_d.nerfstudio.validate import MODALITY_SPECS, validate_applied_transform_data, validate_camera_model_data, validate_data, validate_frames_data, validate_intrinsic_params, validate_intrinsics_data, validate_ply_file_path_data, validate_resolution_data, validate_split_filenames_data
-├── def load_nerfstudio_data(filepath: str | Path, device: str | torch.device = torch.device("cuda")) -> Tuple[Dict[str, Any], Dict[str, float | int], Tuple[int, int], str, torch.Tensor, np.ndarray, str, Cameras, List[str], List[str] | None, List[str] | None, List[str] | None]
+├── def load_nerfstudio_data(filepath: Union[str, Path], device: Union[str, torch.device] = torch.device("cuda")) -> Tuple[Dict[str, Any], Dict[str, Union[float, int]], Tuple[int, int], str, torch.Tensor, np.ndarray, str, Cameras, List[str], Optional[List[str]], Optional[List[str]], Optional[List[str]]]
 │   ├── # Opens a NerfStudio transforms.json, validates each section of the record it holds, and returns the record beside every section read out of it.
 │   ├── assert isinstance(filepath, (str, Path))        # f"{type(filepath)=}"
 │   ├── assert isinstance(device, (str, torch.device))  # f"{type(device)=}"
