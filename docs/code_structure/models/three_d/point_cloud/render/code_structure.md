@@ -138,14 +138,19 @@ render_depth.py
 │   ├── calls validate_rendering_inputs(pc=pc, camera=camera, resolution=resolution, ignore_value=ignore_value, return_mask=return_mask, point_size=point_size)  # camera is whichever of Camera / Cameras the caller passed, so the shared preconditions are checked over either
 │   ├── calls prepare_points_for_rendering(pc=pc, camera=camera, resolution=resolution)
 │   ├── impls rendered_points, valid = the pair it returned
-│   ├── calls render_depth_from_rendering_points(rendering_points=rendered_points, resolution=resolution, ignore_value=ignore_value, return_mask=False, valid=valid)
-│   ├── impls depth_map = the map it returned
 │   ├── if point_size > 1.0
-│   │   ├── calls apply_point_size_postprocessing(rendered_image=depth_map, depth_map=depth_map, point_size=point_size, ignore_value=ignore_value)
-│   │   └── impls depth_map = the dilated map it returned
+│   │   ├── calls render_depth_from_rendering_points(rendering_points=rendered_points, resolution=resolution, ignore_value=float("inf"), return_mask=False, valid=valid)
+│   │   ├── impls depth_map = the map it returned, positive infinity wherever no point landed
+│   │   ├── calls apply_point_size_postprocessing(rendered_image=depth_map, depth_map=depth_map, point_size=point_size, ignore_value=float("inf"))
+│   │   ├── impls depth_map = the dilated map it returned
+│   │   ├── impls covered = the finite pixels of depth_map  # the discs the dilation reached, read off the infinity sentinel rather than ignore_value, which may be NaN
+│   │   └── impls depth_map = depth_map with ignore_value written wherever covered is False
+│   ├── else
+│   │   ├── calls render_depth_from_rendering_points(rendering_points=rendered_points, resolution=resolution, ignore_value=ignore_value, return_mask=False, valid=valid)
+│   │   └── impls depth_map = the map it returned
 │   ├── if return_mask
 │   │   ├── if point_size > 1.0
-│   │   │   └── impls valid_mask = the pixels of depth_map the dilation reached  # taken from the dilated map, so the mask and the map it describes cannot drift apart
+│   │   │   └── impls valid_mask = covered  # the coverage the map's own dilation reached, so the mask and the map it describes cannot drift apart
 │   │   ├── else
 │   │   │   ├── calls render_mask_from_rendering_points(rendering_points=rendered_points, resolution=resolution, device=rendered_points.device, valid=valid)
 │   │   │   └── impls valid_mask = the mask it rasterized
