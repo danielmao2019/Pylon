@@ -18,8 +18,7 @@ from data.structures.three_d.camera.intrinsics.validation import (
 class CameraIntrinsics(ABC):
     """Abstract base for a camera's intrinsics.
 
-    Owns the named params plus device and the projection contract; each concrete
-    subclass is exactly one camera model.
+    Owns the named params plus device and the projection contract; each concrete subclass is exactly one camera model.
     """
 
     MODEL: ClassVar[str]
@@ -56,25 +55,21 @@ class CameraIntrinsics(ABC):
                     "Expected every intrinsics params value to be scalar-compatible. "
                     f"{key=} {type(value)=}"
                 )
+                # The normalization casts every param onto one floating dtype, which would turn a bool into 0 / 1 and drop an imaginary part without a word.
                 if isinstance(value, np.ndarray):
-                    assert value.ndim <= 1, (
-                        "Expected every numpy intrinsics param to be a scalar or a "
-                        f"one-axis batch. {key=} {value.shape=}"
-                    )
                     assert np.issubdtype(value.dtype, np.number), (
                         "Expected every numpy intrinsics param to be numeric. "
                         f"{key=} {value.dtype=}"
                     )
                 if isinstance(value, torch.Tensor):
-                    assert value.ndim <= 1, (
-                        "Expected every tensor intrinsics param to be a scalar or a "
-                        f"one-axis batch. {key=} {value.shape=}"
-                    )
                     assert not value.is_complex(), (
                         "Expected every tensor intrinsics param to be real-valued. "
                         f"{key=} {value.dtype=}"
                     )
-            validate_intr_convention(intr_convention=intr_convention)
+            assert isinstance(intr_convention, str), (
+                "Expected CameraIntrinsics intr_convention to be a string. "
+                f"{type(intr_convention)=}"
+            )
             assert device is None or isinstance(device, (str, torch.device)), (
                 "Expected CameraIntrinsics device to be None, a string, or torch.device. "
                 f"{type(device)=}"
@@ -114,23 +109,10 @@ class CameraIntrinsics(ABC):
                 key: torch.as_tensor(value).to(device=target_device, dtype=target_dtype)
                 for key, value in params.items()
             }
-            batch_shapes = {key: value.shape for key, value in params.items()}
-            assert len(set(batch_shapes.values())) == 1, (
-                "Expected every normalized intrinsics param to share one leading batch "
-                f"shape, a scalar param being the empty-batch case. {batch_shapes=}"
-            )
-            for key, value in params.items():
-                assert value.device == target_device, (
-                    "Expected every normalized intrinsics param to share device. "
-                    f"{key=} {value.device=} {target_device=}"
-                )
-                assert value.dtype == target_dtype, (
-                    "Expected every normalized intrinsics param to share dtype. "
-                    f"{key=} {value.dtype=} {target_dtype=}"
-                )
             return params
 
         params = _normalize_inputs(params=params)
+
         validate_camera_intrinsics_attributes(
             model=type(self).MODEL,
             intr_convention=intr_convention,
@@ -182,8 +164,7 @@ class CameraIntrinsics(ABC):
             None.
 
         Returns:
-            The image-plane convention string (standard / opengl / pytorch3d /
-            vulkan), without which a principal point names no location.
+            The image-plane convention string (standard / opengl / pytorch3d / vulkan), without which a principal point names no location.
         """
         return self._intr_convention
 
@@ -262,9 +243,7 @@ class CameraIntrinsics(ABC):
             None.
 
         Returns:
-            The ``(height, width)`` tensor pair, each ``[]`` or ``[B]``, read off the two params that
-            carry it, since a principal point in pixels names a location only
-            against them.
+            The ``(height, width)`` tensor pair, each ``[]`` or ``[B]``, read off the two params that carry it, since a principal point in pixels names a location only against them.
         """
         return self._params["h"], self._params["w"]
 
@@ -304,15 +283,10 @@ class CameraIntrinsics(ABC):
 
         Args:
             points_camera: Camera-space points, a ``[..., 3]`` torch.Tensor whose leading axes carry the params' own batch shape.
-            inplace: If True, project in place — write the image points over the
-                first two columns of ``points_camera`` and return a ``[..., 2]``
-                view aliasing that input (its depth column is left intact). If
-                False, return a freshly allocated ``[..., 2]`` and leave
-                ``points_camera`` unchanged.
+            inplace: If True, project in place — write the image points over the first two columns of ``points_camera`` and return a ``[..., 2]`` view aliasing that input (its depth column is left intact). If False, return a freshly allocated ``[..., 2]`` and leave ``points_camera`` unchanged.
 
         Returns:
-            The ``[..., 2]`` image points torch.Tensor (a view into
-            ``points_camera`` when inplace, else a new tensor).
+            The ``[..., 2]`` image points torch.Tensor (a view into ``points_camera`` when inplace, else a new tensor).
         """
         raise NotImplementedError
 
@@ -326,8 +300,7 @@ class CameraIntrinsics(ABC):
     ) -> "CameraIntrinsics":
         """Return this CameraIntrinsics with tensor placement and image-plane frame changes.
 
-        The intrinsics half of the frame change its extrinsics counterpart performs
-        on the pose.
+        The intrinsics half of the frame change its extrinsics counterpart performs on the pose.
 
         Args:
             device: Target device; ``None`` keeps the current device.
@@ -337,8 +310,7 @@ class CameraIntrinsics(ABC):
             intr_convention: Target image-plane frame; ``None`` keeps the current one.
 
         Returns:
-            This CameraIntrinsics when unchanged, else a CameraIntrinsics of the same
-            model on the target device, dtype, and image-plane frame.
+            This CameraIntrinsics when unchanged, else a CameraIntrinsics of the same model on the target device, dtype, and image-plane frame.
         """
 
         def _validate_inputs() -> None:
@@ -404,16 +376,14 @@ class CameraIntrinsics(ABC):
     ) -> "CameraIntrinsics":
         """Return this CameraIntrinsics restated onto another image by a pixel-frame affine.
 
-        The raster that image is named alongside it, because a 3x3 carries no size
-        of its own.
+        The raster that image is named alongside it, because a 3x3 carries no size of its own.
 
         Args:
             transform: Pixel-frame affine as a ``(..., 3, 3)`` floating torch.Tensor whose last row is ``[0, 0, 1]``, the leading dims being the camera batch a single affine leaves empty.
             resolution: The target image's own resolution as ``(height, width)`` integer values, scalar integer-valued tensors, or ``[B]`` integer-valued tensors naming one side per camera.
 
         Returns:
-            A new CameraIntrinsics of the same model, on this intrinsics' own
-            image-plane frame, stated against ``resolution``.
+            A new CameraIntrinsics of the same model, on this intrinsics' own image-plane frame, stated against ``resolution``.
         """
 
         def _validate_inputs() -> None:
@@ -556,17 +526,14 @@ class CameraIntrinsics(ABC):
     ) -> "CameraIntrinsics":
         """Return this CameraIntrinsics restated against a different resolution.
 
-        The diagonal case of an intrinsics transform, so this builds that transform
-        and the one owner applies it. Exactly one of ``resolution`` or ``scale``
-        must be provided.
+        The diagonal case of an intrinsics transform, so this builds that transform and the one owner applies it. Exactly one of ``resolution`` or ``scale`` must be provided.
 
         Args:
             resolution: Optional target image resolution as one integer side or ``(height, width)``.
             scale: Optional uniform scale, or a per-axis ``(sx, sy)`` pair.
 
         Returns:
-            A new CameraIntrinsics of the same model stated against the target
-            resolution.
+            A new CameraIntrinsics of the same model stated against the target resolution.
         """
 
         def _validate_inputs() -> None:
@@ -593,55 +560,62 @@ class CameraIntrinsics(ABC):
             ],
         ) -> Tuple[
             Tuple[Union[int, torch.Tensor], Union[int, torch.Tensor]],
-            Optional[Tuple[torch.Tensor, torch.Tensor]],
+            torch.Tensor,
+            torch.Tensor,
         ]:
             resolution = resolve_target_resolution(
                 params=self._params,
                 resolution=resolution,
                 scale=scale,
             )
-            if scale is None:
-                return resolution, None
-            if isinstance(scale, (tuple, list)):
-                scale_x = torch.as_tensor(
-                    scale[0],
-                    device=self._device,
-                    dtype=self._dtype,
-                ).reshape(())
-                scale_y = torch.as_tensor(
-                    scale[1],
-                    device=self._device,
-                    dtype=self._dtype,
-                ).reshape(())
-                return resolution, (scale_x, scale_y)
-            scale = torch.as_tensor(scale, device=self._device, dtype=self._dtype)
-            if scale.numel() == 1:
-                scale = scale.reshape(())
-                return resolution, (scale, scale)
-            scale = scale.reshape(2)
-            return resolution, (scale[0], scale[1])
+            if scale is not None:
+                # Taken raw rather than re-derived from resolution, which resolve_target_resolution detached and rounded to whole pixels, severing a tensor factor from the autograd graph.
+                if isinstance(scale, (tuple, list)):
+                    sx = torch.as_tensor(
+                        scale[0],
+                        device=self._device,
+                        dtype=self._dtype,
+                    ).reshape(())
+                    sy = torch.as_tensor(
+                        scale[1],
+                        device=self._device,
+                        dtype=self._dtype,
+                    ).reshape(())
+                else:
+                    scale = torch.as_tensor(
+                        scale, device=self._device, dtype=self._dtype
+                    )
+                    if scale.numel() == 1:
+                        scale = scale.reshape(())
+                        sx, sy = scale, scale
+                    else:
+                        scale = scale.reshape(2)
+                        sx, sy = scale[0], scale[1]
+            else:
+                # The size the params are already stated against is two of those params, the one place every model states it.
+                sx = (
+                    torch.as_tensor(
+                        resolution[1], dtype=self._dtype, device=self._device
+                    )
+                    / self._params["w"]
+                )
+                sy = (
+                    torch.as_tensor(
+                        resolution[0], dtype=self._dtype, device=self._device
+                    )
+                    / self._params["h"]
+                )
+            return resolution, sx, sy
 
-        resolution, scale = _normalize_inputs(resolution=resolution, scale=scale)
+        resolution, sx, sy = _normalize_inputs(resolution=resolution, scale=scale)
 
-        if scale is not None:
-            # The caller's factor is used raw rather than re-derived from resolution, because resolve_target_resolution detaches and rounds to whole pixels, which would sever a tensor factor from the autograd graph. A rounded raster and a raw factor are not exactly consistent when the product is not whole; the gradient is what this trade keeps.
-            scale_x, scale_y = scale
-        else:
-            # The size the params are already stated against is two of those params, the one place every model states it.
-            scale_x = (
-                torch.as_tensor(resolution[1], dtype=self._dtype, device=self._device)
-                / self._params["w"]
-            )
-            scale_y = (
-                torch.as_tensor(resolution[0], dtype=self._dtype, device=self._device)
-                / self._params["h"]
-            )
-        zero = torch.zeros_like(scale_x)
-        one = torch.ones_like(scale_x)
+        # A rounded raster and a raw factor are not exactly consistent when the product is not whole; the gradient is what this trade keeps.
+        zero = torch.zeros_like(sx)
+        one = torch.ones_like(sx)
         transform = torch.stack(
             [
-                torch.stack([scale_x, zero, zero], dim=-1),
-                torch.stack([zero, scale_y, zero], dim=-1),
+                torch.stack([sx, zero, zero], dim=-1),
+                torch.stack([zero, sy, zero], dim=-1),
                 torch.stack([zero, zero, one], dim=-1),
             ],
             dim=-2,
@@ -685,15 +659,10 @@ class CameraIntrinsicsSimplePinhole(CameraIntrinsics):
 
         Args:
             points_camera: Camera-space points, a ``[..., 3]`` torch.Tensor.
-            inplace: If True, project in place — write the image points over the
-                first two columns of ``points_camera`` and return a ``[..., 2]``
-                view aliasing that input (its depth column is left intact). If
-                False, return a freshly allocated ``[..., 2]`` and leave
-                ``points_camera`` unchanged.
+            inplace: If True, project in place — write the image points over the first two columns of ``points_camera`` and return a ``[..., 2]`` view aliasing that input (its depth column is left intact). If False, return a freshly allocated ``[..., 2]`` and leave ``points_camera`` unchanged.
 
         Returns:
-            The ``[..., 2]`` image points torch.Tensor (a view into
-            ``points_camera`` when inplace, else a new tensor).
+            The ``[..., 2]`` image points torch.Tensor (a view into ``points_camera`` when inplace, else a new tensor).
         """
 
         def _validate_inputs() -> None:
@@ -769,15 +738,10 @@ class CameraIntrinsicsPinhole(CameraIntrinsics):
 
         Args:
             points_camera: Camera-space points, a ``[..., 3]`` torch.Tensor.
-            inplace: If True, project in place — write the image points over the
-                first two columns of ``points_camera`` and return a ``[..., 2]``
-                view aliasing that input (its depth column is left intact). If
-                False, return a freshly allocated ``[..., 2]`` and leave
-                ``points_camera`` unchanged.
+            inplace: If True, project in place — write the image points over the first two columns of ``points_camera`` and return a ``[..., 2]`` view aliasing that input (its depth column is left intact). If False, return a freshly allocated ``[..., 2]`` and leave ``points_camera`` unchanged.
 
         Returns:
-            The ``[..., 2]`` image points torch.Tensor (a view into
-            ``points_camera`` when inplace, else a new tensor).
+            The ``[..., 2]`` image points torch.Tensor (a view into ``points_camera`` when inplace, else a new tensor).
         """
 
         def _validate_inputs() -> None:
@@ -858,15 +822,10 @@ class CameraIntrinsicsOrtho(CameraIntrinsics):
 
         Args:
             points_camera: Camera-space points, a ``[..., 3]`` torch.Tensor.
-            inplace: If True, project in place — write the image points over the
-                first two columns of ``points_camera`` and return a ``[..., 2]``
-                view aliasing that input (its depth column is left intact). If
-                False, return a freshly allocated ``[..., 2]`` and leave
-                ``points_camera`` unchanged.
+            inplace: If True, project in place — write the image points over the first two columns of ``points_camera`` and return a ``[..., 2]`` view aliasing that input (its depth column is left intact). If False, return a freshly allocated ``[..., 2]`` and leave ``points_camera`` unchanged.
 
         Returns:
-            The ``[..., 2]`` image points torch.Tensor (a view into
-            ``points_camera`` when inplace, else a new tensor).
+            The ``[..., 2]`` image points torch.Tensor (a view into ``points_camera`` when inplace, else a new tensor).
         """
 
         def _validate_inputs() -> None:

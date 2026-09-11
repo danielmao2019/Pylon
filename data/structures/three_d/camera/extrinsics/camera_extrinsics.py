@@ -370,26 +370,6 @@ class CameraExtrinsics:
         """
 
         def _validate_inputs() -> None:
-            assert isinstance(scale, (int, float, np.ndarray, torch.Tensor)), (
-                "Expected transform scale to be a number, numpy array, or torch.Tensor. "
-                f"{type(scale)=}"
-            )
-            if isinstance(scale, np.ndarray):
-                assert scale.size == 1, (
-                    "Expected transform scale array to contain one value. "
-                    f"{scale.shape=}"
-                )
-                assert np.issubdtype(scale.dtype, np.number), (
-                    "Expected transform scale array to be numeric. " f"{scale.dtype=}"
-                )
-            if isinstance(scale, torch.Tensor):
-                assert scale.numel() == 1, (
-                    "Expected transform scale tensor to contain one value. "
-                    f"{scale.shape=}"
-                )
-                assert scale.is_floating_point(), (
-                    "Expected transform scale tensor to be floating. " f"{scale.dtype=}"
-                )
             validate_rotation_matrix(rotation)
             assert isinstance(translation, (np.ndarray, torch.Tensor, tuple, list)), (
                 "Expected transform translation to be a numpy array, torch.Tensor, "
@@ -409,10 +389,6 @@ class CameraExtrinsics:
                 assert translation.shape == (3,), (
                     "Expected transform translation shape to be length 3. "
                     f"{translation.shape=}"
-                )
-                assert translation.is_floating_point(), (
-                    "Expected transform translation tensor to be floating. "
-                    f"{translation.dtype=}"
                 )
             if isinstance(translation, (tuple, list)):
                 assert len(translation) == 3, (
@@ -436,28 +412,47 @@ class CameraExtrinsics:
                 List[Union[int, float]],
             ],
         ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-            if isinstance(scale, torch.Tensor):
-                scale = scale.to(device=self._device, dtype=self._dtype)
-            else:
-                scale = torch.as_tensor(scale, device=self._device, dtype=self._dtype)
-            scale = scale.reshape(())
-            if isinstance(rotation, torch.Tensor):
-                rotation = rotation.to(device=self._device, dtype=self._dtype)
-            else:
-                rotation = torch.as_tensor(
-                    rotation,
-                    device=self._device,
-                    dtype=self._dtype,
-                )
-            if isinstance(translation, torch.Tensor):
-                translation = translation.to(device=self._device, dtype=self._dtype)
-            else:
-                translation = torch.as_tensor(
-                    translation,
-                    device=self._device,
-                    dtype=self._dtype,
-                )
-            translation = translation.reshape(3)
+            scale = torch.as_tensor(scale, device=self._device, dtype=self._dtype)
+            assert scale.shape == (), (
+                "Expected the normalized transform scale to be a scalar tensor. "
+                f"{scale.shape=}"
+            )
+            assert scale.device == self._device, (
+                "Expected the normalized transform scale on the extrinsics device. "
+                f"{scale.device=} {self._device=}"
+            )
+            assert scale.dtype == self._dtype, (
+                "Expected the normalized transform scale in the extrinsics dtype. "
+                f"{scale.dtype=} {self._dtype=}"
+            )
+            rotation = torch.as_tensor(rotation, device=self._device, dtype=self._dtype)
+            assert rotation.shape == (3, 3), (
+                "Expected the normalized transform rotation to be one 3x3 matrix. "
+                f"{rotation.shape=}"
+            )
+            assert rotation.device == self._device, (
+                "Expected the normalized transform rotation on the extrinsics device. "
+                f"{rotation.device=} {self._device=}"
+            )
+            assert rotation.dtype == self._dtype, (
+                "Expected the normalized transform rotation in the extrinsics dtype. "
+                f"{rotation.dtype=} {self._dtype=}"
+            )
+            translation = torch.as_tensor(
+                translation, device=self._device, dtype=self._dtype
+            )
+            assert translation.shape == (3,), (
+                "Expected the normalized transform translation to be a length-3 "
+                f"vector. {translation.shape=}"
+            )
+            assert translation.device == self._device, (
+                "Expected the normalized transform translation on the extrinsics "
+                f"device. {translation.device=} {self._device=}"
+            )
+            assert translation.dtype == self._dtype, (
+                "Expected the normalized transform translation in the extrinsics "
+                f"dtype. {translation.dtype=} {self._dtype=}"
+            )
             return scale, rotation, translation
 
         scale, rotation, translation = _normalize_inputs(
