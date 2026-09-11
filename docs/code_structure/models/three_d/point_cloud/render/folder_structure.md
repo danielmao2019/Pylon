@@ -24,7 +24,9 @@ models/three_d/point_cloud/render/
 
 ```text
 tests/models/three_d/point_cloud/render/
+├── test_create_circular_kernel_offsets.py  # the dilation kernel: that its disc is centred on the point and holds exactly the cells inside the radius
 ├── test_render_depth.py  # depth rendering: resolution, the valid mask, occlusion order, and the inputs it refuses
-├── test_render_rgb.py
-└── test_render_segmentation.py
+├── test_render_normal.py  # normal rendering: the normal each pixel's owning point carries, and the culled points it must not paint
+├── test_render_rgb.py  # rgb rendering: the colour each pixel's owning point carries, and the culled points it must not paint
+└── test_render_segmentation.py  # segmentation rendering: the label each pixel's owning point carries, and the culled points it must not paint
 ```

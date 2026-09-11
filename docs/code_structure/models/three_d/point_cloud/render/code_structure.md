@@ -9,52 +9,31 @@ apply_point_size_postprocessing.py
 ├── from typing import Union
 ├── import torch
 ├── from models.three_d.point_cloud.render.common.create_circular_kernel_offsets import create_circular_kernel_offsets
-└── def apply_point_size_postprocessing(rendered_image: torch.Tensor, depth_map: torch.Tensor, point_size: float, ignore_value: Union[int, float] = 0.0) -> torch.Tensor
-    ├── # Emulates a point_size splat after rasterization: a pixel takes the rendered value of the last circular-kernel neighbour, in kernel order, whose input depth is in front of its own, if any, depths == ignore_value counting as behind all others.
-    ├── if point_size <= 1.0
-    │   └── return rendered_image
-    ├── impls device = rendered_image.device
-    ├── impls is_multichannel = rendered_image.ndim == 3
-    ├── impls H, W = the last two dims of rendered_image's shape
-    ├── impls result = a clone of rendered_image
-    ├── calls create_circular_kernel_offsets(point_size, device)
-    ├── impls kernel_offsets = the (y, x) offsets it returned
-    ├── impls y_coords, x_coords = the ij-indexed meshgrid of arange(H) and arange(W) on device  # impls-node-one-step:skip
-    ├── for dy, dx in kernel_offsets
-    │   ├── impls neighbor_y = y_coords + dy
-    │   ├── impls neighbor_x = x_coords + dx
-    │   ├── impls valid_mask = the elementwise test that neighbor_y lies in [0, H) and neighbor_x lies in [0, W)  # impls-node-one-step:skip
-    │   ├── if not valid_mask.any()
-    │   │   └── continue
-    │   ├── impls curr_y = y_coords selected by valid_mask
-    │   ├── impls curr_x = x_coords selected by valid_mask
-    │   ├── impls neighbor_y = neighbor_y selected by valid_mask
-    │   ├── impls neighbor_x = neighbor_x selected by valid_mask
-    │   ├── impls neighbor_depths = depth_map at rows neighbor_y, cols neighbor_x
-    │   ├── impls current_depths = depth_map at rows curr_y, cols curr_x
-    │   ├── impls propagate_mask = neighbor_depths != ignore_value, and either current_depths == ignore_value or neighbor_depths < current_depths  # impls-node-one-step:skip
-    │   └── if propagate_mask.any()
-    │       ├── impls curr_y = curr_y selected by propagate_mask
-    │       ├── impls curr_x = curr_x selected by propagate_mask
-    │       ├── impls neighbor_y = neighbor_y selected by propagate_mask
-    │       ├── impls neighbor_x = neighbor_x selected by propagate_mask
-    │       ├── if is_multichannel
-    │       │   └── impls assign rendered_image[:, neighbor_y, neighbor_x] into result[:, curr_y, curr_x]
-    │       └── else
-    │           └── impls assign rendered_image[neighbor_y, neighbor_x] into result[curr_y, curr_x]
-    └── return result
+└── def apply_point_size_postprocessing(rendered_image: torch.Tensor, depth_map: torch.Tensor, point_size: float, ignore_value: Union[int, float]) -> torch.Tensor
+    ├── # Dilates each rendered point into a disc of point_size pixels, letting a nearer point's value overwrite a farther one so the dilation respects the same occlusion the rasterizer resolved.
+    ├── # The camera axes ride in front of the image axes, so one call dilates a whole batch and a single camera alike.
+    ├── impls render_height, render_width = the last two axes of depth_map
+    ├── impls channel_axis = whether rendered_image carries one more axis than depth_map, which is what distinguishes a [..., C, H, W] image from a [..., H, W] map
+    ├── calls create_circular_kernel_offsets(point_size=point_size, device=rendered_image.device)
+    ├── impls kernel_offsets = the [num_offsets, 2] (y, x) grid it returned
+    ├── impls neighbor_depth = depth_map shifted by every kernel offset and stacked along a new offset axis, out-of-bounds shifts filled with positive infinity  # impls-node-one-step:skip
+    ├── impls source_offset = the offset axis' argmin over neighbor_depth, naming for each pixel which shifted source is nearest
+    ├── impls dilated_image = rendered_image gathered along the image axes at the shift source_offset names, broadcast across channel_axis  # impls-node-one-step:skip
+    ├── impls dilated_image = ignore_value wherever the winning neighbor_depth is still positive infinity, so a pixel no disc reached keeps the background  # impls-node-one-step:skip
+    └── return dilated_image
 ```
 
 `models/three_d/point_cloud/render/common/create_circular_kernel_offsets.py`
 
 ```text
 create_circular_kernel_offsets.py
+├── import math
 ├── import torch
 └── def create_circular_kernel_offsets(point_size: float, device: torch.device) -> torch.Tensor
-    ├── # Enumerates the (y, x) offsets of those cells of the kernel_size x kernel_size grid that lie within point_size / 2 of the origin.
-    ├── impls kernel_size = int(torch.ceil(torch.tensor(point_size)))  # torch.tensor narrows a python float to float32 before the ceil
+    ├── # Enumerates the (y, x) offsets of those grid cells whose centre lies within point_size / 2 of the origin.
     ├── impls kernel_radius = point_size / 2.0
-    ├── impls y_kernel, x_kernel = the ij-indexed meshgrid of two arange(kernel_size) axes on device, each shifted by subtracting kernel_size // 2
+    ├── impls axis_offsets = arange from minus the ceiling of kernel_radius through plus it, on device  # one arange about the origin, so the grid reaches equally on both sides and the disc is centred rather than lopsided at an even extent
+    ├── impls y_kernel, x_kernel = the ij-indexed meshgrid of axis_offsets against itself
     ├── impls kernel_distances = the euclidean distance from the origin over the float-cast y_kernel, x_kernel grids
     ├── impls circular_mask = the elementwise kernel_distances <= kernel_radius boolean grid
     ├── impls kernel_offsets = y_kernel, x_kernel selected by circular_mask, stacked along dim 1
@@ -75,22 +54,23 @@ prepare_points_for_rendering.py
 ├── from models.three_d.point_cloud.ops.world_to_camera_transform import world_to_camera_transform
 ├── def prepare_points_for_rendering(pc: PointCloud, camera: Union[Camera, Cameras], resolution: Tuple[int, int], max_divide: int = 0, num_divide: Optional[int] = None, cull_func: Callable[[torch.Tensor, torch.Tensor, int, int], None] = _frustum_cull) -> Tuple[torch.Tensor, torch.Tensor]
 │   ├── # Public entry that prepares the camera (opencv extr_convention + resolution-scaled intrinsics) and adaptively batches point preprocessing to mitigate CUDA OOM.
+│   ├── # Row i of the returned points is point i of pc.xyz, so a per-point attribute is looked up by the same index a rasterizer resolves per pixel.
 │   ├── impls points = pc.xyz  # the [N, 3] world-space point tensor
 │   ├── impls camera_prepared = camera.to(device=points.device, extr_convention="opencv").scale_intrinsics(resolution=resolution)
 │   ├── impls N = points.shape[0]
 │   ├── if num_divide is not None
 │   │   ├── impls chunk_size = max(1, math.ceil(N / 2 ** num_divide))
 │   │   ├── calls _prepare_points_for_rendering_chunked(points=points, camera=camera_prepared, chunk_size=chunk_size)
-│   │   └── return  # the chunked, depth-sorted result
+│   │   └── return  # the chunked result
 │   ├── while n <= max_divide
 │   │   ├── try
 │   │   │   ├── calls _prepare_points_for_rendering_chunked(points=points, camera=camera_prepared, chunk_size=ceil(N / 2 ** n))
-│   │   │   └── return  # the chunked, depth-sorted result
+│   │   │   └── return  # the chunked result
 │   │   └── except torch.cuda.OutOfMemoryError
 │   │       └── impls increment n to retry with a halved chunk
 │   └── raise  # torch.cuda.OutOfMemoryError once max_divide halvings are exhausted
 ├── def _prepare_points_for_rendering_chunked(points: torch.Tensor, camera: Union[Camera, Cameras], resolution: Tuple[int, int], chunk_size: int = 2048, cull_func: Callable[[torch.Tensor, torch.Tensor, int, int], None] = _frustum_cull) -> Tuple[torch.Tensor, torch.Tensor]
-│   ├── # Runs _prepare_points_for_rendering over fixed-size point chunks, then concatenates and depth-sorts the survivors along the point axis so every camera sorts independently.
+│   ├── # Runs _prepare_points_for_rendering over fixed-size point chunks and concatenates them, leaving the point axis in its input order so a row still names its own point.
 │   ├── impls render_intrinsics = camera.intrinsics      # the CameraIntrinsics carries the camera-to-image projection
 │   ├── impls extrinsics = camera.extrinsics.extrinsics  # the [..., 4, 4] cam2world matrix, one per camera the batch carries
 │   ├── for each chunk [i:j] of points  # chunked over points for memory; the camera batch axis passes through whole
@@ -98,7 +78,7 @@ prepare_points_for_rendering.py
 │   ├── if no point of any camera survived
 │   │   └── raise AssertionError  # no points remained after culling in all chunks
 │   ├── impls concatenate the per-chunk points and their validity along the point axis  # impls-node-one-step:skip
-│   └── impls depth-sort the concatenated points back-to-front by column 2, along the point axis so every camera sorts independently
+│   └── return  # (points_2d [..., N, 3], valid [..., N]), the point axis still in pc.xyz order
 ├── def _prepare_points_for_rendering(points: torch.Tensor, render_intrinsics: CameraIntrinsics, extrinsics: torch.Tensor, resolution: Tuple[int, int], cull_func: Callable[[torch.Tensor, torch.Tensor, int, int], None] = _frustum_cull) -> Tuple[torch.Tensor, torch.Tensor]
 │   ├── # Preprocesses one chunk of world-space points: world-to-camera transform, positive-depth filter, camera-to-image projection, then image-bounds cull, each survivor marked rather than compacted out.
 │   ├── calls world_to_camera_transform(points=points, extrinsics=extrinsics)  # -> [..., n, 3], one camera frame per camera the extrinsics carries
@@ -149,6 +129,7 @@ render_depth.py
 ├── from data.structures.three_d.camera.camera import Camera
 ├── from data.structures.three_d.camera.cameras import Cameras
 ├── from data.structures.three_d.point_cloud.point_cloud import PointCloud
+├── from models.three_d.point_cloud.render.common.apply_point_size_postprocessing import apply_point_size_postprocessing
 ├── from models.three_d.point_cloud.render.common.prepare_points_for_rendering import prepare_points_for_rendering
 ├── from models.three_d.point_cloud.render.common.validate_rendering_inputs import validate_rendering_inputs
 ├── from models.three_d.point_cloud.render.render_mask import render_mask_from_rendering_points
@@ -156,16 +137,28 @@ render_depth.py
 │   ├── # Renders a point cloud through the camera to a depth map, chaining validation, projection, and rasterization; a Camera gives [H, W] and a Cameras gives [B, H, W] down the same path.
 │   ├── assert isinstance(pc, PointCloud)  # f"{type(pc)=}"
 │   ├── calls validate_rendering_inputs(pc=pc, camera=camera, resolution=resolution, ignore_value=ignore_value, return_mask=return_mask, point_size=point_size)  # camera is whichever of Camera / Cameras the caller passed, so the shared preconditions are checked over either
-│   ├── calls prepare_points_for_rendering(pc=pc, camera=camera, resolution=resolution)  # -> rendered_points, the first of the (points, valid) pair
-│   ├── calls render_depth_from_rendering_points(rendering_points=rendered_points, resolution=resolution, ignore_value=ignore_value, return_mask=return_mask, valid=valid)
-│   └── return  # the render_depth_from_rendering_points result, returned directly
+│   ├── calls prepare_points_for_rendering(pc=pc, camera=camera, resolution=resolution)
+│   ├── impls rendered_points, valid = the pair it returned
+│   ├── calls render_depth_from_rendering_points(rendering_points=rendered_points, resolution=resolution, ignore_value=ignore_value, return_mask=False, valid=valid)
+│   ├── impls depth_map = the map it returned
+│   ├── if point_size > 1.0
+│   │   ├── calls apply_point_size_postprocessing(rendered_image=depth_map, depth_map=depth_map, point_size=point_size, ignore_value=ignore_value)
+│   │   └── impls depth_map = the dilated map it returned
+│   ├── if return_mask
+│   │   ├── if point_size > 1.0
+│   │   │   └── impls valid_mask = the pixels of depth_map the dilation reached  # taken from the dilated map, so the mask and the map it describes cannot drift apart
+│   │   ├── else
+│   │   │   ├── calls render_mask_from_rendering_points(rendering_points=rendered_points, resolution=resolution, device=rendered_points.device, valid=valid)
+│   │   │   └── impls valid_mask = the mask it rasterized
+│   │   └── return  # (depth_map, valid_mask)
+│   └── else
+│       └── return  # depth_map
 └── def render_depth_from_rendering_points(rendering_points: torch.Tensor, resolution: Tuple[int, int], ignore_value: float = float('inf'), return_mask: bool = False, valid: Optional[torch.Tensor] = None) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]
-    ├── # Rasterizes already-projected points into a depth map by writing each point's depth at its pixel.
-    ├── impls render_height, render_width = resolution
-    ├── impls depth_map = a [..., render_height, render_width] float32 tensor filled with ignore_value on the rendering_points device, its leading axes those of rendering_points
-    ├── impls assign rendering_points column 2 float-cast into depth_map by advanced indexing at rows from its long-cast column 1, cols from its long-cast column 0, each index selected by valid so a culled point writes nowhere  # impls-node-one-step:skip
+    ├── # Rasterizes already-projected points into a depth map by reading the depth of the point that owns each pixel.
+    ├── impls winner = a [..., render_height, render_width] tensor holding, per pixel, the index along the point axis of the valid point with the smallest depth landing there, and -1 where none landed  # reduced per pixel rather than scattered, so occlusion does not depend on which write lands last
+    ├── impls depth_map = column 2 of rendering_points gathered at winner, float32, with ignore_value wherever winner is -1  # impls-node-one-step:skip
     ├── if return_mask
-    │   ├── calls render_mask_from_rendering_points(rendering_points=rendering_points, resolution=resolution, device=rendering_points.device)  # -> valid_mask
+    │   ├── calls render_mask_from_rendering_points(rendering_points=rendering_points, resolution=resolution, device=rendering_points.device, valid=valid)  # -> valid_mask
     │   └── return  # (depth_map, valid_mask)
     └── else
         └── return  # depth_map
@@ -175,13 +168,14 @@ render_depth.py
 
 ```text
 render_mask.py
-├── from typing import Tuple
+├── from typing import Optional, Tuple
 ├── import torch
-└── def render_mask_from_rendering_points(rendering_points: torch.Tensor, resolution: Tuple[int, int], device: torch.device) -> torch.Tensor
-    ├── # Marks the pixels the projected points landed on, which is what distinguishes a rendered image's covered pixels from its background.
-    ├── impls render_height, render_width = resolution
-    ├── impls valid_mask = an all-False [render_height, render_width] bool tensor on device
-    ├── impls assign True into valid_mask by advanced indexing at rows from rendering_points' long-cast column 1, cols from its long-cast column 0
+└── def render_mask_from_rendering_points(rendering_points: torch.Tensor, resolution: Tuple[int, int], device: torch.device, valid: Optional[torch.Tensor] = None) -> torch.Tensor
+    ├── # Marks the pixels a surviving point landed on, which is what distinguishes a rendered image's covered pixels from its background.
+    ├── if valid is None
+    │   └── impls valid = an all-True [..., N] bool tensor over the point axis of rendering_points
+    ├── impls winner = a [..., render_height, render_width] tensor holding, per pixel, the index along the point axis of the valid point with the smallest depth landing there, and -1 where none landed  # reduced per pixel rather than scattered, so occlusion does not depend on which write lands last
+    ├── impls valid_mask = winner >= 0, on device, carrying the leading axes of rendering_points
     └── return valid_mask
 ```
 
@@ -204,44 +198,43 @@ render_normal.py
 │   ├── assert hasattr(pc, "normals")      # "PointCloud must contain normals field"
 │   ├── calls validate_rendering_inputs(pc=pc, camera=camera, resolution=resolution, ignore_value=ignore_value, return_mask=return_mask, point_size=point_size)
 │   ├── calls prepare_points_for_rendering(pc=pc, camera=camera, resolution=resolution)
-│   ├── impls rendering_points, original_data_indices = the pair it returned
-│   ├── calls render_normal_from_rendering_points_3d(rendering_points=rendering_points, original_data_indices=original_data_indices, pc_data=pc, camera=camera, resolution=resolution, ignore_value=ignore_value)
+│   ├── impls rendering_points, valid = the pair it returned
+│   ├── calls render_normal_from_rendering_points_3d(rendering_points=rendering_points, valid=valid, pc_data=pc, camera=camera, resolution=resolution, ignore_value=ignore_value)
 │   ├── impls normal_map = the map it rasterized
 │   ├── if point_size > 1.0
-│   │   ├── calls render_depth_from_rendering_points(rendering_points=rendering_points, resolution=resolution, ignore_value=float("inf"), return_mask=False)
+│   │   ├── calls render_depth_from_rendering_points(rendering_points=rendering_points, resolution=resolution, ignore_value=float("inf"), return_mask=False, valid=valid)
 │   │   ├── impls depth_map = the depth map it rasterized
+│   │   ├── calls apply_point_size_postprocessing(rendered_image=depth_map, depth_map=depth_map, point_size=point_size, ignore_value=float("inf"))
+│   │   ├── impls covered = the finite pixels of the dilated depth map  # the disc each surviving point reached, which is both this renderer's mask and its background
 │   │   ├── calls apply_point_size_postprocessing(rendered_image=normal_map, depth_map=depth_map, point_size=point_size, ignore_value=float("inf"))
 │   │   ├── impls normal_map = the dilated map it returned
+│   │   ├── impls normal_map = normal_map with ignore_value written back wherever covered is False  # the helper fills with the depth sentinel it was handed, which is not this renderer's own background
 │   │   ├── impls valid_pixels = the pixels where any normal_map channel differs from ignore_value
 │   │   └── impls normal_map at valid_pixels = those columns unit-normalized over the channel dim
 │   ├── if return_mask
-│   │   ├── calls render_mask_from_rendering_points(rendering_points=rendering_points, resolution=resolution, device=rendering_points.device)
-│   │   ├── impls valid_mask = the mask it rasterized
 │   │   ├── if point_size > 1.0
-│   │   │   ├── calls render_depth_from_rendering_points(rendering_points=rendering_points, resolution=resolution, ignore_value=float("inf"), return_mask=False)
-│   │   │   ├── impls depth_map = the depth map it rasterized
-│   │   │   ├── calls apply_point_size_postprocessing(rendered_image=valid_mask.float(), depth_map=depth_map, point_size=point_size, ignore_value=float("inf"))
-│   │   │   └── impls valid_mask = the bool cast of the dilated mask it returned
+│   │   │   └── impls valid_mask = covered  # the coverage the image's own dilation reached, so the mask and the image it describes cannot drift apart
+│   │   ├── else
+│   │   │   ├── calls render_mask_from_rendering_points(rendering_points=rendering_points, resolution=resolution, device=rendering_points.device, valid=valid)
+│   │   │   └── impls valid_mask = the mask it rasterized
 │   │   └── return  # (normal_map, valid_mask)
 │   └── else
 │       └── return  # normal_map
-└── def render_normal_from_rendering_points_3d(rendering_points: torch.Tensor, original_data_indices: torch.Tensor, pc_data: PointCloud, camera: Camera, resolution: Tuple[int, int], ignore_value: float = 0.0) -> torch.Tensor
+└── def render_normal_from_rendering_points_3d(rendering_points: torch.Tensor, valid: torch.Tensor, pc_data: PointCloud, camera: Camera, resolution: Tuple[int, int], ignore_value: float = 0.0) -> torch.Tensor
     ├── # Rasterizes already-projected points into a normal map, rotating each visible point's world normal into the opencv camera frame on the way.
     ├── impls render_height, render_width = resolution
     ├── impls world_normals = pc_data.normals
     ├── assert world_normals.shape[0] == pc_data.xyz.shape[0]  # f"Normals count {world_normals.shape[0]} must match points count {pc_data.xyz.shape[0]}"
     ├── assert world_normals.shape[1] == 3                     # f"Normals must be 3D vectors, got shape {world_normals.shape}"
     ├── impls world_normals = world_normals unit-normalized over its last dim
-    ├── impls visible_world_normals = world_normals indexed by original_data_indices
+    ├── impls winner = a [render_height, render_width] tensor holding, per pixel, the index along the point axis of the valid point with the smallest depth landing there, and -1 where none landed  # reduced per pixel rather than scattered, so occlusion does not depend on which write lands last
+    ├── impls visible_world_normals = world_normals gathered at winner
     ├── calls camera.to(device=rendering_points.device, extr_convention="opencv")
     ├── impls camera = the opencv-convention copy on the rendering_points device it returned
     ├── impls rotation_matrix = the top-left 3x3 block of camera's w2c matrix
     ├── impls camera_normals = visible_world_normals right-multiplied by the transposed rotation_matrix
     ├── impls camera_normals = camera_normals unit-normalized over its last dim
-    ├── impls normal_map = a [3, render_height, render_width] float32 tensor filled with ignore_value on the rendering_points device
-    ├── impls pixel_coords_y = the long-cast column 1 of rendering_points
-    ├── impls pixel_coords_x = the long-cast column 0 of rendering_points
-    ├── impls assign the transposed float-cast camera_normals into normal_map at rows pixel_coords_y, cols pixel_coords_x
+    ├── impls normal_map = camera_normals moved channel-first, with ignore_value wherever winner is -1  # impls-node-one-step:skip
     └── return normal_map
 ```
 
@@ -264,27 +257,28 @@ render_rgb.py
 │   ├── assert hasattr(pc, "rgb")          # "PointCloud must contain rgb field"
 │   ├── calls validate_rendering_inputs(pc=pc, camera=camera, resolution=resolution, ignore_value=ignore_value, return_mask=return_mask, point_size=point_size)
 │   ├── calls prepare_points_for_rendering(pc=pc, camera=camera, resolution=resolution)
-│   ├── impls rendering_points, original_data_indices = the pair it returned
-│   ├── calls render_rgb_from_rendering_points(rendering_points=rendering_points, original_data_indices=original_data_indices, pc=pc, resolution=resolution, ignore_value=ignore_value)
+│   ├── impls rendering_points, valid = the pair it returned
+│   ├── calls render_rgb_from_rendering_points(rendering_points=rendering_points, valid=valid, pc=pc, resolution=resolution, ignore_value=ignore_value)
 │   ├── impls rgb_image = the image it rasterized
 │   ├── if point_size > 1.0
-│   │   ├── calls render_depth_from_rendering_points(rendering_points=rendering_points, resolution=resolution, ignore_value=float("inf"), return_mask=False)
+│   │   ├── calls render_depth_from_rendering_points(rendering_points=rendering_points, resolution=resolution, ignore_value=float("inf"), return_mask=False, valid=valid)
 │   │   ├── impls depth_map = the depth map it rasterized
+│   │   ├── calls apply_point_size_postprocessing(rendered_image=depth_map, depth_map=depth_map, point_size=point_size, ignore_value=float("inf"))
+│   │   ├── impls covered = the finite pixels of the dilated depth map  # the disc each surviving point reached, which is both this renderer's mask and its background
 │   │   ├── calls apply_point_size_postprocessing(rendered_image=rgb_image, depth_map=depth_map, point_size=point_size, ignore_value=float("inf"))
-│   │   └── impls rgb_image = the dilated image it returned
+│   │   ├── impls rgb_image = the dilated image it returned
+│   │   └── impls rgb_image = rgb_image with ignore_value written back wherever covered is False  # the helper fills with the depth sentinel it was handed, which is not this renderer's own background
 │   ├── if return_mask
-│   │   ├── calls render_mask_from_rendering_points(rendering_points=rendering_points, resolution=resolution, device=rendering_points.device)
-│   │   ├── impls valid_mask = the mask it rasterized
 │   │   ├── if point_size > 1.0
-│   │   │   ├── calls render_depth_from_rendering_points(rendering_points=rendering_points, resolution=resolution, ignore_value=float("inf"), return_mask=False)
-│   │   │   ├── impls depth_map = the depth map it rasterized
-│   │   │   ├── calls apply_point_size_postprocessing(rendered_image=valid_mask.float(), depth_map=depth_map, point_size=point_size, ignore_value=float("inf"))
-│   │   │   └── impls valid_mask = the bool cast of the dilated mask it returned
+│   │   │   └── impls valid_mask = covered  # the coverage the image's own dilation reached, so the mask and the image it describes cannot drift apart
+│   │   ├── else
+│   │   │   ├── calls render_mask_from_rendering_points(rendering_points=rendering_points, resolution=resolution, device=rendering_points.device, valid=valid)
+│   │   │   └── impls valid_mask = the mask it rasterized
 │   │   └── return  # (rgb_image, valid_mask)
 │   └── else
 │       └── return  # rgb_image
-└── def render_rgb_from_rendering_points(rendering_points: torch.Tensor, original_data_indices: torch.Tensor, pc: PointCloud, resolution: Tuple[int, int], ignore_value: float = 0.0) -> torch.Tensor
-    ├── # Rasterizes already-projected points into an RGB image by writing each point's colour at its pixel.
+└── def render_rgb_from_rendering_points(rendering_points: torch.Tensor, valid: torch.Tensor, pc: PointCloud, resolution: Tuple[int, int], ignore_value: float = 0.0) -> torch.Tensor
+    ├── # Rasterizes already-projected points into an RGB image by writing, at each pixel, the colour of the point that owns it.
     ├── assert hasattr(pc, "rgb")  # "PointCloud missing rgb field"
     ├── impls render_height, render_width = resolution
     ├── impls colors = pc.rgb
@@ -296,9 +290,9 @@ render_rgb.py
     ├── if is_integer_dtype or is_in_255_range
     │   └── impls colors = colors divided by 255.0
     ├── impls colors = colors clamped to [0.0, 1.0]
-    ├── impls pixel_colors = colors indexed by original_data_indices
-    ├── impls rgb_image = a [3, render_height, render_width] float32 tensor filled with ignore_value on the rendering_points device
-    ├── impls assign the transposed float-cast pixel_colors into rgb_image by advanced indexing at rows from rendering_points' long-cast column 1, cols from its long-cast column 0
+    ├── impls winner = a [render_height, render_width] tensor holding, per pixel, the index along the point axis of the valid point with the smallest depth landing there, and -1 where none landed  # reduced per pixel rather than scattered, so occlusion does not depend on which write lands last
+    ├── impls pixel_colors = colors gathered at winner, channel-first
+    ├── impls rgb_image = pixel_colors float-cast, with ignore_value wherever winner is -1  # impls-node-one-step:skip
     └── return rgb_image
 ```
 
@@ -351,7 +345,7 @@ render_rgb_volumetric.py
 │   ├── assert math.isfinite(downscale_estimate) with both ratios within 0.01 of downscale_factor  # "Render resolution does not correspond to a supported downscale factor"
 │   ├── impls stage_start = time.time()
 │   ├── calls prepare_points_for_rendering(pc=pc, camera=camera, resolution=resolution)
-│   ├── impls image_plane_points_indices = the second of the pair it returned
+│   ├── impls image_plane_points_indices = the point indices where the pair's validity mask is True
 │   ├── calls Select(indices=image_plane_points_indices)
 │   ├── impls pc = that selector applied to pc, keeping only the points that projected into the image
 │   ├── calls gen_auxiliary_cameras(points=pc.xyz, camera=camera)
@@ -509,33 +503,34 @@ render_segmentation.py
 │   ├── assert hasattr(pc, key)            # f"PointCloud must contain '{key}' field"
 │   ├── calls validate_rendering_inputs(pc=pc, camera=camera, resolution=resolution, ignore_value=ignore_value, return_mask=return_mask, point_size=point_size)
 │   ├── calls prepare_points_for_rendering(pc=pc, camera=camera, resolution=resolution)
-│   ├── impls rendering_points, original_data_indices = the pair it returned
-│   ├── calls render_segmentation_from_rendering_points(rendering_points=rendering_points, original_data_indices=original_data_indices, pc=pc, key=key, resolution=resolution, ignore_value=ignore_value)
+│   ├── impls rendering_points, valid = the pair it returned
+│   ├── calls render_segmentation_from_rendering_points(rendering_points=rendering_points, valid=valid, pc=pc, key=key, resolution=resolution, ignore_value=ignore_value)
 │   ├── impls seg_map = the map it rasterized
 │   ├── if point_size > 1.0
-│   │   ├── calls render_depth_from_rendering_points(rendering_points=rendering_points, resolution=resolution, ignore_value=float("inf"), return_mask=False)
+│   │   ├── calls render_depth_from_rendering_points(rendering_points=rendering_points, resolution=resolution, ignore_value=float("inf"), return_mask=False, valid=valid)
 │   │   ├── impls depth_map = the depth map it rasterized
+│   │   ├── calls apply_point_size_postprocessing(rendered_image=depth_map, depth_map=depth_map, point_size=point_size, ignore_value=float("inf"))
+│   │   ├── impls covered = the finite pixels of the dilated depth map  # the disc each surviving point reached, which is both this renderer's mask and its background
 │   │   ├── calls apply_point_size_postprocessing(rendered_image=seg_map.float(), depth_map=depth_map, point_size=point_size, ignore_value=float("inf"))
-│   │   └── impls seg_map = the long cast of the dilated map it returned
+│   │   ├── impls seg_map = the long cast of the dilated map it returned
+│   │   └── impls seg_map = seg_map with ignore_value written back wherever covered is False  # the helper fills with the depth sentinel it was handed, which is not this renderer's own background
 │   ├── if return_mask
-│   │   ├── calls render_mask_from_rendering_points(rendering_points=rendering_points, resolution=resolution, device=rendering_points.device)
-│   │   ├── impls valid_mask = the mask it rasterized
 │   │   ├── if point_size > 1.0
-│   │   │   ├── calls render_depth_from_rendering_points(rendering_points=rendering_points, resolution=resolution, ignore_value=float("inf"), return_mask=False)
-│   │   │   ├── impls depth_map = the depth map it rasterized
-│   │   │   ├── calls apply_point_size_postprocessing(rendered_image=valid_mask.float(), depth_map=depth_map, point_size=point_size, ignore_value=float("inf"))
-│   │   │   └── impls valid_mask = the bool cast of the dilated mask it returned
+│   │   │   └── impls valid_mask = covered  # the coverage the image's own dilation reached, so the mask and the image it describes cannot drift apart
+│   │   ├── else
+│   │   │   ├── calls render_mask_from_rendering_points(rendering_points=rendering_points, resolution=resolution, device=rendering_points.device, valid=valid)
+│   │   │   └── impls valid_mask = the mask it rasterized
 │   │   └── return  # (seg_map, valid_mask)
 │   └── else
 │       └── return  # seg_map
-└── def render_segmentation_from_rendering_points(rendering_points: torch.Tensor, original_data_indices: torch.Tensor, pc: PointCloud, key: str, resolution: Tuple[int, int], ignore_value: int = 255) -> torch.Tensor
-    ├── # Rasterizes already-projected points into a segmentation map by writing each point's label at its pixel.
+└── def render_segmentation_from_rendering_points(rendering_points: torch.Tensor, valid: torch.Tensor, pc: PointCloud, key: str, resolution: Tuple[int, int], ignore_value: int = 255) -> torch.Tensor
+    ├── # Rasterizes already-projected points into a segmentation map by writing, at each pixel, the label of the point that owns it.
     ├── assert hasattr(pc, key)  # f"PointCloud missing '{key}' field"
     ├── impls render_height, render_width = resolution
     ├── impls labels = the pc attribute named by key
     ├── assert labels.numel() > 0  # f"Labels tensor must not be empty, got {labels.numel()} elements"
-    ├── impls pixel_labels = labels indexed by original_data_indices
-    ├── impls seg_map = a [render_height, render_width] int64 tensor filled with ignore_value on the rendering_points device
-    ├── impls assign the int64-cast pixel_labels into seg_map by advanced indexing at rows from rendering_points' long-cast column 1, cols from its long-cast column 0
+    ├── impls winner = a [render_height, render_width] tensor holding, per pixel, the index along the point axis of the valid point with the smallest depth landing there, and -1 where none landed  # reduced per pixel rather than scattered, so occlusion does not depend on which write lands last
+    ├── impls pixel_labels = labels gathered at winner
+    ├── impls seg_map = pixel_labels int64-cast, with ignore_value wherever winner is -1  # impls-node-one-step:skip
     └── return seg_map
 ```
