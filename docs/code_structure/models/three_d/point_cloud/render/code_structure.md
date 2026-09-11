@@ -176,10 +176,11 @@ render_mask.py
 ├── import torch
 └── def render_mask_from_rendering_points(rendering_points: torch.Tensor, resolution: Tuple[int, int], device: torch.device, valid: Optional[torch.Tensor] = None) -> torch.Tensor
     ├── # Marks the pixels a surviving point landed on, which is what distinguishes a rendered image's covered pixels from its background.
+    ├── impls render_height, render_width = resolution
     ├── if valid is None
     │   └── impls valid = an all-True [..., N] bool tensor over the point axis of rendering_points
-    ├── impls winner = a [..., render_height, render_width] tensor holding, per pixel, the index along the point axis of the valid point with the smallest depth landing there, and -1 where none landed  # reduced per pixel rather than scattered, so occlusion does not depend on which write lands last
-    ├── impls valid_mask = winner >= 0, on device, carrying the leading axes of rendering_points
+    ├── impls nearest_point_index = a [..., render_height, render_width] tensor holding, per pixel, the index along the point axis of the valid point with the smallest depth landing there, and -1 where none landed  # reduced per pixel rather than scattered, so occlusion does not depend on which write lands last
+    ├── impls valid_mask = nearest_point_index >= 0, on device, carrying the leading axes of rendering_points
     └── return valid_mask
 ```
 
