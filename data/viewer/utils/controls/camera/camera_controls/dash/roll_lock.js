@@ -2,7 +2,7 @@
 //
 // `orbit` leaves camera roll free. The panel's own view controller turns the camera about the camera's own screen axes, and successive yaw and pitch turns about a frame that each turn moves compose into roll, so the camera right axis drifts off the caller's axis; the same controller applies no pitch limit, so a drag that carries the view through a pole leaves the scene hanging upside down. This module holds both back: it keeps the camera right axis perpendicular to the caller's axis, and the camera up vector on that axis's own side.
 //
-// Two things move the camera off that lock, and the module meets each where it happens. A pose the panel is handed - the framing it comes up on, and any camera a later `Plotly.relayout` writes - arrives whole, and is corrected whole when the panel reports it. A drag arrives one pointer move at a time through the view controller's own rotation, and is corrected there: the controller writes each move as a keyframe into a time-indexed spline the renderer samples a frame or two behind, so a pose written back once the move is already in that spline is re-pinned by the controller's own idle before it is ever drawn. Wrapping the controller's `rotate` puts the roll-locked pose into the spline at the same keyframe timestamp the move was written at, which is what holds the horizon level in every rendered frame of a live drag rather than at the drag's end. Rotation is the whole of what that wrapper has to cover: the controller's pan carries the eye and the center together and its wheel zoom moves the eye along the view direction, so both leave the camera frame - and the lock - exactly as they found it.
+// Every pose reaches the renderer through the view controller's `lookAt`, whichever path writes it - a drag step, a `Plotly.relayout`, a modebar reset-camera button, a replot - and the controller writes it there as a keyframe into a time-indexed spline the renderer samples a frame or two behind. The module wraps that `lookAt`, so each pose goes into the spline already roll-locked, with its rotation quaternion in the hemisphere of the keyframe before it, and the renderer never holds an unlocked keyframe to draw - not for one frame of a live drag, and not for the frame Plotly draws before it reports a relayout. A drag arrives one pointer move at a time through the view controller's rotation, which the module replaces with the roll-locked turn, writing each step through the same wrapped `lookAt` at the keyframe timestamp the move was written at. The layout keeps its own record of the camera, which a relayout or a reset button writes as it was handed, so the graph's `plotly_relayout` event rewrites that record to the roll-locked pose the renderer already draws. Rotation is the whole of what that wrapper has to cover: the controller's pan carries the eye and the center together and its wheel zoom moves the eye along the view direction, so both leave the camera frame - and the lock - exactly as they found it.
 //
 // The module is a single expression: the named factory `createRollLockCallback`, which `_register_dash_roll_lock_callback` calls with the graph id and the unit-length axis, and whose result, the named `rollLockCallback`, is the Dash clientside callback.
 (function createRollLockCallback(graphId, axis) {
@@ -159,14 +159,6 @@
         return { graphDiv: graphDiv, scene: scene };
     }
 
-    // Seeds the per-graph in-flight write flag on first use.
-    function ensureRollLockState(graphDiv) {
-        if (graphDiv.__rollLock !== undefined) {
-            return;
-        }
-        graphDiv.__rollLock = { writing: false };
-    }
-
     // Reports whether the panel's live camera already carries both halves of the lock: its right axis perpendicular to the caller's axis, and its up vector on that axis's own side. Both halves are exactly what the roll-locked up vector is built from, so the reported up matching it is the whole of the question - and it is asked of the up vector alone because the reported eye's own right axis is what collapses on the axis, which is the degeneracy the banding removes.
     function isRollLockHeld(camera, pose) {
         return (
@@ -177,7 +169,6 @@
 
     // Writes the roll-locked pose back to the panel when the camera it reports violates either half of the lock.
     function applyRollLock(graphDiv, camera) {
-        ensureRollLockState(graphDiv);
         const pose = resolveRollLockedPose(camera);
         if (isRollLockHeld(camera, pose)) {
             return;
@@ -191,6 +182,32 @@
             "scene.camera.up": vectorToRecord(pose.up),
         }).then(function () {
             graphDiv.__rollLock.writing = false;
+        });
+    }
+
+    // Resolves the camera a relayout event wrote into the graph's layout, or null when the event wrote none. A drag, pan or zoom ends by saving its camera into the layout input and into a full layout object the graph has since replaced, and reports that camera whole in the event; a `Plotly.relayout` that writes the camera by key path - a reset-camera button, this module's own correction - rebuilds the full layout, so that camera is read from there. An event that writes no camera - a dragmode change, or the empty relayout a wheel zoom opens with - leaves the stored camera as it was, and the full layout, which such an event need not rebuild, can still hold one a drag has since replaced.
+    function resolveWrittenCamera(graphDiv, eventData) {
+        if (eventData["scene.camera"] !== undefined) {
+            return eventData["scene.camera"];
+        }
+        if (Object.keys(eventData).some(function (key) { return key.indexOf("scene.camera.") === 0; })) {
+            return graphDiv._fullLayout.scene.camera;
+        }
+        return null;
+    }
+
+    // On first sight of the graph div, seeds its in-flight write flag and subscribes applyRollLock to its plotly_relayout event, so the camera the layout stores - which a relayout or a reset-camera button writes as it was handed - is rewritten to the roll-locked pose the renderer already draws. The event hands applyRollLock the camera it wrote rather than the scene's, since the wrapped lookAt has already locked the one the scene reports.
+    function subscribeRollLock(graphDiv) {
+        if (graphDiv.__rollLock !== undefined) {
+            return;
+        }
+        graphDiv.__rollLock = { writing: false };
+        graphDiv.on("plotly_relayout", function (eventData) {
+            const camera = resolveWrittenCamera(graphDiv, eventData);
+            if (camera === null) {
+                return;
+            }
+            applyRollLock(graphDiv, camera);
         });
     }
 
@@ -228,18 +245,52 @@
         };
     }
 
-    // Replaces the view controller's rotation with the roll-locked one. The controller's own rotation is never run: it turns the eye about the screen axes of a trackball, and on a pure-horizontal drag that alone moves the eye's polar angle to the lock axis, so keeping its eye and correcting only the up vector would fly the free trackball's path with a level horizon. The drag's screen components instead turn the pose the controller holds at that timestamp through `resolveTurnedPose`, and the turned pose is written back at the same timestamp, so the keyframe the renderer interpolates towards is the locked one.
+    // Holds the lock on one view controller, once per controller: wraps its lookAt so every pose written into the renderer's keyframes goes in roll-locked, and replaces its rotation with the roll-locked turn. The wrapped lookAt bands the written eye off the axis and re-derives the up vector from the written view direction and the axis, so a drag step, a relayout, a reset-camera button and a replot all land on the lock before the renderer can draw them; it takes the same optional eye, center and up the controller's own lookAt does, filling a missing one from the pose at that time. The controller's own rotation is never run: it turns the eye about the screen axes of a trackball, and on a pure-horizontal drag that alone moves the eye's polar angle to the lock axis, so keeping its eye and correcting only the up vector would fly the free trackball's path with a level horizon. The drag's screen components instead turn the pose the controller holds at that timestamp through `resolveTurnedPose`, which the wrapped lookAt writes back at the same timestamp.
     function holdRollLock(view) {
         if (view.rollLockHeld === true) {
             return;
         }
         view.rollLockHeld = true;
+        const controllerLookAt = view.lookAt.bind(view);
+        view.lookAt = function (time, eye, center, up) {
+            view.recalcMatrix(time);
+            const writtenCenter = (center || view.computedCenter).slice();
+            const pose = resolveRollLockedPose({
+                eye: vectorToRecord(eye || view.computedEye),
+                center: vectorToRecord(writtenCenter),
+                up: vectorToRecord(up || view.computedUp),
+            });
+            // Only the orbit controller keeps its rotation as quaternion keyframes; the turntable controller the modebar can switch to keeps angles, which have no second hemisphere to land in.
+            const rotation = view.getMode() === "orbit" ? view._active.rotation : null;
+            const keyframeCount = rotation === null ? 0 : rotation._time.length;
+            controllerLookAt(time, pose.eye, writtenCenter, pose.up);
+            if (rotation !== null && rotation._time.length > keyframeCount) {
+                alignRotationKeyframeHemisphere(rotation);
+            }
+        };
         view.rotate = function (time, yaw, pitch, roll) {
             view.recalcMatrix(time);
             const center = view.computedCenter.slice();
             const pose = resolveTurnedPose(view.computedEye.slice(), center, yaw, pitch);
             view.lookAt(time, pose.eye, center, pose.up);
         };
+    }
+
+    // Negates the newest rotation keyframe's quaternion when it sits in the opposite hemisphere from the keyframe before it. `q` and `-q` name one rotation and the controller's `lookAt` stores whichever its matrix-to-quaternion step lands on, but the renderer interpolates the keyframes component by component, so between `q` and `-q` the frames it draws swing through unrelated orientations; keeping consecutive keyframes in one hemisphere makes that interpolation take the short way round. The vector stores each keyframe's four components contiguously, so the newest keyframe is the last four entries of its state and the one before it the four ahead of those.
+    function alignRotationKeyframeHemisphere(rotation) {
+        const state = rotation._state;
+        const newest = state.length - 4;
+        const previous = newest - 4;
+        let dot = 0;
+        for (let index = 0; index < 4; index += 1) {
+            dot += state[previous + index] * state[newest + index];
+        }
+        if (dot >= 0) {
+            return;
+        }
+        for (let index = 0; index < 4; index += 1) {
+            state[newest + index] = -state[newest + index];
+        }
     }
 
     // Re-holds the lock on graphId's gl3d scene each time the graph reports a relayout, its first render included, waiting out the frames before the WebGL scene mounts: the wrapper on the view controller a drag turns the camera through, and the correction of the camera the panel currently reports. A panel that re-renders arrives with a view controller of its own, so the wrapper goes onto whichever one the panel is turning now rather than once and for all.
@@ -252,6 +303,7 @@
             return window.dash_clientside.no_update;
         }
         holdRollLock(mounted.scene.camera.view);
+        subscribeRollLock(mounted.graphDiv);
         applyRollLock(mounted.graphDiv, mounted.scene.getCamera());
         return window.dash_clientside.no_update;
     }
