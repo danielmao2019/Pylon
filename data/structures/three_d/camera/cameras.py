@@ -1,4 +1,4 @@
-from typing import Dict, Iterator, List, Optional, Sequence, Tuple, Union
+from typing import Iterator, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import torch
@@ -14,8 +14,7 @@ from data.structures.three_d.camera.validation import validate_cameras_attribute
 class Cameras:
     """A batch of cameras: one CameraIntrinsics and one CameraExtrinsics carrying a leading batch axis.
 
-    Every method the two components already have operates on the whole batch, so
-    the batch never loops over its own cameras to compute anything.
+    Every method the two components already have operates on the whole batch, so the batch never loops over its own cameras to compute anything.
     """
 
     def __init__(
@@ -56,30 +55,38 @@ class Cameras:
         def _normalize_inputs(
             intrinsics: CameraIntrinsics,
             extrinsics: CameraExtrinsics,
+            names: Optional[List[Optional[str]]],
+            ids: Optional[List[Optional[int]]],
             device: Optional[Union[str, torch.device]],
             dtype: Optional[torch.dtype],
-        ) -> Tuple[CameraIntrinsics, CameraExtrinsics]:
+        ) -> Tuple[
+            CameraIntrinsics,
+            CameraExtrinsics,
+            List[Optional[str]],
+            List[Optional[int]],
+        ]:
             if device is not None or dtype is not None:
                 intrinsics = intrinsics.to(device=device, dtype=dtype)
                 extrinsics = extrinsics.to(device=device, dtype=dtype)
-            return intrinsics, extrinsics
+            batch_size = len(extrinsics.extrinsics)
+            names = names if names is not None else [None] * batch_size
+            ids = ids if ids is not None else [None] * batch_size
+            return intrinsics, extrinsics, names, ids
 
-        intrinsics, extrinsics = _normalize_inputs(
+        intrinsics, extrinsics, names, ids = _normalize_inputs(
             intrinsics=intrinsics,
             extrinsics=extrinsics,
+            names=names,
+            ids=ids,
             device=device,
             dtype=dtype,
         )
-
-        batch_size = len(extrinsics.extrinsics)
-        names = names if names is not None else [None] * batch_size
-        ids = ids if ids is not None else [None] * batch_size
 
         self._intrinsics: CameraIntrinsics = intrinsics
         self._extrinsics: CameraExtrinsics = extrinsics
         self._names: List[Optional[str]] = names
         self._ids: List[Optional[int]] = ids
-        self._name_to_index: Dict[str, int] = {}
+        self._name_to_index = {}
         for index, name in enumerate(names):
             if name is None:
                 continue
