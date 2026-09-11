@@ -116,15 +116,16 @@ goal: re-design pc dtype contract/provenance
       2. .ply on save: xyz splits back into x, y and z, and rgb splits back into red, green and blue.
       3. .pcd, .pth, .txt and .off: no default.
       4. no other defaults defined for now.
-   4. target meta data:
-      1. entries: the target has one entry per field:
-         1. each field the override or the default names has one.
-         2. each field the obj holds has one, unless the override or the default assembles its columns into another field: the default assembles a ply's x, y and z into xyz, so x, y and z have none.
-      2. definition:
-         1. the entry takes whichever dtype and layout the override states.
-         2. it takes the default layout wherever the override states none.
-         3. it takes the recorded ones wherever neither the override nor the default states any.
-         4. where the record names the field nowhere, the field supplies both: its name serves as the layout, and the dtype it carries as the dtype.
+   4. target meta data: one entry per field, each holding that field's layout and dtype.
+      1. layout: each column the obj holds goes to one field, the first of these whose layout names it, and the fields that receive columns are the target's entries:
+         1. the override.
+         2. the default: its xyz takes a ply's x, y and z, so x, y and z have no entry of their own.
+         3. the record.
+         4. the field itself, where the record names it nowhere: its name serves as the layout.
+      2. dtype: each entry takes it from the first of these that states one:
+         1. the override.
+         2. the record.
+         3. the field itself, where the record names it nowhere: the dtype it carries.
 5. applying meta data:
    1. how the derived target is applied. the target resolves first, and the layout mapping is checked only after that:
       1. dtype (and convention):
