@@ -463,7 +463,7 @@ def test_render_depth_batched_matches_per_camera_when_pixels_collide() -> None:
 
 
 def test_render_depth_point_size_dilates_the_rendered_discs() -> None:
-    """Test that a point size above one pixel widens each rendered point into a disc."""
+    """Test that a point size above one pixel grows each rendered point into a disc."""
     pc_data = PointCloud(xyz=torch.tensor([[0.0, 0.0, -1.0]], dtype=torch.float32))
 
     camera = _build_camera(focal=100.0, principal_point=50.0)
