@@ -713,7 +713,6 @@ def create_point_cloud_display(
     lod_config: Optional[Dict[str, Any]] = None,
     point_cloud_id: Optional[Union[str, Tuple[str, int, str]]] = None,
     axis_ranges: Optional[Dict[str, Tuple[float, float]]] = None,
-    lock_roll: Optional[Tuple[float, float, float]] = None,
     **kwargs: Any,
 ) -> go.Figure:
     """Create point cloud display with LOD optimization.
@@ -737,7 +736,6 @@ def create_point_cloud_display(
             - For "discrete": {"camera_state": dict, ...other params...}
         point_cloud_id: Unique identifier for LOD caching
         axis_ranges: Optional fixed axis ranges for consistent scaling
-        lock_roll: Optional axis to lock camera roll about, as an `(x, y, z)` world-space direction in the point cloud's own world frame. When supplied, the returned figure's `layout.scene` carries Plotly gl3d `dragmode="orbit"` with `camera.up` seeded from the normalized axis, merged over whatever `camera_state` already placed there; holding camera roll additionally needs `register_dash_roll_lock_callback` registered on the graph rendering this figure, which holds it through the drag rather than at each drag's end. When None, that same `dragmode="orbit"` is still merged over whatever `camera_state` placed there and no axis is pinned, so the display's roll is genuinely free; Plotly's own gl3d default `"turntable"` would instead pin `camera.up` to world +Z and make roll unreachable.
         **kwargs: Additional arguments
 
     Returns:
@@ -810,16 +808,6 @@ def create_point_cloud_display(
             axis_ranges, dict
         ), f"axis_ranges must be dict, got {type(axis_ranges)}"
 
-    assert lock_roll is None or (
-        isinstance(lock_roll, tuple)
-        and len(lock_roll) == 3
-        and all(isinstance(component, float) for component in lock_roll)
-        and any(component != 0.0 for component in lock_roll)
-    ), (
-        "Expected `lock_roll` to be None or a non-zero 3-tuple of floats. "
-        f"{lock_roll=}"
-    )
-
     original_count = len(points)
 
     # Apply LOD processing
@@ -862,10 +850,6 @@ def create_point_cloud_display(
         uirevision='camera',  # This ensures camera views stay in sync
     )
 
-    fig.update_layout(
-        scene=create_dash_trackball_camera_controls(lock_roll=lock_roll),
-    )
-
     return fig
 
 
@@ -873,7 +857,6 @@ def create_dash_points_display(
     point_cloud: PointCloud,
     point_size: Optional[float] = None,
     point_color: Optional[str] = None,
-    lock_roll: Optional[Tuple[float, float, float]] = None,
 ) -> dcc.Graph:
     """Render a Dash point-cloud display element.
 
@@ -888,7 +871,6 @@ def create_dash_points_display(
             bounding-sphere heuristic computes the size.
         point_color: Optional uniform marker color override (CSS color string);
             when None per-point colors or the lib default color is used.
-        lock_roll: Optional axis to lock camera roll about, as an `(x, y, z)` world-space direction in the point cloud's own world frame. When supplied, the rendered camera uses Plotly gl3d `dragmode="orbit"` with `camera.up` seeded from the normalized axis; holding camera roll additionally needs `register_dash_roll_lock_callback` registered on this graph, which holds it through the drag rather than at each drag's end. When None, the rendered camera still uses that same `dragmode="orbit"` and pins no axis, so the display's roll is genuinely free; Plotly's own gl3d default `"turntable"` would instead pin `camera.up` to world +Z and make roll unreachable.
 
     Returns:
         Dash `dcc.Graph` wrapping the point-cloud scene.
@@ -903,22 +885,13 @@ def create_dash_points_display(
         "Expected `point_color` to be None or a CSS color string. "
         f"{type(point_color)=}"
     )
-    assert lock_roll is None or (
-        isinstance(lock_roll, tuple)
-        and len(lock_roll) == 3
-        and all(isinstance(component, float) for component in lock_roll)
-        and any(component != 0.0 for component in lock_roll)
-    ), (
-        "Expected `lock_roll` to be None or a non-zero 3-tuple of floats. "
-        f"{lock_roll=}"
-    )
 
     scene = create_dash_points_scene(
         point_cloud=point_cloud,
         point_size=point_size,
         point_color=point_color,
     )
-    controls = create_dash_trackball_camera_controls(lock_roll=lock_roll)
+    controls = create_dash_trackball_camera_controls
     return create_dash_points_component(
         scene=scene,
         controls=controls,
@@ -984,29 +957,21 @@ def create_dash_points_scene(
 
 def create_dash_points_component(
     scene: go.Scatter3d,
-    controls: Dict[str, Any],
+    controls: Any,
 ) -> dcc.Graph:
     """Wrap the point-cloud scene and camera controls into a Dash component.
 
     Args:
         scene: Plotly `go.Scatter3d` marker trace for the point cloud.
-        controls: Plotly gl3d `layout.scene` camera configuration built by
-            `create_dash_trackball_camera_controls`.
+        controls: Dash trackball camera-controls factory for the renderer.
 
     Returns:
-        Dash `dcc.Graph` rendering the point-cloud scene under the supplied
-        camera configuration.
+        Dash `dcc.Graph` rendering the point-cloud scene.
     """
     assert isinstance(scene, go.Scatter3d), (
         "Expected `scene` to be a Plotly `go.Scatter3d` trace. " f"{type(scene)=}"
     )
-    assert isinstance(controls, dict), (
-        "Expected `controls` to be a Plotly gl3d scene camera configuration. "
-        f"{type(controls)=}"
-    )
-    return dcc.Graph(
-        figure=go.Figure(data=[scene], layout=go.Layout(scene=controls)),
-    )
+    return dcc.Graph(figure=go.Figure(data=[scene]))
 
 
 def get_point_cloud_display_stats(

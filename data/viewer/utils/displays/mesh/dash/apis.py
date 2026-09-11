@@ -1,6 +1,6 @@
 """Dash mesh display APIs."""
 
-from typing import Optional, Tuple
+from typing import Optional
 
 import torch
 from dash import dcc
@@ -32,7 +32,6 @@ def create_color_mesh_display(
     mesh_color: Optional[str] = None,
     mesh_opacity: Optional[float] = None,
     mesh_side: Optional[str] = None,
-    lock_roll: Optional[Tuple[float, float, float]] = None,
 ) -> dcc.Graph:
     """Render a color mesh display from a color mesh artifact path.
 
@@ -45,7 +44,6 @@ def create_color_mesh_display(
             default opacity is used.
         mesh_side: Optional side mode override; when None the lib default side
             mode is used.
-        lock_roll: Optional axis to lock camera roll about, as an `(x, y, z)` world-space direction in the mesh's own world frame, forwarded to `create_dash_mesh_display`. When supplied, the rendered camera uses Plotly gl3d `dragmode="orbit"` with `camera.up` seeded from the normalized axis; holding camera roll additionally needs `register_dash_roll_lock_callback` registered on this graph, which holds it through the drag rather than at each drag's end. When None, the rendered camera still uses that same `dragmode="orbit"` and pins no axis, so the display's roll is genuinely free.
 
     Returns:
         Dash `dcc.Graph` wrapping the color mesh scene.
@@ -63,15 +61,6 @@ def create_color_mesh_display(
     assert mesh_side is None or isinstance(mesh_side, str), (
         "Expected `mesh_side` to be None or a string. " f"{type(mesh_side)=}"
     )
-    assert lock_roll is None or (
-        isinstance(lock_roll, tuple)
-        and len(lock_roll) == 3
-        and all(isinstance(component, float) for component in lock_roll)
-        and any(component != 0.0 for component in lock_roll)
-    ), (
-        "Expected `lock_roll` to be None or a non-zero 3-tuple of floats. "
-        f"{lock_roll=}"
-    )
 
     mesh = Mesh.load(path=color_mesh_path)
     return create_dash_mesh_display(
@@ -79,7 +68,6 @@ def create_color_mesh_display(
         mesh_color=mesh_color,
         mesh_opacity=mesh_opacity,
         mesh_side=mesh_side,
-        lock_roll=lock_roll,
     )
 
 
@@ -87,7 +75,6 @@ def create_segmentation_mesh_display(
     segmentation_mesh_path: str,
     mesh_opacity: Optional[float] = None,
     mesh_side: Optional[str] = None,
-    lock_roll: Optional[Tuple[float, float, float]] = None,
 ) -> dcc.Graph:
     """Render a backend-colorized segmentation mesh display.
 
@@ -101,7 +88,6 @@ def create_segmentation_mesh_display(
             default opacity is used.
         mesh_side: Optional side mode override; when None the lib default side
             mode is used.
-        lock_roll: Optional axis to lock camera roll about, as an `(x, y, z)` world-space direction in the mesh's own world frame, forwarded to `create_dash_mesh_display`. When supplied, the rendered camera uses Plotly gl3d `dragmode="orbit"` with `camera.up` seeded from the normalized axis; holding camera roll additionally needs `register_dash_roll_lock_callback` registered on this graph, which holds it through the drag rather than at each drag's end. When None, the rendered camera still uses that same `dragmode="orbit"` and pins no axis, so the display's roll is genuinely free.
 
     Returns:
         Dash `dcc.Graph` wrapping the colorized segmentation mesh scene.
@@ -115,15 +101,6 @@ def create_segmentation_mesh_display(
     )
     assert mesh_side is None or isinstance(mesh_side, str), (
         "Expected `mesh_side` to be None or a string. " f"{type(mesh_side)=}"
-    )
-    assert lock_roll is None or (
-        isinstance(lock_roll, tuple)
-        and len(lock_roll) == 3
-        and all(isinstance(component, float) for component in lock_roll)
-        and any(component != 0.0 for component in lock_roll)
-    ), (
-        "Expected `lock_roll` to be None or a non-zero 3-tuple of floats. "
-        f"{lock_roll=}"
     )
 
     segmentation_mesh = Mesh.load(path=segmentation_mesh_path)
@@ -151,7 +128,6 @@ def create_segmentation_mesh_display(
         mesh=colorized_mesh,
         mesh_opacity=mesh_opacity,
         mesh_side=mesh_side,
-        lock_roll=lock_roll,
     )
 
 
@@ -159,7 +135,6 @@ def create_heatmap_mesh_display(
     heatmap_mesh_path: str,
     mesh_opacity: Optional[float] = None,
     mesh_side: Optional[str] = None,
-    lock_roll: Optional[Tuple[float, float, float]] = None,
 ) -> dcc.Graph:
     """Render a backend-colorized heatmap mesh display.
 
@@ -173,7 +148,6 @@ def create_heatmap_mesh_display(
             default opacity is used.
         mesh_side: Optional side mode override; when None the lib default side
             mode is used.
-        lock_roll: Optional axis to lock camera roll about, as an `(x, y, z)` world-space direction in the mesh's own world frame, forwarded to `create_dash_mesh_display`. When supplied, the rendered camera uses Plotly gl3d `dragmode="orbit"` with `camera.up` seeded from the normalized axis; holding camera roll additionally needs `register_dash_roll_lock_callback` registered on this graph, which holds it through the drag rather than at each drag's end. When None, the rendered camera still uses that same `dragmode="orbit"` and pins no axis, so the display's roll is genuinely free.
 
     Returns:
         Dash `dcc.Graph` wrapping the colorized heatmap mesh scene.
@@ -186,15 +160,6 @@ def create_heatmap_mesh_display(
     )
     assert mesh_side is None or isinstance(mesh_side, str), (
         "Expected `mesh_side` to be None or a string. " f"{type(mesh_side)=}"
-    )
-    assert lock_roll is None or (
-        isinstance(lock_roll, tuple)
-        and len(lock_roll) == 3
-        and all(isinstance(component, float) for component in lock_roll)
-        and any(component != 0.0 for component in lock_roll)
-    ), (
-        "Expected `lock_roll` to be None or a non-zero 3-tuple of floats. "
-        f"{lock_roll=}"
     )
 
     heatmap_mesh = Mesh.load(path=heatmap_mesh_path)
@@ -216,7 +181,6 @@ def create_heatmap_mesh_display(
         mesh=colorized_mesh,
         mesh_opacity=mesh_opacity,
         mesh_side=mesh_side,
-        lock_roll=lock_roll,
     )
 
 

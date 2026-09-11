@@ -4,8 +4,8 @@
 //
 // Two things move the camera off that lock, and the module meets each where it happens. A pose the panel is handed - the framing it comes up on, and any camera a later `Plotly.relayout` writes - arrives whole, and is corrected whole when the panel reports it. A drag arrives one pointer move at a time through the view controller's own rotation, and is corrected there: the controller writes each move as a keyframe into a time-indexed spline the renderer samples a frame or two behind, so a pose written back once the move is already in that spline is re-pinned by the controller's own idle before it is ever drawn. Wrapping the controller's `rotate` puts the roll-locked pose into the spline at the same keyframe timestamp the move was written at, which is what holds the horizon level in every rendered frame of a live drag rather than at the drag's end. Rotation is the whole of what that wrapper has to cover: the controller's pan carries the eye and the center together and its wheel zoom moves the eye along the view direction, so both leave the camera frame - and the lock - exactly as they found it.
 //
-// The module is a single expression: a factory the Python registration calls with the graph id and the unit-length axis, whose result is the Dash clientside callback.
-(function (graphId, axis) {
+// The module is a single expression: the named factory `createRollLockCallback`, which `_register_dash_roll_lock_callback` calls with the graph id and the unit-length axis, and whose result, the named `rollLockCallback`, is the Dash clientside callback.
+(function createRollLockCallback(graphId, axis) {
     // Radians the roll-locked camera stops short of the lock axis. The eye is banded into this range before anything derives a camera right axis from it, which is what leaves the view direction never parallel to the axis, so the cross product that re-derives that right axis never collapses.
     const ROLL_LOCK_POLAR_ANGLE_EPSILON = 1e-6;
     // Squared distance between the reported up vector and the roll-locked one at or below which the camera is already roll-locked and no write is issued. Skipping the redundant write is what stops this module's own `Plotly.relayout` from driving an endless relayout -> correct -> relayout cycle, and what leaves a drag the wrapped rotation already locked reporting a camera this module writes nothing over.
@@ -242,19 +242,19 @@
         };
     }
 
-    // Holds the roll lock on whatever panel is there now, waiting out the frames before the WebGL scene mounts: the wrapper on the view controller a drag turns the camera through, and the correction of the camera the panel currently reports. A panel that re-renders arrives with a view controller of its own, so the wrapper goes onto whichever one the panel is turning now rather than once and for all.
-    function holdPanelRollLock() {
+    // Re-holds the lock on graphId's gl3d scene each time the graph reports a relayout, its first render included, waiting out the frames before the WebGL scene mounts: the wrapper on the view controller a drag turns the camera through, and the correction of the camera the panel currently reports. A panel that re-renders arrives with a view controller of its own, so the wrapper goes onto whichever one the panel is turning now rather than once and for all.
+    function rollLockCallback(relayoutData) {
         const mounted = resolveMountedScene();
         if (mounted === null) {
-            window.requestAnimationFrame(holdPanelRollLock);
-            return;
+            window.requestAnimationFrame(function () {
+                rollLockCallback(relayoutData);
+            });
+            return window.dash_clientside.no_update;
         }
         holdRollLock(mounted.scene.camera.view);
         applyRollLock(mounted.graphDiv, mounted.scene.getCamera());
+        return window.dash_clientside.no_update;
     }
 
-    return function (relayoutData) {
-        holdPanelRollLock();
-        return window.dash_clientside.no_update;
-    };
+    return rollLockCallback;
 })

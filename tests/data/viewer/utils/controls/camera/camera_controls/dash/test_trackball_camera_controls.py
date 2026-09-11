@@ -1,444 +1,475 @@
-"""Tests for the Dash trackball camera controls and their guards."""
+"""Tests for the Dash trackball camera controls and their roll-lock guards."""
 
 import json
 import math
-from typing import Dict, Tuple
+from typing import Optional, Tuple
 
 import plotly.graph_objects as go
 import pytest
-from dash import Dash, dcc, html
+from dash import Dash, dcc
 
 from data.viewer.utils.controls.camera.camera_controls.dash.trackball_camera_controls import (
+    ROLL_LOCK_CALLBACK_SCRIPT_PATH,
+    apply_dash_trackball_camera_controls,
     assert_dash_no_camera_pose_clamps,
     assert_dash_roll_lock,
-    assert_dash_trackball_camera_controls,
     create_dash_trackball_camera_controls,
-    register_dash_roll_lock_callback,
 )
 from data.viewer.utils.displays.mesh.dash.core_mesh_display import (
     TEXTURED_MESH_VIEWER_SCRIPT_PATH,
 )
 
-# Deliberately non-axis-aligned, so nothing can pass by coinciding with a world axis.
+# Component id every test display carries.
+GRAPH_ID = "trackball-graph"
+# Deliberately non-axis-aligned, so nothing passes by coinciding with a world axis.
 NON_AXIS_ALIGNED_LOCK_ROLL = (0.3, 0.9, -0.2)
-# The same direction at a length far from 1, so a construction that forwards the
-# caller's axis unnormalized cannot pass.
+# The same direction at ten times the length, so an axis forwarded unnormalized cannot pass.
 NON_UNIT_LOCK_ROLL = (3.0, 9.0, -2.0)
-# The component id the roll-locked graph is registered under in the callback tests.
-ROLL_LOCKED_GRAPH_ID = "roll-locked-graph"
+# Renderer source wiring the trackball mouse mapping, whose left-drag turns camera.up together with the eye, so roll moves freely with the drag.
+FREE_TRACKBALL_RENDERER_SOURCE = """
+canvas.addEventListener("contextmenu", (event) => {
+  event.preventDefault();
+});
+canvas.addEventListener("mousedown", (event) => {
+  dragMode = event.button === 2 ? "pan" : "rotate";
+});
+canvas.addEventListener("wheel", (event) => {
+  event.preventDefault();
+  camera.position.multiplyScalar(1 + event.deltaY * 0.001);
+});
+canvas.addEventListener("mousemove", (event) => {
+  if (dragMode !== "rotate") {
+    return;
+  }
+  const dragRotation = new THREE.Quaternion().setFromAxisAngle(dragAxis, dragAngle);
+  camera.position.applyQuaternion(dragRotation);
+  camera.up.applyQuaternion(dragRotation);
+  camera.lookAt(0, 0, 0);
+});
+"""
 
 
-def build_free_trackball_renderer_controls() -> str:
-    """Build renderer-control source whose left-drag rotation leaves camera roll free.
-
-    Args:
-        None.
-
-    Returns:
-        JavaScript source carrying the trackball mouse mapping and a left-drag
-        rotation that lets the camera right axis tilt with the drag.
-    """
-    return """
-    domElement.addEventListener("contextmenu", (event) => {
-      event.preventDefault();
-    });
-    domElement.addEventListener("mousedown", (event) => {
-      pointerState.mode = event.button === 2 ? "pan" : "rotate";
-    });
-    domElement.addEventListener("wheel", (event) => {
-      event.preventDefault();
-    });
-    camera.rotation.y -= dx * 0.005;
-    camera.rotation.x -= dy * 0.005;
-    """
-
-
-def build_roll_locked_renderer_controls() -> str:
-    """Build renderer-control source whose left-drag rotation holds the camera right axis.
+def test_no_axis_puts_the_display_under_the_free_roll_dragmode() -> None:
+    """A display put under the controls with no lock_roll runs the orbit dragmode and pins no camera.up, identical to an explicit lock_roll=None application.
 
     Args:
         None.
 
     Returns:
-        JavaScript source carrying the trackball mouse mapping plus the roll-lock
-        wiring that re-derives the camera right axis perpendicular to the supplied
-        axis on every drag step and clamps the pitch so the camera up vector stays
-        on that axis's own side.
+        None.
     """
-    return build_free_trackball_renderer_controls() + """
-    container.dataset.cameraRollLock = JSON.stringify(rollLockAxis);
-    container.dataset.cameraRightAxisConstraint = "perpendicular-to-roll-lock-axis";
-    container.dataset.cameraUpAxisConstraint = "same-side-as-roll-lock-axis";
-    cameraRightAxis.crossVectors(viewDirection, rollLockAxis).normalize();
-    camera.up.crossVectors(cameraRightAxis, viewDirection).normalize();
-    pitchAngle = Math.min(Math.max(pitchAngle, -polarAngle), Math.PI - polarAngle);
-    """
+    default_display = dcc.Graph(
+        id=GRAPH_ID, figure=go.Figure(data=[go.Scatter3d(x=[0.0], y=[0.0], z=[0.0])])
+    )
+    explicit_display = dcc.Graph(
+        id=GRAPH_ID, figure=go.Figure(data=[go.Scatter3d(x=[0.0], y=[0.0], z=[0.0])])
+    )
+
+    apply_dash_trackball_camera_controls(app=Dash(__name__), display=default_display)
+    apply_dash_trackball_camera_controls(
+        app=Dash(__name__), display=explicit_display, lock_roll=None
+    )
+
+    default_scene = default_display.figure.layout.scene.to_plotly_json()
+    explicit_scene = explicit_display.figure.layout.scene.to_plotly_json()
+    assert default_scene == {"dragmode": "orbit"}, (
+        "Expected the free trackball to run the orbit dragmode and pin no camera. "
+        f"{default_scene=}"
+    )
+    assert default_scene == explicit_scene, (
+        "Expected omitting lock_roll to match an explicit lock_roll=None. "
+        f"{default_scene=} {explicit_scene=}"
+    )
 
 
-def expected_camera_up(lock_roll: Tuple[float, float, float]) -> Dict[str, float]:
-    """Compute the unit-length Plotly camera up vector a lock axis must produce.
+def test_no_axis_registers_no_roll_lock_callback() -> None:
+    """A display put under the controls with no lock_roll gets no clientside callback, so nothing constrains its roll through a drag.
 
     Args:
-        lock_roll: Axis to lock camera roll about, as a non-zero `(x, y, z)`
-            world-space direction of any length.
+        None.
 
     Returns:
-        Dict with `x`, `y`, and `z` unit-length components.
+        None.
     """
-    length = math.sqrt(sum(component * component for component in lock_roll))
-    return {
-        "x": lock_roll[0] / length,
-        "y": lock_roll[1] / length,
-        "z": lock_roll[2] / length,
+    app = Dash(__name__)
+    display = dcc.Graph(
+        id=GRAPH_ID, figure=go.Figure(data=[go.Scatter3d(x=[0.0], y=[0.0], z=[0.0])])
+    )
+
+    apply_dash_trackball_camera_controls(app=app, display=display)
+
+    assert app.callback_map == {}, (
+        "Expected no callback on a free-trackball display. " f"{app.callback_map=}"
+    )
+
+
+def test_a_supplied_axis_seeds_the_normalized_axis_as_camera_up() -> None:
+    """A display put under the controls with a lock_roll carries that axis, normalized, as its figure's camera.up under the orbit dragmode.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    display = dcc.Graph(
+        id=GRAPH_ID, figure=go.Figure(data=[go.Scatter3d(x=[0.0], y=[0.0], z=[0.0])])
+    )
+
+    apply_dash_trackball_camera_controls(
+        app=Dash(__name__), display=display, lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL
+    )
+
+    length = math.sqrt(sum(component**2 for component in NON_AXIS_ALIGNED_LOCK_ROLL))
+    expected_up = {
+        "x": NON_AXIS_ALIGNED_LOCK_ROLL[0] / length,
+        "y": NON_AXIS_ALIGNED_LOCK_ROLL[1] / length,
+        "z": NON_AXIS_ALIGNED_LOCK_ROLL[2] / length,
     }
-
-
-# ================================================================================
-# The Plotly gl3d camera configuration the Dash displays render
-# ================================================================================
-
-
-def test_no_axis_selects_the_free_roll_dragmode() -> None:
-    """A caller that names no lock_roll gets the dragmode under which roll is reachable, identical to an explicit lock_roll=None construction."""
-    defaulted_controls = create_dash_trackball_camera_controls()
-    explicit_controls = create_dash_trackball_camera_controls(lock_roll=None)
-
-    assert defaulted_controls == explicit_controls, (
-        "Naming no lock_roll must carry the same rotation wiring as an explicit "
-        "lock_roll=None construction. "
-        f"{defaulted_controls=} {explicit_controls=}"
+    scene = display.figure.layout.scene.to_plotly_json()
+    assert scene["dragmode"] == "orbit", (
+        "Expected the roll-locked display to run the orbit dragmode. " f"{scene=}"
     )
-    assert defaulted_controls["dragmode"] == "orbit", (
-        "Naming no roll-lock axis must select the Plotly gl3d dragmode that leaves "
-        "the camera up vector free to tilt, which is what an unlocked display means. "
-        f"{defaulted_controls=}"
-    )
-    assert_dash_no_camera_pose_clamps(controls=defaulted_controls, lock_roll=None)
-
-
-def test_no_axis_never_selects_the_pose_clamping_dragmode() -> None:
-    """The unlocked construction never leaves the pose-clamping dragmode in force, which is what an omitted dragmode would run and what would roll-lock the display to world +Z."""
-    controls = create_dash_trackball_camera_controls(lock_roll=None)
-
-    assert "dragmode" in controls, (
-        "A scene configuration naming no dragmode runs Plotly's own gl3d default, "
-        "which is the turntable that pins the camera up vector to world +Z, so an "
-        f"unlocked display must name its dragmode outright. {controls=}"
-    )
-    assert controls["dragmode"] != "turntable", (
-        "plotly.js pins the camera up vector to (0, 0, 1) under the turntable "
-        "dragmode, making roll unreachable, so an unlocked display that renders "
-        f"turntable is roll-locked about an axis its caller never named. {controls=}"
-    )
-
-
-def test_a_supplied_axis_is_carried_into_the_rendered_camera() -> None:
-    """Constructing with a lock_roll seeds the Plotly camera up vector with that supplied axis."""
-    controls = create_dash_trackball_camera_controls(
-        lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
-    )
-
-    assert controls["dragmode"] == "orbit", (
-        "Roll-locked controls must select the Plotly gl3d dragmode that carries an "
-        f"arbitrary camera up vector through re-render. {controls=}"
-    )
-    assert controls["camera"]["up"] == expected_camera_up(NON_AXIS_ALIGNED_LOCK_ROLL), (
-        "Roll-locked controls must seed the camera up vector with the caller's axis. "
-        f"{controls=} {NON_AXIS_ALIGNED_LOCK_ROLL=}"
-    )
-
-
-def test_the_roll_locked_dragmode_never_clamps_the_camera_up_vector() -> None:
-    """The roll-locked branch never emits the pose-clamping dragmode, under which plotly.js discards the caller's axis outright."""
-    controls = create_dash_trackball_camera_controls(
-        lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
-    )
-
-    assert controls["dragmode"] != "turntable", (
-        "plotly.js discards any camera up vector whose normalized z falls below "
-        "0.999 under the turntable dragmode and substitutes (0, 0, 1), so a "
-        "turntable-emitting roll lock renders the unlocked camera for every axis "
-        f"more than ~2.5 degrees off world +Z. {controls=}"
-    )
-    assert_dash_no_camera_pose_clamps(
-        controls=controls,
-        lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
+    assert scene["camera"]["up"] == pytest.approx(expected_up, abs=1e-12), (
+        "Expected camera.up to be the normalized lock_roll. " f"{scene=} {expected_up=}"
     )
 
 
 def test_a_non_unit_axis_is_normalized() -> None:
-    """The caller's axis need not be unit length, so the same direction at any length pins the same camera up vector."""
-    unit_controls = create_dash_trackball_camera_controls(
-        lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
-    )
-    scaled_controls = create_dash_trackball_camera_controls(
-        lock_roll=NON_UNIT_LOCK_ROLL,
-    )
-
-    assert unit_controls == scaled_controls, (
-        "A roll-lock axis is a direction, so scaling it must not change the pinned "
-        f"camera up vector. {unit_controls=} {scaled_controls=}"
-    )
-    up = scaled_controls["camera"]["up"]
-    assert math.isclose(
-        math.sqrt(up["x"] ** 2 + up["y"] ** 2 + up["z"] ** 2), 1.0, rel_tol=1e-9
-    ), ("The pinned camera up vector must be unit length. " f"{up=}")
-
-
-def test_roll_locked_controls_keep_every_other_degree_of_freedom_free() -> None:
-    """Roll lock constrains roll alone, so a lock_roll construction still passes the mouse-mapping, no-orbit, and no-pose-clamp contracts."""
-    controls = create_dash_trackball_camera_controls(
-        lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
-    )
-
-    assert_dash_trackball_camera_controls(
-        controls=controls,
-        lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
-    )
-    assert "center" not in controls["camera"], (
-        "A roll-locked construction must leave the rotation target unpinned. "
-        f"{controls=}"
-    )
-
-
-def test_assert_dash_roll_lock_rejects_an_ignored_flag() -> None:
-    """A configuration that pins no camera up vector is rejected against a supplied axis, so the flag cannot be silently dropped."""
-    controls = create_dash_trackball_camera_controls(lock_roll=None)
-
-    with pytest.raises(
-        AssertionError,
-        match=(
-            "roll-locked camera controls must keep the camera right axis "
-            "perpendicular to the supplied axis"
-        ),
-    ):
-        assert_dash_roll_lock(
-            controls=controls,
-            lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
-        )
-
-
-def test_assert_dash_roll_lock_rejects_a_mismatched_axis() -> None:
-    """A configuration pinned to a different axis than the caller supplied is rejected, so the caller's axis cannot be swapped for another."""
-    controls = create_dash_trackball_camera_controls(lock_roll=(0.0, 0.0, 1.0))
-
-    with pytest.raises(
-        AssertionError,
-        match=(
-            "roll-locked camera controls must keep the camera right axis "
-            "perpendicular to the supplied axis"
-        ),
-    ):
-        assert_dash_roll_lock(
-            controls=controls,
-            lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
-        )
-
-
-def test_assert_dash_roll_lock_rejects_an_unrequested_lock() -> None:
-    """A lock_roll=None configuration that nonetheless pins a camera up vector is rejected, so the default construction cannot quietly become roll-locked."""
-    controls = create_dash_trackball_camera_controls(
-        lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
-    )
-
-    with pytest.raises(
-        AssertionError,
-        match="free trackball camera controls must leave camera roll unconstrained",
-    ):
-        assert_dash_roll_lock(controls=controls, lock_roll=None)
-
-
-def test_assert_dash_no_camera_pose_clamps_rejects_a_roll_restricting_dragmode() -> (
-    None
-):
-    """The roll-pinning Plotly dragmode restricts rotation, so it is rejected when no axis is supplied."""
-    with pytest.raises(
-        AssertionError,
-        match="restricted camera pose controls are forbidden",
-    ):
-        assert_dash_no_camera_pose_clamps(
-            controls={"dragmode": "turntable"},
-            lock_roll=None,
-        )
-
-
-def test_assert_dash_no_camera_pose_clamps_rejects_an_omitted_dragmode() -> None:
-    """A configuration naming no dragmode runs Plotly's own gl3d turntable default, so it is rejected exactly as an explicit turntable is."""
-    with pytest.raises(
-        AssertionError,
-        match="restricted camera pose controls are forbidden",
-    ):
-        assert_dash_no_camera_pose_clamps(controls={}, lock_roll=None)
-
-
-# ================================================================================
-# Registering the clientside callback that holds the roll lock
-# ================================================================================
-
-
-def build_roll_locked_app() -> Dash:
-    """Build a Dash app holding one roll-locked graph and nothing else.
+    """The caller's axis need not be unit length, so the same direction at any length pins the same camera up vector.
 
     Args:
         None.
 
     Returns:
-        A Dash app whose layout is a single `dcc.Graph` with id `ROLL_LOCKED_GRAPH_ID`
-        and no callbacks registered.
+        None.
+    """
+    unit_display = dcc.Graph(
+        id=GRAPH_ID, figure=go.Figure(data=[go.Scatter3d(x=[0.0], y=[0.0], z=[0.0])])
+    )
+    scaled_display = dcc.Graph(
+        id=GRAPH_ID, figure=go.Figure(data=[go.Scatter3d(x=[0.0], y=[0.0], z=[0.0])])
+    )
+
+    apply_dash_trackball_camera_controls(
+        app=Dash(__name__), display=unit_display, lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL
+    )
+    apply_dash_trackball_camera_controls(
+        app=Dash(__name__), display=scaled_display, lock_roll=NON_UNIT_LOCK_ROLL
+    )
+
+    unit_up = unit_display.figure.layout.scene.camera.up.to_plotly_json()
+    scaled_up = scaled_display.figure.layout.scene.camera.up.to_plotly_json()
+    assert scaled_up == pytest.approx(unit_up, abs=1e-12), (
+        "Expected one direction at two lengths to pin one camera up vector. "
+        f"{unit_up=} {scaled_up=}"
+    )
+    assert math.isclose(
+        math.sqrt(sum(component**2 for component in scaled_up.values())), 1.0
+    ), ("Expected the pinned camera up vector to be unit length. " f"{scaled_up=}")
+
+
+def test_a_supplied_axis_registers_the_roll_lock_callback_on_the_display() -> None:
+    """A display put under the controls with a lock_roll gets the roll-lock clientside callback on its own component id, so the lock holds through the drag rather than at its end.
+
+    Args:
+        None.
+
+    Returns:
+        None.
     """
     app = Dash(__name__)
-    app.layout = html.Div(
-        children=[
-            dcc.Graph(
-                id=ROLL_LOCKED_GRAPH_ID,
-                figure=go.Figure(
-                    layout=go.Layout(
-                        scene=create_dash_trackball_camera_controls(
-                            lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
-                        ),
-                    ),
-                ),
-            ),
-        ],
-    )
-    return app
-
-
-def test_the_roll_lock_callback_is_registered_against_the_named_graph() -> None:
-    """Registering the roll lock adds one clientside callback driven by the named graph's own camera changes."""
-    app = build_roll_locked_app()
-
-    register_dash_roll_lock_callback(
-        app=app,
-        graph_id=ROLL_LOCKED_GRAPH_ID,
-        lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
+    display = dcc.Graph(
+        id=GRAPH_ID, figure=go.Figure(data=[go.Scatter3d(x=[0.0], y=[0.0], z=[0.0])])
     )
 
-    registrations = [
-        registration
-        for registration in app._callback_list
-        if registration["clientside_function"] is not None
-    ]
-    assert len(registrations) == 1, (
-        "Registering the roll lock must add exactly one clientside callback. "
-        f"{registrations=}"
+    apply_dash_trackball_camera_controls(
+        app=app, display=display, lock_roll=NON_UNIT_LOCK_ROLL
     )
-    assert registrations[0]["inputs"] == [
-        {"id": ROLL_LOCKED_GRAPH_ID, "property": "relayoutData"}
-    ], (
-        "The roll-lock callback must be driven by the named graph's own relayout "
-        f"events, which is how every camera change reaches it. {registrations[0]=} "
-        f"{ROLL_LOCKED_GRAPH_ID=}"
+
+    callbacks = list(app.callback_map.values())
+    assert len(callbacks) == 1, (
+        "Expected exactly one callback on a roll-locked display. " f"{callbacks=}"
+    )
+    assert callbacks[0]["inputs"] == [{"id": GRAPH_ID, "property": "relayoutData"}], (
+        "Expected the callback's one input to be the display's relayoutData. "
+        f"{callbacks[0]['inputs']=}"
+    )
+    length = math.sqrt(sum(component**2 for component in NON_UNIT_LOCK_ROLL))
+    axis = [component / length for component in NON_UNIT_LOCK_ROLL]
+    expected_source = "(%s)(%s, %s)" % (
+        ROLL_LOCK_CALLBACK_SCRIPT_PATH.read_text(),
+        json.dumps(GRAPH_ID),
+        json.dumps(axis),
+    )
+    assert len(app._inline_scripts) == 1, (
+        "Expected exactly one inline clientside source. " f"{len(app._inline_scripts)=}"
+    )
+    assert expected_source in app._inline_scripts[0], (
+        "Expected the inline source to be roll_lock.js called on the display id "
+        "and the normalized lock_roll. "
+        f"{GRAPH_ID=} {axis=} {app._inline_scripts[0][-200:]=}"
     )
 
 
-def test_the_roll_lock_callback_carries_its_source_inline() -> None:
-    """The callback source reaches the browser inlined in the app, so a consuming app needs no assets folder to serve it."""
-    app = build_roll_locked_app()
+def test_apply_rejects_a_display_without_an_id() -> None:
+    """A display carrying no component id is rejected, since the roll-lock callback could address no graph.
 
-    register_dash_roll_lock_callback(
-        app=app,
-        graph_id=ROLL_LOCKED_GRAPH_ID,
-        lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    display = dcc.Graph(
+        figure=go.Figure(data=[go.Scatter3d(x=[0.0], y=[0.0], z=[0.0])])
     )
 
-    inline_source = "\n".join(app._inline_scripts)
-    assert "Plotly.relayout" in inline_source, (
-        "The inlined callback must write the re-derived camera up vector back to the "
-        f"panel. {inline_source=}"
-    )
-    assert ".rotate =" in inline_source and ".lookAt(" in inline_source, (
-        "A drag never reaches the callback per pointer move, so the inlined callback "
-        "must also hold the lock at the panel's own view controller: it replaces that "
-        "controller's rotation and writes the roll-locked pose back through it. "
-        f"{inline_source=}"
-    )
-    assert ".js-plotly-plot" in inline_source, (
-        "`dcc.Graph` renders its component id onto a wrapper div, so the inlined "
-        "callback must resolve the Plotly graph div inside that wrapper. "
-        f"{inline_source=}"
-    )
-    assert json.dumps(ROLL_LOCKED_GRAPH_ID) in inline_source, (
-        "The inlined callback must carry the graph id it was registered against. "
-        f"{inline_source=} {ROLL_LOCKED_GRAPH_ID=}"
-    )
-
-
-def test_the_roll_lock_callback_normalizes_the_caller_axis() -> None:
-    """The caller's axis need not be unit length, so the same direction at any length inlines the same axis."""
-    unit_app = build_roll_locked_app()
-    scaled_app = build_roll_locked_app()
-
-    register_dash_roll_lock_callback(
-        app=unit_app,
-        graph_id=ROLL_LOCKED_GRAPH_ID,
-        lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
-    )
-    register_dash_roll_lock_callback(
-        app=scaled_app,
-        graph_id=ROLL_LOCKED_GRAPH_ID,
-        lock_roll=NON_UNIT_LOCK_ROLL,
-    )
-
-    assert unit_app._inline_scripts == scaled_app._inline_scripts, (
-        "A roll-lock axis is a direction, so scaling it must not change the inlined "
-        f"callback. {unit_app._inline_scripts=} {scaled_app._inline_scripts=}"
-    )
-    up = expected_camera_up(NON_UNIT_LOCK_ROLL)
-    assert json.dumps([up["x"], up["y"], up["z"]]) in "\n".join(
-        scaled_app._inline_scripts
-    ), (
-        "The inlined callback must carry the caller's axis at unit length. "
-        f"{scaled_app._inline_scripts=} {up=}"
-    )
-
-
-def test_the_roll_lock_callback_rejects_a_zero_axis() -> None:
-    """A zero axis names no direction to hold roll about, so registration refuses it rather than registering a callback that cannot normalize it."""
-    app = build_roll_locked_app()
-
-    with pytest.raises(
-        AssertionError,
-        match="Roll lock axis must be a non-zero 3-tuple of floats",
-    ):
-        register_dash_roll_lock_callback(
-            app=app,
-            graph_id=ROLL_LOCKED_GRAPH_ID,
-            lock_roll=(0.0, 0.0, 0.0),
+    with pytest.raises(AssertionError, match="Display must carry a component id"):
+        apply_dash_trackball_camera_controls(
+            app=Dash(__name__), display=display, lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL
         )
 
 
-# ================================================================================
-# The three.js viewer's camera-control JavaScript source
-# ================================================================================
+def test_apply_rejects_a_zero_axis() -> None:
+    """A zero-length lock_roll names no direction, so it is rejected rather than normalized into a NaN camera.up.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    display = dcc.Graph(
+        id=GRAPH_ID, figure=go.Figure(data=[go.Scatter3d(x=[0.0], y=[0.0], z=[0.0])])
+    )
+
+    with pytest.raises(AssertionError, match="non-zero 3-tuple of floats"):
+        apply_dash_trackball_camera_controls(
+            app=Dash(__name__), display=display, lock_roll=(0.0, 0.0, 0.0)
+        )
+
+
+def test_roll_locked_controls_keep_every_other_degree_of_freedom_free() -> None:
+    """Roll lock constrains roll alone, so a supplied lock_roll configuration still passes the mouse-mapping, no-orbit, and no-pose-clamp contracts.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    length = math.sqrt(sum(component**2 for component in NON_AXIS_ALIGNED_LOCK_ROLL))
+    controls = {
+        "dragmode": "orbit",
+        "camera": {
+            "up": {
+                "x": NON_AXIS_ALIGNED_LOCK_ROLL[0] / length,
+                "y": NON_AXIS_ALIGNED_LOCK_ROLL[1] / length,
+                "z": NON_AXIS_ALIGNED_LOCK_ROLL[2] / length,
+            },
+        },
+    }
+
+    constructed = create_dash_trackball_camera_controls(
+        renderer_controls=controls, lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL
+    )
+
+    assert constructed == controls, (
+        "Expected the roll-locked configuration to pass every contract unchanged. "
+        f"{constructed=} {controls=}"
+    )
 
 
 def test_the_threejs_viewer_source_passes_the_trackball_contract() -> None:
-    """The shipped three.js mesh viewer source satisfies every trackball contract, so the display's guard keeps guarding it."""
-    controls = TEXTURED_MESH_VIEWER_SCRIPT_PATH.read_text()
+    """The shipped three.js mesh viewer source, handed over the way the mesh display hands it, satisfies every trackball contract and comes back unchanged.
 
-    assert_dash_trackball_camera_controls(controls=controls, lock_roll=None)
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    source = TEXTURED_MESH_VIEWER_SCRIPT_PATH.read_text(encoding="utf-8").replace(
+        "__CAMERA_SYNC_SCRIPT__", ""
+    )
+
+    constructed = create_dash_trackball_camera_controls(renderer_controls=source)
+
+    assert constructed is source, (
+        "Expected the three.js viewer source to come back unchanged. "
+        f"{len(constructed)=} {len(source)=}"
+    )
 
 
 def test_free_trackball_source_leaves_camera_roll_unconstrained() -> None:
-    """Renderer source whose left-drag rotation carries the camera up vector passes the free-trackball contract and fails the roll-locked one."""
-    controls = build_free_trackball_renderer_controls()
+    """Renderer source whose left-drag rotation carries the camera up vector passes the free-trackball contract and fails the roll-locked one.
 
-    assert_dash_roll_lock(controls=controls, lock_roll=None)
-    with pytest.raises(AssertionError, match="perpendicular"):
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    constructed = create_dash_trackball_camera_controls(
+        renderer_controls=FREE_TRACKBALL_RENDERER_SOURCE
+    )
+
+    assert constructed is FREE_TRACKBALL_RENDERER_SOURCE, (
+        "Expected the free-trackball source to come back unchanged. " f"{constructed=}"
+    )
+    with pytest.raises(
+        AssertionError,
+        match=(
+            "roll-locked camera controls must keep the camera right axis "
+            "perpendicular to the supplied axis"
+        ),
+    ):
         assert_dash_roll_lock(
-            controls=controls,
+            controls=FREE_TRACKBALL_RENDERER_SOURCE,
             lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL,
         )
 
 
-def test_roll_locked_source_holds_the_camera_right_axis_and_up_vector() -> None:
-    """Renderer source that re-derives the camera right axis and clamps the pitch passes the roll-locked contract and fails the free-trackball one."""
-    controls = build_roll_locked_renderer_controls()
+def test_the_roll_lock_source_holds_the_camera_right_axis_and_up_vector() -> None:
+    """The shipped roll_lock.js source passes the roll-locked contract and fails the free-trackball one.
 
-    assert_dash_roll_lock(controls=controls, lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL)
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    script = ROLL_LOCK_CALLBACK_SCRIPT_PATH.read_text()
+
+    assert_dash_roll_lock(controls=script, lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL)
+    with pytest.raises(
+        AssertionError,
+        match="free trackball camera controls must leave camera roll unconstrained",
+    ):
+        assert_dash_roll_lock(controls=script)
+
+
+def test_assert_dash_roll_lock_rejects_an_ignored_flag() -> None:
+    """A supplied-lock_roll configuration that pins no camera.up is rejected, so the flag cannot be silently dropped.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    controls = {"dragmode": "orbit"}
+
+    with pytest.raises(
+        AssertionError,
+        match=(
+            "roll-locked camera controls must keep the camera right axis "
+            "perpendicular to the supplied axis"
+        ),
+    ):
+        assert_dash_roll_lock(controls=controls, lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL)
+
+
+def test_assert_dash_roll_lock_rejects_a_mismatched_axis() -> None:
+    """A configuration pinned to a different axis than the caller supplied is rejected, so the caller's axis cannot be swapped for another.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    controls = {"dragmode": "orbit", "camera": {"up": {"x": 0.0, "y": 0.0, "z": 1.0}}}
+
+    with pytest.raises(
+        AssertionError,
+        match=(
+            "roll-locked camera controls must keep the camera right axis "
+            "perpendicular to the supplied axis"
+        ),
+    ):
+        assert_dash_roll_lock(controls=controls, lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL)
+
+
+def test_assert_dash_roll_lock_rejects_a_source_without_the_polar_band() -> None:
+    """Roll-locked renderer source that holds the camera right axis perpendicular but bands no polar angle short of the poles is rejected, so a drag through a pole cannot hang the scene upside down.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    source = """
+function rollLockDragStep(yaw, pitch) {
+  const forward = center.clone().sub(camera.position).normalize();
+  const right = new THREE.Vector3().crossVectors(forward, rollLockAxis).normalize();
+  camera.position.sub(center).applyAxisAngle(rollLockAxis, yaw);
+  camera.position.applyAxisAngle(right, pitch).add(center);
+  camera.up.crossVectors(right, center.clone().sub(camera.position)).normalize();
+}
+"""
+
+    with pytest.raises(
+        AssertionError,
+        match=(
+            "roll-locked camera controls must keep the camera up vector on the "
+            "supplied axis's side"
+        ),
+    ):
+        assert_dash_roll_lock(controls=source, lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL)
+
+
+def test_assert_dash_roll_lock_rejects_an_unrequested_lock() -> None:
+    """A lock_roll=None configuration that nonetheless pins camera.up is rejected, so the default construction cannot quietly become roll-locked.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    controls = {"dragmode": "orbit", "camera": {"up": {"x": 0.0, "y": 0.0, "z": 1.0}}}
+
     with pytest.raises(
         AssertionError,
         match="free trackball camera controls must leave camera roll unconstrained",
     ):
         assert_dash_roll_lock(controls=controls, lock_roll=None)
+
+
+@pytest.mark.parametrize("lock_roll", [None, NON_AXIS_ALIGNED_LOCK_ROLL])
+def test_assert_dash_no_camera_pose_clamps_rejects_the_pose_clamping_dragmode(
+    lock_roll: Optional[Tuple[float, float, float]],
+) -> None:
+    """The turntable dragmode pins camera.up onto world +Z, so it is rejected as a pose clamp whether or not an axis is supplied.
+
+    Args:
+        lock_roll: Axis supplied alongside the configuration, or None for the free trackball.
+
+    Returns:
+        None.
+    """
+    controls = {"dragmode": "turntable"}
+
+    with pytest.raises(AssertionError, match="restricted camera pose controls"):
+        assert_dash_no_camera_pose_clamps(controls=controls, lock_roll=lock_roll)
+
+
+@pytest.mark.parametrize("lock_roll", [None, NON_AXIS_ALIGNED_LOCK_ROLL])
+def test_assert_dash_no_camera_pose_clamps_rejects_an_omitted_dragmode(
+    lock_roll: Optional[Tuple[float, float, float]],
+) -> None:
+    """A configuration naming no dragmode runs Plotly's turntable default, so it is rejected the same way.
+
+    Args:
+        lock_roll: Axis supplied alongside the configuration, or None for the free trackball.
+
+    Returns:
+        None.
+    """
+    controls = {"camera": {"eye": {"x": 1.25, "y": 1.25, "z": 1.25}}}
+
+    with pytest.raises(AssertionError, match="restricted camera pose controls"):
+        assert_dash_no_camera_pose_clamps(controls=controls, lock_roll=lock_roll)

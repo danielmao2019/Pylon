@@ -13,9 +13,6 @@ import torch
 from dash import dcc
 
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
-from data.viewer.utils.controls.camera.camera_controls.dash.trackball_camera_controls import (
-    create_dash_trackball_camera_controls,
-)
 from data.viewer.utils.displays.points.dash.core_points_display import (
     DEFAULT_POINT_COLOR,
     DEFAULT_POINT_SIZE_FLOOR,
@@ -181,7 +178,7 @@ def test_create_dash_points_component_wraps_scene(large_radius_xyz):
     scene = create_dash_points_scene(point_cloud=pc, point_size=3.0)
 
     graph = create_dash_points_component(
-        scene=scene, controls=create_dash_trackball_camera_controls()
+        scene=scene, controls=lambda *args, **kwargs: None
     )
 
     assert isinstance(graph, dcc.Graph)
