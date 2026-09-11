@@ -117,7 +117,9 @@ goal: re-design pc dtype contract/provenance
       3. .pcd, .pth, .txt and .off: no default.
       4. no other defaults defined for now.
    4. target meta data:
-      1. the target has one entry for each field the obj holds:
+      1. entries: the target has one entry per field:
+         1. each field the override or the default names has one.
+         2. each field the obj holds has one, unless the override or the default assembles its columns into another field: the default assembles a ply's x, y and z into xyz, so x, y and z have none.
       2. definition:
          1. the entry takes whichever dtype and layout the override states.
          2. it takes the default layout wherever the override states none.
@@ -142,7 +144,7 @@ goal: re-design pc dtype contract/provenance
    1. common construction by `__init__` from in-memory variables or by load point cloud from files:
       1. no canonicalization: `PointCloud` does not canonicalize any field, color included.
          1. rgb enters and is held exactly as it arrived, like every other field.
-         2. fields keep their own names.
+         2. fields keep their own names, except where the default or an override names them.
       2. the ONLY place init may ever have any type casting ops is by invoking the `apply_meta_data`.
    2. validation:
       1. the columns a field is assembled from must all hold one dtype once the target dtype has been applied. disagreeing column dtypes hard-assert and abort rather than being promoted to a dtype covering them all.
@@ -157,7 +159,7 @@ goal: re-design pc dtype contract/provenance
          1. do necessary type casting when the dtype systems mismatch and when the type cast can be lossless.
          2. never change layout.
       2. they construct the meta data record from the data in disk, NOT from the type-casted data stored in the PointCloud obj. i.e., the recorded meta data is a consequence of what's inside the file in disk and nothing else.
-      3. they define and apply the default layout for each format.
+      3. they define the default layout for each format, which `apply_meta_data` applies.
       4. the only silent cast is the one that resolves a dtype system mismatch, and nothing beyond it happens silently. any further lossless dtype change is the user's to instruct through the override.
    2. the main load API
       1. accepts a `meta_data` optional arg override.
