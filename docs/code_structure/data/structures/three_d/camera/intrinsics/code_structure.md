@@ -316,24 +316,24 @@ camera_intrinsics.py
 │   │   ├── impls params = every param indexed by index along its leading axis  # a pass over the model's few param names, never over the cameras
 │   │   ├── calls build_camera_intrinsics(model=type(self).MODEL, params=params, intr_convention=self._intr_convention)
 │   │   └── return  # that CameraIntrinsics
-│   └── def scale_intrinsics(self, resolution: Optional[Union[int, Tuple[int, int], List[int], np.ndarray, torch.Tensor]] = None, scale: Optional[Union[int, float, Tuple[Union[int, float], Union[int, float]], List[Union[int, float]], np.ndarray, torch.Tensor]] = None) -> "CameraIntrinsics"
-│       ├── # Return this CameraIntrinsics restated against a different resolution — the diagonal case of an intrinsics transform, so this builds that transform and the one owner applies it.
-│       ├── def _validate_inputs [local]
-│       │   └── impls assert exactly one of resolution and scale is given  # impls-node-one-step:skip; a target resolution and a factor are two ways to name the same thing, and giving both leaves unstated which one wins
-│       ├── calls _validate_inputs
-│       ├── def _normalize_inputs [local]
-│       │   ├── calls resolve_target_resolution(params=self._params, resolution=resolution, scale=scale)  # -> resolution; the target the params are restated against, whichever of the two forms named it
-│       │   ├── if scale is not None
-│       │   │   └── impls sx, sy = the caller's factor, per axis  # taken raw rather than re-derived from resolution, which resolve_target_resolution detached and rounded to whole pixels, severing a tensor factor from the autograd graph
-│       │   ├── else
-│       │   │   └── impls sx, sy = resolution[1] / self._params["w"], resolution[0] / self._params["h"]  # the size the params are already stated against is two of those params, the one place every model states it
-│       │   └── return resolution, sx, sy
-│       ├── calls _normalize_inputs
-│       ├── impls resolution, sx, sy = the returned values from _normalize_inputs
-│       ├── # A rounded raster and a raw factor are not exactly consistent when the product is not whole; the gradient is what this trade keeps.
-│       ├── impls transform = [[sx, 0, 0], [0, sy, 0], [0, 0, 1]]                                # a resize scales both axes about the pixel frame's own origin, its top-left corner, which is what makes it diagonal
-│       ├── impls intrinsics = self.transform_intrinsics(transform=transform, resolution=resolution)
-│       └── return intrinsics
+│   ├── def scale_intrinsics(self, resolution: Optional[Union[int, Tuple[int, int], List[int], np.ndarray, torch.Tensor]] = None, scale: Optional[Union[int, float, Tuple[Union[int, float], Union[int, float]], List[Union[int, float]], np.ndarray, torch.Tensor]] = None) -> "CameraIntrinsics"
+│   │   ├── # Return this CameraIntrinsics restated against a different resolution — the diagonal case of an intrinsics transform, so this builds that transform and the one owner applies it.
+│   │   ├── def _validate_inputs [local]
+│   │   │   └── impls assert exactly one of resolution and scale is given  # impls-node-one-step:skip; a target resolution and a factor are two ways to name the same thing, and giving both leaves unstated which one wins
+│   │   ├── calls _validate_inputs
+│   │   ├── def _normalize_inputs [local]
+│   │   │   ├── calls resolve_target_resolution(params=self._params, resolution=resolution, scale=scale)  # -> resolution; the target the params are restated against, whichever of the two forms named it
+│   │   │   ├── if scale is not None
+│   │   │   │   └── impls sx, sy = the caller's factor, per axis  # taken raw rather than re-derived from resolution, which resolve_target_resolution detached and rounded to whole pixels, severing a tensor factor from the autograd graph
+│   │   │   ├── else
+│   │   │   │   └── impls sx, sy = resolution[1] / self._params["w"], resolution[0] / self._params["h"]  # the size the params are already stated against is two of those params, the one place every model states it
+│   │   │   └── return resolution, sx, sy
+│   │   ├── calls _normalize_inputs
+│   │   ├── impls resolution, sx, sy = the returned values from _normalize_inputs
+│   │   ├── # A rounded raster and a raw factor are not exactly consistent when the product is not whole; the gradient is what this trade keeps.
+│   │   ├── impls transform = [[sx, 0, 0], [0, sy, 0], [0, 0, 1]]                                # a resize scales both axes about the pixel frame's own origin, its top-left corner, which is what makes it diagonal
+│   │   ├── impls intrinsics = self.transform_intrinsics(transform=transform, resolution=resolution)
+│   │   └── return intrinsics
 │   ├── def transform_intrinsics(self, transform: torch.Tensor, resolution: Tuple[Union[int, torch.Tensor], Union[int, torch.Tensor]]) -> "CameraIntrinsics"
 │   │   ├── # Return this CameraIntrinsics restated onto another image by a pixel-frame affine, the raster that image is named alongside it because a 3x3 carries no size of its own.
 │   │   ├── def _validate_inputs [local]
@@ -363,20 +363,20 @@ camera_intrinsics.py
 │   │   └── # Abstract: the vertical focal length / scale, whose params key differs per model.
 │   ├── def project(self, points_camera: torch.Tensor, inplace: bool = False) -> torch.Tensor   [abstract]
 │   │   └── # Abstract: map camera-space 3D points [..., 3] to 2D image points [..., 2] under this model, each param unsqueezed against the point axis so a batch of cameras projects in one op.
-│   ├── def to(self, device: Optional[Union[str, torch.device]] = None, dtype: Optional[torch.dtype] = None, non_blocking: bool = False, copy: bool = False, intr_convention: Optional[str] = None) -> "CameraIntrinsics"
-│   │   ├── # Return this CameraIntrinsics with Tensor.to-style placement / copy semantics plus optional image-plane frame conversion.
-│   │   ├── def _validate_inputs [local]
-│   │   │   └── if intr_convention is not None
-│   │   │       └── calls validate_intr_convention
-│   │   ├── calls _validate_inputs
-│   │   ├── impls params = self._params
-│   │   ├── if intr_convention is not None and intr_convention != self._intr_convention
-│   │   │   └── calls transform_intr_convention(params=params, model=type(self).MODEL, source_intr_convention=self._intr_convention, target_intr_convention=intr_convention)  # -> params, restated on the target frame; the size that change is measured against is two of those params
-│   │   ├── impls params = each param moved with torch.Tensor.to(device=device, dtype=dtype, non_blocking=non_blocking, copy=copy)  # impls-node-one-step:skip
-│   │   ├── if device and dtype match self, intr_convention is unchanged, and copy is False
-│   │   │   └── return self
-│   │   ├── impls intrinsics = type(self)(params=params, intr_convention=intr_convention or self._intr_convention)
-│   │   └── return intrinsics
+│   └── def to(self, device: Optional[Union[str, torch.device]] = None, dtype: Optional[torch.dtype] = None, non_blocking: bool = False, copy: bool = False, intr_convention: Optional[str] = None) -> "CameraIntrinsics"
+│       ├── # Return this CameraIntrinsics with Tensor.to-style placement / copy semantics plus optional image-plane frame conversion.
+│       ├── def _validate_inputs [local]
+│       │   └── if intr_convention is not None
+│       │       └── calls validate_intr_convention
+│       ├── calls _validate_inputs
+│       ├── impls params = self._params
+│       ├── if intr_convention is not None and intr_convention != self._intr_convention
+│       │   └── calls transform_intr_convention(params=params, model=type(self).MODEL, source_intr_convention=self._intr_convention, target_intr_convention=intr_convention)  # -> params, restated on the target frame; the size that change is measured against is two of those params
+│       ├── impls params = each param moved with torch.Tensor.to(device=device, dtype=dtype, non_blocking=non_blocking, copy=copy)  # impls-node-one-step:skip
+│       ├── if device and dtype match self, intr_convention is unchanged, and copy is False
+│       │   └── return self
+│       ├── impls intrinsics = type(self)(params=params, intr_convention=intr_convention or self._intr_convention)
+│       └── return intrinsics
 ├── class CameraIntrinsicsSimplePinhole(CameraIntrinsics)
 │   ├── # Simple-pinhole intrinsics: a single shared focal length f under a perspective projection.
 │   ├── MODEL: ClassVar[str] = "simple_pinhole"
