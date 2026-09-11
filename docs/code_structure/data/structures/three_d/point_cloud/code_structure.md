@@ -11,9 +11,10 @@ point_cloud.py
 ├── import torch
 ├── from utils.dtypes import COLOR_RANGE, CONCEPTUAL_NAME, TORCH_DTYPE, cast_lossless, conceptual_name_of, convert_color_convention
 └── class PointCloud
-    ├── # One point cloud: named per-point fields, every one a torch tensor of the same length on one device, beside the record of what each of its source columns held.
+    ├── # One point cloud: named per-point fields, every one a torch tensor of the same length on one device, beside the record of what each of its source columns held and the target its fields stand on.
     ├── # The record is keyed on the source columns, holding for each the conceptual dtype that column held and the field it was assembled into when the cloud was constructed, and nothing after construction changes it.
-    ├── # The four underscore names below — _fields, _meta_data, _length, _device — are this class's own slots, and a bare one in any node means the slot on self; __setattr__ routes exactly those to the base setter and everything else to a validated field.
+    ├── # The target is keyed on the fields, holding for each the conceptual dtype it means and the columns it is assembled from, and every application of meta data replaces it whole.
+    ├── # The five underscore names below — _fields, _meta_data, _target, _length, _device — are this class's own slots, and a bare one in any node means the slot on self; __setattr__ routes exactly those to the base setter and everything else to a validated field.
     ├── def __init__(self, xyz: Optional[Union[np.ndarray, torch.Tensor]] = None, data: Optional[Dict[str, Union[np.ndarray, torch.Tensor]]] = None, meta_data: Optional[Dict[str, Dict[str, Any]]] = None, device: Optional[Union[str, torch.device]] = None) -> None
     │   ├── # Builds a point cloud from the source's own columns, recording what each column held and the field it is assembled into, and then brings the fields onto the target the construction's meta data resolves into.
     │   ├── def _validate_inputs [local]
@@ -23,7 +24,7 @@ point_cloud.py
     │   │   ├── assert data is None or no value of data carries a uint64 dtype  # the same refusal for the columns handed in through data
     │   │   ├── assert xyz is not None or data is not None
     │   │   ├── assert xyz is None or data is None or 'xyz' does not sit in data  # the coordinates arg becomes one more column under that name, so a data entry already holding it would be overwritten without a word
-    │   │   ├── assert meta_data is None or meta_data is a dict whose keys are all str
+    │   │   ├── assert meta_data is None or meta_data is a dict whose keys are all str and whose values are all dicts  # the record reads the layouts it states before apply_meta_data checks the rest at its own door
     │   │   ├── assert no dtype meta_data states is 'uint64'  # an override at this door is refused a uint64 the way a source is
     │   │   └── assert device is None or device names a torch device
     │   ├── calls _validate_inputs()
