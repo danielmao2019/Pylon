@@ -15,30 +15,37 @@ def test_world_to_camera_transform_carries_the_camera_batch_axis() -> None:
     Returns:
         None.
     """
-    torch.manual_seed(0)
-    points = torch.randn(size=(512, 3), dtype=torch.float32)
-    generators = torch.randn(size=(4, 3, 3), dtype=torch.float32)
-    extrinsics = torch.eye(4, dtype=torch.float32).repeat(4, 1, 1)
-    extrinsics[:, :3, :3] = torch.linalg.matrix_exp(
-        generators - generators.transpose(-1, -2)
+    devices = [torch.device("cpu")] + (
+        [torch.device("cuda")] if torch.cuda.is_available() else []
     )
-    extrinsics[:, :3, 3] = torch.randn(size=(4, 3), dtype=torch.float32)
-
-    points_camera = world_to_camera_transform(points=points, extrinsics=extrinsics)
-
-    assert points_camera.shape == (4, 512, 3), (
-        "Expected a four-pose stack to map the cloud into a [B, N, 3] result. "
-        f"{points_camera.shape=} {points.shape=} {extrinsics.shape=}"
-    )
-
-    for index in range(4):
-        one_pose_points_camera = world_to_camera_transform(
-            points=points, extrinsics=extrinsics[index]
+    for device in devices:
+        torch.manual_seed(0)
+        points = torch.randn(size=(512, 3), dtype=torch.float32, device=device)
+        generators = torch.randn(size=(4, 3, 3), dtype=torch.float32, device=device)
+        extrinsics = torch.eye(4, dtype=torch.float32, device=device).repeat(4, 1, 1)
+        extrinsics[:, :3, :3] = torch.linalg.matrix_exp(
+            generators - generators.transpose(-1, -2)
         )
-        assert torch.equal(points_camera[index], one_pose_points_camera), (
-            "Expected the batched result's slice to equal what that pose maps on its "
-            f"own. {index=} {points_camera[index]=} {one_pose_points_camera=}"
+        extrinsics[:, :3, 3] = torch.randn(
+            size=(4, 3), dtype=torch.float32, device=device
         )
+
+        points_camera = world_to_camera_transform(points=points, extrinsics=extrinsics)
+
+        assert points_camera.shape == (4, 512, 3), (
+            "Expected a four-pose stack to map the cloud into a [B, N, 3] result. "
+            f"{device=} {points_camera.shape=} {points.shape=} {extrinsics.shape=}"
+        )
+
+        for index in range(4):
+            one_pose_points_camera = world_to_camera_transform(
+                points=points, extrinsics=extrinsics[index]
+            )
+            assert torch.equal(points_camera[index], one_pose_points_camera), (
+                "Expected the batched result's slice to equal what that pose maps on "
+                f"its own. {device=} {index=} {points_camera[index]=} "
+                f"{one_pose_points_camera=}"
+            )
 
 
 def test_world_to_camera_transform_batch_of_one_keeps_its_axis() -> None:
