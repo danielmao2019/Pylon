@@ -300,7 +300,6 @@ render_rgb.py
 ```text
 render_rgb_volumetric.py
 ├── import itertools
-├── import json
 ├── import logging
 ├── import math
 ├── import subprocess
@@ -314,6 +313,7 @@ render_rgb_volumetric.py
 ├── from data.structures.three_d.camera.camera import Camera
 ├── from data.structures.three_d.camera.cameras import Cameras
 ├── from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
+├── from data.structures.three_d.camera.intrinsics.camera_intrinsics import build_camera_intrinsics
 ├── from data.structures.three_d.nerfstudio.nerfstudio_data import NerfStudio_Data
 ├── from data.structures.three_d.point_cloud.io.save_point_cloud import save_point_cloud
 ├── from data.structures.three_d.point_cloud.point_cloud import PointCloud
