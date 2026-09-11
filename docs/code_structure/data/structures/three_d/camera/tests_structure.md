@@ -14,8 +14,7 @@ test_conventions.py
 ├── from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
 ├── from data.structures.three_d.camera.extrinsics.validation import validate_camera_extrinsics, validate_extr_convention
 ├── from data.structures.three_d.camera.intrinsics.camera_intrinsics import build_camera_intrinsics
-├── from data.structures.three_d.camera.intrinsics.conventions import transform_intr_convention
-├── from data.structures.three_d.camera.intrinsics.scaling import rescale_intr_params
+├── from data.structures.three_d.camera.intrinsics.conventions import _rescale_intr_params, transform_intr_convention
 ├── from data.structures.three_d.camera.intrinsics.validation import validate_camera_intrinsics_invariants, validate_intr_convention
 ├── def test_validate_extr_convention_accepts_all_supported
 │   ├── # validate_extr_convention accepts every supported convention string.
@@ -192,17 +191,17 @@ test_conventions.py
 │   └── return
 ├── def test_intr_convention_module_has_one_main_api_and_six_spoke_helpers
 │   ├── # Each frame brings its own inbound and outbound helper against the standard one rather than a helper against every other frame, so the oblique conversions are compositions and a frame added later edits none of them.
-│   ├── impls assert the module exposes transform_intr_convention as its one public entry, reaching into scaling for the per-axis step each spoke ends in rather than owning one of its own
+│   ├── impls assert the module exposes transform_intr_convention as its one public entry, owning the per-axis step each spoke ends in as a private helper of its own
 │   ├── impls assert it defines a to-standard and a from-standard helper for opengl, pytorch3d and vulkan, and none between two non-standard frames  # impls-node-one-step:skip
 │   └── return
 ├── def test_a_frame_change_comes_down_to_the_same_per_axis_rescale
-│   ├── # A frame change's only length step is the per-axis rescale scaling owns, which is why a shared focal is refused identically whether a caller goes through the frame change or reaches that rescale directly.
-│   ├── calls rescale_intr_params(params=a pinhole's key set, model="pinhole", unit_x=a factor, unit_y=a different factor)
+│   ├── # A frame change's only length step is the per-axis rescale the conventions module owns, which is why a shared focal is refused identically whether a caller goes through the frame change or reaches that rescale directly.
+│   ├── calls _rescale_intr_params(params=a pinhole's key set, model="pinhole", unit_x=a factor, unit_y=a different factor)
 │   ├── impls assert the focal and cx / cy params come back scaled per axis and h and w come back untouched  # impls-node-one-step:skip
 │   ├── with pytest.raises(AssertionError)
 │   │   └── calls transform_intr_convention(params=a simple_pinhole's key set at a non-square size, model="simple_pinhole", source_intr_convention="standard", target_intr_convention="opengl")
 │   ├── with pytest.raises(AssertionError)
-│   │   └── calls rescale_intr_params(params=that same simple_pinhole key set, model="simple_pinhole", unit_x=a factor, unit_y=a different factor)
+│   │   └── calls _rescale_intr_params(params=that same simple_pinhole key set, model="simple_pinhole", unit_x=a factor, unit_y=a different factor)
 │   └── return
 ├── def test_three_separations_stand_between_standard_and_a_device_frame
 │   ├── # Where the origin sits, which way each axis runs and what one unit is worth are independent, so a principal point at the image's own centre lands on the device origin, which no axis reversal alone could put it at.
