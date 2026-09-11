@@ -7,7 +7,7 @@
 ```text
 convert.py
 ├── from pathlib import Path
-├── from typing import Dict
+├── from typing import Dict, Union
 ├── import numpy as np
 ├── import torch
 ├── from data.structures.three_d.colmap.colmap_data import COLMAP_Data
@@ -15,7 +15,7 @@ convert.py
 ├── from data.structures.three_d.nerfstudio.nerfstudio_data import NerfStudio_Data
 ├── from data.structures.three_d.point_cloud.io.load_point_cloud import load_point_cloud
 ├── from data.structures.three_d.point_cloud.point_cloud import PointCloud
-├── def convert_nerfstudio_to_colmap(transforms: NerfStudio_Data, point_cloud_path: str | Path) -> COLMAP_Data
+├── def convert_nerfstudio_to_colmap(transforms: NerfStudio_Data, point_cloud_path: Union[str, Path]) -> COLMAP_Data
 │   ├── # Rewrites one NerfStudio capture as the COLMAP record of the same scene.
 │   ├── impls colmap_cameras = the camera record the sibling builder makes
 │   ├── impls colmap_images = the image record the sibling builder makes from it
