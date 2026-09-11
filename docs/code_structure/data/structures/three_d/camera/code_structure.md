@@ -429,7 +429,7 @@ io.py
 │   ├── from data.structures.three_d.camera.cameras import Cameras  # inline runtime import; cameras.py imports io.py, so this would cycle at module top
 │   ├── def _validate_inputs [local]
 │   │   ├── impls assert payload is a dict whose keys are exactly _CAMERA_NPZ_KEYS
-│   │   ├── impls assert payload["extrinsics"] is a float32 ndarray batched as [N, 4, 4]
+│   │   ├── impls assert payload["extrinsics"] is a floating-point ndarray batched as [N, 4, 4]  # whichever floating dtype the saved batch held
 │   │   ├── calls validate_camera_extrinsics(extrinsics)  # batched validation of all views' 4x4 cam2world
 │   │   └── for each of the eight per-camera keys
 │   │       └── impls assert its array is an ndarray of shape (batch_size,)
