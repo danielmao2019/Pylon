@@ -16,6 +16,8 @@ i.e., the mental model is:
 2. the stored dtype and device are also consequences of the given dtype and device, rather than the other way around.
 3. the only exception is when dtype or device is given None, in which case you resolve it to those of the given extrinsics matrix.
 
+`transform_intrinsics` must NOT call any helper that serves convention conversion.
+
 ### 1.2. Explicitly and Strictly Banned Terms
 
 - winner
