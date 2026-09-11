@@ -512,7 +512,7 @@ render_segmentation.py
 │   ├── calls render_segmentation_from_rendering_points(rendering_points=rendering_points, valid=valid, pc=pc, key=key, resolution=resolution, ignore_value=ignore_value)
 │   ├── impls seg_map = the map it rasterized
 │   ├── if point_size > 1.0
-│   │   ├── calls render_depth_from_rendering_points(rendering_points=rendering_points, resolution=resolution, ignore_value=float("inf"), return_mask=False, valid=valid)
+│   │   ├── calls render_depth_from_rendering_points(rendering_points=rendering_points, valid=valid, resolution=resolution, ignore_value=float("inf"), return_mask=False)
 │   │   ├── impls depth_map = the depth map it rasterized
 │   │   ├── calls apply_point_size_postprocessing(rendered_image=depth_map, depth_map=depth_map, point_size=point_size, ignore_value=float("inf"))
 │   │   ├── impls covered = the finite pixels of the dilated depth map  # the disc each surviving point reached, which is both this renderer's mask and its background
@@ -523,7 +523,7 @@ render_segmentation.py
 │   │   ├── if point_size > 1.0
 │   │   │   └── impls valid_mask = covered  # the coverage the image's own dilation reached, so the mask and the image it describes cannot drift apart
 │   │   ├── else
-│   │   │   ├── calls render_mask_from_rendering_points(rendering_points=rendering_points, resolution=resolution, device=rendering_points.device, valid=valid)
+│   │   │   ├── calls render_mask_from_rendering_points(rendering_points=rendering_points, valid=valid, resolution=resolution, device=rendering_points.device)
 │   │   │   └── impls valid_mask = the mask it rasterized
 │   │   └── return  # (seg_map, valid_mask)
 │   └── else
@@ -534,8 +534,8 @@ render_segmentation.py
     ├── impls render_height, render_width = resolution
     ├── impls labels = the pc attribute named by key
     ├── assert labels.numel() > 0  # f"Labels tensor must not be empty, got {labels.numel()} elements"
-    ├── impls winner = a [render_height, render_width] tensor holding, per pixel, the index along the point axis of the valid point with the smallest depth landing there, and -1 where none landed  # reduced per pixel rather than scattered, so occlusion does not depend on which write lands last
-    ├── impls pixel_labels = labels gathered at winner
-    ├── impls seg_map = pixel_labels int64-cast, with ignore_value wherever winner is -1  # impls-node-one-step:skip
+    ├── impls nearest_point_index = a [render_height, render_width] tensor holding, per pixel, the index along the point axis of the valid point with the smallest depth landing there, and -1 where none landed  # reduced per pixel rather than scattered, so occlusion does not depend on which write lands last
+    ├── impls pixel_labels = labels gathered at nearest_point_index
+    ├── impls seg_map = pixel_labels int64-cast, with ignore_value wherever nearest_point_index is -1  # impls-node-one-step:skip
     └── return seg_map
 ```
