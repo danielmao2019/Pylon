@@ -162,17 +162,34 @@ def test_rejects_non_2d_large(large: torch.Tensor, small: torch.Tensor) -> None:
         chunked_matmul(large=large, small=small)
 
 
-@pytest.mark.parametrize("num_divide", [None, 0, 2, 3])
-def test_batched_small_broadcasts_onto_the_product(num_divide: Optional[int]) -> None:
-    """a [B, K, K] small gives a [B, N, K] product whose every slice equals large @ that slice's own small."""
-    B, N, K = 3, 17, 5
-    large = torch.randn(N, K, dtype=torch.float64)
-    small = torch.randn(B, K, K, dtype=torch.float64)
-    result = chunked_matmul(large=large, small=small, num_divide=num_divide)
-    for b in range(B):
-        assert torch.allclose(
-            result[b], large @ small[b]
-        ), f"slice {b=} differs from its own plain matmul, {num_divide=}"
+def test_batched_small_broadcasts_onto_the_product() -> None:
+    """a [B, K, K] small gives a [B, N, K] product whose every slice equals that slice's own small multiplied alone bit for bit, across num_divide splits, row counts and devices.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    B, K = 3, 4
+    devices = [torch.device("cpu")] + (
+        [torch.device("cuda")] if torch.cuda.is_available() else []
+    )
+    for device in devices:
+        # The small row counts where CUDA's batched and unbatched products used to disagree.
+        for N in (1, 17, 25, 33, 100):
+            large = torch.randn(N, K, dtype=torch.float32, device=device)
+            small = torch.randn(B, K, K, dtype=torch.float32, device=device)
+            for num_divide in (None, 0, 2, 3):
+                result = chunked_matmul(large=large, small=small, num_divide=num_divide)
+                for b in range(B):
+                    # The reference is that small alone under the same split, since CUDA's plain product itself rounds differently on a row chunk than on all the rows.
+                    assert torch.equal(
+                        result[b],
+                        chunked_matmul(
+                            large=large, small=small[b], num_divide=num_divide
+                        ),
+                    ), f"slice {b=} differs from its own small multiplied alone, {device=} {N=} {num_divide=}"
 
 
 def test_inplace_rejects_batched_small() -> None:
