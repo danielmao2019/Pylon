@@ -10,13 +10,13 @@ validation.py
 ├── import numpy as np
 ├── import torch
 ├── from utils.ops.materialize_tensor import materialize_tensor
-├── _ROTATION_MATRIX_RESIDUAL_FLOOR_ULPS = 32  # orthogonality/determinant residual floor of the float SVD-projection, in machine-epsilon units; the eps-scaling is derived, the O(1) prefactor is the empirical LAPACK SVD/det floor (measured worst <= 11 over the reference poses + 53k synthetic rotations; set to 32 for margin, still orders of magnitude below any genuinely non-orthogonal rotation)
+├── _ROTATION_MATRIX_RESIDUAL_FLOOR_ULPS = 32  # orthogonality/determinant residual floor of the float SVD projection, in machine-epsilon units; its O(1) prefactor is the empirical LAPACK floor (worst 11 over the reference poses and 53k synthetic rotations), set to 32 for margin
 ├── def validate_camera_extrinsics_attributes(extrinsics: Any, extr_convention: Any, device: Any, dtype: Any) -> None
 │   ├── # Single-entry validation for CameraExtrinsics.__init__: validate the cam2world input, pose frame, device target, and dtype target.
 │   ├── calls validate_camera_extrinsics
 │   ├── calls validate_extr_convention
-│   ├── impls asserts device is a str or torch.device
-│   ├── impls asserts dtype is a floating torch dtype
+│   ├── impls asserts device is None or a str or torch.device
+│   ├── impls asserts dtype is None or a floating torch dtype
 │   └── return
 ├── def validate_camera_extrinsics(obj: Any) -> Union[np.ndarray, torch.Tensor, List[List[Union[int, float]]]]
 │   ├── # Dispatch camera-extrinsics validation on the input representation.
@@ -117,15 +117,19 @@ camera_extrinsics.py
 ├── _ORTHOGONALITY_REPAIR_ATOL = 1.0e-05  # dtype-independent input-quality guard: max RR^T-vs-I / determinant residual a raw rotation may carry and still be trusted as SVD-repairable
 ├── class CameraExtrinsics
 │   ├── # A camera's pose: the 4x4 camera-to-world matrix together with the pose frame it is expressed in, so a pose is never read without its frame.
-│   ├── def __init__(self, extrinsics: Union[np.ndarray, torch.Tensor, List[List[Union[int, float]]]], extr_convention: str, device: Union[str, torch.device] = "cpu", dtype: torch.dtype = torch.float32) -> None
+│   ├── def __init__(self, extrinsics: Union[np.ndarray, torch.Tensor, List[List[Union[int, float]]]], extr_convention: str, device: Optional[Union[str, torch.device]] = None, dtype: Optional[torch.dtype] = None) -> None
 │   │   ├── # Construct a CameraExtrinsics from an array-like 4x4 cam2world matrix and the pose frame it is expressed in.
 │   │   ├── calls validate_camera_extrinsics_attributes(extrinsics=extrinsics, extr_convention=extr_convention, device=device, dtype=dtype)
-│   │   ├── def _normalize_inputs(extrinsics: Union[np.ndarray, torch.Tensor, List[List[Union[int, float]]]], device: Union[str, torch.device], dtype: torch.dtype) -> Tuple[torch.Tensor, torch.device] [local]
+│   │   ├── def _normalize_inputs(extrinsics: Union[np.ndarray, torch.Tensor, List[List[Union[int, float]]]], device: Optional[Union[str, torch.device]], dtype: Optional[torch.dtype]) -> Tuple[torch.Tensor, torch.device, torch.dtype] [local]
+│   │   │   ├── if device is None
+│   │   │   │   └── impls device = the device of extrinsics when it is a torch.Tensor, else cpu  # the one exception: an unset device resolves to the given matrix's, so a component __getitem__ rebuilds stays where its batch is
 │   │   │   ├── impls device = torch.device(device), its index filled in when the spelling leaves one out  # one physical device has one spelling here, so a cuda and a cuda:0 naming it never compare unequal
-│   │   │   ├── impls extrinsics = torch.as_tensor(extrinsics, device=device, dtype=dtype)
-│   │   │   └── return extrinsics, device
+│   │   │   ├── if dtype is None
+│   │   │   │   └── impls dtype = the dtype of extrinsics when it is a torch.Tensor or np.ndarray, else torch.float32  # the one exception: an unset dtype resolves to the given matrix's, so a component __getitem__ rebuilds keeps the dtype its batch holds
+│   │   │   ├── impls extrinsics = torch.as_tensor(extrinsics, device=device, dtype=dtype)  # the matrix follows the resolved device and dtype, never the other way around
+│   │   │   └── return extrinsics, device, dtype
 │   │   ├── calls _normalize_inputs(extrinsics=extrinsics, device=device, dtype=dtype)
-│   │   ├── impls extrinsics, device = the returned values from _normalize_inputs
+│   │   ├── impls extrinsics, device, dtype = the returned values from _normalize_inputs
 │   │   ├── impls self._extrinsics = extrinsics
 │   │   ├── impls self._extr_convention = extr_convention
 │   │   ├── impls self._device = device
