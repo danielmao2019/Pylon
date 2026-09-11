@@ -274,23 +274,27 @@ camera_intrinsics.py
 │   │   ├── # Construct a CameraIntrinsics from tensor-compatible named scalar params and the image-plane frame they are stated in.
 │   │   ├── def _validate_inputs [local]
 │   │   │   ├── impls asserts params is a dict of str to int, float, np.ndarray or torch.Tensor
+│   │   │   ├── impls asserts every np.ndarray param has a numeric dtype  # the normalization casts every param onto one floating dtype, which would turn a bool into 0 / 1 without a word
+│   │   │   ├── impls asserts every torch.Tensor param is real-valued  # that same cast would drop an imaginary part without a word
 │   │   │   ├── impls asserts intr_convention is a str
 │   │   │   ├── impls asserts device is None or a str or torch.device
 │   │   │   └── impls asserts dtype is None or a floating torch dtype
 │   │   ├── calls _validate_inputs
 │   │   ├── def _normalize_inputs [local]
-│   │   │   ├── impls params = each value materialized as a torch.Tensor without applying the placement request
-│   │   │   └── return params
-│   │   ├── calls _normalize_inputs(params=params)
-│   │   ├── impls params = the returned value from _normalize_inputs
+│   │   │   ├── if device is None
+│   │   │   │   └── impls device = the device of the first torch.Tensor param, else cpu  # the one exception: an unset device resolves to the given params', so a component __getitem__ rebuilds stays where its batch is
+│   │   │   ├── impls device = torch.device(device), its index filled in when the spelling leaves one out  # one physical device has one spelling here, so a cuda and a cuda:0 naming it never compare unequal
+│   │   │   ├── if dtype is None
+│   │   │   │   └── impls dtype = the dtype of the first floating torch.Tensor or np.ndarray param, else torch.float32  # the one exception: an unset dtype resolves to the given params', so a component __getitem__ rebuilds keeps the dtype its batch holds
+│   │   │   ├── impls params = each value materialized as a torch.Tensor on device and in dtype  # every param follows the resolved device and dtype, never the other way around
+│   │   │   └── return params, device, dtype
+│   │   ├── calls _normalize_inputs(params=params, device=device, dtype=dtype)
+│   │   ├── impls params, device, dtype = the returned values from _normalize_inputs
 │   │   ├── calls validate_camera_intrinsics_attributes(model=type(self).MODEL, intr_convention=intr_convention, params=params, device=device, dtype=dtype)  # the attributes, not the inputs, so it runs on the normalized params it asserts are tensors
 │   │   ├── impls self._params = params
 │   │   ├── impls self._intr_convention = intr_convention
-│   │   ├── impls self._device = the common device of self._params values
-│   │   ├── impls self._dtype = the common dtype of self._params values
-│   │   └── if device is not None or dtype is not None
-│   │       ├── calls self.to(device=device, dtype=dtype)
-│   │       └── impls replace this object's params / intr_convention / device / dtype with the returned object's state
+│   │   ├── impls self._device = device  # the resolved device the params were built on, not read back off them
+│   │   └── impls self._dtype = dtype  # the resolved dtype the params were built in, not read back off them
 │   ├── def model(self) -> str  # @property
 │   │   ├── # The camera-model identifier type(self).MODEL.
 │   │   ├── impls model = type(self).MODEL
