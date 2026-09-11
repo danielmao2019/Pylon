@@ -55,7 +55,7 @@ test_point_cloud_loading.py
 │   ├── impls assert target['feat']['layout'] == ('intensity',)
 │   └── impls assert intensity is absent  # a caller-stated layout CONSUMES its columns, so the column does not also survive under its own name
 ├── def test_a_caller_layout_over_the_colour_columns_makes_the_rgb_default_yield
-│   ├── # A default stands only where the caller's layouts name none of its columns, so a caller assembling red, green and blue into a field of its own takes them while the xyz default still stands.
+│   ├── # The caller's meta data outranks the default layout the reader applied, so a caller assembling red, green and blue into a field of its own takes them out of rgb while the xyz default still stands.
 │   ├── calls write_ply(filepath, with_rgb=True)
 │   ├── calls load_point_cloud(filepath=filepath, meta_data={'colour': {'layout': ('red', 'green', 'blue')}}, device='cpu')
 │   ├── impls assert the loaded fields are xyz and colour
@@ -66,12 +66,12 @@ test_point_cloud_loading.py
 │   └── with pytest.raises(AssertionError)
 │       └── calls load_point_cloud(filepath=filepath, meta_data={'pos': {'layout': ('x', 'y', 'z')}}, device='cpu')
 ├── def test_the_record_keys_each_source_column_and_the_target_names_each_field_s_columns
-│   ├── # A PLY's default layouts assemble its coordinate columns into xyz and its colour columns into rgb, while the record keeps what each of those six source columns held under the column's own name.
+│   ├── # A PLY's default layout assembles its coordinate columns into xyz and its colour columns into rgb, and the record keeps what each of those six source columns held beside the field the reader's construction assembled it into.
 │   ├── calls write_ply(filepath, with_rgb=True)
 │   ├── calls load_point_cloud(filepath=filepath, device='cpu')
 │   ├── impls pc = the cloud it loaded
-│   ├── impls assert pc.meta_data holds x, y and z each as {'dtype': 'float32', 'field': its own name}
-│   ├── impls assert pc.meta_data holds red, green and blue each as {'dtype': 'uint8', 'field': its own name}  # the record is written when the reader builds the raw cloud, before any layout assembles a field
+│   ├── impls assert pc.meta_data holds x, y and z each as {'dtype': 'float32', 'field': 'xyz'}
+│   ├── impls assert pc.meta_data holds red, green and blue each as {'dtype': 'uint8', 'field': 'rgb'}  # the record is written when the reader constructs the cloud, which is where ply's default layout is applied
 │   ├── calls pc.apply_meta_data()
 │   ├── impls target = the target it handed back
 │   ├── impls assert target['xyz']['layout'] == ('x', 'y', 'z')
@@ -162,7 +162,7 @@ test_point_cloud_loading.py
 │   ├── impls pc = the cloud it loaded
 │   ├── impls assert the rgb field is torch.int32
 │   ├── impls assert pc.conceptual_dtype(name='rgb') == 'uint16'  # the meaning and the storage differ here, which is the divergence a display reads the wrong side of when it reads the tensor
-│   ├── impls assert pc.meta_data holds red, green and blue each as {'dtype': 'uint16', 'field': its own name}
+│   ├── impls assert pc.meta_data holds red, green and blue each as {'dtype': 'uint16', 'field': 'rgb'}
 │   ├── calls pc.apply_meta_data()
 │   ├── impls target = the target it handed back
 │   └── impls assert target['rgb']['layout'] == ('red', 'green', 'blue')
@@ -178,7 +178,7 @@ test_point_cloud_loading.py
 │   ├── calls load_point_cloud(filepath=filepath, device='cpu')
 │   ├── impls pc = the cloud it loaded
 │   ├── impls assert xyz holds the real-world coordinates the file was written with, not the integers the dimensions store
-│   ├── impls assert pc.meta_data holds x, y and z each as {'dtype': 'float64', 'field': its own name}  # the coordinate's own dtype is the scaled float and its name is the one laspy gives it
+│   ├── impls assert pc.meta_data holds x, y and z each as {'dtype': 'float64', 'field': 'xyz'}  # the coordinate's own dtype is the scaled float, and las's default layout assembles the three into xyz
 │   ├── impls assert pc.meta_data holds no X, Y or Z  # the raw int32 dimension is the container's storage of both, the same divergence a uint16 colour has inside an int32 tensor
 │   ├── calls pc.apply_meta_data()
 │   ├── impls target = the target it handed back
@@ -328,14 +328,14 @@ test_point_cloud_loading.py
 │   ├── calls write_off(filepath, four vertices, comment='made by something')
 │   ├── calls load_point_cloud(filepath=filepath, meta_data={'xyz': {'layout': ('0', '1', '2')}}, device='cpu')
 │   └── impls assert xyz is [4, 3] and holds the written coordinates
-├── def test_load_from_ply_returns_the_file_s_own_columns_as_a_raw_cloud
-│   ├── # The PLY reader builds the cloud the file's own column names define, one field per column, leaving the default layouts to the load that calls it.
+├── def test_load_from_ply_returns_the_file_s_columns_assembled_by_ply_s_default_layout
+│   ├── # The PLY reader owns ply's default layout, so the cloud it builds already holds xyz and rgb, and every column no default names stays a field under its own name.
 │   ├── calls write_ply(filepath, with_rgb=True, extra_field='intensity')
 │   ├── calls _load_from_ply(filepath=filepath, device='cpu')
-│   ├── impls pc = the raw cloud it built
-│   ├── impls assert its fields are x, y, z, red, green, blue and intensity
-│   ├── impls assert each field carries the conceptual dtype the file stored its column in
-│   └── impls assert pc.meta_data holds each of those seven columns as {'dtype': the column's own conceptual dtype, 'field': its own name}
+│   ├── impls pc = the cloud it built
+│   ├── impls assert its fields are xyz, rgb and intensity
+│   ├── impls assert each field carries the conceptual dtype the file stored its columns in
+│   └── impls assert pc.meta_data holds all seven columns, each with the dtype the file stored it in, and names 'xyz' for x, y and z, 'rgb' for red, green and blue and 'intensity' for intensity
 ├── def test_load_from_txt_returns_its_columns_under_their_indices
 │   ├── # The text reader names its columns by position and nothing else, so a seven-column file hands back seven float64 fields and no field names at all.
 │   ├── calls write_txt(filepath, num_columns=7)
