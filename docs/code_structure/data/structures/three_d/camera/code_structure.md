@@ -442,7 +442,7 @@ io.py
 │   ├── impls params_columns = the per-camera json rows decoded and re-gathered into one column per param name
 │   ├── calls _deserialize_intrinsics_params(params=params_columns, device=device)
 │   ├── calls build_camera_intrinsics(model=model, params=tensor_params, intr_convention=intr_convention, device=device)  # validates the model, its params and the image-plane frame those params name
-│   ├── calls CameraExtrinsics(extrinsics=torch.as_tensor(extrinsics, dtype=torch.float32, device=device), extr_convention=extr_convention, device=device)  # the whole [N, 4, 4] stack at once
+│   ├── calls CameraExtrinsics(extrinsics=extrinsics, extr_convention=extr_convention, device=device)  # the whole [N, 4, 4] stack at once, in the dtype the archive stored
 │   ├── calls Cameras(intrinsics=intrinsics, extrinsics=extrinsics_batched, names=names, ids=ids, device=device)  # field-validates the batch
 │   └── return
 ├── def _serialize_intrinsics_params(params: Dict[str, torch.Tensor]) -> Dict[str, Union[int, float]]
