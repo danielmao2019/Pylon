@@ -13,10 +13,7 @@ test_rotation_stabilize_validate_compat.py
 ├── def test_stabilize_accepts_float32_and_float64
 │   ├── # _stabilize_rotation_matrix accepts a float32 or float64 near-orthogonal rotation, returns the same dtype, and its output passes validate_rotation_matrix.
 │   ├── for each dtype in {torch.float32, torch.float64}
-│   │   ├── calls _random_rotation(dtype=that dtype, seed=a fixed seed)
-│   │   ├── calls _random_rotation(dtype=that dtype, seed=a second fixed seed)
-│   │   ├── impls multiply the two rotations into one near-orthogonal (3, 3) rotation in that dtype
-│   │   ├── calls _stabilize_rotation_matrix(rotation=that near-orthogonal (3, 3) rotation)
+│   │   ├── calls _stabilize_rotation_matrix(rotation=a near-orthogonal (3, 3) rotation in that dtype)
 │   │   ├── impls assert the returned rotation keeps that dtype
 │   │   └── calls validate_rotation_matrix(obj=the returned rotation)
 │   └── return
@@ -52,23 +49,13 @@ test_rotation_stabilize_validate_compat.py
 │   ├── with pytest.raises(AssertionError)
 │   │   └── calls validate_rotation_matrix(obj=that rotation cast to float64)
 │   └── return
-├── def test_validator_requires_determinant_plus_one
-│   ├── # A camera's rotation is validated to have determinant +1, so a reflection is inexpressible as camera extrinsics and any change of handedness has to be carried by the geometry instead.
-│   ├── calls _random_rotation(dtype=torch.float64, seed=a fixed seed)
-│   ├── calls validate_rotation_matrix(obj=that proper rotation of determinant +1)
-│   ├── impls build an orthonormal (3, 3) matrix whose determinant is -1 by negating one of its columns
-│   ├── with pytest.raises(AssertionError)
-│   │   └── calls validate_rotation_matrix(obj=that determinant -1 matrix)
-│   └── with pytest.raises(AssertionError)
-│       └── calls validate_camera_extrinsics(obj=a cam2world batch carrying that reflection)
-└── def _random_rotation
-    ├── # One reproducible proper rotation per seed, so every rotation-building test starts from a real rotation instead of a hand-written matrix.
-    ├── impls draw a seeded random (3, 3) float64 matrix
-    ├── impls take the QR decomposition of that matrix
-    ├── impls canonicalize the orthonormal factor by the signs of the triangular factor's diagonal
-    ├── if that orthonormal factor has a negative determinant
-    │   └── impls negate its first column
-    ├── impls cast the orthonormal factor to the requested dtype
-    ├── return
-    └── return
+└── def test_validator_requires_determinant_plus_one
+    ├── # A camera's rotation is validated to have determinant +1, so a reflection is inexpressible as camera extrinsics and any change of handedness has to be carried by the geometry instead.
+    ├── calls _random_rotation(dtype=torch.float64, seed=a fixed seed)
+    ├── calls validate_rotation_matrix(obj=that proper rotation of determinant +1)
+    ├── impls build an orthonormal (3, 3) matrix whose determinant is -1 by negating one of its columns
+    ├── with pytest.raises(AssertionError)
+    │   └── calls validate_rotation_matrix(obj=that determinant -1 matrix)
+    └── with pytest.raises(AssertionError)
+        └── calls validate_camera_extrinsics(obj=a cam2world batch carrying that reflection)
 ```
