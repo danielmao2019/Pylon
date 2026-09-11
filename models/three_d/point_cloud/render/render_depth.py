@@ -69,28 +69,41 @@ def render_depth_from_point_cloud(
         resolution=resolution,
     )
 
-    # Render depth map
-    depth_map = render_depth_from_rendering_points(
-        rendering_points=rendered_points,
-        resolution=resolution,
-        ignore_value=ignore_value,
-        return_mask=False,
-        valid=valid,
-    )
-
-    # Dilate each rendered point into a disc of point_size pixels
     if point_size > 1.0:
+        # Render depth map, positive infinity wherever no point landed
+        depth_map = render_depth_from_rendering_points(
+            rendering_points=rendered_points,
+            resolution=resolution,
+            ignore_value=float('inf'),
+            return_mask=False,
+            valid=valid,
+        )
+
+        # Dilate each rendered point into a disc of point_size pixels
         depth_map = apply_point_size_postprocessing(
             rendered_image=depth_map,
             depth_map=depth_map,
             point_size=point_size,
+            ignore_value=float('inf'),
+        )
+
+        # The discs the dilation reached, read off the infinity sentinel rather than ignore_value, which may be NaN
+        covered = torch.isfinite(depth_map)
+        depth_map = depth_map.masked_fill(~covered, ignore_value)
+    else:
+        # Render depth map
+        depth_map = render_depth_from_rendering_points(
+            rendering_points=rendered_points,
+            resolution=resolution,
             ignore_value=ignore_value,
+            return_mask=False,
+            valid=valid,
         )
 
     if return_mask:
         if point_size > 1.0:
-            # The dilation repainted the depth map, so the mask follows it
-            valid_mask = depth_map != ignore_value
+            # The coverage the map's own dilation reached, so the mask and the map it describes cannot drift apart
+            valid_mask = covered
         else:
             valid_mask = render_mask_from_rendering_points(
                 rendering_points=rendered_points,
