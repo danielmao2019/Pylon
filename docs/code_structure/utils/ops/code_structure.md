@@ -9,7 +9,22 @@ chunked_matmul.py
 ├── from typing import Optional
 ├── def chunked_matmul(large: torch.Tensor, small: torch.Tensor, inplace: bool = False, max_divide: int = 0, num_divide: Optional[int] = None) -> torch.Tensor
 │   ├── # Multiplies a large 2D tensor by a small [..., K, K] tensor on its right, chunking the large's first dim; resume-safe so a CUDA-OOM chunk shrink never recomputes a completed chunk; inplace overwrites large (requires no grad).
-│   ├── calls _validate_inputs
+│   ├── def _validate_inputs [local]
+│   │   ├── assert isinstance(large, torch.Tensor)
+│   │   ├── assert large.ndim == 2
+│   │   ├── assert isinstance(small, torch.Tensor)
+│   │   ├── assert small.ndim >= 2
+│   │   ├── assert small.shape[-2] == small.shape[-1]
+│   │   ├── assert large.shape[1] == small.shape[-2]
+│   │   ├── assert large.device == small.device
+│   │   ├── assert large.dtype == small.dtype
+│   │   ├── assert isinstance(inplace, bool)
+│   │   ├── if inplace
+│   │   │   ├── assert small.ndim == 2  # leading axes make the product wider than large, leaving nothing to overwrite in place
+│   │   │   └── assert not large.requires_grad and not small.requires_grad
+│   │   ├── assert isinstance(max_divide, int) and max_divide >= 0
+│   │   └── assert num_divide is None or (isinstance(num_divide, int) and num_divide >= 0)
+│   ├── calls _validate_inputs()
 │   ├── impls small = small.contiguous()
 │   ├── impls N = large.shape[0]
 │   ├── impls M = small.shape[-1]
@@ -31,21 +46,6 @@ chunked_matmul.py
 │   │   │   └── continue
 │   │   └── impls i = j  # advance only after the chunk succeeds
 │   └── return  # out, the [..., N, M] product (large itself when inplace)
-├── def _validate_inputs(large: torch.Tensor, small: torch.Tensor, inplace: bool, max_divide: int, num_divide: Optional[int]) -> None
-│   ├── assert isinstance(large, torch.Tensor)
-│   ├── assert isinstance(small, torch.Tensor)
-│   ├── assert large.ndim == 2
-│   ├── assert small.ndim >= 2
-│   ├── assert small.shape[-2] == small.shape[-1]
-│   ├── assert large.shape[1] == small.shape[-2]
-│   ├── assert large.device == small.device
-│   ├── assert large.dtype == small.dtype
-│   ├── assert isinstance(inplace, bool)
-│   ├── assert isinstance(max_divide, int) and max_divide >= 0
-│   ├── assert num_divide is None or (isinstance(num_divide, int) and num_divide >= 0)
-│   └── if inplace
-│       ├── assert small.ndim == 2  # leading axes make the product wider than large, leaving nothing to overwrite in place
-│       └── assert not large.requires_grad and not small.requires_grad
 └── def _matmul_chunk(large: torch.Tensor, small: torch.Tensor, out: torch.Tensor, direct: bool) -> None
     ├── # Writes large @ small into out for one row-chunk: direct uses out= with no intermediate (out must not alias large); else a temp-copy assignment that is autograd-safe and the only correct form when out aliases large.
     ├── if direct
