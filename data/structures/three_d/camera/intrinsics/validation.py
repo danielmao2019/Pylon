@@ -12,9 +12,7 @@ def validate_camera_intrinsics_attributes(
 ) -> None:
     """Validate the model, image-plane frame, params, device, and dtype for a CameraIntrinsics.
 
-    Single-entry validation for ``CameraIntrinsics.__init__``: validate the camera
-    model string, the image-plane convention its params are stated in, those named
-    tensor params, and the optional placement request together.
+    Single-entry validation for ``CameraIntrinsics.__init__``: validate the camera model string, the image-plane convention its params are stated in, those named tensor params, and the optional placement request together.
 
     Args:
         model: Camera-model identifier string.
@@ -96,9 +94,7 @@ def validate_camera_intrinsics_params(
 ) -> Dict[str, torch.Tensor]:
     """Validate the named tensor intrinsics params for a camera model.
 
-    Validates the resolution keys every model carries, the tensor state every param
-    is stated as, the projection keys that model's own dispatch owns, and the
-    invariants that hold only across those keys together.
+    Validates the resolution keys every model carries, the tensor state every param is stated as, the projection keys that model's own dispatch owns, and the invariants that hold only across those keys together.
 
     Args:
         model: Validated camera-model identifier string.
@@ -246,8 +242,7 @@ def validate_camera_intrinsics_invariants(
 ) -> None:
     """Validate what the intrinsics params state only together.
 
-    The resolution has joined the dict the principal point and the focal already
-    live in, and forms a pair with each.
+    The resolution has joined the dict the principal point and the focal already live in, and forms a pair with each.
 
     Args:
         model: Validated camera-model identifier string.
@@ -329,9 +324,7 @@ def _validate_model_is_representable_in_frame(
 ) -> None:
     """Reject a model that states fewer focal params than its frame scales axes.
 
-    A model states as many focal params as it has axes to scale independently, so
-    a frame that scales the two axes differently can hold only the models carrying
-    two of them.
+    A model states as many focal params as it has axes to scale independently, so a frame that scales the two axes differently can hold only the models carrying two of them.
 
     Args:
         model: Validated camera-model identifier string.

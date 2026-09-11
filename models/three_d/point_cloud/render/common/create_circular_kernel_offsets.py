@@ -17,8 +17,7 @@ def create_circular_kernel_offsets(
     """
     kernel_radius = point_size / 2.0
 
-    # The grid spans the same reach on both sides of the origin, so the disc it
-    # carves is centred on the point rather than lopsided towards one corner.
+    # The grid spans the same reach on both sides of the origin, so the disc it carves is centred on the point rather than lopsided towards one corner.
     axis_offsets = torch.arange(
         -math.ceil(kernel_radius), math.ceil(kernel_radius) + 1, device=device
     )

@@ -30,7 +30,9 @@ def validate_rendering_inputs(
         AssertionError: If validation fails
     """
     assert isinstance(pc, PointCloud), f"{type(pc)=}"
-    assert isinstance(camera, (Camera, Cameras)), f"{type(camera)=}"
+    assert isinstance(camera, (Camera, Cameras)), (
+        "Expected camera to be a Camera or a Cameras. " f"{type(camera)=}"
+    )
     points = pc.xyz
 
     intrinsics = camera.intrinsics

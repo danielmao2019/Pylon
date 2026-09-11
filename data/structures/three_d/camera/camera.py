@@ -147,8 +147,7 @@ class Camera:
     ) -> "Camera":
         """Return this Camera with tensor placement and convention changes.
 
-        Each half is named for the half it converts, because neither is the one a
-        bare convention would mean.
+        Each half is named for the half it converts, because neither is the one a bare convention would mean.
 
         Args:
             device: Target device; ``None`` keeps the current device.
@@ -261,8 +260,7 @@ class Camera:
     ) -> "Camera":
         """Return this Camera with its CameraIntrinsics restated onto another image.
 
-        The affine is paired with that image's own raster, because a 3x3 carries no
-        size of its own.
+        The affine is paired with that image's own raster, because a 3x3 carries no size of its own.
 
         Args:
             transform: Pixel-frame affine as a ``(3, 3)`` float32 torch.Tensor whose last row is ``[0, 0, 1]``.
@@ -363,8 +361,7 @@ class Camera:
     def serialize(self, format: str = "json") -> Dict[str, Any]:
         """Serialize this Camera into a single-form payload.
 
-        Single-camera convenience wrapper over the plural `serialize_cameras`
-        dispatcher, which normalizes this single Camera to the single-form payload.
+        Single-camera convenience wrapper over the plural `serialize_cameras` dispatcher, which normalizes this single Camera to the single-form payload.
 
         Args:
             format: Serialization format, either `json` or `npz`.
@@ -383,9 +380,7 @@ class Camera:
     ) -> "Camera":
         """Deserialize one Camera from a single-form payload.
 
-        Single-camera convenience wrapper over the plural `deserialize_cameras`
-        dispatcher; asserts the payload was in single form so the result is a
-        single Camera.
+        Single-camera convenience wrapper over the plural `deserialize_cameras` dispatcher; asserts the payload was in single form so the result is a single Camera.
 
         Args:
             payload: Single-form Camera payload for the specified format.
@@ -409,8 +404,7 @@ class Camera:
     def save(self, camera_path: Path) -> None:
         """Save this Camera to a `.npz` or `.json` file.
 
-        Single-camera convenience wrapper over the plural `save_cameras`
-        dispatcher, which normalizes this single Camera to the single-form file.
+        Single-camera convenience wrapper over the plural `save_cameras` dispatcher, which normalizes this single Camera to the single-form file.
 
         Args:
             camera_path: Output `.npz` or `.json` filepath.
@@ -428,9 +422,7 @@ class Camera:
     ) -> "Camera":
         """Load one Camera from a `.npz` or `.json` file.
 
-        Single-camera convenience wrapper over the plural `load_cameras`
-        dispatcher; asserts the file held a single form so the result is a single
-        Camera.
+        Single-camera convenience wrapper over the plural `load_cameras` dispatcher; asserts the file held a single form so the result is a single Camera.
 
         Args:
             camera_path: Input `.npz` or `.json` filepath.
