@@ -119,6 +119,20 @@ def render_normal_from_rendering_points_3d(
     # Normalize world normals
     world_normals = torch.nn.functional.normalize(world_normals, dim=-1)
 
+    # Convert camera extrinsics to OpenCV convention
+    camera = camera.to(device=rendering_points.device, extr_convention="opencv")
+    rotation_matrix = camera.extrinsics.w2c[:3, :3]
+
+    # Transform the kept points' normals to camera coordinates (rotation only), over exactly the kept rows, since CUDA picks its matmul kernel by row count and a camera must render what the compacting renderer did
+    kept_camera_normals = torch.matmul(world_normals[valid], rotation_matrix.T)
+
+    # Normalize after transformation
+    kept_camera_normals = torch.nn.functional.normalize(kept_camera_normals, dim=-1)
+
+    # Place each kept normal back at its own point's row
+    camera_normals = torch.zeros_like(world_normals)
+    camera_normals[valid] = kept_camera_normals
+
     # Resolve, per pixel, the valid point with the smallest depth landing there, reduced per pixel rather than scattered so occlusion does not depend on which write lands last. A culled point is parked on pixel 0, whose out-of-image coordinates are not scatterable, and its depth of positive infinity keeps it from ever owning that pixel.
     num_points = rendering_points.shape[-2]
     pixel_index = (
@@ -159,25 +173,10 @@ def render_normal_from_rendering_points_3d(
         nearest_point_index == num_points, -1
     ).reshape(rendering_points.shape[:-2] + (render_height, render_width))
 
-    # Read the normal of the point that owns each pixel
-    visible_world_normals = world_normals[nearest_point_index.clamp(min=0)]  # [H, W, 3]
-
-    # Transform normals from world to camera coordinates
-
-    # Convert camera extrinsics to OpenCV convention
-    camera = camera.to(device=rendering_points.device, extr_convention="opencv")
-    rotation_matrix = camera.extrinsics.w2c[:3, :3]
-
-    # Transform normals to camera coordinates (rotation only)
-    camera_normals = torch.matmul(visible_world_normals, rotation_matrix.T)
-
-    # Normalize after transformation
-    camera_normals = torch.nn.functional.normalize(camera_normals, dim=-1)
-
-    # Move the channel axis in front of the image axes and blank the unowned pixels
+    # Read the camera-frame normal of the point that owns each pixel, move the channel axis in front of the image axes, and blank the unowned pixels
     normal_map = torch.where(
         (nearest_point_index >= 0).unsqueeze(-3),
-        camera_normals.movedim(-1, -3).float(),
+        camera_normals[nearest_point_index.clamp(min=0)].movedim(-1, -3).float(),
         torch.tensor(ignore_value, dtype=torch.float32, device=rendering_points.device),
     )
 
