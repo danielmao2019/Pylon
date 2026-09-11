@@ -494,6 +494,56 @@ def test_render_depth_point_size_dilates_the_rendered_discs() -> None:
     )
 
 
+def test_render_depth_point_size_keeps_a_nan_background() -> None:
+    """Test that a NaN background survives the dilation: the discs cover the pixels they cover under a finite background, and every pixel outside them stays NaN."""
+    pc_data = PointCloud(
+        xyz=torch.tensor(
+            [
+                [0.0, 0.0, -1.0],  # Center, depth 1
+                [0.5, 0.5, -2.0],  # Upper right, depth 2
+                [-0.5, 0.5, -1.5],  # Upper left, depth 1.5
+                [0.0, -0.5, -3.0],  # Bottom center, depth 3
+            ],
+            dtype=torch.float32,
+        )
+    )
+
+    camera = _build_camera(focal=100.0, principal_point=50.0)
+
+    depth_map_nan, valid_mask_nan = render_depth_from_point_cloud(
+        pc=pc_data,
+        camera=camera,
+        resolution=(100, 100),
+        ignore_value=float('nan'),
+        return_mask=True,
+        point_size=3.0,
+    )
+    depth_map_finite, valid_mask_finite = render_depth_from_point_cloud(
+        pc=pc_data,
+        camera=camera,
+        resolution=(100, 100),
+        ignore_value=-1.0,
+        return_mask=True,
+        point_size=3.0,
+    )
+
+    assert torch.equal(valid_mask_nan, valid_mask_finite), (
+        "A NaN background must leave the discs covering the same pixels a finite background does. "
+        f"{valid_mask_nan.sum()=} {valid_mask_finite.sum()=} "
+        f"{(valid_mask_nan != valid_mask_finite).sum()=}"
+    )
+    assert torch.equal(torch.isnan(depth_map_nan), ~valid_mask_nan), (
+        "The NaN-background map must be NaN exactly at the pixels its mask leaves uncovered. "
+        f"{torch.isnan(depth_map_nan).sum()=} {(~valid_mask_nan).sum()=}"
+    )
+    assert torch.equal(
+        depth_map_nan[valid_mask_nan], depth_map_finite[valid_mask_nan]
+    ), (
+        "The two maps must carry the same depth at every covered pixel. "
+        f"{(depth_map_nan[valid_mask_nan] != depth_map_finite[valid_mask_nan]).sum()=}"
+    )
+
+
 def test_render_depth_invalid_inputs() -> None:
     """Test various invalid input conditions."""
     valid_pc_data = PointCloud(
