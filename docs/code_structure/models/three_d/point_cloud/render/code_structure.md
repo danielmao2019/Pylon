@@ -19,7 +19,7 @@ apply_point_size_postprocessing.py
     ├── impls neighbor_depth = depth_map shifted by every kernel offset and stacked along a new offset axis, out-of-bounds shifts filled with positive infinity  # impls-node-one-step:skip
     ├── impls source_offset = the offset axis' argmin over neighbor_depth, naming for each pixel which shifted source is nearest
     ├── impls dilated_image = rendered_image gathered along the image axes at the shift source_offset names, broadcast across channel_axis  # impls-node-one-step:skip
-    ├── impls dilated_image = ignore_value wherever the winning neighbor_depth is still positive infinity, so a pixel no disc reached keeps the background  # impls-node-one-step:skip
+    ├── impls dilated_image = ignore_value wherever the nearest neighbor_depth is still positive infinity, so a pixel no disc reached keeps the background  # impls-node-one-step:skip
     └── return dilated_image
 ```
 
