@@ -108,7 +108,7 @@ scaling.py
 │   ├── impls params = a copy of params
 │   ├── impls cx = unit_x * cx
 │   ├── impls cy = unit_y * cy
-│   ├── def _rescale_focal(params: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor] [local]
+│   ├── def _rescale_focal(params: Dict[str, Union[int, float, torch.Tensor]]) -> Dict[str, Union[int, float, torch.Tensor]] [local]
 │   │   ├── # Scales whichever focal params the model carries, the one place the camera models differ under a rescale.
 │   │   ├── if model == "simple_pinhole"
 │   │   │   ├── impls assert unit_x == unit_y  # one shared f cannot carry two different axis scales, and a pair that disagrees is a pinhole rather than this model
