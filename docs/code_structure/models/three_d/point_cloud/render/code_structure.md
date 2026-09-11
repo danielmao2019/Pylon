@@ -465,7 +465,11 @@ render_rgb_volumetric.py
 │   ├── impls camera_model = "OPENCV"
 │   ├── impls intrinsics = the [3, 3] float32 pinhole matrix of camera_intrinsics on the first camera's device
 │   ├── impls applied_transform = the [3, 4] float32 array sending (x, y, z) to (x, z, -y)
-│   ├── calls Cameras(intrinsics=[camera.intrinsics for camera in cameras], extrinsics=[camera.extrinsics for camera in cameras], names=camera_names, ids=[camera.id for camera in cameras], device=cameras[0].device)
+│   ├── calls build_camera_intrinsics(model=camera_intrinsics.model, params=each of camera_intrinsics' params stacked over cameras, intr_convention=camera_intrinsics.intr_convention)
+│   ├── impls batched_intrinsics = the intrinsics it built, one entry per camera along its leading axis
+│   ├── calls CameraExtrinsics(extrinsics=every camera's extrinsics matrix stacked to [B, 4, 4], extr_convention=the first camera's extr_convention)
+│   ├── impls batched_extrinsics = the [B, 4, 4] extrinsics it built
+│   ├── calls Cameras(intrinsics=batched_intrinsics, extrinsics=batched_extrinsics, names=camera_names, ids=[camera.id for camera in cameras], device=cameras[0].device)
 │   ├── impls nerfstudio_cameras = the Cameras it built
 │   ├── impls modalities = ["image"]
 │   ├── impls payload = an empty Dict[str, Any]
