@@ -168,71 +168,12 @@ test_render_rgb.py
 │   ├── calls render_rgb_from_point_cloud(pc=pc_data, camera=camera, resolution=(100, 100))
 │   ├── assert exactly the three survivors' pixels are painted
 │   └── assert no pixel carries a culled point's colour
-├── def test_render_rgb_takes_the_nearest_point_where_two_share_a_pixel() -> None
-│   ├── # Two points on one ray paint the nearer one's colour, so the attribute follows the same occlusion the depth map resolves.
-│   ├── calls PointCloud(xyz=two float32 points on one ray at depths three and one, data=one distinguishable colour per point)
-│   ├── calls _build_camera(focal=100.0, principal_point=50.0)
-│   ├── calls render_rgb_from_point_cloud(pc=pc_data, camera=camera, resolution=(100, 100))
-│   └── assert the shared pixel carries the near point's colour
-├── def test_render_rgb_basic() -> None
-│   ├── # An image asked for without a mask comes back at the requested resolution, in float32, with its colours inside the unit range.
-│   ├── calls PointCloud(xyz=four float32 points at distinct depths, data=one uint8 colour per point)
-│   ├── calls _build_camera(focal=100.0, principal_point=50.0)
-│   ├── calls render_rgb_from_point_cloud(pc=pc_data, camera=camera, resolution=(100, 100), return_mask=False)
-│   ├── assert the image is [3, 100, 100] and float32
-│   └── assert every channel value sits within [0.0, 1.0]
-├── def test_render_rgb_with_mask() -> None
-│   ├── # The mask a caller asks for marks the rendered pixels, and the background carries the ignore value on the rest.
-│   ├── calls PointCloud(xyz=three float32 points at increasing depth, data=one uint8 colour per point)
-│   ├── calls _build_camera(focal=100.0, principal_point=50.0)
-│   ├── calls render_rgb_from_point_cloud(pc=pc_data, camera=camera, resolution=(100, 100), return_mask=True)
-│   ├── assert the image is [3, 100, 100] and the mask is [100, 100] bool
-│   ├── assert the mask covers some pixels but not the whole image
-│   └── assert the image is the ignore value everywhere the mask is False
-├── def test_render_rgb_color_normalization() -> None
-│   ├── # A 0-255 colour and a 0-1 colour describe the same colour, so both reach the image on the unit scale.
-│   ├── calls PointCloud(xyz=one float32 point at depth one, data=a uint8 colour)
-│   ├── calls _build_camera(focal=100.0, principal_point=50.0)
-│   ├── calls render_rgb_from_point_cloud(pc=pc_data, camera=camera, resolution=(100, 100))
-│   └── assert the rendered pixel carries that colour divided by 255
-├── def test_render_rgb_depth_sorting() -> None
-│   ├── # Two points on one ray paint the near one's colour, since a farther point must not overwrite what occludes it.
-│   ├── calls PointCloud(xyz=two float32 points on one ray at depths three and one, data=one uint8 colour per point)
-│   ├── calls _build_camera(focal=100.0, principal_point=50.0)
-│   ├── calls render_rgb_from_point_cloud(pc=pc_data, camera=camera, resolution=(100, 100))
-│   └── assert the image is [3, 100, 100] and carries a rendered pixel
-├── def test_render_rgb_points_behind_camera() -> None
-│   ├── # A point behind an OpenGL camera is dropped rather than folded back in front of it.
-│   ├── calls PointCloud(xyz=one float32 point behind the camera and one in front, data=one uint8 colour per point)
-│   ├── calls _build_camera(focal=100.0, principal_point=50.0)
-│   ├── calls render_rgb_from_point_cloud(pc=pc_data, camera=camera, resolution=(100, 100), return_mask=True)
-│   └── assert the mask covers at least one pixel and the image is the ignore value outside it
-├── def test_render_rgb_custom_ignore_value() -> None
-│   ├── # The background value is the caller's to name, and it reaches every pixel no point projected onto.
-│   ├── calls PointCloud(xyz=one float32 point at depth one, data=a uint8 colour)
-│   ├── calls _build_camera(focal=100.0, principal_point=50.0)
-│   ├── calls render_rgb_from_point_cloud(pc=pc_data, camera=camera, resolution=(100, 100), ignore_value=0.5)
-│   └── assert most of the pixels carry that value
-├── def test_render_rgb_missing_rgb_field() -> None
-│   ├── # A cloud with no colours cannot be colour-rendered, and is refused where the field is first read.
-│   ├── calls PointCloud(xyz=one float32 point at depth one)
-│   ├── calls _build_camera(focal=100.0, principal_point=50.0)
-│   └── with pytest.raises(AssertionError)
-│       └── calls render_rgb_from_point_cloud(pc=pc_data, camera=camera, resolution=(100, 100))
-├── def test_render_rgb_invalid_inputs() -> None
-│   ├── # The malformed inputs are refused where each is first named.
-│   ├── calls PointCloud(xyz=one float32 point at depth one, data=a uint8 colour)
-│   ├── calls _build_camera(focal=100.0, principal_point=50.0)
-│   ├── with pytest.raises(AssertionError)
-│   │   └── calls render_rgb_from_point_cloud(pc='not a point cloud', camera=valid_camera, resolution=(100, 100))
-│   └── with pytest.raises(AssertionError)
-│       └── calls render_rgb_from_point_cloud(pc=valid_pc_data, camera=valid_camera, resolution=(0, 100))
-└── def _build_camera(focal: float, principal_point: float) -> Camera
-    ├── # Builds the identity-pose OpenGL pinhole camera on the CPU that every case here renders through.
-    ├── calls build_camera_intrinsics(model='pinhole', params=the shared focal and principal point with the extents twice that point implies, intr_convention='standard', device=torch.device('cpu'))
-    ├── calls CameraExtrinsics(extrinsics=a float32 [4, 4] identity, extr_convention='opengl', device=torch.device('cpu'))
-    ├── calls Camera(intrinsics=the intrinsics it built, extrinsics=the extrinsics it built, device=torch.device('cpu'))
-    └── return  # that camera
+└── def test_render_rgb_takes_the_nearest_point_where_two_share_a_pixel() -> None
+    ├── # Two points on one ray paint the nearer one's colour, so the attribute follows the same occlusion the depth map resolves.
+    ├── calls PointCloud(xyz=two float32 points on one ray at depths three and one, data=one distinguishable colour per point)
+    ├── calls _build_camera(focal=100.0, principal_point=50.0)
+    ├── calls render_rgb_from_point_cloud(pc=pc_data, camera=camera, resolution=(100, 100))
+    └── assert the shared pixel carries the near point's colour
 ```
 
 `tests/models/three_d/point_cloud/render/test_render_segmentation.py`
@@ -260,71 +201,12 @@ test_render_segmentation.py
 │   ├── calls render_segmentation_from_point_cloud(pc=pc_data, key='labels', camera=camera, resolution=(100, 100))
 │   ├── assert exactly the three survivors' pixels are painted
 │   └── assert no pixel carries a culled point's label
-├── def test_render_segmentation_takes_the_nearest_point_where_two_share_a_pixel() -> None
-│   ├── # Two points on one ray paint the nearer one's label, so the attribute follows the same occlusion the depth map resolves.
-│   ├── calls PointCloud(xyz=two float32 points on one ray at depths three and one, data=one distinguishable label per point)
-│   ├── calls _build_camera(focal=100.0, principal_point=50.0)
-│   ├── calls render_segmentation_from_point_cloud(pc=pc_data, key='labels', camera=camera, resolution=(100, 100))
-│   └── assert the shared pixel carries the near point's label
-├── def test_render_segmentation_basic() -> None
-│   ├── # An image asked for without a mask comes back at the requested resolution, in float32, with its labels inside the unit range.
-│   ├── calls PointCloud(xyz=four float32 points at distinct depths, data=one int64 label per point)
-│   ├── calls _build_camera(focal=100.0, principal_point=50.0)
-│   ├── calls render_segmentation_from_point_cloud(pc=pc_data, key='labels', camera=camera, resolution=(100, 100), return_mask=False)
-│   ├── assert the map is [100, 100] and int64
-│   └── assert every rendered label is one the cloud carries
-├── def test_render_segmentation_with_mask() -> None
-│   ├── # The mask a caller asks for marks the rendered pixels, and the background carries the ignore value on the rest.
-│   ├── calls PointCloud(xyz=three float32 points at increasing depth, data=one int64 label per point)
-│   ├── calls _build_camera(focal=100.0, principal_point=50.0)
-│   ├── calls render_segmentation_from_point_cloud(pc=pc_data, key='labels', camera=camera, resolution=(100, 100), return_mask=True)
-│   ├── assert the map is [100, 100] and the mask is [100, 100] bool
-│   ├── assert the mask covers some pixels but not the whole image
-│   └── assert the map is the ignore value everywhere the mask is False
-├── def test_render_segmentation_label_is_not_normalized() -> None
-│   ├── # A label is an identifier, so it reaches the map unscaled rather than normalized like a colour.
-│   ├── calls PointCloud(xyz=one float32 point at depth one, data=an int64 label)
-│   ├── calls _build_camera(focal=100.0, principal_point=50.0)
-│   ├── calls render_segmentation_from_point_cloud(pc=pc_data, key='labels', camera=camera, resolution=(100, 100))
-│   └── assert the rendered pixel carries that label unchanged
-├── def test_render_segmentation_depth_sorting() -> None
-│   ├── # Two points on one ray paint the near one's label, since a farther point must not overwrite what occludes it.
-│   ├── calls PointCloud(xyz=two float32 points on one ray at depths three and one, data=one int64 label per point)
-│   ├── calls _build_camera(focal=100.0, principal_point=50.0)
-│   ├── calls render_segmentation_from_point_cloud(pc=pc_data, key='labels', camera=camera, resolution=(100, 100))
-│   └── assert the map is [100, 100] and carries a rendered pixel
-├── def test_render_segmentation_points_behind_camera() -> None
-│   ├── # A point behind an OpenGL camera is dropped rather than folded back in front of it.
-│   ├── calls PointCloud(xyz=one float32 point behind the camera and one in front, data=one int64 label per point)
-│   ├── calls _build_camera(focal=100.0, principal_point=50.0)
-│   ├── calls render_segmentation_from_point_cloud(pc=pc_data, key='labels', camera=camera, resolution=(100, 100), return_mask=True)
-│   └── assert the mask covers at least one pixel and the map is the ignore value outside it
-├── def test_render_segmentation_custom_ignore_value() -> None
-│   ├── # The background value is the caller's to name, and it reaches every pixel no point projected onto.
-│   ├── calls PointCloud(xyz=one float32 point at depth one, data=an int64 label)
-│   ├── calls _build_camera(focal=100.0, principal_point=50.0)
-│   ├── calls render_segmentation_from_point_cloud(pc=pc_data, key='labels', camera=camera, resolution=(100, 100), ignore_value=42)
-│   └── assert most of the pixels carry that value
-├── def test_render_segmentation_missing_labels() -> None
-│   ├── # A cloud with no labels cannot be label-rendered, and is refused where the field is first read.
-│   ├── calls PointCloud(xyz=one float32 point at depth one)
-│   ├── calls _build_camera(focal=100.0, principal_point=50.0)
-│   └── with pytest.raises(AssertionError)
-│       └── calls render_segmentation_from_point_cloud(pc=pc_data, key='labels', camera=camera, resolution=(100, 100))
-├── def test_render_segmentation_invalid_inputs() -> None
-│   ├── # The malformed inputs are refused where each is first named.
-│   ├── calls PointCloud(xyz=one float32 point at depth one, data=an int64 label)
-│   ├── calls _build_camera(focal=100.0, principal_point=50.0)
-│   ├── with pytest.raises(AssertionError)
-│   │   └── calls render_segmentation_from_point_cloud(pc='not a point cloud', key='labels', camera=valid_camera, resolution=(100, 100))
-│   └── with pytest.raises(AssertionError)
-│       └── calls render_segmentation_from_point_cloud(pc=valid_pc_data, key='labels', camera=valid_camera, resolution=(0, 100))
-└── def _build_camera(focal: float, principal_point: float) -> Camera
-    ├── # Builds the identity-pose OpenGL pinhole camera on the CPU that every case here renders through.
-    ├── calls build_camera_intrinsics(model='pinhole', params=the shared focal and principal point with the extents twice that point implies, intr_convention='standard', device=torch.device('cpu'))
-    ├── calls CameraExtrinsics(extrinsics=a float32 [4, 4] identity, extr_convention='opengl', device=torch.device('cpu'))
-    ├── calls Camera(intrinsics=the intrinsics it built, extrinsics=the extrinsics it built, device=torch.device('cpu'))
-    └── return  # that camera
+└── def test_render_segmentation_takes_the_nearest_point_where_two_share_a_pixel() -> None
+    ├── # Two points on one ray paint the nearer one's label, so the attribute follows the same occlusion the depth map resolves.
+    ├── calls PointCloud(xyz=two float32 points on one ray at depths three and one, data=one distinguishable label per point)
+    ├── calls _build_camera(focal=100.0, principal_point=50.0)
+    ├── calls render_segmentation_from_point_cloud(pc=pc_data, key='labels', camera=camera, resolution=(100, 100))
+    └── assert the shared pixel carries the near point's label
 ```
 
 `tests/models/three_d/point_cloud/render/test_render_normal.py`
