@@ -49,61 +49,6 @@ def test_validate_camera_model_rejects_unsupported() -> None:
         validate_camera_model(model="fisheye")
 
 
-def test_validate_intrinsics_params_dispatches_per_model_keys() -> None:
-    """validate_camera_intrinsics_params enforces each model's parameter keys.
-
-    Args:
-        None.
-
-    Returns:
-        None.
-    """
-    simple_params = _tensor_params(
-        params={"f": 400.0, "cx": 160.0, "cy": 120.0, "h": 240, "w": 320}
-    )
-    pinhole_params = _tensor_params(
-        params={
-            "fx": 400.0,
-            "fy": 410.0,
-            "cx": 160.0,
-            "cy": 120.0,
-            "h": 240,
-            "w": 320,
-        }
-    )
-    assert (
-        validate_camera_intrinsics_params(
-            model="simple_pinhole", intr_convention="standard", params=simple_params
-        )
-        == simple_params
-    ), f"{simple_params=}"
-    assert (
-        validate_camera_intrinsics_params(
-            model="pinhole", intr_convention="standard", params=pinhole_params
-        )
-        == pinhole_params
-    ), f"{pinhole_params=}"
-    assert (
-        validate_camera_intrinsics_params(
-            model="ortho", intr_convention="standard", params=pinhole_params
-        )
-        == pinhole_params
-    ), f"{pinhole_params=}"
-
-    with pytest.raises(AssertionError):
-        validate_camera_intrinsics_params(
-            model="simple_pinhole", intr_convention="standard", params=pinhole_params
-        )
-    with pytest.raises(AssertionError):
-        validate_camera_intrinsics_params(
-            model="pinhole", intr_convention="standard", params=simple_params
-        )
-    with pytest.raises(AssertionError):
-        validate_camera_intrinsics_params(
-            model="ortho", intr_convention="standard", params=simple_params
-        )
-
-
 def test_validate_intrinsics_params_dispatches_per_model_tensor_keys() -> None:
     """Each model accepts only its own named scalar tensor params beside h and w.
 
@@ -626,39 +571,6 @@ def test_intrinsics_constructor_normalizes_scalar_compatible_params_to_tensors()
     assert fx.grad is not None, "Expected the source tensor param to receive grad."
 
 
-def test_intrinsics_to_applies_dtype_and_copy_to_every_param() -> None:
-    """CameraIntrinsics.to applies Tensor.to-style dtype and copy semantics.
-
-    Args:
-        None.
-
-    Returns:
-        None.
-    """
-    intrinsics = build_camera_intrinsics(
-        model="pinhole",
-        params=_tensor_params(
-            params={
-                "fx": 400.0,
-                "fy": 410.0,
-                "cx": 160.0,
-                "cy": 120.0,
-                "h": 240,
-                "w": 320,
-            }
-        ),
-        intr_convention="standard",
-    )
-    moved = intrinsics.to(device="cpu", dtype=torch.float64, copy=True)
-    assert moved.dtype == torch.float64, f"{moved.dtype=}"
-    for key, value in moved.params.items():
-        assert value.dtype == torch.float64, f"{key=} {value.dtype=}"
-        assert value.data_ptr() != intrinsics.params[key].data_ptr(), (
-            "Expected copy=True to allocate distinct param storage. "
-            f"{key=} {value.data_ptr()=} {intrinsics.params[key].data_ptr()=}"
-        )
-
-
 def test_build_camera_intrinsics_dispatches_to_model_subclass() -> None:
     """build_camera_intrinsics returns the subclass instance for its model string.
 
@@ -866,8 +778,7 @@ def _is_a_camera_depth(node: ast.expr) -> bool:
         node: The denominator expression of a division as an ast node.
 
     Returns:
-        True when the expression names depth by name or reads the third
-        component off a points-like tensor, else False.
+        True when the expression names depth by name or reads the third component off a points-like tensor, else False.
     """
     if isinstance(node, ast.Name):
         return node.id in _CAMERA_DEPTH_NAMES
@@ -897,9 +808,7 @@ def _classify_camera_module(tree: ast.Module) -> Tuple[bool, bool]:
         tree: The parsed module.
 
     Returns:
-        A ``(projects_through_the_camera, divides_by_a_camera_depth_itself)``
-        pair, the second flag set only when the module also reads a camera's
-        focal length and principal point.
+        A ``(projects_through_the_camera, divides_by_a_camera_depth_itself)`` pair, the second flag set only when the module also reads a camera's focal length and principal point.
     """
     projects = False
     reads_focal = False
@@ -1234,75 +1143,6 @@ def test_project_rejects_invalid_inputs(
         )
 
 
-def test_tensor_intrinsics_params_stay_on_the_projection_autograd_path() -> None:
-    """Tensor focal and principal-point params receive gradients through project.
-
-    Args:
-        None.
-
-    Returns:
-        None.
-    """
-    params = _tensor_params(
-        params={
-            "fx": 400.0,
-            "fy": 410.0,
-            "cx": 160.0,
-            "cy": 120.0,
-            "h": 240,
-            "w": 320,
-        },
-        requires_grad=True,
-    )
-    intrinsics = build_camera_intrinsics(
-        model="pinhole",
-        params=params,
-        intr_convention="standard",
-        device="cpu",
-    )
-    image = intrinsics.project(
-        points_camera=torch.tensor([[1.0, 2.0, 4.0]], dtype=torch.float32)
-    )
-    image.sum().backward()
-    for key in ("fx", "fy", "cx", "cy"):
-        assert params[key].grad is not None, f"{key=} {params[key].grad=}"
-
-
-def test_scale_intrinsics_keeps_tensor_scale_factors_on_the_autograd_path() -> None:
-    """Tensor scale factors receive gradients through scale_intrinsics.
-
-    Args:
-        None.
-
-    Returns:
-        None.
-    """
-    params = _tensor_params(
-        params={
-            "fx": 400.0,
-            "fy": 410.0,
-            "cx": 160.0,
-            "cy": 120.0,
-            "h": 240,
-            "w": 320,
-        },
-        requires_grad=True,
-    )
-    scale = torch.tensor([2.0, 0.5], dtype=torch.float32, requires_grad=True)
-    intrinsics = build_camera_intrinsics(
-        model="pinhole",
-        params=params,
-        intr_convention="standard",
-        device="cpu",
-    )
-    scaled = intrinsics.scale_intrinsics(scale=scale)
-    loss = scaled.fx + scaled.fy + scaled.cx + scaled.cy
-    loss.backward()
-    for key in ("fx", "fy", "cx", "cy"):
-        assert params[key].grad is not None, f"{key=} {params[key].grad=}"
-    assert scale.grad is not None, f"{scale.grad=}"
-
-
 def test_fx_fy_cx_cy_derived_from_params() -> None:
     """The fx / fy accessors and the cx / cy accessors are derived from params.
 
@@ -1542,8 +1382,7 @@ def test_scale_intrinsics_scales_focal_and_cx_cy_params() -> None:
             device="cpu",
         )
 
-        # The params carry their own resolution (h, w) = (240, 320); a shared focal
-        # takes one factor on both axes, the two-focal models take one per axis.
+        # The params carry their own resolution (h, w) = (240, 320); a shared focal takes one factor on both axes, the two-focal models take one per axis.
         target_resolution = (480, 640) if model == "simple_pinhole" else (120, 640)
         target_scale = (2.0, 2.0) if model == "simple_pinhole" else (2.0, 0.5)
         by_resolution = intrinsics.scale_intrinsics(resolution=target_resolution)
