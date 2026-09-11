@@ -97,7 +97,6 @@ prepare_points_for_rendering.py
 ```text
 validate_rendering_inputs.py
 ├── from typing import Optional, Tuple, Union
-├── import torch
 ├── from data.structures.three_d.camera.camera import Camera
 ├── from data.structures.three_d.camera.cameras import Cameras
 ├── from data.structures.three_d.point_cloud.point_cloud import PointCloud
