@@ -98,8 +98,8 @@ world_to_camera_transform.py
     │   ├── impls asserts points is a [N, 3] float torch.Tensor  # the point axis is the only one this entry takes; a leading axis on the points would compose with the extrinsics' own and leave the output's axis order unstated
     │   ├── impls asserts extrinsics is a [..., 4, 4] float torch.Tensor on the points' device
     │   └── impls asserts inplace is False whenever extrinsics carries a leading axis  # [N, 3] in and [..., N, 3] out is a shape expansion, so there is no buffer to write back into
-    ├── calls _validate_inputs(points=points, extrinsics=extrinsics, inplace=inplace)
-    ├── impls world_to_camera = the inverse of the [..., 4, 4] camera-to-world extrinsics, inverted over the trailing two axes
+    ├── calls _validate_inputs()
+    ├── impls world_to_camera = the inverse of the [..., 4, 4] camera-to-world extrinsics, inverted over the trailing two axes  # one op over the whole stack, a single pose and a batch of poses alike
     ├── calls apply_transform(points=points, transform=world_to_camera, inplace=inplace, max_divide=max_divide, num_divide=num_divide)
     └── return  # the [..., N, 3] camera-frame points; [4, 4] in gives [N, 3] out and is the only case inplace returns the same tensor, [B, 4, 4] gives [B, N, 3]
 ```
