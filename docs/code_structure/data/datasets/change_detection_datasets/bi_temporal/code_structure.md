@@ -44,7 +44,7 @@ slpccd_dataset.py
         ├── impls pc_1, pc_2 = the two clouds it loaded, their coordinates narrowed to float32  # a load never narrows any more, so the dataset that wants the single-precision width its models train at does the narrowing itself
         ├── impls pc_2_seg = None
         ├── if has_seg_file
-        │   ├── impls seg_meta_data = meta_data carrying {'change_map': {'layout': ('6',)}}  # a caller-stated layout is the whole field set over a source that numbers its columns, so the label column the positional split used to pick out is named here or it is not loaded at all
+        │   ├── impls seg_meta_data = meta_data carrying {'change_map': {'layout': ('6',)}}  # decimal text names none of its columns, so the label column reaches the cloud as change_map only under the layout the dataset states for it
         │   ├── calls load_point_cloud(pc_2_seg_filepath, meta_data=seg_meta_data)
         │   └── impls pc_2_seg = the segmentation cloud it loaded, narrowed the same way
         └── return  # the two clouds, pc_2_seg, has_seg_file, and the two paths
@@ -86,7 +86,7 @@ urb3dcd_dataset.py
         ├── impls files = the two cloud paths that annotation names
         ├── impls the second path printed as the pair being loaded
         ├── impls element_name = the PLY element name VERSION_MAP gives this version
-        ├── impls meta_data = {'xyz': {'dtype': 'float32', 'layout': element_name joined to each of 'x', 'y' and 'z' by a dot}, 'feat': {'layout': element_name joined to 'label_ch' by a dot}}  # a multi-element ply names which element's columns form a field for nobody, so the dataset states the element the retired nameInPly and name_feat arguments named, and the width the retired dtype argument asked of the coordinates alone
+        ├── impls meta_data = {'xyz': {'layout': element_name joined to each of 'x', 'y' and 'z' by a dot}, 'feat': {'layout': element_name joined to 'label_ch' by a dot}}  # a multi-element ply names which element's columns form a field for nobody, so the dataset states the element the retired nameInPly and name_feat arguments named, and states no width, narrowing the coordinates itself below
         ├── calls load_point_cloud(files['pc_1_filepath'], meta_data=meta_data)
         ├── impls pc1_xyz = the coordinates of the cloud it loaded
         ├── impls pc1_features = a ones column of one entry per point, in pc1_xyz's dtype
