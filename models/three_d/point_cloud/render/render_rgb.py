@@ -12,9 +12,6 @@ from models.three_d.point_cloud.render.common.apply_point_size_postprocessing im
 from models.three_d.point_cloud.render.common.prepare_points_for_rendering import (
     prepare_points_for_rendering,
 )
-from models.three_d.point_cloud.render.common.select_nearest_point_per_pixel import (
-    select_nearest_point_per_pixel,
-)
 from models.three_d.point_cloud.render.common.validate_rendering_inputs import (
     validate_rendering_inputs,
 )
@@ -36,22 +33,20 @@ def render_rgb_from_rendering_points(
     """Render RGB image from pre-processed rendering points.
 
     Args:
-        rendering_points: Pre-processed points [..., N, 3] float torch.Tensor of
-            (x, y, depth), the point axis in pc.xyz order and the leading axes
-            enumerating the cameras rendered.
-        valid: [..., N] bool torch.Tensor marking which points each camera keeps.
+        rendering_points: Pre-processed points [N, 3] float torch.Tensor of (x, y, depth), the point axis in pc.xyz order.
+        valid: [N] bool torch.Tensor marking which points the camera keeps; a point marked False never owns a pixel.
         pc: Point cloud containing 'rgb' field with color information.
         resolution: Target resolution as (height, width) tuple.
         ignore_value: Fill value for pixels with no point projections (default: 0.0).
 
     Returns:
-        RGB image torch.Tensor of shape [..., 3, H, W], float32, with normalized
-        values in [0, 1], carrying the leading axes of rendering_points.
+        RGB image torch.Tensor of shape [3, H, W], float32, with normalized values in [0, 1].
 
     Raises:
         AssertionError: If colors tensor is empty.
     """
     assert hasattr(pc, 'rgb'), "PointCloud missing rgb field"
+    render_height, render_width = resolution
     colors = pc.rgb
     assert (
         colors.numel() > 0
@@ -68,18 +63,53 @@ def render_rgb_from_rendering_points(
 
     colors = torch.clamp(colors, 0.0, 1.0)
 
-    # Resolve which point owns each pixel, then read that point's own color
-    winner = select_nearest_point_per_pixel(
-        rendering_points=rendering_points,
-        valid=valid,
-        resolution=resolution,
+    # Resolve, per pixel, the valid point with the smallest depth landing there, reduced per pixel rather than scattered so occlusion does not depend on which write lands last. A culled point is parked on pixel 0, whose out-of-image coordinates are not scatterable, and its depth of positive infinity keeps it from ever owning that pixel.
+    num_points = rendering_points.shape[-2]
+    pixel_index = (
+        rendering_points[..., 1].long() * render_width + rendering_points[..., 0].long()
     )
-    pixel_colors = colors[winner.clamp(min=0)]  # [..., H, W, 3]
+    pixel_index = pixel_index.masked_fill(~valid, 0)
+    depth_key = rendering_points[..., 2].masked_fill(~valid, float('inf'))
+    nearest_depth = torch.full(
+        size=rendering_points.shape[:-2] + (render_height * render_width,),
+        fill_value=float('inf'),
+        dtype=rendering_points.dtype,
+        device=rendering_points.device,
+    ).scatter_reduce_(
+        dim=-1,
+        index=pixel_index,
+        src=depth_key,
+        reduce='amin',
+        include_self=True,
+    )
+    # The point indices reduce the same way, so two points tying on depth resolve to the lower index.
+    point_index = torch.arange(
+        num_points, dtype=torch.int64, device=rendering_points.device
+    ).expand_as(pixel_index)
+    owns_pixel = valid & (depth_key == nearest_depth.gather(dim=-1, index=pixel_index))
+    nearest_point_index = torch.full(
+        size=rendering_points.shape[:-2] + (render_height * render_width,),
+        fill_value=num_points,
+        dtype=torch.int64,
+        device=rendering_points.device,
+    ).scatter_reduce_(
+        dim=-1,
+        index=pixel_index,
+        src=torch.where(owns_pixel, point_index, num_points),
+        reduce='amin',
+        include_self=True,
+    )
+    nearest_point_index = nearest_point_index.masked_fill(
+        nearest_point_index == num_points, -1
+    ).reshape(rendering_points.shape[:-2] + (render_height, render_width))
 
-    # Move the color axis in front of the image axes and blank the unowned pixels
+    # Read the color of the point that owns each pixel, the color axis moved in front of the image axes
+    pixel_colors = colors[nearest_point_index.clamp(min=0)].movedim(-1, -3)  # [3, H, W]
+
+    # Blank the unowned pixels
     rgb_image = torch.where(
-        (winner >= 0).unsqueeze(-3),
-        pixel_colors.movedim(-1, -3).float(),
+        (nearest_point_index >= 0).unsqueeze(-3),
+        pixel_colors.float(),
         torch.tensor(ignore_value, dtype=torch.float32, device=rendering_points.device),
     )
 
@@ -96,9 +126,7 @@ def render_rgb_from_point_cloud(
 ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
     """Render RGB image from point cloud using camera projection.
 
-    Projects 3D point cloud coordinates with RGB colors onto 2D image plane
-    using camera parameters and generates an RGB image. Supports circular
-    point rendering for improved visualization.
+    Projects 3D point cloud coordinates with RGB colors onto 2D image plane using camera parameters and generates an RGB image. Supports circular point rendering for improved visualization.
 
     Args:
         pc: Point cloud data containing xyz and rgb fields.
@@ -116,7 +144,6 @@ def render_rgb_from_point_cloud(
 
     Raises:
         AssertionError: If point cloud is empty, RGB data is missing, or no points project within bounds.
-        NotImplementedError: If convention other than "opengl" is specified.
     """
     assert isinstance(pc, PointCloud), f"{type(pc)=}"
     assert hasattr(pc, 'rgb'), "PointCloud must contain rgb field"
@@ -157,8 +184,7 @@ def render_rgb_from_point_cloud(
             valid=valid,
         )
 
-        # The discs the dilation reaches are exactly the pixels the dilated depth
-        # map keeps finite
+        # The discs the dilation reaches are exactly the pixels the dilated depth map keeps finite
         dilated_depth = apply_point_size_postprocessing(
             rendered_image=depth_map,
             depth_map=depth_map,
@@ -174,8 +200,7 @@ def render_rgb_from_point_cloud(
             ignore_value=float('inf'),
         )
 
-        # The dilation leaves the depth sentinel outside those discs, so this
-        # renderer's own background goes back there
+        # The helper fills with the depth sentinel it was handed, which is not this renderer's own background
         rgb_image = rgb_image.masked_fill(~covered.unsqueeze(-3), ignore_value)
 
     # Handle mask creation if requested

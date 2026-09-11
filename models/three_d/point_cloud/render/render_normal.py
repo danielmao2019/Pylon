@@ -12,9 +12,6 @@ from models.three_d.point_cloud.render.common.apply_point_size_postprocessing im
 from models.three_d.point_cloud.render.common.prepare_points_for_rendering import (
     prepare_points_for_rendering,
 )
-from models.three_d.point_cloud.render.common.select_nearest_point_per_pixel import (
-    select_nearest_point_per_pixel,
-)
 from models.three_d.point_cloud.render.common.validate_rendering_inputs import (
     validate_rendering_inputs,
 )
@@ -38,8 +35,7 @@ def render_normal_from_point_cloud_2d(
 ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
     """Render normal map from point cloud using 2D depth-based approach.
 
-    First renders depth map from point cloud, then computes normals from depth gradients.
-    Output normals are in OpenCV camera coordinate system.
+    First renders depth map from point cloud, then computes normals from depth gradients. Output normals are in OpenCV camera coordinate system.
 
     Args:
         pc: Point cloud containing 3D coordinates.
@@ -98,23 +94,20 @@ def render_normal_from_rendering_points_3d(
     """Render normal map from pre-processed rendering points using 3D approach.
 
     Args:
-        rendering_points: Pre-processed points [..., N, 3] float torch.Tensor of
-            (x, y, depth), the point axis in pc_data.xyz order and the leading
-            axes enumerating the cameras rendered.
-        valid: [..., N] bool torch.Tensor marking which points each camera keeps.
+        rendering_points: Pre-processed points [N, 3] float torch.Tensor of (x, y, depth), the point axis in pc_data.xyz order.
+        valid: [N] bool torch.Tensor marking which points the camera keeps; a point marked False never owns a pixel.
         pc_data: Point cloud containing a 'normals' field of world-space normals.
-        camera: Camera containing extrinsics and convention; the rendered normals
-            come back in its OpenCV camera frame.
+        camera: Camera containing extrinsics and convention; the rendered normals come back in its OpenCV camera frame.
         resolution: Target resolution as (height, width) tuple.
         ignore_value: Fill value for pixels with no projections (default: 0.0).
 
     Returns:
-        Normal map torch.Tensor of shape [..., 3, H, W], float32, with unit-norm
-        normal vectors, carrying the leading axes of rendering_points.
+        Normal map torch.Tensor of shape [3, H, W], float32, with unit-norm normal vectors.
 
     Raises:
         AssertionError: If normals count doesn't match points count or normals aren't 3D.
     """
+    render_height, render_width = resolution
     world_normals = pc_data.normals
     assert (
         world_normals.shape[0] == pc_data.xyz.shape[0]
@@ -126,13 +119,48 @@ def render_normal_from_rendering_points_3d(
     # Normalize world normals
     world_normals = torch.nn.functional.normalize(world_normals, dim=-1)
 
-    # Resolve which point owns each pixel, then read that point's own normal
-    winner = select_nearest_point_per_pixel(
-        rendering_points=rendering_points,
-        valid=valid,
-        resolution=resolution,
+    # Resolve, per pixel, the valid point with the smallest depth landing there, reduced per pixel rather than scattered so occlusion does not depend on which write lands last. A culled point is parked on pixel 0, whose out-of-image coordinates are not scatterable, and its depth of positive infinity keeps it from ever owning that pixel.
+    num_points = rendering_points.shape[-2]
+    pixel_index = (
+        rendering_points[..., 1].long() * render_width + rendering_points[..., 0].long()
     )
-    visible_world_normals = world_normals[winner.clamp(min=0)]  # [..., H, W, 3]
+    pixel_index = pixel_index.masked_fill(~valid, 0)
+    depth_key = rendering_points[..., 2].masked_fill(~valid, float('inf'))
+    nearest_depth = torch.full(
+        size=rendering_points.shape[:-2] + (render_height * render_width,),
+        fill_value=float('inf'),
+        dtype=rendering_points.dtype,
+        device=rendering_points.device,
+    ).scatter_reduce_(
+        dim=-1,
+        index=pixel_index,
+        src=depth_key,
+        reduce='amin',
+        include_self=True,
+    )
+    # The point indices reduce the same way, so two points tying on depth resolve to the lower index.
+    point_index = torch.arange(
+        num_points, dtype=torch.int64, device=rendering_points.device
+    ).expand_as(pixel_index)
+    owns_pixel = valid & (depth_key == nearest_depth.gather(dim=-1, index=pixel_index))
+    nearest_point_index = torch.full(
+        size=rendering_points.shape[:-2] + (render_height * render_width,),
+        fill_value=num_points,
+        dtype=torch.int64,
+        device=rendering_points.device,
+    ).scatter_reduce_(
+        dim=-1,
+        index=pixel_index,
+        src=torch.where(owns_pixel, point_index, num_points),
+        reduce='amin',
+        include_self=True,
+    )
+    nearest_point_index = nearest_point_index.masked_fill(
+        nearest_point_index == num_points, -1
+    ).reshape(rendering_points.shape[:-2] + (render_height, render_width))
+
+    # Read the normal of the point that owns each pixel
+    visible_world_normals = world_normals[nearest_point_index.clamp(min=0)]  # [H, W, 3]
 
     # Transform normals from world to camera coordinates
 
@@ -148,7 +176,7 @@ def render_normal_from_rendering_points_3d(
 
     # Move the channel axis in front of the image axes and blank the unowned pixels
     normal_map = torch.where(
-        (winner >= 0).unsqueeze(-3),
+        (nearest_point_index >= 0).unsqueeze(-3),
         camera_normals.movedim(-1, -3).float(),
         torch.tensor(ignore_value, dtype=torch.float32, device=rendering_points.device),
     )
@@ -166,8 +194,7 @@ def render_normal_from_point_cloud_3d(
 ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
     """Render normal map from point cloud using 3D approach.
 
-    Assumes pc contains 'normals' key with pre-computed normals in world coordinates.
-    Transforms normals to OpenCV camera coordinate system and renders them.
+    Assumes pc contains 'normals' key with pre-computed normals in world coordinates. Transforms normals to OpenCV camera coordinate system and renders them.
 
     Args:
         pc: Point cloud containing 'normals' field.
@@ -226,8 +253,7 @@ def render_normal_from_point_cloud_3d(
             valid=valid,
         )
 
-        # The discs the dilation reaches are exactly the pixels the dilated depth
-        # map keeps finite
+        # The discs the dilation reaches are exactly the pixels the dilated depth map keeps finite
         dilated_depth = apply_point_size_postprocessing(
             rendered_image=depth_map,
             depth_map=depth_map,
@@ -243,15 +269,14 @@ def render_normal_from_point_cloud_3d(
             ignore_value=float('inf'),
         )
 
-        # The dilation leaves the depth sentinel outside those discs; clear it
-        # before the re-normalization divides it by itself into nan
-        background = ~covered.unsqueeze(-3)
-        normal_map = normal_map.masked_fill(background, 0.0)
+        # The helper fills with the depth sentinel it was handed, which is not this renderer's own background
+        normal_map = normal_map.masked_fill(~covered.unsqueeze(-3), ignore_value)
 
-        # Re-normalize after dilation, the cleared background passing through as
-        # the zero vector, then this renderer's own background goes back there
-        normal_map = torch.nn.functional.normalize(normal_map, dim=-3)
-        normal_map = normal_map.masked_fill(background, ignore_value)
+        # Re-normalize after dilation, only at the pixels carrying a normal rather than this renderer's background
+        valid_pixels = (normal_map != ignore_value).any(dim=-3)
+        normal_map[:, valid_pixels] = torch.nn.functional.normalize(
+            normal_map[:, valid_pixels], dim=0
+        )
 
     # Handle mask creation if requested
     if return_mask:

@@ -1,7 +1,5 @@
 from typing import Optional, Tuple, Union
 
-import torch
-
 from data.structures.three_d.camera.camera import Camera
 from data.structures.three_d.camera.cameras import Cameras
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
@@ -19,13 +17,14 @@ def validate_rendering_inputs(
 
     Args:
         pc: Point cloud data containing xyz coordinates
-        camera: Camera or Cameras object containing intrinsics, extrinsics, and
-            convention; the preconditions checked here are shared by both, a
-            Cameras carrying a leading batch axis on its two components
+        camera: Camera or Cameras object containing intrinsics, extrinsics, and convention; the preconditions checked here are shared by both, a Cameras carrying a leading batch axis on its two components
         resolution: Target resolution as (height, width) tuple
         ignore_value: Optional ignore value to validate (if provided)
         return_mask: Whether to return a mask along with the rendered output
         point_size: Size of rendered points in pixels (default: 1.0)
+
+    Returns:
+        None.
 
     Raises:
         AssertionError: If validation fails

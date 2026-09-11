@@ -15,15 +15,11 @@ def apply_point_size_postprocessing(
 ) -> torch.Tensor:
     """Dilate each rendered point into a disc of point_size pixels.
 
-    A nearer point's value overwrites a farther one, so the dilation respects the
-    same occlusion the rasterizer resolved. The camera axes ride in front of the
-    image axes, so one call dilates a whole batch and a single camera alike.
+    A nearer point's value overwrites a farther one, so the dilation respects the same occlusion the rasterizer resolved. The camera axes ride in front of the image axes, so one call dilates a whole batch and a single camera alike.
 
     Args:
-        rendered_image: [..., C, H, W] or [..., H, W] float torch.Tensor of the
-            rasterized values, its leading axes those of depth_map.
-        depth_map: [..., H, W] float torch.Tensor of the depth the rasterizer
-            resolved, ignore_value marking the pixels no point owns.
+        rendered_image: [..., C, H, W] or [..., H, W] float torch.Tensor of the rasterized values, its leading axes those of depth_map.
+        depth_map: [..., H, W] float torch.Tensor of the depth the rasterizer resolved, ignore_value marking the pixels no point owns.
         point_size: Diameter of the circular kernel in pixels.
         ignore_value: Value marking no data, in both depth_map and the result.
 
@@ -38,8 +34,10 @@ def apply_point_size_postprocessing(
     )
     num_offsets = kernel_offsets.shape[0]
 
-    # Every pixel's disc of source pixels, out-of-image sources clamped back in
-    # and marked so the depth below rejects them.
+    # A background pixel carries positive infinity, so it is never a source nearer than a rendered one.
+    source_depth = depth_map.masked_fill(depth_map == ignore_value, float('inf'))
+
+    # Every pixel's disc of source pixels, out-of-image sources clamped back in and marked so their depth becomes positive infinity.
     y_coords, x_coords = torch.meshgrid(
         torch.arange(render_height, device=rendered_image.device),
         torch.arange(render_width, device=rendered_image.device),
@@ -57,14 +55,12 @@ def apply_point_size_postprocessing(
         neighbor_y.clamp(min=0, max=render_height - 1) * render_width
         + neighbor_x.clamp(min=0, max=render_width - 1)
     ).reshape(num_offsets, -1)
+    neighbor_depth = source_depth.reshape(source_depth.shape[:-2] + (-1,))[
+        ..., source_index
+    ].masked_fill(~in_bounds, float('inf'))
 
-    # The depth each source carries, background and out-of-image alike pushed to
-    # positive infinity so only a source a point actually reached can win.
-    depth_flat = depth_map.reshape(depth_map.shape[:-2] + (-1,))
-    depth_flat = depth_flat.masked_fill(depth_flat == ignore_value, float('inf'))
-    neighbor_depth = depth_flat[..., source_index].masked_fill(~in_bounds, float('inf'))
-
-    winning_depth, source_offset = neighbor_depth.min(dim=-2)
+    # The offset axis' argmin names, for each pixel, which shifted source is nearest.
+    nearest_depth, source_offset = neighbor_depth.min(dim=-2)
     source_flat = source_index[
         source_offset,
         torch.arange(render_height * render_width, device=rendered_image.device),
@@ -73,8 +69,10 @@ def apply_point_size_postprocessing(
     image_flat = rendered_image.reshape(rendered_image.shape[:-2] + (-1,))
     if channel_axis:
         source_flat = source_flat.unsqueeze(-2).expand(image_flat.shape)
-        winning_depth = winning_depth.unsqueeze(-2)
+        nearest_depth = nearest_depth.unsqueeze(-2)
     dilated_image = torch.gather(image_flat, dim=-1, index=source_flat)
-    dilated_image = dilated_image.masked_fill(torch.isinf(winning_depth), ignore_value)
+    dilated_image = dilated_image.masked_fill(
+        torch.isinf(nearest_depth), ignore_value
+    ).reshape(rendered_image.shape)
 
-    return dilated_image.reshape(rendered_image.shape)
+    return dilated_image

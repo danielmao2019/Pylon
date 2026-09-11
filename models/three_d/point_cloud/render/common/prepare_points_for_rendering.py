@@ -21,10 +21,8 @@ def _frustum_cull(
     """Write into bounds_mask whether each projected point lies within the image bounds.
 
     Args:
-        current_points: [..., N, 3] float torch.Tensor of projected points as
-            (x, y, depth), x measured against the width and y against the height.
-        bounds_mask: [..., N] bool torch.Tensor written in place with the
-            0 <= x < render_width and 0 <= y < render_height test.
+        current_points: [..., N, 3] float torch.Tensor of projected points as (x, y, depth), x measured against the width and y against the height.
+        bounds_mask: [..., N] bool torch.Tensor written in place with the 0 <= x < render_width and 0 <= y < render_height test.
         render_height: Target image height in pixels.
         render_width: Target image width in pixels.
 
@@ -53,33 +51,22 @@ def _prepare_points_for_rendering(
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """Preprocess one chunk of world-space points for rasterization.
 
-    Runs the world-to-camera transform, the positive-depth filter, the
-    camera-to-image projection, and the image-bounds cull, marking each survivor
-    rather than compacting it out: cameras cull different points, so compaction
-    would leave each camera a different length. Point-size expansion is
-    intentionally deferred to the renderer, and input validation is handled
-    upstream.
+    Runs the world-to-camera transform, the positive-depth filter, the camera-to-image projection, and the image-bounds cull, marking each survivor rather than compacting it out: cameras cull different points, so compaction would leave each camera a different length. Point-size expansion is intentionally deferred to the renderer, and input validation is handled upstream.
 
     Args:
         points: [N, 3] float torch.Tensor of world-space coordinates.
-        render_intrinsics: CameraIntrinsics carrying the camera-to-image
-            projection; its params broadcast against the point axis.
-        extrinsics: [..., 4, 4] float torch.Tensor of camera-to-world matrices in
-            the OpenCV convention, one per camera carried.
+        render_intrinsics: CameraIntrinsics carrying the camera-to-image projection; its params broadcast against the point axis.
+        extrinsics: [..., 4, 4] float torch.Tensor of camera-to-world matrices in the OpenCV convention, one per camera carried.
         resolution: Target image resolution as an (H, W) tuple.
-        cull_func: Callable writing the image-bounds test of its projected points
-            into its bounds_mask in place.
+        cull_func: Callable writing the image-bounds test of its projected points into its bounds_mask in place.
 
     Returns:
-        A (points_2d, valid) tuple where points_2d is a [..., N, 3] float
-        torch.Tensor of (x, y, depth) per camera and valid is the [..., N] bool
-        torch.Tensor marking the points each camera keeps.
+        A (points_2d, valid) tuple where points_2d is a [..., N, 3] float torch.Tensor of (x, y, depth) per camera and valid is the [..., N] bool torch.Tensor marking the points each camera keeps.
     """
     # Resolution is consistently (H, W). x uses W, y uses H.
     render_height, render_width = resolution
 
-    # Transform world-space -> camera coordinates (OpenCV convention), the
-    # extrinsics' leading axes flowing through onto the result.
+    # Transform world-space -> camera coordinates (OpenCV convention), the extrinsics' leading axes flowing through onto the result.
     current_points = world_to_camera_transform(points=points, extrinsics=extrinsics)
 
     # Mark the points with positive depth (in front of camera).
@@ -115,24 +102,17 @@ def _prepare_points_for_rendering_chunked(
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """Run _prepare_points_for_rendering over fixed-size point chunks and concatenate them.
 
-    The chunking is over the point axis only, so a camera batch is never split,
-    and the concatenation leaves the point axis in its input order so row i still
-    names point i.
+    The chunking is over the point axis only, so a camera batch is never split, and the concatenation leaves the point axis in its input order so row i still names point i.
 
     Args:
         points: [N, 3] float torch.Tensor of world-space coordinates.
-        camera: The Camera or Cameras to render through, already brought to the
-            OpenCV pose frame and scaled to resolution.
+        camera: The Camera or Cameras to render through, already brought to the OpenCV pose frame and scaled to resolution.
         resolution: Target image resolution as an (H, W) tuple.
         chunk_size: Number of points preprocessed per chunk.
-        cull_func: Callable writing the image-bounds test of its projected points
-            into its bounds_mask in place.
+        cull_func: Callable writing the image-bounds test of its projected points into its bounds_mask in place.
 
     Returns:
-        A (points_2d, valid) tuple where points_2d is a [..., N, 3] float
-        torch.Tensor of (x, y, depth) with the point axis in the order of points
-        and valid is the [..., N] bool torch.Tensor marking the points each camera
-        keeps, in that same order.
+        A (points_2d, valid) tuple where points_2d is a [..., N, 3] float torch.Tensor of (x, y, depth) with the point axis in the order of points and valid is the [..., N] bool torch.Tensor marking the points each camera keeps, in that same order.
 
     Raises:
         AssertionError: If no point survived culling for any camera.
@@ -177,35 +157,33 @@ def prepare_points_for_rendering(
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """Prepare a point cloud for rasterization through one camera or a batch of them.
 
-    Brings the camera to the OpenCV pose frame and the target resolution, then
-    adaptively chunks the point preprocessing to mitigate CUDA OOM. Row i of the
-    returned points is point i of pc.xyz, so a per-point attribute is looked up by
-    the same index a rasterizer resolves per pixel.
+    Brings the camera to the OpenCV pose frame and the target resolution, then adaptively chunks the point preprocessing to mitigate CUDA OOM. Row i of the returned points is point i of pc.xyz, so a per-point attribute is looked up by the same index a rasterizer resolves per pixel.
 
     Args:
         pc: PointCloud whose xyz carries the [N, 3] world-space points.
-        camera: The Camera (no leading axis) or Cameras (a [B] leading axis) to
-            render through.
+        camera: The Camera (no leading axis) or Cameras (a [B] leading axis) to render through.
         resolution: Target image resolution as an (H, W) tuple.
-        max_divide: Maximum number of times the point chunk may be halved on CUDA
-            OOM before the error is re-raised.
-        num_divide: If not None, the fixed number of chunk halvings, with no OOM
-            retry.
-        cull_func: Callable writing the image-bounds test of its projected points
-            into its bounds_mask in place.
+        max_divide: Maximum number of times the point chunk may be halved on CUDA OOM before the error is re-raised.
+        num_divide: If not None, the fixed number of chunk halvings, with no OOM retry.
+        cull_func: Callable writing the image-bounds test of its projected points into its bounds_mask in place.
 
     Returns:
-        A (points_2d, valid) tuple where points_2d is a [..., N, 3] float
-        torch.Tensor of (x, y, depth) with the point axis in pc.xyz order and
-        valid is the [..., N] bool torch.Tensor marking the points each camera
-        keeps; a Camera gives [N, 3] / [N] and a Cameras gives [B, N, 3] / [B, N].
+        A (points_2d, valid) tuple where points_2d is a [..., N, 3] float torch.Tensor of (x, y, depth) with the point axis in pc.xyz order and valid is the [..., N] bool torch.Tensor marking the points each camera keeps; a Camera gives [N, 3] / [N] and a Cameras gives [B, N, 3] / [B, N].
 
     Raises:
-        torch.cuda.OutOfMemoryError: If the chunk is still too large after
-            max_divide halvings.
+        torch.cuda.OutOfMemoryError: If the chunk is still too large after max_divide halvings.
     """
-    assert isinstance(pc, PointCloud), f"{type(pc)=}"
-    assert isinstance(camera, (Camera, Cameras)), f"{type(camera)=}"
+
+    def _validate_inputs() -> None:
+        assert isinstance(pc, PointCloud), (
+            "Expected pc to be a PointCloud. " f"{type(pc)=}"
+        )
+        assert isinstance(camera, (Camera, Cameras)), (
+            "Expected camera to be a Camera or a Cameras. " f"{type(camera)=}"
+        )
+
+    _validate_inputs()
+
     points = pc.xyz
 
     camera_prepared = camera.to(
@@ -239,7 +217,6 @@ def prepare_points_for_rendering(
         except torch.cuda.OutOfMemoryError:
             n += 1
             torch.cuda.empty_cache()
-            continue
 
     raise torch.cuda.OutOfMemoryError(
         f"CUDA OOM after {max_divide} divisions in prepare_points_for_rendering."
