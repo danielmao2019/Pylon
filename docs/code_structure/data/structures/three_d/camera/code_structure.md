@@ -159,7 +159,7 @@ cameras.py
     │   ├── def _normalize_inputs [local]
     │   │   ├── if device is None
     │   │   │   └── impls device = extrinsics.device  # the one exception: an unset device resolves to the given extrinsics'
-    │   │   ├── impls device = torch.device(device), its index filled in when the spelling leaves one out  # one physical device has one spelling here, so a cuda and a cuda:0 naming it never compare unequal
+    │   │   ├── impls device = the given device as a torch device, its index filled in when the spelling leaves one out  # one physical device has one spelling here, so a cuda and a cuda:0 naming it never compare unequal
     │   │   ├── if dtype is None
     │   │   │   └── impls dtype = extrinsics.dtype  # the one exception: an unset dtype resolves to the given extrinsics'
     │   │   ├── calls intrinsics.to(device=device, dtype=dtype)  # -> intrinsics, brought to the resolved device and dtype
