@@ -277,6 +277,13 @@ test_intrinsics.py
 │   ├── with pytest.raises(AssertionError)
 │   │   └── calls intrinsics.transform_intrinsics(transform=an affine whose two diagonal entries differ, resolution=a raster)
 │   └── return
+├── def test_transform_intrinsics_refuses_a_sheared_affine
+│   ├── # A skew-free K stays skew-free only under an axis-aligned affine, so an affine carrying an off-diagonal entry aborts rather than having it dropped.
+│   ├── for each of the three camera models
+│   │   ├── calls build_camera_intrinsics
+│   │   └── with pytest.raises(AssertionError)
+│   │       └── calls intrinsics.transform_intrinsics(transform=an affine carrying a nonzero [0, 1] entry, resolution=a raster)
+│   └── return
 ├── def test_a_resize_is_the_diagonal_case_of_a_transform
 │   ├── # A resize scales both axes about the pixel frame's own origin, which is a diagonal affine, so the two entries agree rather than each carrying its own rule.
 │   ├── calls build_camera_intrinsics

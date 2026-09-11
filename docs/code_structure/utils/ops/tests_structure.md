@@ -58,14 +58,17 @@ test_chunked_matmul.py
 │   │       └── calls chunked_matmul(large=large, small=small)
 │   └── return
 ├── def test_batched_small_broadcasts_onto_the_product
-│   ├── # a [B, K, K] small gives a [B, N, K] product whose every slice equals that slice's own small multiplied alone under the same split, bit for bit, across row counts and devices.
+│   ├── # a [B, K, K] small gives a [B, N, K] product whose every slice equals that slice's own small multiplied alone under the same split, bit for bit on cpu and within floating-point rounding on cuda.
 │   ├── for each device of cpu, and cuda when it is available
-│   │   └── for each row count N of 1, 17, 25, 33 and 100  # the small row counts where CUDA's batched and unbatched products used to disagree
+│   │   └── for each row count N of 1, 17, 25, 33 and 100  # the small row counts where CUDA's batched and unbatched products disagree in the last place
 │   │       └── for each num_divide over several splits, the unchunked default among them
 │   │           ├── calls chunked_matmul(large=an [N, K] large on that device, small=a [B, K, K] small on that device, num_divide=num_divide)
 │   │           └── for each slice b of the result
 │   │               ├── calls chunked_matmul(large=that same large, small=small[b], num_divide=num_divide)
-│   │               └── impls assert slice b equals it exactly  # the same split on both sides, since on CUDA a row chunk already rounds unlike the whole product
+│   │               ├── if device is cpu
+│   │               │   └── impls assert slice b equals it exactly  # the same split on both sides, since a row chunk may round unlike the whole product
+│   │               └── else
+│   │                   └── impls assert slice b agrees with it within floating-point rounding  # CUDA picks a batched kernel for several entries, which rounds unlike the single product at some row counts
 │   └── return
 ├── def test_inplace_rejects_batched_small
 │   ├── # inplace=True with a batched small raises an assertion (the product is wider than large, leaving nothing to overwrite in place).
