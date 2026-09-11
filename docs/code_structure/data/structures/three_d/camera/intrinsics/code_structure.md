@@ -103,53 +103,6 @@ scaling.py
 ├── from typing import Dict, List, Optional, Tuple, Union
 ├── import numpy as np
 ├── import torch
-├── def rescale_intr_params(params: Dict[str, Union[int, float, torch.Tensor]], model: str, unit_x: Union[int, float, torch.Tensor], unit_y: Union[int, float, torch.Tensor]) -> Dict[str, Union[int, float, torch.Tensor]]
-│   ├── # Restates params measured in the image-plane unit; cx / cy are coordinates for perspective models and weak-perspective offsets for ortho.
-│   ├── impls params = a copy of params
-│   ├── impls cx = unit_x * cx
-│   ├── impls cy = unit_y * cy
-│   ├── def _rescale_focal(params: Dict[str, Union[int, float, torch.Tensor]]) -> Dict[str, Union[int, float, torch.Tensor]] [local]
-│   │   ├── # Scales whichever focal params the model carries, the one place the camera models differ under a rescale.
-│   │   ├── if model == "simple_pinhole"
-│   │   │   ├── impls assert unit_x == unit_y  # one shared f cannot carry two different axis scales, and a pair that disagrees is a pinhole rather than this model
-│   │   │   ├── impls f = unit_x * f in a copy of params
-│   │   │   └── return params
-│   │   ├── if model in {"pinhole", "ortho"}
-│   │   │   ├── impls fx, fy = unit_x * fx, unit_y * fy in a copy of params  # the two models carry the same focal params and take the same rule, a focal being a pixels-per-camera-unit ratio either way
-│   │   │   └── return params
-│   │   └── raise NotImplementedError  # a camera model whose focal params no rescale here has a rule for yet
-│   ├── calls _rescale_focal
-│   └── return  # params, in the target unit, h and w as they came in
-└── def resolve_target_resolution(params: Dict[str, torch.Tensor], resolution: Optional[Union[int, Tuple[int, int], List[int], np.ndarray, torch.Tensor]] = None, scale: Optional[Union[int, float, Tuple[Union[int, float], Union[int, float]], List[Union[int, float]], np.ndarray, torch.Tensor]] = None) -> Tuple[Union[int, torch.Tensor], Union[int, torch.Tensor]]
-    ├── # Resolves the two ways a caller names a target resolution — the size itself, or a factor on the size the params already carry — into the single form a rescale reads.
-    ├── def _validate_inputs [local]
-    │   ├── impls assert exactly one of resolution and scale is given  # impls-node-one-step:skip; a target resolution and a factor are two ways to name the same thing, and giving both leaves unstated which one wins
-    │   ├── if resolution is not None
-    │   │   └── impls assert resolution is a positive int or a length-2 array-like of positive integer-valued entries
-    │   └── if scale is not None
-    │       └── impls assert scale is a positive number, or a length-2 array-like pair of positive numbers
-    ├── calls _validate_inputs
-    ├── def _normalize_inputs [local]
-    │   ├── if resolution is not None
-    │   │   ├── if resolution is a single int
-    │   │   │   └── impls resolution = (resolution, resolution)
-    │   │   └── if resolution is a length-2 array-like
-    │   │       └── impls resolution = (int(resolution[0]), int(resolution[1]))
-    │   ├── if scale is not None
-    │   │   ├── if scale is a single number
-    │   │   │   └── impls scale = (scale, scale)  # one factor names the same one on both axes, in the (sx, sy) form the pair case already arrives in
-    │   │   └── if scale is a length-2 array-like pair
-    │   │       └── impls scale = (scale[0], scale[1])
-    │   └── return resolution, scale
-    ├── calls _normalize_inputs
-    ├── impls resolution, scale = the returned values from _normalize_inputs
-    ├── if resolution is not None
-    │   └── return resolution
-    ├── if scale is not None
-    │   ├── impls h, w = round(the params' own h * scale[1]), round(the params' own w * scale[0])
-    │   ├── impls assert both sides came out positive  # a factor small enough to round a side to zero names no image
-    │   └── return h, w
-    └── assert 0, "Should not reach here."
 ```
 
 `data/structures/three_d/camera/intrinsics/conventions.py`
@@ -253,6 +206,23 @@ conventions.py
     ├── # Moves the principal point back off the image's centre onto its top-left corner.
     ├── impls cx, cy = cx + w / 2, cy + h / 2 in a copy of params
     └── return  # params, on a corner origin
+├── def rescale_intr_params(params: Dict[str, Union[int, float, torch.Tensor]], model: str, unit_x: Union[int, float, torch.Tensor], unit_y: Union[int, float, torch.Tensor]) -> Dict[str, Union[int, float, torch.Tensor]]
+│   ├── # Restates params measured in the image-plane unit; cx / cy are coordinates for perspective models and weak-perspective offsets for ortho.
+│   ├── impls params = a copy of params
+│   ├── impls cx = unit_x * cx
+│   ├── impls cy = unit_y * cy
+│   ├── def _rescale_focal(params: Dict[str, Union[int, float, torch.Tensor]]) -> Dict[str, Union[int, float, torch.Tensor]] [local]
+│   │   ├── # Scales whichever focal params the model carries, the one place the camera models differ under a rescale.
+│   │   ├── if model == "simple_pinhole"
+│   │   │   ├── impls assert unit_x == unit_y  # one shared f cannot carry two different axis scales, and a pair that disagrees is a pinhole rather than this model
+│   │   │   ├── impls f = unit_x * f in a copy of params
+│   │   │   └── return params
+│   │   ├── if model in {"pinhole", "ortho"}
+│   │   │   ├── impls fx, fy = unit_x * fx, unit_y * fy in a copy of params  # the two models carry the same focal params and take the same rule, a focal being a pixels-per-camera-unit ratio either way
+│   │   │   └── return params
+│   │   └── raise NotImplementedError  # a camera model whose focal params no rescale here has a rule for yet
+│   ├── calls _rescale_focal
+│   └── return  # params, in the target unit, h and w as they came in
 ```
 
 `data/structures/three_d/camera/intrinsics/camera_intrinsics.py`
@@ -451,6 +421,36 @@ camera_intrinsics.py
 │       ├── impls in place: out[..., 0] = fx * out[..., 0] + cx  (mul_ / add_)                                      # impls-node-one-step:skip
 │       ├── impls in place: out[..., 1] = fy * out[..., 1] + cy  (mul_ / add_)                                      # impls-node-one-step:skip
 │       └── return  # out, the [..., 2] image points (a view into points_camera when inplace)
+└── def resolve_target_resolution(params: Dict[str, torch.Tensor], resolution: Optional[Union[int, Tuple[int, int], List[int], np.ndarray, torch.Tensor]] = None, scale: Optional[Union[int, float, Tuple[Union[int, float], Union[int, float]], List[Union[int, float]], np.ndarray, torch.Tensor]] = None) -> Tuple[Union[int, torch.Tensor], Union[int, torch.Tensor]]
+    ├── # Resolves the two ways a caller names a target resolution — the size itself, or a factor on the size the params already carry — into the single form a rescale reads.
+    ├── def _validate_inputs [local]
+    │   ├── impls assert exactly one of resolution and scale is given  # impls-node-one-step:skip; a target resolution and a factor are two ways to name the same thing, and giving both leaves unstated which one wins
+    │   ├── if resolution is not None
+    │   │   └── impls assert resolution is a positive int or a length-2 array-like of positive integer-valued entries
+    │   └── if scale is not None
+    │       └── impls assert scale is a positive number, or a length-2 array-like pair of positive numbers
+    ├── calls _validate_inputs
+    ├── def _normalize_inputs [local]
+    │   ├── if resolution is not None
+    │   │   ├── if resolution is a single int
+    │   │   │   └── impls resolution = (resolution, resolution)
+    │   │   └── if resolution is a length-2 array-like
+    │   │       └── impls resolution = (int(resolution[0]), int(resolution[1]))
+    │   ├── if scale is not None
+    │   │   ├── if scale is a single number
+    │   │   │   └── impls scale = (scale, scale)  # one factor names the same one on both axes, in the (sx, sy) form the pair case already arrives in
+    │   │   └── if scale is a length-2 array-like pair
+    │   │       └── impls scale = (scale[0], scale[1])
+    │   └── return resolution, scale
+    ├── calls _normalize_inputs
+    ├── impls resolution, scale = the returned values from _normalize_inputs
+    ├── if resolution is not None
+    │   └── return resolution
+    ├── if scale is not None
+    │   ├── impls h, w = round(the params' own h * scale[1]), round(the params' own w * scale[0])
+    │   ├── impls assert both sides came out positive  # a factor small enough to round a side to zero names no image
+    │   └── return h, w
+    └── assert 0, "Should not reach here."
 └── def build_camera_intrinsics(model: str, params: Dict[str, Union[int, float, np.ndarray, torch.Tensor]], intr_convention: str, device: Optional[Union[str, torch.device]] = None, dtype: Optional[torch.dtype] = None) -> CameraIntrinsics
     ├── # Build the CameraIntrinsics subclass for a camera-model string (the serialization-boundary factory) by dispatching on the model.
     ├── if model == "simple_pinhole"
