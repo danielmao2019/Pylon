@@ -117,9 +117,9 @@ goal: re-design pc dtype contract/provenance
       3. .pcd, .pth, .txt and .off: no default.
       4. no other defaults defined for now.
    4. target meta data: one entry per field, each holding that field's layout and dtype.
-      1. layout: each column the obj holds goes to one field, the first of these whose layout names it, and the fields that receive columns are the target's entries:
+      1. layout: when a layout moves columns into another field, the fields those columns came from are dropped. each field takes its layout from the first of these that states one:
          1. the override.
-         2. the default: its xyz takes a ply's x, y and z, so x, y and z have no entry of their own.
+         2. the default: at load, its xyz takes a ply's x, y and z, so x, y and z have no entry of their own. at save, it sees a field called xyz and turns it into columns x, y and z.
          3. the record.
          4. the field itself, where the record names it nowhere: its name serves as the layout.
       2. dtype: each entry takes it from the first of these that states one:
