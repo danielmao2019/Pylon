@@ -206,6 +206,7 @@ The following are mistakes repeated again and again and every time when i asked 
 
 1. save ply function taking a new arg called "target".
 2. an additional argument called `layout` or `dtype` beside `meta_data` on `__init__`, load point cloud or save point cloud that's meant to do what `meta_data` is expected to cover.
+3. adding a new method to `PointCloud` being `conceptual_dtype`.
 
 ### 1.2. Solution Constraints
 
