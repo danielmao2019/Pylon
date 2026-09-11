@@ -237,7 +237,7 @@ This commit "[Project][Tasks] Merge 20260903_integrate_blend_texture_not_render 
 
 1. load: .pth, .ply, .pcd, .las, .laz, .off, .txt. save: .ply. neither expands.
 2. constructing a `PointCloud` from numpy arrays is in scope. the obj always stores torch tensors.
-3. uint64 is unsupported as a source dtype for `__init__` or load point cloud and as a dtype in their meta data overrides. either case hard-asserts and aborts, regardless of the actual values. an override requesting another dtype does not make a uint64 source acceptable.
+3. uint64 is excluded from Pylon: it is unsupported as a source dtype for `__init__` or load point cloud and as a dtype in any meta data override. either case hard-asserts and aborts, regardless of the actual values. an override requesting another dtype does not make a uint64 source acceptable.
 4. complex and float128 are in scope, ruled in or out per case by the same representability test as every other dtype rather than by their names.
 5. convention conversion is not avoidable: save point cloud does it, and so do the point cloud displays under `data/viewer/utils/displays/points`, each reading its conventions off a dtype. what is out of scope is the effort of building a general named-convention mechanism with conversions between named conventions.
 6. every consumer this change breaks is fixed within this task, together with its tests. merging a branch that leaves a consumer broken breaks main.
