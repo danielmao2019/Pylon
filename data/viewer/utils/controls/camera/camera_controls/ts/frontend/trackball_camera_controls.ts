@@ -4,8 +4,6 @@ import type { CameraState } from "data/viewer/utils/controls/camera/camera_state
 
 export const DEFAULT_TRACKBALL_PERSPECTIVE_CAMERA_FOV: number = 45;
 
-// Radians of camera rotation per pixel of roll-locked left-drag.
-const ROLL_LOCKED_ROTATE_SPEED = 0.005;
 // Radians the roll-locked camera stops short of either pole of the lock axis. The incoming offset is banded into this range before anything derives a camera right axis from it, and the pitch is then clamped to keep it there, so the view direction never runs parallel to the axis and the cross product that re-derives the camera right axis never collapses.
 const ROLL_LOCKED_POLAR_ANGLE_EPSILON = 1e-6;
 
@@ -200,6 +198,9 @@ function createRendererTrackballCameraControls({
       if (!leftDragActive) {
         return;
       }
+      // Three's trackball turns by rotateSpeed per half canvas width of pointer travel, so the locked drag turns exactly as far per pixel as the free one.
+      const radiansPerPixel =
+        threeControls.rotateSpeed / (0.5 * renderer.domElement.clientWidth);
       const deltaX = event.clientX - lastClientX;
       const deltaY = event.clientY - lastClientY;
       lastClientX = event.clientX;
@@ -211,7 +212,7 @@ function createRendererTrackballCameraControls({
       });
       const yaw = new THREE.Quaternion().setFromAxisAngle(
         rollLockAxis,
-        -deltaX * ROLL_LOCKED_ROTATE_SPEED,
+        -deltaX * radiansPerPixel,
       );
       offset.applyQuaternion(yaw);
       const cameraRightAxis = new THREE.Vector3()
@@ -221,7 +222,7 @@ function createRendererTrackballCameraControls({
       const polarAngle = offset.angleTo(rollLockAxis);
       const pitchAngle = Math.min(
         Math.max(
-          -deltaY * ROLL_LOCKED_ROTATE_SPEED,
+          -deltaY * radiansPerPixel,
           ROLL_LOCKED_POLAR_ANGLE_EPSILON - polarAngle,
         ),
         Math.PI - ROLL_LOCKED_POLAR_ANGLE_EPSILON - polarAngle,
@@ -252,6 +253,16 @@ function createRendererTrackballCameraControls({
         target: threeControls.target,
         rollLockAxis,
       });
+    };
+
+    // target and camera.position are public, so a caller can move either between drags; holding the pose at the top of every update is what keeps that write off every frame the renderer draws.
+    threeControls.update = (): void => {
+      holdRollLockedCameraPose({
+        camera,
+        target: threeControls.target,
+        rollLockAxis,
+      });
+      ThreeTrackballControlsImpl.prototype.update.call(threeControls);
     };
     return controls;
   }
