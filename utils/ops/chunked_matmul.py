@@ -36,16 +36,12 @@ def _validate_inputs(
         large.dtype == small.dtype
     ), f"operands must share the same dtype, got {large.dtype=} and {small.dtype=}"
     assert isinstance(inplace, bool), f"inplace must be a bool, got {type(inplace)=}"
-    assert isinstance(
-        max_divide, int
-    ), f"max_divide must be an int, got {type(max_divide)=}"
-    assert max_divide >= 0, f"max_divide must be non-negative, got {max_divide=}"
-    assert num_divide is None or isinstance(
-        num_divide, int
-    ), f"num_divide must be None or an int, got {type(num_divide)=}"
     assert (
-        num_divide is None or num_divide >= 0
-    ), f"num_divide must be non-negative when set, got {num_divide=}"
+        isinstance(max_divide, int) and max_divide >= 0
+    ), f"max_divide must be a non-negative int, got {type(max_divide)=} {max_divide=}"
+    assert num_divide is None or (
+        isinstance(num_divide, int) and num_divide >= 0
+    ), f"num_divide must be None or a non-negative int, got {type(num_divide)=} {num_divide=}"
     if inplace:
         assert (
             small.ndim == 2
