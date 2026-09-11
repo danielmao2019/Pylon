@@ -62,8 +62,8 @@ render_on_main.py
 ├── def main() -> None
 │   ├── # Renders every scene with main's code in a child process launched inside the main checkout, so the branch has a fixed reference to compare against.
 │   ├── impls args = the parsed --scenes_path and --output_path
-│   ├── impls torch.use_deterministic_algorithms(True)  # main resolves a shared pixel by which write lands last, and deterministic mode makes that the last write in point order on cpu and cuda alike
-│   ├── impls scenes = torch.load(args.scenes_path)
+│   ├── impls enable torch's deterministic algorithms  # main resolves a shared pixel by which write lands last, and deterministic mode makes that the last write in point order on cpu and cuda alike
+│   ├── impls scenes = the scenes deserialized from args.scenes_path
 │   ├── impls renders = an empty dict keyed by (device, scene name, camera index, renderer, point size, return_mask)
 │   ├── for each device of DEVICES, scene, camera index, renderer, point size and return_mask
 │   │   ├── calls build_point_cloud(scene=scene, device=device)
@@ -106,8 +106,8 @@ prove_equivalence.py
 │   ├── impls args = the parsed --main_repo (a checkout of this repo's main) and --force
 │   ├── impls main_repo = args.main_repo resolved to an absolute path  # it is the child's working directory and import root
 │   ├── impls output_dir = this task's outputs/ directory
-│   ├── impls os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
-│   ├── impls torch.use_deterministic_algorithms(True)
+│   ├── impls set the CUBLAS_WORKSPACE_CONFIG environment variable to :4096:8, the workspace configuration deterministic cuBLAS requires
+│   ├── impls enable torch's deterministic algorithms
 │   ├── calls load_or_build_scenes(output_dir=output_dir, force=args.force)
 │   ├── calls load_or_render_on_main(main_repo=main_repo, output_dir=output_dir, force=args.force)
 │   ├── calls compare_single_camera_to_main(scenes=scenes, main_renders=main_renders)
