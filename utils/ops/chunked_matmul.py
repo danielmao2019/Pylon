@@ -54,21 +54,25 @@ def _validate_inputs(
 def _matmul_chunk(
     large: torch.Tensor, small: torch.Tensor, out: torch.Tensor, direct: bool
 ) -> None:
-    """Write the product large @ small into out for one row-chunk.
+    """Write the product large @ small into out for one row-chunk, as one plain 2-D product per [K, K] entry of small's leading axes.
 
     Args:
         large: Left operand chunk of shape [b, K], any floating dtype.
-        small: Right square operand of shape [..., K, K], same dtype and device as large; leading axes broadcast large over them.
-        out: Destination chunk of shape [..., b, M], same dtype and device as large; may alias large's rows only when direct is False.
+        small: Contiguous right square operand of shape [..., K, K], same dtype and device as large; each [K, K] entry of its leading axes multiplies large on its own, and an unbatched [K, K] small is its single entry.
+        out: Destination chunk of shape [..., b, M], same dtype and device as large, whose leading axes match small's; each [b, M] entry receives the product with the matching small entry; may alias large's rows only when direct is False.
         direct: When True the GEMM writes straight into out with no intermediate (out must be a distinct, non-grad buffer); when False a temp-copy assignment is used (autograd-safe, and the only correct form when out aliases large, since a GEMM whose out aliases an operand is undefined behavior).
 
     Returns:
         None.
     """
-    if direct:
-        torch.matmul(large, small, out=out)
-    else:
-        out[:] = large @ small
+    # One plain product per entry: CUDA's batched product rounds unlike the unbatched one at some row counts, and each entry must match what it gives multiplied alone. view addresses the entries without a copy, and each entry is indexed on its own so the autograd path may write into it in place.
+    small_entries = small.view(-1, *small.shape[-2:])
+    out_entries = out.view(-1, *out.shape[-2:])
+    for index in range(small_entries.shape[0]):
+        if direct:
+            torch.matmul(large, small_entries[index], out=out_entries[index])
+        else:
+            out_entries[index][:] = large @ small_entries[index]
 
 
 def chunked_matmul(
