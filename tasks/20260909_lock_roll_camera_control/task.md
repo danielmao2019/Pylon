@@ -4,6 +4,8 @@ goal: implement lock roll camera control
 
 For BOTH dash and ts, default must be trackball control, and when lock roll is specified, camera roll is locked against the specified axis.
 
+You are not allowed to change anything beyond camera control. If you can't do this, let me know.
+
 ## 2. Definition of Done
 
 Give me one url for each of dash and ts, using a hand-designed synthetic data, with left being trackball without lock roll, and right being track with lock roll.
