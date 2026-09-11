@@ -242,7 +242,7 @@ camera_intrinsics.py
 │   │   ├── def _normalize_inputs [local]
 │   │   │   ├── if device is None
 │   │   │   │   └── impls device = the device of the first torch.Tensor param, else cpu  # the one exception: an unset device resolves to the given params', so a component __getitem__ rebuilds stays where its batch is
-│   │   │   ├── impls device = torch.device(device), its index filled in when the spelling leaves one out  # one physical device has one spelling here, so a cuda and a cuda:0 naming it never compare unequal
+│   │   │   ├── impls device = the given device as a torch device, its index filled in when the spelling leaves one out  # one physical device has one spelling here, so a cuda and a cuda:0 naming it never compare unequal
 │   │   │   ├── if dtype is None
 │   │   │   │   └── impls dtype = the dtype of the first floating torch.Tensor or np.ndarray param, else torch.float32  # the one exception: an unset dtype resolves to the given params', so a component __getitem__ rebuilds keeps the dtype its batch holds
 │   │   │   ├── impls params = each value materialized as a torch.Tensor on device and in dtype  # every param follows the resolved device and dtype, never the other way around
