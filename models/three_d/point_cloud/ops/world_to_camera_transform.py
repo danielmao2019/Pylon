@@ -14,32 +14,17 @@ def world_to_camera_transform(
 ) -> torch.Tensor:
     """Map world-frame points into the camera local frame.
 
-    High-level API that builds the world-to-camera matrix by inverting the
-    camera-to-world extrinsics and applies it to the points via apply_transform,
-    any leading axes on the extrinsics flowing through onto the result.
+    High-level API that builds the world-to-camera matrix by inverting the camera-to-world extrinsics and applies it to the points via apply_transform, any leading axes on the extrinsics flowing through onto the result.
 
     Args:
-        points: Float torch.Tensor of shape [N, 3] in world coordinates, on the
-            same device as extrinsics.
-        extrinsics: Float torch.Tensor of shape [..., 4, 4] representing the
-            camera-to-world (pose) transform in the OpenCV convention, on the same
-            device as points; the leading axes carry one matrix per camera and are
-            inverted over the trailing two axes.
-        inplace: If True, the camera-frame coordinates are written back into
-            points and points is returned; if False, a new tensor is returned.
-            Requires extrinsics carrying no leading axis, since [N, 3] points in
-            and [..., N, 3] out is a shape expansion that leaves no buffer to
-            write back into.
-        max_divide: Maximum number of times the matmul may halve its row batch on
-            CUDA OOM (forwarded to apply_transform).
-        num_divide: If not None, the fixed number of halvings for the matmul row
-            batch (forwarded to apply_transform).
+        points: Float torch.Tensor of shape [N, 3] in world coordinates, on the same device as extrinsics.
+        extrinsics: Float torch.Tensor of shape [..., 4, 4] representing the camera-to-world (pose) transform in the OpenCV convention, on the same device as points; the leading axes carry one matrix per camera and are inverted over the trailing two axes.
+        inplace: If True, the camera-frame coordinates are written back into points and points is returned; if False, a new tensor is returned. Requires extrinsics carrying no leading axis, since [N, 3] points in and [..., N, 3] out is a shape expansion that leaves no buffer to write back into.
+        max_divide: Maximum number of times the matmul may halve its row batch on CUDA OOM (forwarded to apply_transform).
+        num_divide: If not None, the fixed number of halvings for the matmul row batch (forwarded to apply_transform).
 
     Returns:
-        Float torch.Tensor of shape [..., N, 3] in the camera local frame
-        (OpenCV: +Z forward), carrying the extrinsics' leading axes: [4, 4] in
-        gives [N, 3] out and is the only case inplace returns the same tensor as
-        points, [B, 4, 4] gives [B, N, 3].
+        Float torch.Tensor of shape [..., N, 3] in the camera local frame (OpenCV: +Z forward), carrying the extrinsics' leading axes: [4, 4] in gives [N, 3] out and is the only case inplace returns the same tensor as points, [B, 4, 4] gives [B, N, 3].
     """
 
     def _validate_inputs() -> None:
