@@ -26,19 +26,6 @@ test_intrinsics.py
 │   ├── with pytest.raises(AssertionError)
 │   │   └── calls validate_camera_model(model=a string outside the supported set)
 │   └── return
-├── def test_validate_intrinsics_params_dispatches_per_model_keys
-│   ├── # Each model names its own key set, so it accepts the keys it names and refuses another model's, pinhole and ortho naming the same two-focal set.
-│   ├── calls _tensor_params(params=the one-focal simple_pinhole key set)
-│   ├── calls _tensor_params(params=the two-focal key set pinhole and ortho share)
-│   ├── calls validate_camera_intrinsics_params(model=each of the three models, intr_convention="standard", params=the key set that model names)
-│   ├── impls assert each returned params dict equals the accepted one
-│   ├── with pytest.raises(AssertionError)
-│   │   └── calls validate_camera_intrinsics_params(model="simple_pinhole", intr_convention="standard", params=the two-focal key set)
-│   ├── with pytest.raises(AssertionError)
-│   │   └── calls validate_camera_intrinsics_params(model="pinhole", intr_convention="standard", params=the one-focal key set)
-│   ├── with pytest.raises(AssertionError)
-│   │   └── calls validate_camera_intrinsics_params(model="ortho", intr_convention="standard", params=the one-focal key set)
-│   └── return
 ├── def test_validate_intrinsics_params_dispatches_per_model_tensor_keys
 │   ├── # validate_camera_intrinsics_params enforces each model's named scalar tensor keys beside the h and w every model carries.
 │   ├── for each (model, its named parameter keys)
@@ -141,16 +128,6 @@ test_intrinsics.py
 │   ├── impls loss = the sum of the image points it returned
 │   ├── calls loss.backward
 │   ├── impls assert fx.grad is not None
-│   └── return
-├── def test_intrinsics_to_applies_dtype_and_copy_to_every_param
-│   ├── # A camera's state is its whole param dict, so a dtype-and-copy move reaches every param rather than the dtype the object reports alone.
-│   ├── calls _tensor_params(params=the pinhole key set)
-│   ├── calls build_camera_intrinsics(model="pinhole", params=those tensor params, intr_convention="standard")
-│   ├── calls intrinsics.to(device="cpu", dtype=torch.float64, copy=True)
-│   ├── impls assert the moved intrinsics reports the requested dtype
-│   ├── for each moved param
-│   │   ├── impls assert it carries the requested dtype
-│   │   └── impls assert its storage is distinct from the source param's
 │   └── return
 ├── def test_build_camera_intrinsics_dispatches_to_model_subclass
 │   ├── # build_camera_intrinsics returns the CameraIntrinsicsSimplePinhole / CameraIntrinsicsPinhole / CameraIntrinsicsOrtho instance for its model string.
@@ -262,27 +239,6 @@ test_intrinsics.py
 │   │   └── for each rejected input (a non-tensor points_camera, a [..., 2] points_camera, a non-bool inplace)
 │   │       └── with pytest.raises(AssertionError)
 │   │           └── calls intrinsics.project
-│   └── return
-├── def test_tensor_intrinsics_params_stay_on_the_projection_autograd_path
-│   ├── # The tensors a caller hands in are the ones that must receive gradients through project, rather than copies the camera made of them.
-│   ├── calls _tensor_params(params=the pinhole key set, requires_grad=True)
-│   ├── calls build_camera_intrinsics(model="pinhole", params=those tensor params, intr_convention="standard", device="cpu")
-│   ├── calls intrinsics.project(points_camera=valid camera-space points)
-│   ├── impls loss = image_points.sum()
-│   ├── calls loss.backward
-│   ├── for each of the fx, fy, cx, and cy params
-│   │   └── impls assert the source tensor receives a gradient
-│   └── return
-├── def test_scale_intrinsics_keeps_tensor_scale_factors_on_the_autograd_path
-│   ├── # A resize is stated as a tensor as readily as the params are, so the factor sits on the autograd path beside them rather than being read off as a number.
-│   ├── calls _tensor_params(params=the pinhole key set, requires_grad=True)
-│   ├── calls build_camera_intrinsics(model="pinhole", params=those tensor params, intr_convention="standard", device="cpu")
-│   ├── calls intrinsics.scale_intrinsics(scale=a requires_grad (sx, sy) tensor)
-│   ├── impls loss = scaled.fx + scaled.fy + scaled.cx + scaled.cy
-│   ├── calls loss.backward
-│   ├── for each of the fx, fy, cx, and cy params
-│   │   └── impls assert the source tensor receives a gradient
-│   ├── impls assert the scale factor tensor receives a gradient
 │   └── return
 ├── def _tensor_params
 │   ├── # A test states its params as plain numbers, and this is what makes them the tensor state a camera actually carries.
