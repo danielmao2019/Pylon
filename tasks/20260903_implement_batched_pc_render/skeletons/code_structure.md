@@ -96,9 +96,10 @@ prove_equivalence.py
 ├── from data.structures.three_d.camera.cameras import Cameras
 ├── from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
 ├── from data.structures.three_d.camera.intrinsics.camera_intrinsics import build_camera_intrinsics
+├── from models.three_d.point_cloud.render.common.apply_point_size_postprocessing import apply_point_size_postprocessing
 ├── from models.three_d.point_cloud.render.common.create_circular_kernel_offsets import create_circular_kernel_offsets
 ├── from models.three_d.point_cloud.render.common.prepare_points_for_rendering import prepare_points_for_rendering
-├── from models.three_d.point_cloud.render.render_depth import render_depth_from_point_cloud
+├── from models.three_d.point_cloud.render.render_depth import render_depth_from_point_cloud, render_depth_from_rendering_points
 ├── from scene_rendering import DEVICES, POINT_SIZES, RENDERERS, RETURN_MASK_OPTIONS, build_camera, build_point_cloud, render_single_camera
 ├── def main() -> None
 │   ├── # Proves the two equivalences the task is done on: one camera handed over as a batch renders what main renders, and a batch renders what its cameras render one by one.
@@ -164,7 +165,7 @@ prove_equivalence.py
 │   ├── impls mark each record required when its point size is one  # above one pixel this branch's dilation grows a centred disc taking the nearest neighbour, and its depth entry applies it, where main did neither
 │   └── return records
 ├── def compare_batch_to_one_by_one(scenes: List[Dict[str, Any]]) -> List[Dict[str, Any]]
-│   ├── # Compares, on this branch alone, what one call over a scene's whole batch of cameras returns with what each camera returns on its own.
+│   ├── # Compares, on this branch alone, one call over a scene's whole batch of cameras with each camera on its own, stage by stage, so the rounding CUDA's batched kernels introduce is told apart from a batching error.
 │   ├── impls records = an empty list
 │   ├── for each device of DEVICES and scene
 │   │   ├── calls build_point_cloud(scene=scene, device=device)
@@ -174,8 +175,24 @@ prove_equivalence.py
 │   │   │   └── for each camera index
 │   │   │       ├── calls build_camera(scene=scene, camera_index=camera_index, device=device)
 │   │   │       ├── calls prepare_points_for_rendering(pc=pc, camera=that camera, resolution=scene["resolution"], num_divide=num_divide)
-│   │   │       ├── calls compare_exactly(output=the batched points and valid mask at that camera's slice, reference=that camera's points and valid mask)
+│   │   │       ├── if device is cpu
+│   │   │       │   └── calls compare_exactly(output=the batched points and valid mask at that camera's slice, reference=that camera's points and valid mask)
+│   │   │       ├── else
+│   │   │       │   └── calls compare_preparations(output=the batched points and valid mask at that camera's slice, reference=that camera's points and valid mask, resolution=scene["resolution"])  # CUDA's batched inverse and product round unlike a single camera's
 │   │   │       └── impls records gain a "prepare" record carrying that comparison and num_divide
+│   │   ├── impls rendering_points, valid = the unchunked batched preparation  # one input handed to both sides, so the rasterizing stage is measured apart from the rounding before it
+│   │   ├── for each return_mask
+│   │   │   ├── calls render_depth_from_rendering_points(rendering_points=rendering_points, valid=valid, resolution=scene["resolution"], ignore_value=float("inf"), return_mask=return_mask)
+│   │   │   └── for each camera index
+│   │   │       ├── calls render_depth_from_rendering_points(rendering_points=that camera's slice of rendering_points, valid=that slice of valid, resolution=scene["resolution"], ignore_value=float("inf"), return_mask=return_mask)
+│   │   │       ├── calls compare_exactly(output=the batched raster at that camera's slice, reference=that slice's own raster)
+│   │   │       └── impls records gain a "rasterize" record carrying that comparison
+│   │   ├── for each point size above one
+│   │   │   ├── calls apply_point_size_postprocessing(rendered_image=the batched depth map rasterized above, depth_map=that same map, point_size=point_size, ignore_value=float("inf"))
+│   │   │   └── for each camera index
+│   │   │       ├── calls apply_point_size_postprocessing(rendered_image=that camera's slice of the batched depth map, depth_map=that same slice, point_size=point_size, ignore_value=float("inf"))
+│   │   │       ├── calls compare_exactly(output=the batched dilation at that camera's slice, reference=that slice's own dilation)
+│   │   │       └── impls records gain a "dilate" record carrying that comparison
 │   │   └── for each point size and return_mask
 │   │       ├── calls render_depth_from_point_cloud(pc=pc, camera=that batch, resolution=scene["resolution"], return_mask=return_mask, point_size=point_size)
 │   │       └── for each camera index
@@ -183,7 +200,7 @@ prove_equivalence.py
 │   │           ├── calls render_depth_from_point_cloud(pc=pc, camera=that camera, resolution=scene["resolution"], return_mask=return_mask, point_size=point_size)
 │   │           ├── calls compare_exactly(output=the batched map and mask at that camera's slice, reference=that camera's map and mask)
 │   │           └── impls records gain a "depth" record carrying that comparison
-│   ├── impls mark every record required
+│   ├── impls mark every record required but a cuda "depth" one  # end to end, cuda carries the preparation's rounding into the render, which the "prepare", "rasterize" and "dilate" records account for between them
 │   └── return records
 ├── def build_cameras(scene: Dict[str, Any], camera_indices: List[int], device: torch.device) -> Cameras
 │   ├── # Builds the batch of the named cameras of a scene, the one input only this branch's renderers take.
@@ -201,6 +218,17 @@ prove_equivalence.py
 │   │   ├── calls compare_exactly(output=that render, reference=main's render of the same device, scene, camera and mask option at point size one)
 │   │   └── impls summary tallies whether that comparison came out equal
 │   └── return summary
+├── def compare_preparations(output: Tuple[torch.Tensor, torch.Tensor], reference: Tuple[torch.Tensor, torch.Tensor], resolution: Tuple[int, int]) -> Dict[str, Any]
+│   ├── # Decides whether two preparations of one camera agree up to floating-point rounding, the test a cuda batch's preparation is held to.
+│   ├── impls points, valid = output as cpu tensors
+│   ├── impls reference_points, reference_valid = reference as cpu tensors
+│   ├── impls tolerance = a few units in the last place of the points' dtype, relative to each coordinate's magnitude
+│   ├── impls kept = valid & reference_valid
+│   ├── impls points_close = every kept point's (x, y, depth) agrees with its reference within tolerance  # a point either side culls lands on no pixel, so its coordinates carry nothing to compare
+│   ├── impls flipped = the points where valid and reference_valid differ
+│   ├── impls flips_explained = every flipped point lies within tolerance of the cull boundary it crossed, a depth of zero or an image edge of resolution
+│   ├── calls compare_exactly(output=output, reference=reference)  # -> exact, so the report shows how often rounding moved anything at all
+│   └── return  # {"equal": points_close and flips_explained, "exact": exact["equal"], "flipped_points": the count flipped marks, "max_abs_diff": exact["max_abs_diff"]}
 ├── def compare_exactly(output: Union[torch.Tensor, Tuple[torch.Tensor, ...]], reference: Union[torch.Tensor, Tuple[torch.Tensor, ...]]) -> Dict[str, Any]
 │   ├── # Decides whether two renders are the same result, which is the one test both equivalences are made of.
 │   ├── impls output, reference = each argument as a tuple of cpu tensors, a lone map becoming a tuple of one
