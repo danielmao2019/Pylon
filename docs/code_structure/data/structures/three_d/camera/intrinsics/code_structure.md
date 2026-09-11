@@ -386,6 +386,10 @@ camera_intrinsics.py
 │   ├── def fy(self) -> torch.Tensor  # @property [override]
 │   │   ├── # The shared focal length params["f"].
 │   │   └── return self._params["f"]
+│   ├── def _focal_params(cls, fx: torch.Tensor, fy: torch.Tensor) -> Dict[str, torch.Tensor]  # @classmethod [override]
+│   │   ├── # States the pair as the one shared focal f, since this model states its two focals as one f.
+│   │   ├── assert fx and fy agree at every entry, up to floating-point rounding  # one shared f holds one ratio, so an affine scaling the axes apart leaves this model nothing to state the second in
+│   │   └── return  # {"f": fx}
 │   ├── def project(self, points_camera: torch.Tensor, inplace: bool = False) -> torch.Tensor   [override]
 │   │   ├── # Perspective projection with a single shared focal length.
 │   │   ├── impls out = points_camera[..., :2] when inplace, else a fresh [..., 2] clone of points_camera[..., :2]  # impls-node-one-step:skip
@@ -406,6 +410,9 @@ camera_intrinsics.py
 │   ├── def fy(self) -> torch.Tensor  # @property [override]
 │   │   ├── # The vertical focal length params["fy"].
 │   │   └── return self._params["fy"]
+│   ├── def _focal_params(cls, fx: torch.Tensor, fy: torch.Tensor) -> Dict[str, torch.Tensor]  # @classmethod [override]
+│   │   ├── # States the pair as this model's independent fx / fy focal lengths.
+│   │   └── return  # {"fx": fx, "fy": fy}
 │   ├── def project(self, points_camera: torch.Tensor, inplace: bool = False) -> torch.Tensor   [override]
 │   │   ├── # Perspective projection with independent fx / fy.
 │   │   ├── impls out = points_camera[..., :2] when inplace, else a fresh [..., 2] clone of points_camera[..., :2]  # impls-node-one-step:skip
@@ -426,6 +433,9 @@ camera_intrinsics.py
 │   ├── def fy(self) -> torch.Tensor  # @property [override]
 │   │   ├── # The vertical focal scale params["fy"].
 │   │   └── return self._params["fy"]
+│   ├── def _focal_params(cls, fx: torch.Tensor, fy: torch.Tensor) -> Dict[str, torch.Tensor]  # @classmethod [override]
+│   │   ├── # States the pair as this model's independent fx / fy focal scales.
+│   │   └── return  # {"fx": fx, "fy": fy}
 │   └── def project(self, points_camera: torch.Tensor, inplace: bool = False) -> torch.Tensor   [override]
 │       ├── # Orthographic projection with independent fx / fy scales.
 │       ├── impls out = points_camera[..., :2] when inplace, else a fresh [..., 2] clone of points_camera[..., :2]  # impls-node-one-step:skip
