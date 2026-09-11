@@ -14,12 +14,12 @@ load_point_cloud.py
 ├── import torch
 ├── from plyfile import PlyData
 ├── from data.structures.three_d.point_cloud.point_cloud import PointCloud
-├── DEFAULT_LAYOUTS  # file extension -> field name -> the source columns assembled into that field by default: '.ply', '.las' and '.laz' each assemble ('x', 'y', 'z') into xyz and ('red', 'green', 'blue') into rgb; no other format has an entry
+├── PLY_DEFAULT_LAYOUT  # field name -> the ply columns ply's default layout assembles into that field on load and names that field's block by on save: xyz as ('x', 'y', 'z') and rgb as ('red', 'green', 'blue')
+├── LAS_DEFAULT_LAYOUT  # field name -> the las dimensions las's default layout assembles into that field on load: xyz from ('x', 'y', 'z') and rgb from ('red', 'green', 'blue')
 ├── def load_point_cloud(filepath: str, meta_data: Optional[Dict[str, Dict[str, Any]]] = None, device: Union[str, torch.device] = 'cuda') -> PointCloud
-│   ├── # Loads one point cloud file of any supported format as the cloud its own columns define, then applies the caller's meta data written over the layouts that format assembles by default.
+│   ├── # Loads one point cloud file of any supported format through the reader that owns its extension, then applies the caller's meta data over the cloud that reader built.
 │   ├── def _validate_inputs [local]
-│   │   ├── assert the extension of filepath is one of the supported formats
-│   │   └── assert meta_data is None or meta_data is a dict whose values are all dicts  # the default layouts are written under it before apply_meta_data checks the rest at its own door
+│   │   └── assert the extension of filepath is one of the supported formats
 │   ├── calls _validate_inputs()
 │   ├── def _normalize_inputs [local]
 │   │   ├── impls filepath = filepath with its separators rewritten to forward slashes
@@ -28,9 +28,9 @@ load_point_cloud.py
 │   ├── calls _normalize_inputs(filepath=filepath)
 │   ├── impls filepath = the value it returned
 │   ├── calls _load_by_format(filepath=filepath, device=device)
-│   ├── impls pc = the cloud it read, assembled as far as the source's own column names go and no further
-│   ├── calls pc.apply_meta_data(meta_data=meta_data)
-│   ├── assert pc carries an xyz field  # a raw cloud without coordinates is legal, a loaded one is not, so this is where a positional source that named no layout aborts
+│   ├── impls pc = the cloud it read, assembled as far as its format's default layout goes and no further
+│   ├── calls pc.apply_meta_data(meta_data=meta_data)  # the caller's meta data outranks the default layout the reader's construction applied, a stated layout over a default field's columns assembling them into the field it names instead
+│   ├── assert pc carries an xyz field  # a raw cloud without coordinates is legal, a loaded one is not, so this is where a source whose format names no coordinates and whose caller named none aborts
 │   └── return pc
 ├── def _load_by_format(filepath: str, device: Union[str, torch.device]) -> PointCloud
 │   ├── # Reads the file through the one reader that owns its extension.
@@ -64,14 +64,15 @@ load_point_cloud.py
 │   ├── calls PointCloud(data=columns, device=device)
 │   └── return  # the raw cloud it built, its coordinates unnamed until the caller's meta data names them
 ├── def _load_from_ply(filepath: str, device: Union[str, torch.device]) -> PointCloud
-│   ├── # Reads a PLY's properties as fields, each in the dtype the file stores it in.
+│   ├── # Reads a PLY's properties as columns, each in the dtype the file stores it in, and builds the cloud ply's default layout assembles out of them.
 │   └── with open(filepath, "rb") as f
 │       ├── calls PlyData.read(f)
 │       ├── impls plydata = the parsed PLY
 │       ├── assert plydata carries at least one element
 │       ├── impls columns = every property of every element as its own contiguous array in the dtype the file stores it in, keyed by its property name and qualified as '<element>.<property>' when the file carries more than one  # impls-node-one-step:skip — names the key and the dtype
-│       ├── calls PointCloud(data=columns, device=device)
-│       └── return  # the raw cloud it built, a multi-element file qualifying every key so PLY's own coordinate names are absent from it
+│       ├── impls default_meta_data = {'xyz': {'layout': ('x', 'y', 'z')}, 'rgb': {'layout': ('red', 'green', 'blue')}}, keeping each entry only where columns carries every name its layout names  # ply's default layout, which a multi-element file's qualified keys never match
+│       ├── calls PointCloud(data=columns, meta_data=default_meta_data, device=device)
+│       └── return  # the cloud it built, its record naming each property the file stores and the field ply's default layout assembled it into
 ├── def _load_from_pcd(filepath: str, device: Union[str, torch.device]) -> PointCloud
 │   ├── # Reads a PCD through Open3D's tensor IO, each attribute becoming a field whole under its own name.
 │   ├── calls o3d.t.io.read_point_cloud(filepath)
@@ -82,7 +83,7 @@ load_point_cloud.py
 │   ├── calls PointCloud(data=columns, device=device)
 │   └── return  # the raw cloud it built
 ├── def _load_from_las(filepath: str, device: Union[str, torch.device]) -> PointCloud
-│   ├── # Reads a LAS/LAZ file's dimensions as fields, each in the dtype laspy materializes it as, which makes a bit-packed dimension an ordinary uint8 field.
+│   ├── # Reads a LAS/LAZ file's dimensions as columns, each in the dtype laspy materializes it as, and builds the cloud las's default layout assembles out of them.
 │   ├── calls laspy.read(filepath)
 │   ├── impls las_file = the read LAS/LAZ file
 │   ├── impls columns = an empty dict
@@ -90,10 +91,11 @@ load_point_cloud.py
 │   │   └── if dimension_name is not one of 'X', 'Y' and 'Z'
 │   │       └── impls columns[dimension_name] = the attribute of las_file under that name, as a one-dimensional np.ndarray in the dtype laspy materialized it as
 │   ├── impls columns['x'], columns['y'], columns['z'] = the three real-world coordinate arrays laspy scales the raw X, Y and Z dimensions into, each a one-dimensional float64 np.ndarray  # impls-node-one-step:skip — names the three coordinate columns
-│   ├── calls PointCloud(data=columns, device=device)
-│   └── return  # the raw cloud it built
+│   ├── impls default_meta_data = {'xyz': {'layout': ('x', 'y', 'z')}, 'rgb': {'layout': ('red', 'green', 'blue')}}, keeping each entry only where columns carries every name its layout names  # las's default layout, a point format without colour dimensions carrying no red, green or blue
+│   ├── calls PointCloud(data=columns, meta_data=default_meta_data, device=device)
+│   └── return  # the cloud it built, a bit-packed dimension being an ordinary uint8 field of it
 ├── def _load_from_off(filepath: str, device: Union[str, torch.device]) -> PointCloud
-│   ├── # Reads the vertex block of an OFF file into float32 coordinate fields.
+│   ├── # Reads the vertex block of an OFF file into float32 columns named by their position.
 │   └── with open(filepath, 'r') as f
 │       ├── impls header = the first line of f, stripped
 │       ├── assert header starts with 'OFF'  # ModelNet40 writes the counts glued to the keyword, so OFF is the line's prefix rather than the whole of it
@@ -120,12 +122,15 @@ load_point_cloud.py
 
 ```text
 save_point_cloud.py
+├── import copy
 ├── from typing import Any, Dict, Optional
 ├── import os
 ├── import numpy as np
+├── import torch
 ├── from plyfile import PlyData, PlyElement
+├── from data.structures.three_d.point_cloud.io.load_point_cloud import PLY_DEFAULT_LAYOUT
 ├── from data.structures.three_d.point_cloud.point_cloud import PointCloud
-├── from utils.dtypes import NUMPY_DTYPE, PLY_CHAR, cast_lossless
+├── from utils.dtypes import CONCEPTUAL_NAME, NUMPY_DTYPE, PLY_CHAR, cast_lossless
 ├── def save_point_cloud(pc: PointCloud, output_filepath: str, meta_data: Optional[Dict[str, Dict[str, Any]]] = None) -> None
 │   ├── # Applies the meta data to the cloud and writes it through the writer that owns the output file's extension.
 │   ├── def _validate_inputs [local]
