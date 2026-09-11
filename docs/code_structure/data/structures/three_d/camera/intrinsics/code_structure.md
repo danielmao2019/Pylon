@@ -338,6 +338,7 @@ camera_intrinsics.py
 │   │   ├── # Return this CameraIntrinsics restated onto another image by a pixel-frame affine, the raster that image is named alongside it because a 3x3 carries no size of its own.
 │   │   ├── def _validate_inputs [local]
 │   │   │   ├── impls assert transform is a [..., 3, 3] floating tensor whose last row is [0, 0, 1]
+│   │   │   ├── impls assert transform's off-diagonal entries [..., 0, 1] and [..., 1, 0] are zero  # an axis-aligned affine is the only kind that keeps a skew-free K skew-free
 │   │   │   └── impls assert resolution is an (h, w) pair of positive integer-valued scalars or [B] tensors  # a batch scales each camera's own raster, so the sides differ per camera
 │   │   ├── calls _validate_inputs
 │   │   ├── def _normalize_inputs [local]
