@@ -182,9 +182,9 @@ prove_equivalence.py
 │   │   │       └── impls records gain a "prepare" record carrying that comparison and num_divide
 │   │   ├── impls rendering_points, valid = the unchunked batched preparation  # one input handed to both sides, so the rasterizing stage is measured apart from the rounding before it
 │   │   ├── for each return_mask
-│   │   │   ├── calls render_depth_from_rendering_points(rendering_points=rendering_points, valid=valid, resolution=scene["resolution"], ignore_value=float("inf"), return_mask=return_mask)
+│   │   │   ├── calls render_depth_from_rendering_points(rendering_points=rendering_points, resolution=scene["resolution"], ignore_value=float("inf"), return_mask=return_mask, valid=valid)
 │   │   │   └── for each camera index
-│   │   │       ├── calls render_depth_from_rendering_points(rendering_points=that camera's slice of rendering_points, valid=that slice of valid, resolution=scene["resolution"], ignore_value=float("inf"), return_mask=return_mask)
+│   │   │       ├── calls render_depth_from_rendering_points(rendering_points=that camera's slice of rendering_points, resolution=scene["resolution"], ignore_value=float("inf"), return_mask=return_mask, valid=that slice of valid)
 │   │   │       ├── calls compare_exactly(output=the batched raster at that camera's slice, reference=that slice's own raster)
 │   │   │       └── impls records gain a "rasterize" record carrying that comparison
 │   │   ├── for each point size above one
