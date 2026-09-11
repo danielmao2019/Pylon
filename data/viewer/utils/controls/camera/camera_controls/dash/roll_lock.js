@@ -2,7 +2,7 @@
 //
 // `orbit` leaves camera roll free. The panel's own view controller turns the camera about the camera's own screen axes, and successive yaw and pitch turns about a frame that each turn moves compose into roll, so the camera right axis drifts off the caller's axis; the same controller applies no pitch limit, so a drag that carries the view through a pole leaves the scene hanging upside down. This module holds both back: it keeps the camera right axis perpendicular to the caller's axis, and the camera up vector on that axis's own side.
 //
-// Every pose reaches the renderer as a keyframe one of the view's camera controllers - orbital, turntable, matrix - writes through its own `lookAt` into a time-indexed spline the renderer samples a frame or two behind. The view's `lookAt` hands a pose to every controller, and the rotation-mode setter the modebar's "Turntable rotation" button runs writes straight into the newly active controller, so the module wraps each controller's `lookAt` rather than the view's: a drag step, a `Plotly.relayout`, a reset-camera button, a replot and a rotation-mode switch all go into the keyframes already roll-locked, each orbital quaternion in the hemisphere of the keyframe before it, and the renderer never holds an unlocked keyframe to draw. A drag arrives one pointer move at a time through the view's rotation, which the module replaces with the roll-locked turn, written as sub-step keyframes a bounded turn apart so that the frames the renderer interpolates between them stay on the lock too. The layout keeps its own record of the camera, which a relayout, a reset button or a switch to turntable writes as it was handed, so the graph's `plotly_relayout` event rewrites that record to the roll-locked pose the renderer already draws. Rotation is the whole of what the replaced turn has to cover: the controller's pan carries the eye and the center together and its wheel zoom moves the eye along the view direction, so both leave the camera frame - and the lock - exactly as they found it.
+// Every pose reaches the renderer as a keyframe one of the view's camera controllers - orbital, turntable, matrix - writes through its own `lookAt` into a time-indexed spline the renderer samples a frame or two behind. The view's `lookAt` hands a pose to every controller, and the rotation-mode setter the modebar's "Turntable rotation" button runs writes straight into the newly active controller, so the module wraps each controller's `lookAt` rather than the view's: a drag step, a `Plotly.relayout`, a reset-camera button, a replot and a rotation-mode switch all go into the keyframes already roll-locked, each orbital quaternion in the hemisphere of the keyframe before it, and the renderer never holds an unlocked keyframe to draw. A drag arrives one pointer move at a time through the view's rotation, which the module replaces with the roll-locked turn, written as sub-step keyframes a bounded turn apart so that the frames the renderer interpolates between them stay on the lock too. The locked pose keeps the eye a camera was written with, banded off the poles, and re-derives the up vector from its view direction and the axis whatever up was written, so a camera written upside down is turned upright about its own view direction rather than moved. The layout keeps its own record of the camera, which a relayout, a reset button, a switch to turntable or a Dash figure update writes as it was handed, so the graph's `plotly_relayout` and `plotly_afterplot` events rewrite that record to the roll-locked pose the renderer already draws; a replot can also build the scene a new view controller from that record, a projection switch among them, so each replot re-holds the lock on whichever view controller the scene now has. Rotation is the whole of what the replaced turn has to cover: the controller's pan carries the eye and the center together and its wheel zoom moves the eye along the view direction, so both leave the camera frame - and the lock - exactly as they found it.
 //
 // The module is a single expression: the named factory `createRollLockCallback`, which `_register_dash_roll_lock_callback` calls with the graph id and the unit-length axis, and whose result, the named `rollLockCallback`, is the Dash clientside callback.
 (function createRollLockCallback(graphId, axis) {
@@ -66,6 +66,9 @@
         for (const controller of view._controllerList) {
             holdControllerRollLock(controller);
         }
+        // A view controller a replot built from a rolled stored camera draws that camera until something writes it a new pose; writing its own pose back through the wrapped controllers puts it on the lock from its next frame.
+        view.recalcMatrix(view.lastT());
+        view.lookAt(view.lastT(), view.computedEye.slice(), view.computedCenter.slice(), view.computedUp.slice());
 
         // Turns the camera by one drag step, as yaw about axis plus pitch about the camera right axis, written as roll-locked sub-step keyframes at evenly spaced times from the view's newest keyframe to the step's time, each turned from the pose the view holds at its own time. The pure roll a horizontal wheel scroll hands in as `roll` is dropped. Right after a switch to turntable the newest keyframe sits half a second ahead, and sub-steps timed before it are dropped by the controllers the way Plotly drops any write older than its newest keyframe.
         function rollLockedRotate(time, yaw, pitch, roll) {
@@ -95,13 +98,12 @@
     function holdControllerRollLock(controller) {
         const controllerLookAt = controller.lookAt.bind(controller);
 
-        // Writes one pose into the controller's keyframes on the lock, taking the same optional eye, center and up the controller's own lookAt does and filling a missing one from the controller's pose at that time. Only the orbital controller keeps its rotation as quaternion keyframes; the turntable controller keeps angles and the matrix controller whole matrices, which have no second hemisphere to land in.
+        // Writes one pose into the controller's keyframes on the lock, taking the same optional eye and center the controller's own lookAt does and filling a missing one from the controller's pose at that time; the written up is the one thing the lock never keeps, since it re-derives the up from the view direction and the axis. Only the orbital controller keeps its rotation as quaternion keyframes; the turntable controller keeps angles and the matrix controller whole matrices, which have no second hemisphere to land in.
         function rollLockedLookAt(time, eye, center, up) {
             controller.recalcMatrix(time);
             const writtenEye = (eye || controller.computedEye).slice();
             const writtenCenter = (center || controller.computedCenter).slice();
-            const writtenUp = (up || controller.computedUp).slice();
-            const rollLockedPose = resolveRollLockedPose(writtenEye, writtenCenter, writtenUp);
+            const rollLockedPose = resolveRollLockedPose(writtenEye, writtenCenter);
             const rotation = controller.rotation;
             const keyframeCount = rotation === undefined ? 0 : rotation._time.length;
             controllerLookAt(time, rollLockedPose.eye, writtenCenter, rollLockedPose.up);
@@ -130,7 +132,7 @@
         }
     }
 
-    // Subscribes the lock to graphDiv's plotly_relayout event once, so the camera the layout stores - which a relayout, a reset-camera button or a switch to turntable writes as it was handed - is rewritten to the roll-locked pose the renderer already draws. The event hands the lock the camera it wrote rather than the scene's, since the wrapped controllers have already locked the one the scene reports.
+    // Subscribes the lock to graphDiv's plotly_relayout and plotly_afterplot events once, so the camera the layout stores - which a relayout, a reset-camera button, a switch to turntable or a Dash figure update writes as it was handed - is rewritten to the roll-locked pose the renderer already draws. A relayout event hands the lock the camera it wrote rather than the scene's, since the wrapped controllers have already locked the one the scene reports.
     function subscribeRollLock(graphDiv) {
         if (graphDiv.__rollLock !== undefined) {
             return;
@@ -147,6 +149,18 @@
         }
 
         graphDiv.on("plotly_relayout", rewriteWrittenCamera);
+
+        // Re-holds the lock after each replot, since a Dash figure update reports its camera to no relayout event, and a projection switch rebuilds the scene's view controller from the camera the layout stores. The event fires after the replot rebuilt the full layout from the layout input, so the camera read there is the one this replot stored.
+        function rewriteReplottedCamera() {
+            const mounted = resolveMountedScene();
+            if (mounted === null) {
+                return;
+            }
+            holdRollLock(mounted.scene.camera.view);
+            applyRollLock(graphDiv, graphDiv._fullLayout.scene.camera);
+        }
+
+        graphDiv.on("plotly_afterplot", rewriteReplottedCamera);
     }
 
     // Resolves the camera one relayout event wrote into graphDiv's layout, or null when it wrote none. A drag, pan or zoom ends by saving its camera into the layout input and into a full layout object the graph has since replaced, and reports that camera whole in the event. A `Plotly.relayout` that writes the camera by key path - a reset-camera button, this module's own correction - rebuilds the full layout, and so does a rotation-mode switch, whose switch to turntable also re-seats the stored camera's up on world +Z without reporting it; both are read from the full layout. An event that writes neither - the empty relayout a wheel zoom opens with - leaves the stored camera as it was, and the full layout, which such an event need not rebuild, can still hold one a drag has since replaced.
@@ -167,7 +181,7 @@
         const eye = recordToVector(camera.eye);
         const center = recordToVector(camera.center);
         const up = recordToVector(camera.up);
-        const rollLockedPose = resolveRollLockedPose(eye, center, up);
+        const rollLockedPose = resolveRollLockedPose(eye, center);
         const upDistance = vectorSubtract(up, rollLockedPose.up);
         if (vectorDot(upDistance, upDistance) <= ROLL_LOCK_VIOLATION_EPSILON) {
             return;
@@ -201,29 +215,13 @@
         return { eye: vectorAdd(center, turnedOffset), up: turnedUp };
     }
 
-    // Resolves the pose the lock holds a camera at: its banded eye, and the up vector the view direction from that eye and axis determine.
-    function resolveRollLockedPose(eye, center, up) {
-        const rollLockedEye = resolveRollLockedEye(eye, center, up);
+    // Resolves the pose the lock holds a camera at: its eye where it was written, banded off the poles, and the up vector the view direction from that eye and axis determine, whatever up was written. A camera written with its up on the far side of the axis therefore keeps its eye and is turned upright about its own view direction.
+    function resolveRollLockedPose(eye, center) {
+        const bandedOffset = resolveBandedOffset(vectorSubtract(eye, center));
+        const rollLockedEye = vectorAdd(center, bandedOffset);
         const forward = vectorNormalize(vectorSubtract(center, rollLockedEye));
         const right = vectorNormalize(vectorCross(forward, axis));
         return { eye: rollLockedEye, up: vectorNormalize(vectorCross(right, forward)) };
-    }
-
-    // Resolves the eye the lock holds a camera at: the banded eye where the camera up sits on axis's own side, and the pole the turn entered from where it does not. The up hanging on the far side of axis is what says a turn carried the view through a pole, since a locked camera's up sits on axis's own side by construction.
-    function resolveRollLockedEye(eye, center, up) {
-        const bandedOffset = resolveBandedOffset(vectorSubtract(eye, center));
-        if (vectorDot(up, axis) >= 0) {
-            return vectorAdd(center, bandedOffset);
-        }
-        // Past the pole the re-derived right axis points the opposite way, so reversing it recovers the meridian the turn entered the pole on.
-        const entryRight = vectorScale(vectorNormalize(vectorCross(vectorScale(bandedOffset, -1), axis)), -1);
-        const entryMeridian = vectorNormalize(vectorCross(entryRight, axis));
-        const poleOffset = buildOffset(
-            Math.sqrt(vectorDot(bandedOffset, bandedOffset)),
-            vectorDot(bandedOffset, axis) > 0 ? ROLL_LOCK_POLAR_ANGLE_EPSILON : Math.PI - ROLL_LOCK_POLAR_ANGLE_EPSILON,
-            entryMeridian,
-        );
-        return vectorAdd(center, poleOffset);
     }
 
     // Bands an eye offset's polar angle off axis into [ROLL_LOCK_POLAR_ANGLE_EPSILON, pi - ROLL_LOCK_POLAR_ANGLE_EPSILON], rebuilding it at the banded angle on its own meridian. Every camera right axis this module derives comes from an offset this has already banded, so the degeneracy that derivation would hit on an eye sitting exactly on the axis is unreachable rather than guarded against afterwards.
@@ -233,10 +231,14 @@
         if (polarAngle >= ROLL_LOCK_POLAR_ANGLE_EPSILON && polarAngle <= Math.PI - ROLL_LOCK_POLAR_ANGLE_EPSILON) {
             return offset;
         }
-        return buildOffset(
-            radius,
-            Math.min(Math.max(polarAngle, ROLL_LOCK_POLAR_ANGLE_EPSILON), Math.PI - ROLL_LOCK_POLAR_ANGLE_EPSILON),
-            resolveMeridian(offset),
+        const meridian = resolveMeridian(offset);
+        const bandedPolarAngle = Math.min(
+            Math.max(polarAngle, ROLL_LOCK_POLAR_ANGLE_EPSILON),
+            Math.PI - ROLL_LOCK_POLAR_ANGLE_EPSILON,
+        );
+        return vectorAdd(
+            vectorScale(axis, radius * Math.cos(bandedPolarAngle)),
+            vectorScale(meridian, radius * Math.sin(bandedPolarAngle)),
         );
     }
 
@@ -247,14 +249,6 @@
             return ROLL_LOCK_FALLBACK_MERIDIAN;
         }
         return vectorNormalize(meridian);
-    }
-
-    // Builds the eye offset radius away from the center at polarAngle off axis, on meridian.
-    function buildOffset(radius, polarAngle, meridian) {
-        return vectorAdd(
-            vectorScale(axis, radius * Math.cos(polarAngle)),
-            vectorScale(meridian, radius * Math.sin(polarAngle)),
-        );
     }
 
     // Rotates a vector about a unit axis by an angle in radians, right-handed (Rodrigues' rotation), the way a drag's yaw and pitch turn the eye offset.
