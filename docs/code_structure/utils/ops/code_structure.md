@@ -49,9 +49,9 @@ chunked_matmul.py
 └── def _matmul_chunk(large: torch.Tensor, small: torch.Tensor, out: torch.Tensor, direct: bool) -> None
     ├── # Writes large @ small into out for one row-chunk: direct uses out= with no intermediate (out must not alias large); else a temp-copy assignment that is autograd-safe and the only correct form when out aliases large.
     ├── if direct
-    │   └── impls torch.matmul(large, small, out=out)
+    │   └── impls torch.matmul(large, small, out=out)  # one batched product, broadcast over small's leading axes
     └── else
-        └── impls out[:] = large @ small
+        └── impls out[...] = large @ small  # the same broadcast product through a temporary
 ```
 
 `utils/ops/dict_ops.py`
