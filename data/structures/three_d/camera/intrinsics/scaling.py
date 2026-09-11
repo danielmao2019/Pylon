@@ -12,9 +12,7 @@ def rescale_intr_params(
 ) -> Dict[str, Union[int, float, torch.Tensor]]:
     """Restate image-plane params under a per-axis unit factor.
 
-    This changes the unit for the focal params and for the cx / cy coordinate or
-    offset params; origin translations and axis reversals are handled by the
-    convention spokes.
+    This changes the unit for the focal params and for the cx / cy coordinate or offset params; origin translations and axis reversals are handled by the convention spokes.
 
     Args:
         params: The model's named intrinsics params; carries scalar ``cx`` / ``cy`` / ``h`` / ``w`` plus the model's focal key(s) (``f`` for simple_pinhole, ``fx`` / ``fy`` otherwise).
@@ -23,8 +21,7 @@ def rescale_intr_params(
         unit_y: Vertical-axis scalar factor every vertical length is restated by.
 
     Returns:
-        A new params dict whose focal and ``cx`` / ``cy`` params are restated in
-        the target unit, with ``h`` and ``w`` left where they are.
+        A new params dict whose focal and ``cx`` / ``cy`` params are restated in the target unit, with ``h`` and ``w`` left where they are.
     """
     params = dict(params)
     params["cx"] = unit_x * params["cx"]
@@ -92,9 +89,7 @@ def resolve_target_resolution(
         scale: Optional uniform factor, or a per-axis ``(sx, sy)`` pair, on the resolution the params already carry.
 
     Returns:
-        The target image resolution as a ``(height, width)`` pair of positive
-        ints, or of ``[B]`` int64 torch.Tensors when a factor is applied to
-        batched params, one side per camera.
+        The target image resolution as a ``(height, width)`` pair: positive ints when the resolution is given, and int64 torch.Tensors shaped like the params' ``h`` / ``w`` (``[]`` for one camera, ``[B]`` for a batch, one side per camera) when a factor is applied.
     """
 
     def _validate_inputs() -> None:
@@ -269,7 +264,5 @@ def resolve_target_resolution(
             "Expected a scale that keeps both image sides positive. "
             f"{height=} {width=} {scale=}"
         )
-        if height.ndim == 0:
-            return int(height), int(width)
         return height, width
     assert 0, "Should not reach here. " f"{resolution=} {scale=}"

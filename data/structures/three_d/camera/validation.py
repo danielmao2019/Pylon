@@ -21,9 +21,7 @@ def validate_cameras_attributes(
 ) -> None:
     """Validate the batched component pair, its parallel metadata, device, and dtype for Cameras.
 
-    Single-entry validation for ``Cameras.__init__``; the component checks are
-    shape-agnostic, so the batched pair takes the same ones a single camera does,
-    plus the cross-component agreement on the leading batch axis.
+    Single-entry validation for ``Cameras.__init__``; the component checks are shape-agnostic, so the batched pair takes the same ones a single camera does, plus the cross-component agreement on the leading batch axis.
 
     Args:
         intrinsics: Candidate batched CameraIntrinsics whose params are each ``[B]`` torch.Tensor.
@@ -50,17 +48,12 @@ def validate_cameras_attributes(
         f"leading batch axis, i.e. shape [B, 4, 4]. {extrinsics.extrinsics.shape=}"
     )
     batch_size = extrinsics.extrinsics.shape[0]
-    assert len(intrinsics.params) > 0, (
-        "Expected the batched CameraIntrinsics to carry at least one param. "
-        f"{list(intrinsics.params.keys())=}"
-    )
     for key, value in intrinsics.params.items():
         assert value.shape == (batch_size,), (
             "Expected every batched CameraIntrinsics param to carry the same leading "
             f"batch axis as the CameraExtrinsics. {key=} {value.shape=} {batch_size=}"
         )
 
-    # __init__ fills them in after this runs, so an unnamed batch arrives here as None.
     assert names is None or len(names) == batch_size, (
         "Expected the per-camera names to be None or parallel to the batch axis. "
         f"{names=} {batch_size=}"
