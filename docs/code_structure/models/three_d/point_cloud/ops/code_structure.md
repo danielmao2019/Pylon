@@ -13,45 +13,51 @@ apply_transform.py
 ├── def apply_transform(points: Union[np.ndarray, torch.Tensor], transform: Union[list, np.ndarray, torch.Tensor], inplace: bool = False, max_divide: int = 0, num_divide: Optional[int] = None) -> Union[np.ndarray, torch.Tensor]
 │   ├── # Applies a 4x4 transform to points in homogeneous coordinates, preserving the input's type and batch shape, writing the result back into points when inplace.
 │   ├── def _validate_inputs [local]
+│   │   ├── assert points is an np.ndarray or a torch.Tensor
+│   │   ├── assert points is [N, 3], or [1, N, 3] carrying one leading batch axis of one
+│   │   ├── assert transform is a list, an np.ndarray or a torch.Tensor
+│   │   ├── assert transform is [4, 4], or a [..., 4, 4] stack carrying leading axes
+│   │   ├── assert inplace is a bool
 │   │   └── if inplace
 │   │       └── assert transform carries no leading axes  # they yield one copy of the points per entry, leaving no single buffer to write back into
-│   ├── calls _validate_inputs
-│   ├── calls _normalize_points
-│   ├── calls _normalize_transform
-│   ├── assert points_normalized.dtype == transform_normalized.dtype  # the normalized points and transform must share one dtype
-│   ├── if isinstance(points_normalized, np.ndarray)
-│   │   ├── impls append a ones column, np.matmul by the transform transposed over its trailing two axes, drop the homogeneous coordinate  # broadcasts over the transform's leading axes: [..., 4, 4] yields [..., N, 3], [4, 4] still [N, 3]
-│   │   ├── if points_was_batched
-│   │   │   └── impls add back the batch dimension
+│   ├── calls _validate_inputs()
+│   ├── def _normalize_inputs [local]
+│   │   ├── calls _normalize_points(points=points)
+│   │   ├── impls points, was_batched = the returned values from _normalize_points  # an unbatched [N, 3], a view of the caller's array when a batch axis was squeezed
+│   │   ├── calls _normalize_transform(transform=transform, target_type=type(points), target_dtype=points.dtype, target_device=the points' device when a torch.Tensor, else None)
+│   │   ├── impls transform = the [..., 4, 4] transform it returned, in the points' own type, dtype and device
+│   │   ├── assert transform.dtype == points.dtype  # the output check: the normalized points and transform share one dtype
+│   │   └── return points, was_batched, transform
+│   ├── calls _normalize_inputs(points=points, transform=transform)
+│   ├── impls points, was_batched, transform = the returned values from _normalize_inputs
+│   ├── if isinstance(points, np.ndarray)
+│   │   ├── impls transformed = points with a ones column appended, np.matmul'd by transform transposed over its trailing two axes, the homogeneous coordinate dropped  # impls-node-one-step:skip; broadcasts over the transform's leading axes: [..., 4, 4] yields [..., N, 3], [4, 4] still [N, 3]
 │   │   ├── if inplace
-│   │   │   ├── impls copy the transformed points into the original points
-│   │   │   └── return  # the original numpy points
-│   │   └── return  # the transformed numpy points
+│   │   │   ├── impls copy transformed into points  # points is the caller's array, or a view of it when a batch axis was squeezed, so the write lands in the caller's own buffer
+│   │   │   └── impls transformed = points
+│   │   ├── if was_batched
+│   │   │   └── impls transformed = transformed with the batch dimension added back
+│   │   └── return transformed  # the numpy points, the caller's own array when inplace and unbatched
 │   └── else
-│       ├── impls points_h = the points with a ones homogeneous column appended
-│       ├── calls chunked_matmul(large=points_h, small=transform_normalized transposed over its trailing two axes, max_divide=max_divide, num_divide=num_divide)  # chunked over the point rows, broadcast over the transform's leading axes: [..., 4, 4] yields [..., N, 4], [4, 4] still [N, 4]
-│       ├── impls drop the homogeneous coordinate from the chunked-matmul result
-│       ├── if points_was_batched
-│       │   └── impls add back the batch dimension
+│       ├── impls points_h = points with a ones homogeneous column appended
+│       ├── calls chunked_matmul(large=points_h, small=transform transposed over its trailing two axes, max_divide=max_divide, num_divide=num_divide)  # chunked over the point rows, broadcast over the transform's leading axes: [..., 4, 4] yields [..., N, 4], [4, 4] still [N, 4]
+│       ├── impls transformed = the chunked-matmul result with the homogeneous coordinate dropped
 │       ├── if inplace
-│       │   ├── impls copy the transformed points into the original points
-│       │   └── return  # the original torch points
-│       └── return  # the transformed torch points
+│       │   ├── impls copy transformed into points  # points is the caller's tensor, or a view of it when a batch axis was squeezed, so the write lands in the caller's own buffer
+│       │   └── impls transformed = points
+│       ├── if was_batched
+│       │   └── impls transformed = transformed with the batch dimension added back
+│       └── return transformed  # the torch points, the caller's own tensor when inplace and unbatched
 ├── def _normalize_points(points: Union[np.ndarray, torch.Tensor]) -> Tuple[Union[np.ndarray, torch.Tensor], bool]
 │   ├── # Normalizes points to unbatched (N, 3) while preserving type, reporting whether the input was batched.
 │   ├── if points.ndim == 2
-│   │   ├── assert points.shape[1] == 3  # points must have 3 coordinates
 │   │   ├── impls normalized_points = points
 │   │   ├── impls was_batched = False
 │   │   └── return normalized_points, was_batched
-│   ├── elif points.ndim == 3
-│   │   ├── assert points.shape[0] == 1  # batch size must be 1
-│   │   ├── assert points.shape[2] == 3  # points must have 3 coordinates
-│   │   ├── impls normalized_points = points squeezed on batch axis
-│   │   ├── impls was_batched = True
-│   │   └── return normalized_points, was_batched
 │   └── else
-│       └── raise ValueError
+│       ├── impls normalized_points = points squeezed on batch axis  # a view, so an inplace write through it lands in the caller's array
+│       ├── impls was_batched = True
+│       └── return normalized_points, was_batched
 ├── def _normalize_transform(transform: Union[list, np.ndarray, torch.Tensor], target_type: type, target_dtype: Union[torch.dtype, np.dtype], target_device: Optional[Union[str, torch.device]]) -> Union[np.ndarray, torch.Tensor]
 │   ├── # Normalizes a transform to the target type/dtype/device, leaving its leading axes as they came in.
 │   ├── if target_type == np.ndarray
@@ -60,8 +66,7 @@ apply_transform.py
 │   │   └── calls _normalize_transform_torch
 │   ├── else
 │   │   └── raise ValueError
-│   ├── assert transform.ndim >= 2 and tuple(transform.shape[-2:]) == (4, 4)  # transform must be [4, 4], optionally with leading batch axes
-│   └── return  # the [..., 4, 4] transform
+│   └── return  # the [..., 4, 4] transform, its leading axes as they came in
 ├── def _normalize_transform_numpy(transform: Union[list, np.ndarray, torch.Tensor], target_dtype: np.dtype) -> np.ndarray
 │   ├── # Converts a list or tensor transform into a numpy array of the target dtype.
 │   ├── if transform is a list
