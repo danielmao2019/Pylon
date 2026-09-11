@@ -1,7 +1,6 @@
 """Base display class for point cloud registration datasets with built-in display methods.
 
-This module provides the BasePCRDataset class that inherits from BaseDataset
-and includes type-specific display methods for point cloud registration datasets.
+This module provides the BasePCRDataset class that inherits from BaseDataset and includes type-specific display methods for point cloud registration datasets.
 """
 
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -34,13 +33,10 @@ from models.three_d.point_cloud.ops.set_ops.symmetric_difference import (
 class BasePCRDataset(BaseDataset):
     """Base display class for point cloud registration datasets.
 
-    This class provides the standard INPUT_NAMES, LABEL_NAMES, and display_datapoint
-    method for point cloud registration datasets. Concrete dataset classes should inherit
-    from this class to automatically get appropriate display functionality.
+    This class provides the standard INPUT_NAMES, LABEL_NAMES, and display_datapoint method for point cloud registration datasets. Concrete dataset classes should inherit from this class to automatically get appropriate display functionality.
 
     Expected data structure:
-    - inputs: {'src_pc': PointCloud, 'tgt_pc': PointCloud}
-      OR: {'points': List[torch.Tensor], 'lengths'/'stack_lengths': List[torch.Tensor]} (batched format)
+    - inputs: {'src_pc': PointCloud, 'tgt_pc': PointCloud} OR: {'points': List[torch.Tensor], 'lengths'/'stack_lengths': List[torch.Tensor]} (batched format)
     - labels: {'transform': torch.Tensor}
     """
 
@@ -216,7 +212,7 @@ class BasePCRDataset(BaseDataset):
             ), f"Transform must reduce to a single 4x4 matrix to have one rotation angle and translation magnitude to display, got {transform.shape=}"
             return transform
 
-        transform = _normalize_inputs(transform)
+        transform = _normalize_inputs(transform=transform)
 
         # Compute rotation angle and translation magnitude
         rotation_matrix = transform[:3, :3]
