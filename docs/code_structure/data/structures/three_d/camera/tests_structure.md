@@ -115,6 +115,19 @@ test_conventions.py
 │   ├── impls assert the source fx param receives a gradient
 │   ├── impls assert the source cam2world tensor receives a gradient
 │   └── return
+├── def test_cameras_device_and_dtype_follow_the_given_placement
+│   ├── # A Cameras takes its device and dtype from the ones it is handed, bringing both components to them, and falls back to its extrinsics' own only for one left unset.
+│   ├── calls _build_extrinsics_matrix
+│   ├── calls build_camera_intrinsics(model="pinhole", params=one float32 pinhole param set as [1] columns, intr_convention="standard", device="cpu")
+│   ├── calls CameraExtrinsics(extrinsics=the matrix it built as a float32 [1, 4, 4] stack, extr_convention="standard", device="cpu")
+│   ├── calls Cameras(intrinsics=intrinsics, extrinsics=extrinsics)
+│   ├── impls assert the batch's device and dtype are its extrinsics' own, cpu and float32
+│   ├── calls Cameras(intrinsics=intrinsics, extrinsics=extrinsics, dtype=torch.float64)
+│   ├── impls assert the batch's dtype is float64, its extrinsics matrix and every intrinsics param are float64, and its device is still the extrinsics' cpu
+│   ├── if cuda is available
+│   │   ├── calls Cameras(intrinsics=intrinsics, extrinsics=extrinsics, device="cuda")
+│   │   └── impls assert the batch's device is cuda:0, the device its extrinsics matrix and intrinsics params now sit on, and its dtype is still float32
+│   └── return
 ├── def test_transform_extrinsics_normalizes_rotation_input
 │   ├── # CameraExtrinsics.transform_extrinsics accepts each validated rotation representation and normalizes it to the pose tensor's placement.
 │   ├── for each rotation in {a (3, 3) numpy array, a (3, 3) torch tensor, a length-3 nested numeric list}
