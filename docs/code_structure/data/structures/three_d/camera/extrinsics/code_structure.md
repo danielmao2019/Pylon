@@ -203,15 +203,15 @@ camera_extrinsics.py
 │       │   └── impls assert translation is a length-3 numeric array-like or a torch Tensor with shape (3,)
 │       ├── calls _validate_inputs
 │       ├── def _normalize_inputs [local]
-│       │   ├── impls scale = torch.as_tensor(scale, device=self._device, dtype=self._dtype)
+│       │   ├── impls scale = the given scale as a tensor on this extrinsics' device and dtype
 │       │   ├── impls asserts scale.shape == ()
 │       │   ├── impls asserts scale.device == self._device
 │       │   ├── impls asserts scale.dtype == self._dtype
-│       │   ├── impls rotation = torch.as_tensor(rotation, device=self._device, dtype=self._dtype)
+│       │   ├── impls rotation = the given rotation as a tensor on this extrinsics' device and dtype
 │       │   ├── impls asserts rotation.shape == (3, 3)
 │       │   ├── impls asserts rotation.device == self._device
 │       │   ├── impls asserts rotation.dtype == self._dtype
-│       │   ├── impls translation = torch.as_tensor(translation, device=self._device, dtype=self._dtype)
+│       │   ├── impls translation = the given translation as a tensor on this extrinsics' device and dtype
 │       │   ├── impls asserts translation.shape == (3,)
 │       │   ├── impls asserts translation.device == self._device
 │       │   ├── impls asserts translation.dtype == self._dtype
