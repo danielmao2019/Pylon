@@ -337,16 +337,22 @@ camera_intrinsics.py
 │   ├── def transform_intrinsics(self, transform: torch.Tensor, resolution: Tuple[Union[int, torch.Tensor], Union[int, torch.Tensor]]) -> "CameraIntrinsics"
 │   │   ├── # Return this CameraIntrinsics restated onto another image by a pixel-frame affine, the raster that image is named alongside it because a 3x3 carries no size of its own.
 │   │   ├── def _validate_inputs [local]
-│   │   │   ├── impls assert transform is a [..., 3, 3] float32 whose last row is [0, 0, 1]
+│   │   │   ├── impls assert transform is a [..., 3, 3] floating tensor whose last row is [0, 0, 1]
 │   │   │   └── impls assert resolution is an (h, w) pair of positive integer-valued scalars or [B] tensors  # a batch scales each camera's own raster, so the sides differ per camera
 │   │   ├── calls _validate_inputs
-│   │   ├── calls transform_intr_convention(params=self._params, model=type(self).MODEL, source_intr_convention=self._intr_convention, target_intr_convention="standard")  # -> params, in pixels; an affine between two rasters composes only with a K stated in them
-│   │   ├── impls K = transform @ the [..., 3, 3] assembled from self.fx, self.fy and params' cx, cy  # impls-node-one-step:skip; the per-model accessors, since simple_pinhole states its two focals as one f
-│   │   ├── if type(self).MODEL == "simple_pinhole"
-│   │   │   └── impls assert K[..., 0, 0] == K[..., 1, 1]  # one shared f holds one ratio, so an affine scaling the axes apart leaves this model nothing to state the second in
-│   │   ├── impls params = this model's own focal and cx / cy params read back off K, with h, w = resolution  # impls-node-one-step:skip
-│   │   ├── calls transform_intr_convention(params=params, model=type(self).MODEL, source_intr_convention="standard", target_intr_convention=self._intr_convention)  # -> params, back on the frame this intrinsics states them in
-│   │   ├── impls intrinsics = type(self)(params=params, intr_convention=self._intr_convention)
+│   │   ├── def _normalize_inputs [local]
+│   │   │   ├── impls transform = transform moved to self._device and self._dtype
+│   │   │   ├── impls resolution = its h and w each as a tensor on self._device and self._dtype
+│   │   │   └── return transform, resolution
+│   │   ├── calls _normalize_inputs(transform=transform, resolution=resolution)
+│   │   ├── impls transform, resolution = the returned values from _normalize_inputs
+│   │   ├── calls self.to(intr_convention="standard")  # -> standard, this camera in pixels; an affine between two rasters composes only with a K stated in them
+│   │   ├── impls K = transform @ the [..., 3, 3] assembled from standard.fx, standard.fy, standard.cx and standard.cy  # impls-node-one-step:skip; the subclass accessors, so every model hands over its focals through the one API
+│   │   ├── calls self._focal_params(fx=K[..., 0, 0], fy=K[..., 1, 1])  # -> params, this model's own focal keys for the transformed pair
+│   │   ├── impls params cx, cy = K[..., 0, 2], K[..., 1, 2]
+│   │   ├── impls params h, w = resolution's h, w broadcast to K's leading batch shape  # a single raster names the same sides for every camera of a batch
+│   │   ├── impls transformed = type(self)(params=params, intr_convention="standard")
+│   │   ├── calls transformed.to(intr_convention=self._intr_convention)  # -> intrinsics, back on the frame this camera states its params in
 │   │   └── return intrinsics
 │   ├── def cx(self) -> torch.Tensor  # @property
 │   │   ├── # The horizontal principal-point coordinate params["cx"].
@@ -361,6 +367,8 @@ camera_intrinsics.py
 │   │   └── # Abstract: the horizontal focal length / scale, whose params key differs per model.
 │   ├── def fy(self) -> torch.Tensor  # @property [abstract]
 │   │   └── # Abstract: the vertical focal length / scale, whose params key differs per model.
+│   ├── def _focal_params(cls, fx: torch.Tensor, fy: torch.Tensor) -> Dict[str, torch.Tensor]  # @classmethod [abstract]
+│   │   └── # Abstract: the inverse of the fx / fy accessors, stating a horizontal and a vertical focal in this model's own focal params.
 │   ├── def project(self, points_camera: torch.Tensor, inplace: bool = False) -> torch.Tensor   [abstract]
 │   │   └── # Abstract: map camera-space 3D points [..., 3] to 2D image points [..., 2] under this model, each param unsqueezed against the point axis so a batch of cameras projects in one op.
 │   └── def to(self, device: Optional[Union[str, torch.device]] = None, dtype: Optional[torch.dtype] = None, non_blocking: bool = False, copy: bool = False, intr_convention: Optional[str] = None) -> "CameraIntrinsics"
