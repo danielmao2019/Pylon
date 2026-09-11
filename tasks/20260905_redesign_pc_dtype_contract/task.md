@@ -178,6 +178,7 @@ goal: re-design pc dtype contract/provenance
       1. accepts a `meta_data` optional arg override.
       2. calls the `PointCloud.apply_meta_data` passing down the `meta_data` optional arg. e.g.:
          1. turns each multi-column field back into one field per output column, each named by the reverse mapping, so a cloud holding xyz becomes fields x, y and z.
+         2. brings a .las color recorded as uint16, with no override, back to uint16.
       3. passes that cloud to the per-format helpers.
 4. consumers/users of `PointCloud`:
    1. any consumer of PointCloud in Pylon should be adjusted to work with the new design of PointCloud and its I/O.
