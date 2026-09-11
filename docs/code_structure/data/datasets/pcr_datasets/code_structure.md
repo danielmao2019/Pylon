@@ -166,7 +166,7 @@ synthetic_transform_pcr_dataset.py
     │   └── raise RuntimeError  # no trial under self.max_trials produced an overlap in range
     └── def _generate(self, t1_pc_filepath: str, t2_pc_filepath: str, transform_matrix: torch.Tensor, idx: int) -> Tuple[PointCloud, PointCloud, Optional[float]]
         ├── # Runs one trial of that search, which is this transform posing the pair apart, the crop, and the overlap that survives it.
-        ├── impls meta_data = {'xyz': {'dtype': 'float32'}}  # the pose arithmetic below is single precision, and a load casts only losslessly, so stating the width is what refuses a source that is not already at it rather than quietly throwing precision away
+        ├── impls meta_data = {'xyz': {'dtype': 'float32', 'layout': ('0', '1', '2')}}  # the OFF meshes this dataset reads name none of their columns, and stating the single-precision width the pose arithmetic runs at refuses a source not already at it
         ├── calls load_point_cloud(t1_pc_filepath, meta_data=meta_data, device=self.device)
         ├── calls load_point_cloud(t2_pc_filepath, meta_data=meta_data, device=self.device)
         ├── impls t1_pc_data, t2_pc_data = the two clouds it loaded
@@ -197,9 +197,10 @@ threedmatch_dataset.py
 │   └── def _load_datapoint(self, idx: int) -> Tuple[Dict[str, PointCloud], Dict[str, torch.Tensor], Dict[str, Any]] [override]
 │       ├── # Loads one fragment pair and inverts the annotation's pose, since the metadata states target-to-source and a datapoint states source-to-target.
 │       ├── impls annotation = self.annotations[idx]
-│       ├── calls load_point_cloud(annotation['src_path'], device=self.device)
-│       ├── calls load_point_cloud(annotation['tgt_path'], device=self.device)
-│       ├── impls src_pc, tgt_pc = the two clouds it loaded
+│       ├── impls meta_data = {'xyz': {'layout': ('0', '1', '2')}}  # a fragment is a .pth block naming none of its columns, so the dataset states that its leading three are the coordinates
+│       ├── calls load_point_cloud(annotation['src_path'], meta_data=meta_data, device=self.device)
+│       ├── calls load_point_cloud(annotation['tgt_path'], meta_data=meta_data, device=self.device)
+│       ├── impls src_pc, tgt_pc = the two clouds it loaded, their coordinates narrowed to float32  # a load never narrows any more, so the dataset that wants the single-precision width its models train at does the narrowing itself
 │       ├── impls each of them gains a float32 ones column as feat
 │       ├── impls transform_tgt_to_src = the float32 [4, 4] the annotation's rotation and translation make  # impls-node-one-step:skip — one step; the "and" names what it is made of
 │       ├── impls transform = the inverse of transform_tgt_to_src
