@@ -2,7 +2,7 @@
 //
 // `orbit` leaves camera roll free. The panel's own view controller turns the camera about the camera's own screen axes, and successive yaw and pitch turns about a frame that each turn moves compose into roll, so the camera right axis drifts off the caller's axis; the same controller applies no pitch limit, so a drag that carries the view through a pole leaves the scene hanging upside down. This module holds both back: it keeps the camera right axis perpendicular to the caller's axis, and the camera up vector on that axis's own side.
 //
-// Every pose reaches the renderer as a keyframe one of the view's camera controllers - orbital, turntable, matrix - writes through its own `lookAt` into a time-indexed spline the renderer samples a frame or two behind. The view's `lookAt` hands a pose to every controller, and the rotation-mode setter the modebar's "Turntable rotation" button runs writes straight into the newly active controller, so the module wraps each controller's `lookAt` rather than the view's: a drag step, a `Plotly.relayout`, a reset-camera button, a replot and a rotation-mode switch all go into the keyframes already roll-locked, each orbital quaternion in the hemisphere of the keyframe before it, and the renderer never holds an unlocked keyframe to draw. A drag arrives one pointer move at a time through the view's rotation, which the module replaces with the roll-locked turn, written as sub-step keyframes a bounded turn apart so that the frames the renderer interpolates between them stay on the lock too. The locked pose keeps the eye a camera was written with, banded off the poles, and re-derives the up vector from its view direction and the axis whatever up was written, so a camera written upside down is turned upright about its own view direction rather than moved. The layout keeps its own record of the camera, which a relayout, a reset button, a switch to turntable or a Dash figure update writes as it was handed, so the graph's `plotly_relayout` and `plotly_afterplot` events rewrite that record to the roll-locked pose the renderer already draws; a replot can also build the scene a new view controller from that record, a projection switch among them, so each replot re-holds the lock on whichever view controller the scene now has. Rotation is the whole of what the replaced turn has to cover: the controller's pan carries the eye and the center together and its wheel zoom moves the eye along the view direction, so both leave the camera frame - and the lock - exactly as they found it.
+// Every pose reaches the renderer as a keyframe one of the view's camera controllers - orbital, turntable, matrix - writes through its own `lookAt` into a time-indexed spline the renderer samples a frame or two behind. The view's `lookAt` hands a pose to every controller, and the rotation-mode setter the modebar's "Turntable rotation" button runs writes straight into the newly active controller, so the module wraps each controller's `lookAt` rather than the view's: a drag step, a `Plotly.relayout`, a reset-camera button, a replot and a rotation-mode switch all go into the keyframes already roll-locked, each orbital quaternion in the hemisphere of the keyframe before it, and the renderer never holds an unlocked keyframe to draw. A drag arrives one pointer move at a time through the view's rotation, which the module replaces with the roll-locked turn, written as sub-step keyframes a bounded turn apart so that the frames the renderer interpolates between them stay on the lock too. The locked pose keeps the eye a camera was written with, banded off the poles, and re-derives the up vector from its view direction and the axis whatever up was written, so a camera written upside down is turned upright about its own view direction rather than moved. The layout keeps its own record of the camera, which a relayout, a reset button, a switch to turntable or a Dash figure update writes as it was handed, so the graph's `plotly_relayout` and `plotly_afterplot` events rewrite that record to the roll-locked pose the renderer already draws. A projection switch, on its own or inside a figure update, also builds the scene a new view controller from that record, which the scene's render loop draws before the replot reports itself, so the lock goes onto each view controller where the scene builds it, before it draws a frame, and each replot re-holds the lock on whichever view controller the scene has. Rotation is the whole of what the replaced turn has to cover: the controller's pan carries the eye and the center together and its wheel zoom moves the eye along the view direction, so both leave the camera frame - and the lock - exactly as they found it.
 //
 // The module is a single expression: the named factory `createRollLockCallback`, which `_register_dash_roll_lock_callback` calls with the graph id and the unit-length axis, and whose result, the named `rollLockCallback`, is the Dash clientside callback.
 (function createRollLockCallback(graphId, axis) {
@@ -35,7 +35,7 @@
             });
             return window.dash_clientside.no_update;
         }
-        holdRollLock(mounted.scene.camera.view);
+        holdSceneRollLock(mounted.scene);
         subscribeRollLock(mounted.graphDiv);
         applyRollLock(mounted.graphDiv, mounted.scene.getCamera());
         return window.dash_clientside.no_update;
@@ -57,6 +57,24 @@
         return { graphDiv: graphDiv, scene: graphDiv._fullLayout.scene._scene };
     }
 
+    // Holds the lock on one gl3d scene: on the view controller it turns now, and on each one it builds later from the camera the layout stores, before that controller draws a frame. A projection switch - on its own or inside a Dash figure update - disposes the scene's plot and builds it again, and the rebuilt plot's render loop draws the new view controller from its next animation frame, well before the replot reports itself through `plotly_afterplot`; so the lock goes onto that controller where the scene builds it, in `initializeGLCamera`, which gl3d's `initializeGLPlot` calls on the scene itself, so the scene's own property takes precedence over the method its prototype carries.
+    function holdSceneRollLock(scene) {
+        holdRollLock(scene.camera.view);
+        if (scene.rollLockHeld === true) {
+            return;
+        }
+        scene.rollLockHeld = true;
+        const sceneInitializeGLCamera = scene.initializeGLCamera.bind(scene);
+
+        // Builds the scene's camera through its own initializeGLCamera, as a projection switch does, then holds the lock on the new view controller in the same call.
+        function rollLockedInitializeGLCamera() {
+            sceneInitializeGLCamera();
+            holdRollLock(scene.camera.view);
+        }
+
+        scene.initializeGLCamera = rollLockedInitializeGLCamera;
+    }
+
     // Holds the lock on one gl3d scene's view controller, once per view controller, since a replotted graph arrives with a view controller of its own: wraps every camera controller's lookAt, and replaces the view's rotation with the roll-locked turn. The view's own rotation is never run: it turns the eye about the screen axes of a trackball, and on a pure-horizontal drag that alone moves the eye's polar angle to the lock axis, so keeping its eye and correcting only the up vector would fly the free trackball's path with a level horizon.
     function holdRollLock(view) {
         if (view.rollLockHeld === true) {
@@ -66,7 +84,7 @@
         for (const controller of view._controllerList) {
             holdControllerRollLock(controller);
         }
-        // A view controller a replot built from a rolled stored camera draws that camera until something writes it a new pose; writing its own pose back through the wrapped controllers puts it on the lock from its next frame.
+        // A view controller a scene built from a rolled stored camera draws that camera until something writes it a new pose; writing its own pose back through the wrapped controllers puts it on the lock from its first frame when the scene has just built it, and from its next one otherwise.
         view.recalcMatrix(view.lastT());
         view.lookAt(view.lastT(), view.computedEye.slice(), view.computedCenter.slice(), view.computedUp.slice());
 
@@ -150,13 +168,13 @@
 
         graphDiv.on("plotly_relayout", rewriteWrittenCamera);
 
-        // Re-holds the lock after each replot, since a Dash figure update reports its camera to no relayout event, and a projection switch rebuilds the scene's view controller from the camera the layout stores. The event fires after the replot rebuilt the full layout from the layout input, so the camera read there is the one this replot stored.
+        // Re-holds the lock after each replot, since a Dash figure update reports its camera to no relayout event, and a projection switch rebuilds the scene's view controller from the camera the layout stores; a scene the graph built anew, rather than rebuilt, is held here too. The event fires after the replot rebuilt the full layout from the layout input, so the camera read there is the one this replot stored.
         function rewriteReplottedCamera() {
             const mounted = resolveMountedScene();
             if (mounted === null) {
                 return;
             }
-            holdRollLock(mounted.scene.camera.view);
+            holdSceneRollLock(mounted.scene);
             applyRollLock(graphDiv, graphDiv._fullLayout.scene.camera);
         }
 
