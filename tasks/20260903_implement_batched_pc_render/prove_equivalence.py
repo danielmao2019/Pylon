@@ -1,4 +1,5 @@
 import argparse
+import hashlib
 import json
 import os
 import subprocess
@@ -119,6 +120,8 @@ def main() -> None:
         ).stdout
         == "",
         "devices": [str(device) for device in DEVICES],
+        # main's scatter is racy on cuda otherwise, so its reference is the deterministic one render_on_main.py switches on before it renders.
+        "main_deterministic_algorithms": True,
         "dod_1": {
             "required": {
                 "total": len(dod_1_required),
@@ -145,7 +148,8 @@ def main() -> None:
     # --- One summary line per tally
     print(
         f"commits: main {report['main_commit']}, branch {report['branch_commit']}, "
-        f"branch worktree clean {report['branch_worktree_clean']}, devices {report['devices']}"
+        f"branch worktree clean {report['branch_worktree_clean']}, devices {report['devices']}, "
+        f"main deterministic algorithms {report['main_deterministic_algorithms']}"
     )
     print(
         f"dod_1 required (point_size 1.0): {report['dod_1']['required']['equal']}/"
@@ -191,7 +195,7 @@ def load_or_build_scenes(output_dir: Path, force: bool) -> List[Dict[str, Any]]:
 
 
 def build_scenes() -> List[Dict[str, Any]]:
-    """Builds scenes that reach every regime the batching changes: many points per pixel, points culled behind or beside some cameras but not others, a render resolution the intrinsics are rescaled to, and all three pose conventions.
+    """Builds scenes that reach every regime the batching changes: many points per pixel, few enough points for CUDA's small-matrix kernels, points culled by some cameras only, rescaled intrinsics, and all three pose conventions.
 
     Args:
         None.
@@ -201,7 +205,7 @@ def build_scenes() -> List[Dict[str, Any]]:
     """
     generator = torch.Generator().manual_seed(0)
 
-    # --- The three scenes: a seeded cloud about the origin, how many cameras sit on a sphere of what radius around it, their base focal length, and the resolution the intrinsics state versus the one rendered
+    # --- The four scenes: a seeded cloud about the origin, how many cameras sit on a sphere of what radius around it, their base focal length, and the resolution the intrinsics state versus the one rendered
     collisions = {
         "name": "collisions",
         "xyz": torch.rand(20000, 3, generator=generator) * 2.0 - 1.0,
@@ -241,6 +245,20 @@ def build_scenes() -> List[Dict[str, Any]]:
         "stated_resolution": (90, 120),
         "resolution": (90, 120),
     }
+    # Few enough rows that CUDA picks its small-matrix kernels.
+    few_points = {
+        "name": "few_points",
+        "xyz": torch.rand(25, 3, generator=generator) * 2.0 - 1.0,
+        "rgb_dtype": torch.float32,
+        "model": "pinhole",
+        "intr_convention": "standard",
+        "extr_convention": "opencv",
+        "num_cameras": 3,
+        "radius": 4.0,
+        "focal": 37.5,
+        "stated_resolution": (30, 40),
+        "resolution": (30, 40),
+    }
 
     # The fixed axis change per pose convention: an opencv camera-to-world rotation right-multiplied by it is the same pose in that convention.
     axis_changes = {
@@ -248,7 +266,7 @@ def build_scenes() -> List[Dict[str, Any]]:
         "opengl": torch.diag(torch.tensor([1.0, -1.0, -1.0])),
         "standard": torch.tensor([[1.0, 0.0, 0.0], [0.0, 0.0, -1.0], [0.0, 1.0, 0.0]]),
     }
-    for scene in (collisions, culling, sparse):
+    for scene in (collisions, culling, sparse, few_points):
         # --- Per-point colours, labels and normals
         num_points = scene["xyz"].shape[0]
         rgb_dtype = scene.pop("rgb_dtype")
@@ -316,61 +334,21 @@ def build_scenes() -> List[Dict[str, Any]]:
             }
             for camera_index in range(num_cameras)
         ]
-    return [collisions, culling, sparse]
-
-
-def build_cameras(
-    scene: Dict[str, Any], camera_indices: List[int], device: torch.device
-) -> Cameras:
-    """Builds the batch of the named cameras of a scene, the one input only this branch's renderers take.
-
-    Args:
-        scene: A scene dict build_scenes returns, whose "cameras" hold per camera its 0-dim float32 cpu "params" (fx / fy / cx / cy / h / w stated in scene["intr_convention"]) and its [4, 4] float32 cpu camera-to-world "extrinsics" in scene["extr_convention"].
-        camera_indices: Indices into scene["cameras"] of the cameras to batch, in batch order.
-        device: Device the batch is built on.
-
-    Returns:
-        The Cameras on device whose intrinsics params are each [B] and whose extrinsics are [B, 4, 4] in scene["extr_convention"], B being len(camera_indices).
-    """
-    intrinsics = build_camera_intrinsics(
-        model=scene["model"],
-        params={
-            key: torch.stack(
-                [
-                    scene["cameras"][camera_index]["params"][key]
-                    for camera_index in camera_indices
-                ]
-            )
-            for key in scene["cameras"][camera_indices[0]]["params"]
-        },
-        intr_convention=scene["intr_convention"],
-        device=device,
-    )
-    extrinsics = CameraExtrinsics(
-        extrinsics=torch.stack(
-            [
-                scene["cameras"][camera_index]["extrinsics"]
-                for camera_index in camera_indices
-            ]
-        ),
-        extr_convention=scene["extr_convention"],
-        device=device,
-    )
-    return Cameras(intrinsics=intrinsics, extrinsics=extrinsics, device=device)
+    return [collisions, culling, sparse, few_points]
 
 
 def load_or_render_on_main(
     main_repo: Path, output_dir: Path, force: bool
 ) -> Dict[str, Any]:
-    """Returns main's renders of the scenes, from output_dir / "main_renders.pt" unless it is missing, was rendered at another main commit, or force asks for a rerender.
+    """Returns main's renders of the scenes, from output_dir / "main_renders.pt" unless it is missing, was rendered at another main commit or from other scenes, or force asks for a rerender.
 
     Args:
         main_repo: Absolute path of a checkout of this repo's main branch.
         output_dir: This task's outputs/ directory, already holding "scenes.pt".
-        force: Whether to rerender even when "main_renders.pt" exists at main's commit.
+        force: Whether to rerender even when "main_renders.pt" exists at main's commit and from these scenes.
 
     Returns:
-        The dict of "renders", mapping (device name, scene name, camera index, renderer, point size, return_mask) to main's cpu render (the map, or the (map, [H, W] bool mask) tuple when return_mask is True); "kernels", mapping each point size to main's [K, 2] int64 (y, x) kernel offsets; and "main_commit", the main commit that rendered them.
+        The dict of "renders", mapping (device name, scene name, camera index, renderer, point size, return_mask) to main's cpu render (the map, or the (map, [H, W] bool mask) tuple when return_mask is True); "kernels", mapping each point size to main's [K, 2] int64 (y, x) kernel offsets; "main_commit", the main commit that rendered them; and "scenes_digest", the hex sha256 of the "scenes.pt" bytes they were rendered from.
     """
     main_commit = subprocess.run(
         args=["git", "rev-parse", "HEAD"],
@@ -379,6 +357,7 @@ def load_or_render_on_main(
         text=True,
         check=True,
     ).stdout.strip()
+    scenes_digest = hashlib.sha256((output_dir / "scenes.pt").read_bytes()).hexdigest()
     main_branch_commit = subprocess.run(
         args=["git", "rev-parse", "main"],
         cwd=REPO_ROOT,
@@ -395,7 +374,10 @@ def load_or_render_on_main(
     renders_path = output_dir / "main_renders.pt"
     if renders_path.exists() and not force:
         cached = torch.load(renders_path)
-        if cached["main_commit"] == main_commit:
+        if (
+            cached["main_commit"] == main_commit
+            and cached["scenes_digest"] == scenes_digest
+        ):
             return cached
     subprocess.run(
         args=[
@@ -416,6 +398,7 @@ def load_or_render_on_main(
     )
     main_renders = torch.load(renders_path)
     main_renders["main_commit"] = main_commit
+    main_renders["scenes_digest"] = scenes_digest
     torch.save(main_renders, renders_path)
     return main_renders
 
@@ -522,7 +505,7 @@ def compare_batch_to_one_by_one(scenes: List[Dict[str, Any]]) -> List[Dict[str, 
         scenes: The scene dicts build_scenes returns.
 
     Returns:
-        One JSON-ready record per comparison: its "kind" ("prepare" for the prepared points and valid mask, "depth" for the depth entry's map and mask), "device", "scene", "camera" index, "renderer", "point_size" and "return_mask" (None for "prepare"); the "equal", "differing_elements", "nan_elements" and "max_abs_diff" compare_exactly returns for the batch's slice against the camera's own; and "required", always True.
+        One JSON-ready record per comparison: its "kind" ("prepare" for the prepared points and valid mask, "depth" for the depth entry's map and mask), "device", "scene", "camera" index, "renderer", "point_size" and "return_mask" (None for "prepare"); for "prepare" only, the "num_divide" both sides were prepared with (None, or 2 for four point chunks); the "equal", "differing_elements", "nan_elements" and "max_abs_diff" compare_exactly returns for the batch's slice against the camera's own; and "required", always True.
     """
     records = []
     for device, scene in ((device, scene) for device in DEVICES for scene in scenes):
@@ -532,32 +515,42 @@ def compare_batch_to_one_by_one(scenes: List[Dict[str, Any]]) -> List[Dict[str, 
             camera_indices=list(range(len(scene["cameras"]))),
             device=device,
         )
-        batch_points, batch_valid = prepare_points_for_rendering(
-            pc=pc, camera=cameras, resolution=scene["resolution"]
-        )
 
-        # --- The prepared points and valid mask of the batch against each camera's own
-        for camera_index in range(len(scene["cameras"])):
-            camera = build_camera(scene=scene, camera_index=camera_index, device=device)
-            points, valid = prepare_points_for_rendering(
-                pc=pc, camera=camera, resolution=scene["resolution"]
+        # --- The batch's prepared points and valid mask against each camera's own, whole and then in chunks, so a chunk's own row count reaches the small-matrix kernels
+        for num_divide in (None, 2):
+            batch_points, batch_valid = prepare_points_for_rendering(
+                pc=pc,
+                camera=cameras,
+                resolution=scene["resolution"],
+                num_divide=num_divide,
             )
-            comparison = compare_exactly(
-                output=(batch_points[camera_index], batch_valid[camera_index]),
-                reference=(points, valid),
-            )
-            records.append(
-                {
-                    "kind": "prepare",
-                    "device": str(device),
-                    "scene": scene["name"],
-                    "camera": camera_index,
-                    "renderer": None,
-                    "point_size": None,
-                    "return_mask": None,
-                    **comparison,
-                }
-            )
+            for camera_index in range(len(scene["cameras"])):
+                camera = build_camera(
+                    scene=scene, camera_index=camera_index, device=device
+                )
+                points, valid = prepare_points_for_rendering(
+                    pc=pc,
+                    camera=camera,
+                    resolution=scene["resolution"],
+                    num_divide=num_divide,
+                )
+                comparison = compare_exactly(
+                    output=(batch_points[camera_index], batch_valid[camera_index]),
+                    reference=(points, valid),
+                )
+                records.append(
+                    {
+                        "kind": "prepare",
+                        "device": str(device),
+                        "scene": scene["name"],
+                        "camera": camera_index,
+                        "renderer": None,
+                        "point_size": None,
+                        "return_mask": None,
+                        "num_divide": num_divide,
+                        **comparison,
+                    }
+                )
 
         # --- The depth entry over the batch against each camera on its own
         for point_size, return_mask in (
@@ -607,6 +600,46 @@ def compare_batch_to_one_by_one(scenes: List[Dict[str, Any]]) -> List[Dict[str, 
     for record in records:
         record["required"] = True
     return records
+
+
+def build_cameras(
+    scene: Dict[str, Any], camera_indices: List[int], device: torch.device
+) -> Cameras:
+    """Builds the batch of the named cameras of a scene, the one input only this branch's renderers take.
+
+    Args:
+        scene: A scene dict build_scenes returns, whose "cameras" hold per camera its 0-dim float32 cpu "params" (fx / fy / cx / cy / h / w stated in scene["intr_convention"]) and its [4, 4] float32 cpu camera-to-world "extrinsics" in scene["extr_convention"].
+        camera_indices: Indices into scene["cameras"] of the cameras to batch, in batch order.
+        device: Device the batch is built on.
+
+    Returns:
+        The Cameras on device whose intrinsics params are each [B] and whose extrinsics are [B, 4, 4] in scene["extr_convention"], B being len(camera_indices).
+    """
+    intrinsics = build_camera_intrinsics(
+        model=scene["model"],
+        params={
+            key: torch.stack(
+                [
+                    scene["cameras"][camera_index]["params"][key]
+                    for camera_index in camera_indices
+                ]
+            )
+            for key in scene["cameras"][camera_indices[0]]["params"]
+        },
+        intr_convention=scene["intr_convention"],
+        device=device,
+    )
+    extrinsics = CameraExtrinsics(
+        extrinsics=torch.stack(
+            [
+                scene["cameras"][camera_index]["extrinsics"]
+                for camera_index in camera_indices
+            ]
+        ),
+        extr_convention=scene["extr_convention"],
+        device=device,
+    )
+    return Cameras(intrinsics=intrinsics, extrinsics=extrinsics, device=device)
 
 
 def summarize_point_size_changes(main_renders: Dict[str, Any]) -> Dict[str, Any]:
