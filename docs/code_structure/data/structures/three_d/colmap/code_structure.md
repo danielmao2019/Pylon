@@ -14,8 +14,8 @@ convert.py
 ├── import torch
 ├── from data.structures.three_d.camera.cameras import Cameras
 ├── from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
-├── from data.structures.three_d.camera.extrinsics.rotation.quaternion import qvec2rotmat
-├── from data.structures.three_d.camera.intrinsics.camera_intrinsics import CameraIntrinsics, build_camera_intrinsics
+├── from data.structures.three_d.camera.extrinsics.rotation.quaternion import quat_to_rotmat
+├── from data.structures.three_d.camera.intrinsics.camera_intrinsics import build_camera_intrinsics
 ├── from data.structures.three_d.colmap.load import ColmapCamera, ColmapImage
 ├── from data.structures.three_d.nerfstudio.nerfstudio_data import NerfStudio_Data
 ├── DEFAULT_APPLIED_TRANSFORM  # a 3x4 np.float32 array sending (x, y, z) to (x, z, -y), the transform NerfStudio records as already applied to the poses it ships
@@ -100,25 +100,25 @@ convert.py
 ├── def _extract_cameras_from_colmap(colmap_images: Dict[int, ColmapImage], intrinsic_params: Dict[str, Any]) -> Cameras
 │   ├── # Poses one Cameras out of the COLMAP images, every frame carrying the model's single shared intrinsic set.
 │   ├── impls intrinsics_params: Dict[str, Union[int, float]] = the fx, fy, cx, cy, h, w of intrinsic_params under the names build_camera_intrinsics takes
-│   ├── impls intrinsics_list: List[CameraIntrinsics] = an empty list
-│   ├── impls extrinsics_list: List[CameraExtrinsics] = an empty list
-│   ├── impls camera_names: List[str] = an empty list
-│   ├── impls camera_ids: List[int] = an empty list
-│   ├── for each image_id, image in sorted(colmap_images.items())
-│   │   ├── calls qvec2rotmat(image.qvec)
-│   │   ├── impls rotation = the world-to-camera rotation that quaternion names
-│   │   ├── impls translation = image.tvec reshaped to a 3x1 column
-│   │   ├── impls world_to_camera = rotation beside translation, closed into 4x4 by a [0, 0, 0, 1] row
-│   │   ├── impls camera_to_world = the numpy inverse of world_to_camera
-│   │   ├── impls extrinsics_opencv = camera_to_world as a float32 torch tensor
-│   │   ├── calls build_camera_intrinsics(model="pinhole", params=intrinsics_params, intr_convention="standard", device=extrinsics_opencv.device)
-│   │   ├── impls intrinsics_list gains the intrinsics it built
-│   │   ├── calls CameraExtrinsics(extrinsics=extrinsics_opencv, extr_convention="opencv", device=extrinsics_opencv.device)
-│   │   ├── impls extrinsics_list gains the extrinsics it built
-│   │   ├── impls camera_names gains Path(image.name).stem
-│   │   └── impls camera_ids gains image_id
-│   ├── assert extrinsics_list is non-empty
-│   ├── calls Cameras(intrinsics=intrinsics_list, extrinsics=extrinsics_list, names=camera_names, ids=camera_ids, device=extrinsics_list[0].device)
+│   ├── impls sorted_images = the (image_id, image) pairs of colmap_images, sorted by image_id
+│   ├── impls camera_ids: List[int] = the image_id of each of sorted_images
+│   ├── impls camera_names: List[str] = Path(image.name).stem of each of sorted_images
+│   ├── impls quaternions = the [N, 4] np stack of each image's qvec  # the whole batch's pose stack is built in one op
+│   ├── impls translations = the [N, 3] np stack of each image's tvec
+│   ├── assert quaternions is floating  # both stacks are cast to float64 next
+│   ├── assert translations is floating
+│   ├── calls quat_to_rotmat(quaternions=quaternions as a float64 torch tensor)
+│   ├── impls rotation = the [N, 3, 3] world-to-camera rotations it returned, transposed  # COLMAP states the pose world-to-camera, so cam2world is its rigid inverse
+│   ├── impls translation = translations as a float64 torch tensor
+│   ├── impls camera_to_world = N float64 4x4 identities
+│   ├── impls camera_to_world's rotation blocks = rotation
+│   ├── impls camera_to_world's translation blocks = -(rotation @ translation)  # the rigid inverse's translation: the transposed rotation applied to the negated translation
+│   ├── impls extrinsics_opencv = camera_to_world as a float32 torch tensor
+│   ├── calls build_camera_intrinsics(model="pinhole", params=each intrinsics_params value broadcast to a float32 [N] tensor on extrinsics_opencv.device, intr_convention="standard", device=extrinsics_opencv.device)  # one COLMAP camera governs every image
+│   ├── impls intrinsics = the batched CameraIntrinsics it built
+│   ├── calls CameraExtrinsics(extrinsics=extrinsics_opencv, extr_convention="opencv", device=extrinsics_opencv.device)
+│   ├── impls extrinsics = the batched CameraExtrinsics it built
+│   ├── calls Cameras(intrinsics=intrinsics, extrinsics=extrinsics, names=camera_names, ids=camera_ids, device=extrinsics_opencv.device)
 │   ├── impls cameras = the camera set it built
 │   ├── calls cameras.to(extr_convention="opengl")
 │   └── return  # those cameras carried into the opengl extrinsics convention
