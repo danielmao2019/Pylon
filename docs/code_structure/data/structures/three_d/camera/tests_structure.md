@@ -74,6 +74,28 @@ test_conventions.py
 │   ├── calls cameras.transform_extrinsics(scale=that same factor, rotation=that same rotation, translation=that same offset)
 │   ├── impls assert every camera in the batch carries that same result
 │   └── return
+├── def test_extrinsics_constructor_and_to_apply_dtype_and_copy
+│   ├── # A CameraExtrinsics built with a dtype holds its matrix in that dtype, and its to() honours both a copy request and a dtype change.
+│   ├── calls _build_extrinsics_matrix
+│   ├── calls CameraExtrinsics(extrinsics=the matrix it built, extr_convention="standard", device="cpu", dtype=torch.float64)
+│   ├── impls assert the extrinsics and its matrix are float64
+│   ├── calls extrinsics.to(device="cpu", dtype=torch.float64, copy=True)
+│   ├── impls assert the copy's matrix lives in storage distinct from the source's
+│   ├── calls extrinsics.to(dtype=torch.float32)
+│   ├── impls assert the moved extrinsics and its matrix are float32
+│   └── return
+├── def test_transform_extrinsics_accepts_array_like_inputs_and_keeps_gradients
+│   ├── # transform_extrinsics takes its scale, rotation and translation as tensors or as array-likes, and a tensor similarity stays on the autograd path back to every input.
+│   ├── calls _build_extrinsics_matrix
+│   ├── impls matrix = the matrix it built as float64, marked requires_grad in place
+│   ├── impls scale, rotation, translation = a float64 scalar of two, a float64 (3, 3) identity and a float64 (3,) offset, each requiring grad
+│   ├── calls CameraExtrinsics(extrinsics=matrix, extr_convention="standard", device="cpu", dtype=torch.float64)
+│   ├── calls extrinsics.transform_extrinsics(scale=scale, rotation=rotation, translation=translation)
+│   ├── impls backpropagate the sum of the returned centre
+│   ├── impls assert the result is float64 and matrix, scale, rotation and translation each received a gradient
+│   ├── calls extrinsics.transform_extrinsics(scale=a numpy float64 scalar, rotation=a nested-list (3, 3) identity, translation=a (3,) tuple)
+│   ├── impls assert that result is float64
+│   └── return
 ├── def test_camera_and_cameras_to_keep_tensor_state_on_the_autograd_path
 │   ├── # Camera.to and Cameras.to each keep the tensor state handed to them on the autograd path, the moved camera and the moved collection backpropagating separately to the same source params and cam2world.
 │   ├── calls _build_extrinsics_matrix
