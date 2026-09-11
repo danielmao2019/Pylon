@@ -21,7 +21,7 @@ test_slpccd_dataset.py
 ├── def validate_labels(labels: Dict[str, Any]) -> None
 │   ├── # Pins the labels as exactly the class's own label names, holding a tensor change map.
 │   ├── assert labels is a dict keyed exactly by SLPCCDDataset.LABEL_NAMES, holding a torch.Tensor change map
-│   └── assert the change map carries one entry per point and is not all one value  # the label column sits past the coordinates under its own index, so a dataset that picked the wrong column would leave a change map of nothing rather than an error
+│   └── assert the change map carries one entry per point and is not all one value  # the label column reaches the change map only under the layout the dataset states for it, so a label column the dataset forgot to name would leave a change map of nothing rather than an error
 ├── def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None
 │   ├── # Pins the meta info as carrying the index the base adds and the two source paths.
 │   └── assert it holds idx matching datapoint_idx, plus both file paths
