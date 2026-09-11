@@ -147,7 +147,7 @@ conventions.py
 ├── def _pytorch3d_to_standard(params: Dict[str, Union[int, float, torch.Tensor]], model: str) -> Dict[str, Union[int, float, torch.Tensor]]
 │   ├── # The inbound half of the same frame, the three steps run in reverse.
 │   ├── if h or w is a torch.Tensor
-│   │   └── impls unit = torch.minimum(h, w) / 2
+│   │   └── impls unit = elementwise min(h, w) / 2, one unit per camera of the batch
 │   ├── else
 │   │   └── impls unit = min(h, w) / 2
 │   ├── calls _rescale_intr_params(params=params, model=model, unit_x=unit, unit_y=unit)
@@ -170,7 +170,7 @@ conventions.py
 ├── def _standard_to_pytorch3d(params: Dict[str, Union[int, float, torch.Tensor]], model: str) -> Dict[str, Union[int, float, torch.Tensor]]
 │   ├── # Restates pixel params on PyTorch3D's device frame, whose origin is the image's centre, whose x runs toward the left edge and y toward the top, and whose shorter side alone spans [-1, 1].
 │   ├── if h or w is a torch.Tensor
-│   │   └── impls unit = 2 / torch.minimum(h, w)  # the one frame here normalizing both axes by a single side, letting the longer one reach past $1$
+│   │   └── impls unit = 2 / elementwise min(h, w), one unit per camera of the batch  # the one frame here normalizing both axes by a single side, letting the longer one reach past $1$
 │   ├── else
 │   │   └── impls unit = 2 / min(h, w)
 │   ├── calls _centre_principal_point(params=params)
@@ -340,7 +340,7 @@ camera_intrinsics.py
 │       ├── impls params = self._params
 │       ├── if intr_convention is not None and intr_convention != self._intr_convention
 │       │   └── calls transform_intr_convention(params=params, model=type(self).MODEL, source_intr_convention=self._intr_convention, target_intr_convention=intr_convention)  # -> params, restated on the target frame; the size that change is measured against is two of those params
-│       ├── impls params = each param moved with torch.Tensor.to(device=device, dtype=dtype, non_blocking=non_blocking, copy=copy)  # impls-node-one-step:skip
+│       ├── impls params = each param moved to device and dtype, with non_blocking and copy passed through  # impls-node-one-step:skip
 │       ├── if device and dtype match self, intr_convention is unchanged, and copy is False
 │       │   └── return self
 │       ├── impls intrinsics = type(self)(params=params, intr_convention=intr_convention or self._intr_convention)
