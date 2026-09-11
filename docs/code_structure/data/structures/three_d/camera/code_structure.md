@@ -14,6 +14,7 @@ validation.py
 ├── def validate_cameras_attributes(intrinsics: "CameraIntrinsics", extrinsics: "CameraExtrinsics", names: Optional[List[Optional[str]]], ids: Optional[List[Optional[int]]], device: Optional[Union[str, torch.device]], dtype: Optional[torch.dtype]) -> None
 │   ├── # Single-entry validation for Cameras.__init__: validate the batched component pair, the metadata parallel to its batch axis, and the optional tensor placement request.
 │   ├── calls validate_camera_attributes(intrinsics=intrinsics, extrinsics=extrinsics, name=None, id=None, device=device, dtype=dtype)  # the component checks are shape-agnostic, so the batched pair takes the same ones a single camera does
+│   ├── impls asserts the extrinsics matrix carries exactly one leading batch axis, [B, 4, 4]  # the agreement below reads B off that axis, which an unbatched [4, 4] would also offer
 │   ├── impls asserts the two components agree on the extent of their leading batch axis
 │   ├── impls asserts names and ids are each None or hold one entry per camera in the batch
 │   ├── impls asserts device is None or a valid torch device spec
@@ -156,19 +157,25 @@ cameras.py
     │   │   └── calls validate_cameras_attributes(intrinsics=intrinsics, extrinsics=extrinsics, names=names, ids=ids, device=device, dtype=dtype)
     │   ├── calls _validate_inputs
     │   ├── def _normalize_inputs [local]
-    │   │   ├── if device is not None or dtype is not None
-    │   │   │   ├── calls intrinsics.to(device=device, dtype=dtype)
-    │   │   │   └── calls extrinsics.to(device=device, dtype=dtype)
+    │   │   ├── if device is None
+    │   │   │   └── impls device = extrinsics.device  # the one exception: an unset device resolves to the given extrinsics'
+    │   │   ├── impls device = torch.device(device), its index filled in when the spelling leaves one out  # one physical device has one spelling here, so a cuda and a cuda:0 naming it never compare unequal
+    │   │   ├── if dtype is None
+    │   │   │   └── impls dtype = extrinsics.dtype  # the one exception: an unset dtype resolves to the given extrinsics'
+    │   │   ├── calls intrinsics.to(device=device, dtype=dtype)  # -> intrinsics, brought to the resolved device and dtype
+    │   │   ├── calls extrinsics.to(device=device, dtype=dtype)  # -> extrinsics, brought to the resolved device and dtype, never the other way around
     │   │   ├── impls names = names, or one None per camera when the batch was named by omission
     │   │   ├── impls ids = ids, or one None per camera when the batch was identified by omission
-    │   │   └── return intrinsics, extrinsics, names, ids
+    │   │   └── return intrinsics, extrinsics, names, ids, device, dtype
     │   ├── calls _normalize_inputs(intrinsics=intrinsics, extrinsics=extrinsics, names=names, ids=ids, device=device, dtype=dtype)
-    │   ├── impls intrinsics, extrinsics, names, ids = the returned values from _normalize_inputs
+    │   ├── impls intrinsics, extrinsics, names, ids, device, dtype = the returned values from _normalize_inputs
     │   ├── impls self._intrinsics = intrinsics  # params each [B]
     │   ├── impls self._extrinsics = extrinsics  # matrix [B, 4, 4]
     │   ├── impls self._names = names
     │   ├── impls self._ids = ids
-    │   └── impls self._name_to_index = the index of each named camera, keyed by its name  # the unnamed cameras contribute no entry, and a name two cameras share is refused rather than silently resolving to one of them
+    │   ├── impls self._name_to_index = the index of each named camera, keyed by its name  # the unnamed cameras contribute no entry, and a name two cameras share is refused rather than silently resolving to one of them
+    │   ├── impls self._device = device  # the resolved device the components were brought to, not read back off them
+    │   └── impls self._dtype = dtype  # the resolved dtype the components were cast to, not read back off them
     ├── def intrinsics(self) -> CameraIntrinsics  # @property
     │   ├── # The batch's intrinsics, whose params carry the batch axis so its own project / scale_intrinsics cover every camera at once.
     │   └── return self._intrinsics
@@ -179,7 +186,7 @@ cameras.py
     │   ├── # Return this batch with Tensor.to-style placement / copy semantics plus optional frame conversions, each delegated to the component that owns it.
     │   ├── calls self._intrinsics.to(device=device, dtype=dtype, non_blocking=non_blocking, copy=copy, intr_convention=intr_convention)
     │   ├── calls self._extrinsics.to(device=device, dtype=dtype, non_blocking=non_blocking, copy=copy, extr_convention=extr_convention)
-    │   ├── impls cameras = Cameras(...)
+    │   ├── impls cameras = Cameras(intrinsics=the intrinsics it moved, extrinsics=the extrinsics it moved, names=self._names, ids=self._ids, device=device, dtype=dtype)  # the requested placement is handed on, so the new batch's device and dtype follow it
     │   └── return cameras
     ├── def scale_intrinsics(self, resolution: Optional[Union[int, Tuple[int, int], List[int], np.ndarray, torch.Tensor]] = None, scale: Optional[Union[int, float, Tuple[Union[int, float], Union[int, float]], List[Union[int, float]], np.ndarray, torch.Tensor]] = None) -> "Cameras"
     │   ├── # Return this batch restated against a different resolution, the rescale being elementwise on the [B] params its intrinsics already holds.
@@ -219,11 +226,11 @@ cameras.py
     │   ├── # The per-camera integer identities that survive a serialize / deserialize round trip.
     │   └── return self._ids
     ├── def device(self) -> torch.device  # @property
-    │   ├── # The device the component tensors live on.
-    │   └── return self._extrinsics.device
+    │   ├── # The device this batch was constructed on, the one its component tensors were brought to.
+    │   └── return self._device
     ├── def dtype(self) -> torch.dtype  # @property
-    │   ├── # The dtype shared by the component tensors.
-    │   └── return self._extrinsics.dtype
+    │   ├── # The dtype this batch was constructed with, the one its component tensors were cast to.
+    │   └── return self._dtype
     ├── def center(self) -> torch.Tensor  # @property
     │   ├── # The [B, 3] camera centers, its extrinsics' own center under the batch axis.
     │   └── return self._extrinsics.center
