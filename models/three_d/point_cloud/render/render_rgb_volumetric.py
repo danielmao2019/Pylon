@@ -1,5 +1,4 @@
 import itertools
-import json
 import logging
 import math
 import subprocess
@@ -36,6 +35,15 @@ def gen_auxiliary_cameras(
     points: torch.Tensor,
     camera: Camera,
 ) -> List[Camera]:
+    """Ring the primary view with offset cameras, so one input view still gives a volumetric fit a spread of poses to train against.
+
+    Args:
+        points: [N, 3] float torch.Tensor of world-space points whose mean is the centre the primary camera's distance is measured against.
+        camera: Primary Camera the auxiliary cameras are stepped away from.
+
+    Returns:
+        List of 26 Camera instances, one per non-zero direction in {-1, 0, 1}^3, each carrying the primary camera's intrinsics and rotation with its position stepped half the camera-to-centre distance along that unit direction, in the standard extrinsics convention.
+    """
     device = points.device
 
     center = points.mean(dim=0).to(device=device, dtype=torch.float32)
@@ -66,28 +74,6 @@ def gen_auxiliary_cameras(
         assert direction_unit.shape == (3,), "Auxiliary camera direction must be 3D"
 
         position = camera_position + direction_unit * step
-        # forward = center - position
-        # forward_norm = torch.linalg.norm(forward)
-        # assert forward_norm.item() > 0, "Forward vector magnitude must be positive"
-        # forward = forward / forward_norm
-        #
-        # reference = torch.tensor([0.0, 0.0, 1.0], device=device, dtype=torch.float32)
-        # if torch.abs(torch.dot(forward, reference)) > 0.95:
-        #     reference = torch.tensor(
-        #         [0.0, 1.0, 0.0], device=device, dtype=torch.float32
-        #     )
-        #
-        # right = torch.cross(forward, reference, dim=0)
-        # right_norm = torch.linalg.norm(right)
-        # assert right_norm.item() > 0, "Right vector magnitude must be positive"
-        # right = right / right_norm
-        #
-        # up = torch.cross(right, forward, dim=0)
-        # up_norm = torch.linalg.norm(up)
-        # assert up_norm.item() > 0, "Up vector magnitude must be positive"
-        # up = up / up_norm
-        #
-        # rotation = torch.stack([right, forward, up], dim=1)
         aux_standard = torch.zeros((4, 4), device=device, dtype=torch.float32)
         aux_standard[3, 3] = 1.0
         aux_standard[:3, :3] = extrinsics_standard[:3, :3]
@@ -112,6 +98,16 @@ def _create_images(
     output_root: str,
     downscale_factor: int,
 ) -> None:
+    """Write the rendered RGB tensors out as the downscale-suffixed images directory a nerfstudio dataset reads.
+
+    Args:
+        images: List of [3, H, W] float torch.Tensor RGB images with values in [0, 1], one per training camera.
+        output_root: Dataset root directory the images directory is created under.
+        downscale_factor: Downscale factor the images were rendered at; above 1 it suffixes the directory name as images_{downscale_factor}.
+
+    Returns:
+        None.
+    """
     root = Path(output_root)
     suffix = f"_{downscale_factor}" if downscale_factor > 1 else ""
     image_dir = root / f"images{suffix}"
@@ -129,6 +125,16 @@ def _create_masks(
     output_root: str,
     downscale_factor: int,
 ) -> None:
+    """Write the rendered coverage masks out as the downscale-suffixed masks directory a nerfstudio dataset reads.
+
+    Args:
+        masks: List of [H, W] bool torch.Tensor coverage masks, True where a point was rendered, one per training camera.
+        output_root: Dataset root directory the masks directory is created under.
+        downscale_factor: Downscale factor the masks were rendered at; above 1 it suffixes the directory name as masks_{downscale_factor}.
+
+    Returns:
+        None.
+    """
     root = Path(output_root)
     suffix = f"_{downscale_factor}" if downscale_factor > 1 else ""
     mask_dir = root / f"masks{suffix}"
@@ -142,6 +148,15 @@ def _create_masks(
 
 
 def _create_ply(pc: PointCloud, output_root: str) -> None:
+    """Write the culled point cloud as the point_cloud.ply the nerfstudio dataset seeds its gaussians from.
+
+    Args:
+        pc: PointCloud of the points that project into the primary view.
+        output_root: Dataset root directory the point_cloud.ply file is written into.
+
+    Returns:
+        None.
+    """
     root = Path(output_root)
     ply_path = root / "point_cloud.ply"
     assert isinstance(pc, PointCloud), f"{type(pc)=}"
@@ -149,6 +164,15 @@ def _create_ply(pc: PointCloud, output_root: str) -> None:
 
 
 def _create_nerfstudio(cameras: List[Camera], output_root: Path) -> None:
+    """Write the transforms.json a nerfstudio dataset is read through, carrying the shared intrinsics beside every training pose.
+
+    Args:
+        cameras: Non-empty list of named Camera instances, one per training pose, whose intrinsics the first camera's intrinsics stand for.
+        output_root: Dataset root directory the transforms.json file is written into.
+
+    Returns:
+        None.
+    """
     root = Path(output_root)
     assert cameras, "At least one camera required to write transforms.json"
     nerfstudio_path = root / "transforms.json"
@@ -237,6 +261,15 @@ def _run_ns_train_splatfacto(
     dataset_root: Path,
     downscale_factor: int,
 ) -> Path:
+    """Train a splatfacto model on the written dataset by shelling out to nerfstudio's ns-train, handing back the run directory it produced.
+
+    Args:
+        dataset_root: Root directory of the nerfstudio dataset; ns-train writes its runs under its outputs subdirectory.
+        downscale_factor: Downscale factor of the images the dataset carries, forwarded to ns-train.
+
+    Returns:
+        Path of the run directory holding the newest config.yml under dataset_root / "outputs".
+    """
     output_dir = dataset_root / "outputs"
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -272,6 +305,14 @@ def _run_ns_train_splatfacto(
 
 
 def _assert_checkpoint_exists(model_dir: Path) -> Path:
+    """Refuse a run that stopped short of the 30K-iteration checkpoint the volumetric render loads.
+
+    Args:
+        model_dir: Run directory ns-train produced.
+
+    Returns:
+        Path of the step-000029999.ckpt checkpoint under model_dir / "nerfstudio_models".
+    """
     checkpoint_path = model_dir / "nerfstudio_models" / f"step-000029999.ckpt"
     assert (
         checkpoint_path.is_file()
@@ -285,6 +326,17 @@ def render_rgb_from_point_cloud_volumetric(
     resolution: Tuple[int, int],
     debug: bool = False,
 ) -> torch.Tensor:
+    """Render one view volumetrically: cull to the points that project, ring the view with auxiliary cameras, train a splatfacto model on that tiny dataset, and evaluate it back at the original camera.
+
+    Args:
+        pc: PointCloud with xyz and rgb fields in world coordinates.
+        camera: Single Camera to render through; its native image size is read as twice its principal point.
+        resolution: Target resolution as an (H, W) tuple, the native size divided by one of the downscale factors 1, 2, 4, 8.
+        debug: If True, keep the dataset workspace at ./test_volumetric_rendering instead of a temporary directory deleted afterwards.
+
+    Returns:
+        [3, H, W] float32 torch.Tensor RGB image in [0, 1] rendered by the trained splatfacto model at camera, on the device of pc.
+    """
     total_start = time.time()
     logging.info("[volumetric] Pipeline start")
 
