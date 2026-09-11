@@ -111,12 +111,21 @@ test_render_depth.py
 │   │   └── assert the batched map's matching slice is elementwise equal to it
 │   └── return
 ├── def test_render_depth_point_size_dilates_the_rendered_discs() -> None
-│   ├── # A point size above one pixel widens each rendered point into a disc, so the parameter the entry point takes changes what it returns.
+│   ├── # A point size above one pixel grows each rendered point into a disc, so the parameter the entry point takes changes what it returns.
 │   ├── calls PointCloud(xyz=one float32 point at depth one)
 │   ├── calls _build_camera(focal=100.0, principal_point=50.0)
 │   ├── calls render_depth_from_point_cloud(pc=pc_data, camera=camera, resolution=(100, 100), return_mask=True, point_size=1.0)
 │   ├── calls render_depth_from_point_cloud(pc=pc_data, camera=camera, resolution=(100, 100), return_mask=True, point_size=5.0)
 │   └── assert the wider point size covers strictly more pixels, all at that point's own depth
+├── def test_render_depth_point_size_keeps_a_nan_background() -> None
+│   ├── # A NaN background survives the dilation: the discs cover the pixels they cover under a finite background, and every pixel outside them stays NaN.
+│   ├── calls PointCloud(xyz=four float32 points at distinct depths)
+│   ├── calls _build_camera(focal=100.0, principal_point=50.0)
+│   ├── calls render_depth_from_point_cloud(pc=pc_data, camera=camera, resolution=(100, 100), ignore_value=float("nan"), return_mask=True, point_size=3.0)
+│   ├── calls render_depth_from_point_cloud(pc=pc_data, camera=camera, resolution=(100, 100), ignore_value=-1.0, return_mask=True, point_size=3.0)
+│   ├── assert the two masks are equal
+│   ├── assert the NaN-background map is NaN exactly where its mask is False
+│   └── assert the two maps agree wherever the mask is True
 ├── def test_render_depth_invalid_inputs() -> None
 │   ├── # The malformed inputs are refused where each is first named, which for the two camera pieces is their own construction rather than the render call.
 │   ├── calls PointCloud(xyz=one float32 point at depth one)
@@ -147,8 +156,6 @@ test_render_depth.py
 
 ```text
 test_render_rgb.py
-├── from typing import Tuple
-├── import pytest
 ├── import torch
 ├── from data.structures.three_d.camera.camera import Camera
 ├── from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
@@ -168,20 +175,24 @@ test_render_rgb.py
 │   ├── calls render_rgb_from_point_cloud(pc=pc_data, camera=camera, resolution=(100, 100))
 │   ├── assert exactly the three survivors' pixels are painted
 │   └── assert no pixel carries a culled point's colour
-└── def test_render_rgb_takes_the_nearest_point_where_two_share_a_pixel() -> None
-    ├── # Two points on one ray paint the nearer one's colour, so the attribute follows the same occlusion the depth map resolves.
-    ├── calls PointCloud(xyz=two float32 points on one ray at depths three and one, data=one distinguishable colour per point)
-    ├── calls _build_camera(focal=100.0, principal_point=50.0)
-    ├── calls render_rgb_from_point_cloud(pc=pc_data, camera=camera, resolution=(100, 100))
-    └── assert the shared pixel carries the near point's colour
+├── def test_render_rgb_takes_the_nearest_point_where_two_share_a_pixel() -> None
+│   ├── # Two points on one ray paint the nearer one's colour, so the attribute follows the same occlusion the depth map resolves.
+│   ├── calls PointCloud(xyz=two float32 points on one ray at depths three and one, data=one distinguishable colour per point)
+│   ├── calls _build_camera(focal=100.0, principal_point=50.0)
+│   ├── calls render_rgb_from_point_cloud(pc=pc_data, camera=camera, resolution=(100, 100))
+│   └── assert the shared pixel carries the near point's colour
+└── def _build_camera(focal: float, principal_point: float) -> Camera
+    ├── # Builds the identity-pose OpenGL pinhole camera on the CPU that every case here renders through.
+    ├── calls build_camera_intrinsics(model='pinhole', params=the shared focal and principal point with the extents twice that point implies, intr_convention='standard', device=torch.device('cpu'))
+    ├── calls CameraExtrinsics(extrinsics=a float32 [4, 4] identity, extr_convention='opengl', device=torch.device('cpu'))
+    ├── calls Camera(intrinsics=the intrinsics it built, extrinsics=the extrinsics it built, device=torch.device('cpu'))
+    └── return  # that camera
 ```
 
 `tests/models/three_d/point_cloud/render/test_render_segmentation.py`
 
 ```text
 test_render_segmentation.py
-├── from typing import Tuple
-├── import pytest
 ├── import torch
 ├── from data.structures.three_d.camera.camera import Camera
 ├── from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
@@ -201,19 +212,24 @@ test_render_segmentation.py
 │   ├── calls render_segmentation_from_point_cloud(pc=pc_data, key='labels', camera=camera, resolution=(100, 100))
 │   ├── assert exactly the three survivors' pixels are painted
 │   └── assert no pixel carries a culled point's label
-└── def test_render_segmentation_takes_the_nearest_point_where_two_share_a_pixel() -> None
-    ├── # Two points on one ray paint the nearer one's label, so the attribute follows the same occlusion the depth map resolves.
-    ├── calls PointCloud(xyz=two float32 points on one ray at depths three and one, data=one distinguishable label per point)
-    ├── calls _build_camera(focal=100.0, principal_point=50.0)
-    ├── calls render_segmentation_from_point_cloud(pc=pc_data, key='labels', camera=camera, resolution=(100, 100))
-    └── assert the shared pixel carries the near point's label
+├── def test_render_segmentation_takes_the_nearest_point_where_two_share_a_pixel() -> None
+│   ├── # Two points on one ray paint the nearer one's label, so the attribute follows the same occlusion the depth map resolves.
+│   ├── calls PointCloud(xyz=two float32 points on one ray at depths three and one, data=one distinguishable label per point)
+│   ├── calls _build_camera(focal=100.0, principal_point=50.0)
+│   ├── calls render_segmentation_from_point_cloud(pc=pc_data, key='labels', camera=camera, resolution=(100, 100))
+│   └── assert the shared pixel carries the near point's label
+└── def _build_camera(focal: float, principal_point: float) -> Camera
+    ├── # Builds the identity-pose OpenGL pinhole camera on the CPU that every case here renders through.
+    ├── calls build_camera_intrinsics(model='pinhole', params=the shared focal and principal point with the extents twice that point implies, intr_convention='standard', device=torch.device('cpu'))
+    ├── calls CameraExtrinsics(extrinsics=a float32 [4, 4] identity, extr_convention='opengl', device=torch.device('cpu'))
+    ├── calls Camera(intrinsics=the intrinsics it built, extrinsics=the extrinsics it built, device=torch.device('cpu'))
+    └── return  # that camera
 ```
 
 `tests/models/three_d/point_cloud/render/test_render_normal.py`
 
 ```text
 test_render_normal.py
-├── from typing import Tuple
 ├── import torch
 ├── from data.structures.three_d.camera.camera import Camera
 ├── from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
@@ -225,20 +241,20 @@ test_render_normal.py
 │   ├── calls PointCloud(xyz=three float32 points at distinct depths projecting to three separate pixels, data=one distinguishable normal per point)
 │   ├── calls _build_camera(focal=100.0, principal_point=50.0)
 │   ├── calls render_normal_from_point_cloud_3d(pc=pc_data, camera=camera, resolution=(100, 100))
-│   └── assert each of the three pixels carries the normal belonging to the point that projected there, not another point's
+│   └── assert each of the three pixels carries the normal of the point that projected there, in the camera frame the renderer rotates it into, not another point's
 ├── def test_render_normal_ignores_the_points_that_culled_out() -> None
 │   ├── # A cloud with several survivors and several culled points renders only the survivors, the regime a fixture of one or two in-bounds points cannot reach.
 │   ├── calls PointCloud(xyz=three float32 points inside the image bounds and two placed far outside them, data=one distinguishable normal per point)
 │   ├── calls _build_camera(focal=100.0, principal_point=50.0)
 │   ├── calls render_normal_from_point_cloud_3d(pc=pc_data, camera=camera, resolution=(100, 100))
 │   ├── assert exactly the three survivors' pixels are painted
-│   └── assert no pixel carries a culled point's normal
+│   └── assert no pixel carries a culled point's normal, in the camera frame the renderer rotates it into
 ├── def test_render_normal_takes_the_nearest_point_where_two_share_a_pixel() -> None
 │   ├── # Two points on one ray paint the nearer one's normal, so the attribute follows the same occlusion the depth map resolves.
 │   ├── calls PointCloud(xyz=two float32 points on one ray at depths three and one, data=one distinguishable normal per point)
 │   ├── calls _build_camera(focal=100.0, principal_point=50.0)
 │   ├── calls render_normal_from_point_cloud_3d(pc=pc_data, camera=camera, resolution=(100, 100))
-│   └── assert the shared pixel carries the near point's normal
+│   └── assert the shared pixel carries the near point's normal, in the camera frame the renderer rotates it into
 └── def _build_camera(focal: float, principal_point: float) -> Camera
     ├── # Builds the identity-pose OpenGL pinhole camera on the CPU that every case here renders through.
     ├── calls build_camera_intrinsics(model='pinhole', params=the shared focal and principal point with the extents twice that point implies, intr_convention='standard', device=torch.device('cpu'))
@@ -252,7 +268,6 @@ test_render_normal.py
 ```text
 test_create_circular_kernel_offsets.py
 ├── import math
-├── import pytest
 ├── import torch
 ├── from data.structures.three_d.camera.camera import Camera
 ├── from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics

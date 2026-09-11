@@ -12,7 +12,7 @@ test_intrinsics.py
 ├── import torch
 ├── import warnings
 ├── from pathlib import Path
-├── from typing import Dict, Set, Tuple, Union
+├── from typing import Dict, List, Optional, Set, Tuple, Union
 ├── from data.structures.three_d.camera.intrinsics.camera_intrinsics import CameraIntrinsicsOrtho, CameraIntrinsicsPinhole, CameraIntrinsicsSimplePinhole, build_camera_intrinsics
 ├── from data.structures.three_d.camera.intrinsics.validation import validate_camera_intrinsics_attributes, validate_camera_intrinsics_invariants, validate_camera_intrinsics_params, validate_camera_model
 ├── def test_validate_camera_model_accepts_all_supported
@@ -240,13 +240,6 @@ test_intrinsics.py
 │   │       └── with pytest.raises(AssertionError)
 │   │           └── calls intrinsics.project
 │   └── return
-├── def _tensor_params
-│   ├── # A test states its params as plain numbers, and this is what makes them the tensor state a camera actually carries.
-│   ├── if a batch size was asked for
-│   │   └── impls build one [batch_size] float32 tensor per numeric param, carrying the requested requires_grad
-│   ├── else
-│   │   └── impls build one scalar float32 tensor per numeric param, carrying the requested requires_grad
-│   └── return  # the params dict with every value a tensor of that shape
 ├── def test_fx_fy_cx_cy_derived_from_params
 │   ├── # The per-subclass fx / fy accessors and the base cx / cy accessors are derived from the model params.
 │   ├── for each of the three camera models
@@ -357,8 +350,15 @@ test_intrinsics.py
 │   │   ├── impls assert source tensor params receive gradients
 │   │   └── impls assert scale factors receive gradients
 │   └── return
-└── def _tensor_params(params: Dict[str, Union[int, float]], requires_grad: bool = False) -> Dict[str, torch.Tensor]
-    ├── # Restates each numeric intrinsics param it is given, h and w too when present, as a scalar float32 tensor, all sharing the one requires_grad flag.
+└── def _tensor_params(params: Dict[str, Union[int, float, List[Union[int, float]]]], requires_grad: bool = False, batch_size: Optional[int] = None) -> Dict[str, torch.Tensor]
+    ├── # A test states its params as plain numbers, and this is what makes them the tensor state a camera actually carries.
+    ├── if batch_size is not None
+    │   ├── for each key and value of params
+    │   │   ├── if value is a list
+    │   │   │   └── impls build a [batch_size] float32 tensor of float(each of its per-camera numbers), requiring grad when requires_grad
+    │   │   └── else
+    │   │       └── impls build a [batch_size] float32 tensor of float(value) repeated batch_size times, requiring grad when requires_grad
+    │   └── return  # the dict mapping each key of params to its [batch_size] tensor
     ├── impls build the dict mapping each key of params to a scalar float32 tensor of float(its value), requiring grad when requires_grad
     └── return  # the dict it built
 ```
