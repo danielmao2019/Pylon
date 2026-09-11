@@ -123,10 +123,10 @@ camera_extrinsics.py
 │   │   ├── def _normalize_inputs(extrinsics: Union[np.ndarray, torch.Tensor, List[List[Union[int, float]]]], device: Optional[Union[str, torch.device]], dtype: Optional[torch.dtype]) -> Tuple[torch.Tensor, torch.device, torch.dtype] [local]
 │   │   │   ├── if device is None
 │   │   │   │   └── impls device = the device of extrinsics when it is a torch.Tensor, else cpu  # the one exception: an unset device resolves to the given matrix's, so a component __getitem__ rebuilds stays where its batch is
-│   │   │   ├── impls device = torch.device(device), its index filled in when the spelling leaves one out  # one physical device has one spelling here, so a cuda and a cuda:0 naming it never compare unequal
+│   │   │   ├── impls device = the given device as a torch device, its index filled in when the spelling leaves one out  # one physical device has one spelling here, so a cuda and a cuda:0 naming it never compare unequal
 │   │   │   ├── if dtype is None
 │   │   │   │   └── impls dtype = the dtype of extrinsics when it is a torch.Tensor or np.ndarray, else torch.float32  # the one exception: an unset dtype resolves to the given matrix's, so a component __getitem__ rebuilds keeps the dtype its batch holds
-│   │   │   ├── impls extrinsics = torch.as_tensor(extrinsics, device=device, dtype=dtype)  # the matrix follows the resolved device and dtype, never the other way around
+│   │   │   ├── impls extrinsics = the given matrix as a tensor on the resolved device and dtype  # the matrix follows the resolved device and dtype, never the other way around
 │   │   │   └── return extrinsics, device, dtype
 │   │   ├── calls _normalize_inputs(extrinsics=extrinsics, device=device, dtype=dtype)
 │   │   ├── impls extrinsics, device, dtype = the returned values from _normalize_inputs
