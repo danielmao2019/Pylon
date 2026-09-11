@@ -396,6 +396,16 @@ test_io.py
 │   ├── calls load_cameras(cameras_path=that path, device="cpu")
 │   ├── calls _assert_cameras_fields_equal(loaded=what it loaded, original=cameras)
 │   └── return
+├── def test_npz_round_trip_keeps_the_batch_dtype
+│   ├── # The npz archive stores the extrinsics stack in the batch's own dtype, so a batch loads back in the dtype it was saved in rather than one the format imposes.
+│   ├── for each dtype of float32 and float64
+│   │   ├── calls _make_multi_cameras
+│   │   ├── calls cameras.to(dtype=dtype)  # -> cameras, the fixture restated in dtype
+│   │   ├── calls save_cameras(cameras=cameras, cameras_path=a .npz path under tmp_path)
+│   │   ├── calls load_cameras(cameras_path=that path, device="cpu")
+│   │   ├── impls assert the loaded batch, its extrinsics and its intrinsics all carry dtype
+│   │   └── impls assert the loaded extrinsics stack equals the saved one exactly
+│   └── return
 ├── def _make_multi_cameras
 │   ├── # Builds the three-camera Cameras fixture both collection round trips run on, its cameras differing in param values, centre, name and id so the payload spans every per-camera path the format has to carry.
 │   ├── calls build_camera_intrinsics(model="pinhole", params=that model's param set with a distinct [3] column per key, intr_convention="standard", device="cpu")

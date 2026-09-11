@@ -10,7 +10,7 @@ test_world_to_camera_transform.py
 ├── import torch
 ├── from models.three_d.point_cloud.ops.world_to_camera_transform import world_to_camera_transform
 ├── def test_world_to_camera_transform_carries_the_camera_batch_axis() -> None
-│   ├── # A stack of extrinsics maps one cloud through every pose in one call, each slice equal to what that pose maps on its own, which is the contract the batched renderer rests on.
+│   ├── # A stack of extrinsics maps one cloud through every pose in one call, each slice equal to what that pose maps on its own, bit for bit on cpu and within floating-point rounding on cuda, which is the contract the batched renderer rests on.
 │   ├── for each device of cpu, and cuda when it is available
 │   │   ├── impls points = a [N, 3] float32 world-space tensor on that device
 │   │   ├── impls extrinsics = a [B, 4, 4] float32 stack of distinct camera-to-world poses on that device
@@ -18,7 +18,10 @@ test_world_to_camera_transform.py
 │   │   ├── assert the result is [B, N, 3]
 │   │   └── for each pose the stack carries
 │   │       ├── calls world_to_camera_transform(points=points, extrinsics=that one [4, 4] pose)
-│   │       └── assert the batched result's matching slice equals it
+│   │       ├── if device is cpu
+│   │       │   └── assert the batched result's matching slice equals it exactly
+│   │       └── else
+│   │           └── assert the batched result's matching slice agrees with it within floating-point rounding  # CUDA inverts and multiplies a stack of several poses with batched kernels that round unlike a single pose's
 │   └── return
 ├── def test_world_to_camera_transform_batch_of_one_keeps_its_axis() -> None
 │   ├── # A stack of one maps to [1, N, 3] rather than [N, 3], so a caller reading the leading axis is not surprised by a batch of one.
