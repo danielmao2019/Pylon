@@ -683,7 +683,7 @@ test_ply_saving.py
 ├── from data.structures.three_d.point_cloud.io.load_point_cloud import load_point_cloud
 ├── from data.structures.three_d.point_cloud.io.save_point_cloud import save_point_cloud
 ├── @pytest.fixture def pc()
-│   ├── # The in-memory cloud every case below saves, its coordinates handed in as one xyz block, which the ply save default splits into the x, y and z columns a ply file holds.
+│   ├── # The in-memory cloud every case below saves, its coordinates handed in as one xyz block, whose columns the ply writer names x, y and z by ply's default layout.
 │   ├── impls xyz = eight rows of coordinates as an [8, 3] float32 np.ndarray
 │   ├── calls PointCloud(xyz=xyz, device='cpu')
 │   └── return  # the cloud it built, whose target stands xyz on the one block it was handed as
@@ -694,7 +694,7 @@ test_ply_saving.py
 │   ├── calls load_point_cloud(filepath)
 │   └── impls assert the loaded xyz matches the saved coordinates
 ├── def test_an_in_memory_xyz_block_saves_as_x_y_z_with_nothing_supplied
-│   ├── # The ply save default splits xyz into x, y and z, so a coordinate block handed in whole reaches the three columns a ply reader assembles it from.
+│   ├── # An in-memory coordinate block maps back to the one name xyz, and the ply writer names such a block's columns x, y and z by ply's default layout, which are the three a ply reader assembles it from.
 │   ├── impls filepath = the path of a tempfile.NamedTemporaryFile with suffix '.ply'
 │   ├── calls save_point_cloud(pc, filepath)
 │   ├── calls PlyData.read(filepath)
@@ -854,13 +854,15 @@ test_ply_saving.py
 │   ├── calls save_point_cloud(pc, filepath)
 │   ├── calls PlyData.read(filepath)
 │   └── impls assert the file carries no intensity column
-├── def test_a_pcd_loaded_cloud_saves_as_x_y_z_and_red_green_blue_with_nothing_supplied
-│   ├── # The ply save default splits xyz and rgb whatever columns they were assembled from, so a cloud whose xyz came from positions and whose rgb came from colors writes the ply names with nothing supplied.
+├── def test_a_pcd_loaded_field_needs_a_layout_to_reach_ply_columns
+│   ├── # A pcd attribute is one named block, so xyz assembled from positions maps back to that one name, which ply's default layout names no columns for, and the caller names the columns to write under.
 │   ├── impls pcd_path = the path of a tempfile.NamedTemporaryFile with suffix '.pcd'
 │   ├── impls filepath = the path of a tempfile.NamedTemporaryFile with suffix '.ply'
 │   ├── calls write_pcd(pcd_path, with_colors=True)
 │   ├── calls load_point_cloud(filepath=pcd_path, meta_data={'xyz': {'layout': ('positions',)}, 'rgb': {'layout': ('colors',)}}, device='cpu')
-│   ├── calls save_point_cloud(the loaded cloud, filepath)
+│   ├── with pytest.raises(AssertionError)
+│   │   └── calls save_point_cloud(the loaded cloud, filepath)
+│   ├── calls save_point_cloud(the loaded cloud, filepath, meta_data={'xyz': {'layout': ('x', 'y', 'z')}, 'rgb': {'layout': ('red', 'green', 'blue')}})
 │   ├── calls PlyData.read(filepath)
 │   └── impls assert the file carries x, y, z, red, green and blue columns
 ├── def test_a_las_sourced_ply_leads_with_x_y_z
@@ -878,7 +880,7 @@ test_ply_saving.py
 │   ├── impls filepath = the path of a tempfile.NamedTemporaryFile with suffix '.ply'
 │   ├── calls write_pcd(pcd_path, with_colors=True)
 │   ├── calls load_point_cloud(filepath=pcd_path, meta_data={'rgb': {'layout': ('colors',)}, 'xyz': {'layout': ('positions',)}}, device='cpu')  # rgb is stated first, so the order of the caller's entries is covered too
-│   ├── calls save_point_cloud(the loaded cloud, filepath)
+│   ├── calls save_point_cloud(the loaded cloud, filepath, meta_data={'rgb': {'layout': ('red', 'green', 'blue')}, 'xyz': {'layout': ('x', 'y', 'z')}})
 │   ├── calls PlyData.read(filepath)
 │   └── impls assert the vertex columns open with x, y and z in that order
 ├── def test_a_layout_repeating_a_column_is_refused
@@ -924,18 +926,18 @@ test_ply_saving.py
 │   ├── calls save_point_cloud(pc, filepath)
 │   ├── calls load_point_cloud(filepath)
 │   └── impls assert the loaded fields carry both
-├── def test_a_pth_loaded_cloud_saves_as_x_y_z_with_nothing_supplied
-│   ├── # The ply save default splits xyz whatever columns it came from, so xyz assembled from a .pth's columns 0, 1 and 2 writes x, y and z, and the caller states the index names to write them back.
+├── def test_a_pth_loaded_field_writes_back_under_the_index_names_its_meta_data_holds
+│   ├── # The reverse mapping writes the source column names, and a .pth names its columns by position, so a ply written from one carries columns called 0, 1 and 2 until a caller states otherwise.
 │   ├── impls pth_path = the path of a tempfile.NamedTemporaryFile with suffix '.pth'
 │   ├── impls filepath = the path of a tempfile.NamedTemporaryFile with suffix '.ply'
 │   ├── calls torch.save(a [N, 3] float32 tensor, pth_path)
 │   ├── calls load_point_cloud(filepath=pth_path, meta_data={'xyz': {'layout': ('0', '1', '2')}}, device='cpu')
 │   ├── calls save_point_cloud(the loaded cloud, filepath)
 │   ├── calls PlyData.read(filepath)
-│   ├── impls assert the file's columns are named x, y and z
-│   ├── calls save_point_cloud(the loaded cloud, filepath, meta_data={'xyz': {'layout': ('0', '1', '2')}})
+│   ├── impls assert the file's columns are named 0, 1 and 2
+│   ├── calls save_point_cloud(the loaded cloud, filepath, meta_data={'xyz': {'layout': ('x', 'y', 'z')}})
 │   ├── calls PlyData.read(filepath)
-│   └── impls assert the file's columns are named 0, 1 and 2  # a caller layout outranks the default at save as at load
+│   └── impls assert the file's columns are named x, y and z  # naming them for another reader is the caller's to ask for, since the source never called them that
 ├── def test_save_load_round_trip
 │   ├── # Across coordinate magnitudes, and with a feature column or with coordinates alone, saving then loading preserves the values.
 │   ├── impls filepath = the path of a tempfile.NamedTemporaryFile with suffix '.ply'

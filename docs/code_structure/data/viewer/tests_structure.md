@@ -43,18 +43,18 @@ test_segmentation_pc_colorization.py
 ├── from plyfile import PlyData, PlyElement
 ├── from data.viewer.utils.displays.points.ts.backend.apis import _map_segmentation_pc_to_rgb
 ├── def test_a_cloud_with_no_colour_is_written_under_the_ply_column_names
-│   ├── # The ply save defaults write the coordinates and the colour under the ply column names, so the resource states no layout of its own.
+│   ├── # The ply writer names an in-memory coordinate block's and colour block's columns by ply's default layout, so the resource states no layout of its own.
 │   ├── impls filepath = a written point cloud carrying class ids and no rgb
 │   ├── calls _map_segmentation_pc_to_rgb(segmentation_pc_path=filepath, class_id_to_rgb=a two-class mapping)
 │   └── impls assert the written file carries x, y, z, red, green and blue columns
 ├── def test_a_cloud_that_already_had_colour_is_recoloured_on_the_class_map_s_own_range
-│   ├── # The class colours are 0 to 255 whatever the source file declared its own colour to be, and a uint8 colour written over the source's own means uint8 rather than the convention the file named.
+│   ├── # The class colours are 0 to 255 whatever the source file declared its own colour to be, and a fresh cloud is what keeps the source's convention from being claimed over them.
 │   ├── impls filepath = a written point cloud carrying class ids and a uint16 rgb the file named
 │   ├── calls _map_segmentation_pc_to_rgb(segmentation_pc_path=filepath, class_id_to_rgb=a two-class mapping)
 │   └── impls assert the written colour columns are u1 holding the mapping's own values
-└── def test_the_written_cloud_keeps_the_source_s_other_columns
-    ├── # The colorized resource is the source cloud with its colour replaced, so the source's remaining columns reach the file beside the class colours.
+└── def test_the_written_cloud_carries_the_class_colours_and_nothing_else
+    ├── # The resource exists to be displayed, so the source's remaining columns reach no output column.
     ├── impls filepath = a written point cloud carrying class ids and an intensity column
     ├── calls _map_segmentation_pc_to_rgb(segmentation_pc_path=filepath, class_id_to_rgb=a two-class mapping)
-    └── impls assert the written file carries the intensity column holding the source's own values
+    └── impls assert the written file carries no intensity column
 ```

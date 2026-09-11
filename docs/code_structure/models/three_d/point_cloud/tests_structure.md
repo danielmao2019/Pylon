@@ -6,7 +6,6 @@
 
 ```text
 test_scene_model.py
-├── import open3d as o3d
 ├── import pytest
 ├── import torch
 ├── from plyfile import PlyData, PlyElement
@@ -16,32 +15,21 @@ test_scene_model.py
 │   ├── calls write_ply(filepath)
 │   ├── calls PointCloudSceneModel.parse_scene_path(filepath)
 │   └── assert the model built over it loads and carries xyz
-├── def test_a_format_that_names_none_of_its_columns_opens_on_its_leading_three()
-│   ├── # A .pth defines no layout of its own, so the scene model states that its leading three columns are the coordinates.
-│   ├── calls torch.save(a [N, 5] float32 tensor, filepath)
-│   ├── calls PointCloudSceneModel.parse_scene_path(filepath)
-│   ├── impls model = the scene model built over that path
-│   └── assert the positions it extracts are the tensor's leading three columns
-├── def test_a_pcd_opens_on_its_positions_attribute()
-│   ├── # A .pcd defines no default layout, so the scene model names the positions attribute as the coordinates.
-│   ├── calls o3d.t.io.write_point_cloud(filepath, a tensor point cloud carrying a positions attribute)
-│   ├── impls model = the scene model built over that path
-│   └── assert the positions it extracts match that attribute
-├── def test_an_off_opens_on_its_vertex_block()
-│   ├── # The OFF format declares its vertex block to be the point data, so the scene model names those positional columns as the coordinates.
-│   ├── impls filepath = an OFF file whose vertex block holds known coordinates
-│   ├── impls model = the scene model built over that path
-│   └── assert the positions it extracts match those coordinates
-├── def test_an_extension_no_reader_owns_is_refused_at_the_path()
-│   ├── # A path the loader has no reader for is refused where it is named rather than aborting inside the load.
-│   ├── impls filepath = an existing file whose extension is .xyz
+├── def test_a_format_that_names_none_of_its_columns_is_refused_at_the_path()
+│   ├── # A .pth defines no layout and nothing here can state one, so it is refused where the path is named rather than aborting inside the loader.
+│   ├── calls torch.save(a [N, 3] float32 tensor, filepath)
 │   └── with pytest.raises(AssertionError)
 │       └── calls PointCloudSceneModel.parse_scene_path(filepath)
-├── def test_a_double_precision_file_reaches_the_display_at_single_precision()
-│   ├── # The display is driven at single precision, so the scene model narrows an f8 file's coordinates itself, a load narrowing nothing.
+├── def test_a_pcd_is_refused_at_the_path()
+│   ├── # A .pcd defines no default layout naming its coordinates, so it is refused where the path is named, the way a .pth is.
+│   ├── impls filepath = an existing file whose extension is .pcd
+│   └── with pytest.raises(AssertionError)
+│       └── calls PointCloudSceneModel.parse_scene_path(filepath)
+├── def test_a_double_precision_file_keeps_its_width_into_the_display()
+│   ├── # No load forces a coordinate width here either, so an f8 file reaches the display as float64.
 │   ├── calls write_float64_ply(filepath)
 │   ├── impls model = the scene model built over that path
-│   └── assert the positions it extracts are float32
+│   └── assert the positions it extracts are float64
 ├── def write_ply(filepath, num_points=8)
 │   ├── # Writes a single-element PLY with f4 coordinates, since this suite needs a file that names its own columns.
 │   ├── impls vertices = num_points rows of x, y and z as float32
