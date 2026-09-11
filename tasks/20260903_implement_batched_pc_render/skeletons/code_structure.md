@@ -176,11 +176,11 @@ prove_equivalence.py
 │   │   │       ├── calls build_camera(scene=scene, camera_index=camera_index, device=device)
 │   │   │       ├── calls prepare_points_for_rendering(pc=pc, camera=that camera, resolution=scene["resolution"], num_divide=num_divide)
 │   │   │       ├── if device is cpu
-│   │   │       │   └── calls compare_exactly(output=the batched points and valid mask at that camera's slice, reference=that camera's points and valid mask)
+│   │   │       │   └── calls compare_exactly(output=the rows valid keeps in that camera's slice of the batched points, with those rows' point indices, reference=that camera's points and original_data_indices)
 │   │   │       ├── else
-│   │   │       │   └── calls compare_preparations(output=the batched points and valid mask at that camera's slice, reference=that camera's points and valid mask, resolution=scene["resolution"])  # CUDA's batched inverse and product round unlike a single camera's
+│   │   │       │   └── calls compare_preparations(output=the batched points and valid mask at that camera's slice, reference=that camera's points and original_data_indices, resolution=scene["resolution"])  # CUDA's batched inverse and product round unlike a single camera's
 │   │   │       └── impls records gain a "prepare" record carrying that comparison and num_divide
-│   │   ├── impls rendering_points, valid = the unchunked batched preparation  # one input handed to both sides, so the rasterizing stage is measured apart from the rounding before it
+│   │   ├── impls rendering_points, valid = the points and valid mask of the unchunked batched preparation  # one input handed to both sides, so the rasterizing stage is measured apart from the rounding before it
 │   │   ├── for each return_mask
 │   │   │   ├── calls render_depth_from_rendering_points(rendering_points=rendering_points, resolution=scene["resolution"], ignore_value=float("inf"), return_mask=return_mask, valid=valid)
 │   │   │   └── for each camera index
@@ -221,13 +221,14 @@ prove_equivalence.py
 ├── def compare_preparations(output: Tuple[torch.Tensor, torch.Tensor], reference: Tuple[torch.Tensor, torch.Tensor], resolution: Tuple[int, int]) -> Dict[str, Any]
 │   ├── # Decides whether two preparations of one camera agree up to floating-point rounding, the test a cuda batch's preparation is held to.
 │   ├── impls points, valid = output as cpu tensors
-│   ├── impls reference_points, reference_valid = reference as cpu tensors
+│   ├── impls reference_points, reference_indices = reference as cpu tensors  # the single camera's survivors and the points they are
+│   ├── impls reference_valid = a mask over the slice's point axis, True at reference_indices
 │   ├── impls tolerance = a few units in the last place of the points' dtype, relative to each coordinate's magnitude
 │   ├── impls kept = valid & reference_valid
-│   ├── impls points_close = every kept point's (x, y, depth) agrees with its reference within tolerance  # a point either side culls lands on no pixel, so its coordinates carry nothing to compare
+│   ├── impls points_close = every kept point's (x, y, depth) agrees with the reference row of that same point within tolerance  # a point either side culls lands on no pixel, so its coordinates carry nothing to compare
 │   ├── impls flipped = the points where valid and reference_valid differ
-│   ├── impls flips_explained = every flipped point lies within tolerance of the cull boundary it crossed, a depth of zero or an image edge of resolution
-│   ├── calls compare_exactly(output=output, reference=reference)  # -> exact, so the report shows how often rounding moved anything at all
+│   ├── impls flips_explained = every flipped point lies within tolerance of the cull boundary it crossed, a depth of zero or an image edge of resolution, read off whichever side kept it
+│   ├── calls compare_exactly(output=the rows valid keeps with their point indices, reference=reference)  # -> exact, so the report shows how often rounding moved anything at all
 │   └── return  # {"equal": points_close and flips_explained, "exact": exact["equal"], "flipped_points": the count flipped marks, "max_abs_diff": exact["max_abs_diff"]}
 ├── def compare_exactly(output: Union[torch.Tensor, Tuple[torch.Tensor, ...]], reference: Union[torch.Tensor, Tuple[torch.Tensor, ...]]) -> Dict[str, Any]
 │   ├── # Decides whether two renders are the same result, which is the one test both equivalences are made of.
