@@ -157,9 +157,10 @@ goal: re-design pc dtype contract/provenance
 2. load point cloud
    1. the per-format helpers
       1. they load and
-         1. do necessary type casting when the dtype systems mismatch and when the type cast can be lossless.
+         1. do necessary type casting when the dtype systems mismatch and when the type cast can be lossless, before constructing the raw point cloud.
          2. never change layout.
       2. they construct the meta data record from the data in disk, NOT from the type-casted data stored in the PointCloud obj. i.e., the recorded meta data is a consequence of what's inside the file in disk and nothing else.
+         1. a .las color is uint16 in the file, so the raw point cloud records uint16 and holds the color as int32.
       3. they define the default layout for each format, which `apply_meta_data` applies.
       4. the only silent cast is the one that resolves a dtype system mismatch, and nothing beyond it happens silently. any further lossless dtype change is the user's to instruct through the override.
    2. the main load API
