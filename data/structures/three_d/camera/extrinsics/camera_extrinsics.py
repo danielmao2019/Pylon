@@ -184,10 +184,10 @@ class CameraExtrinsics:
             assert False, f"Unsupported extr_convention: {self._extr_convention}"
         norm = torch.linalg.norm(vec, dim=-1)
         assert torch.allclose(
-            norm,
-            torch.ones_like(norm),
-            atol=1.0e-05,
+            input=norm,
+            other=torch.ones_like(norm),
             rtol=0.0,
+            atol=1.0e-05,
         ), f"Right vector must be unit, got norm {norm}"
         return vec
 
@@ -215,10 +215,10 @@ class CameraExtrinsics:
             assert False, f"Unsupported extr_convention: {self._extr_convention}"
         norm = torch.linalg.norm(vec, dim=-1)
         assert torch.allclose(
-            norm,
-            torch.ones_like(norm),
-            atol=1.0e-05,
+            input=norm,
+            other=torch.ones_like(norm),
             rtol=0.0,
+            atol=1.0e-05,
         ), f"Forward vector must be unit, got norm {norm}"
         return vec
 
@@ -246,10 +246,10 @@ class CameraExtrinsics:
             assert False, f"Unsupported extr_convention: {self._extr_convention}"
         norm = torch.linalg.norm(vec, dim=-1)
         assert torch.allclose(
-            norm,
-            torch.ones_like(norm),
-            atol=1.0e-05,
+            input=norm,
+            other=torch.ones_like(norm),
             rtol=0.0,
+            atol=1.0e-05,
         ), f"Up vector must be unit, got norm {norm}"
         return vec
 
