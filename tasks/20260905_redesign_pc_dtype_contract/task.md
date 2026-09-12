@@ -6,6 +6,8 @@ goal: re-design pc dtype contract/provenance
 - [2. Guidelines](#2-guidelines)
   - [2.1. Problem Definition](#21-problem-definition)
   - [2.2. Proposed Solution](#22-proposed-solution)
+    - [2.2.1. Modules](#221-modules)
+    - [2.2.2. The Core Design](#222-the-core-design)
   - [2.3. Proposed Solution](#23-proposed-solution)
     - [2.3.1. Type Casting](#231-type-casting)
     - [2.3.2. Color Data Convention Conversion](#232-color-data-convention-conversion)
@@ -38,11 +40,52 @@ For pth format it can also work with torch directly.
 
 ### 2.2. Proposed Solution
 
-1. load
-   1. from non-pth formats:
-      1. per-format helper
-         1. first load as numpy, preserving values, dtypes, and layouts strictly.
-         2. then cast to torch lossless. hard abort if not possible.
+#### 2.2.1. Modules
+
+1. build source meta data:
+   1. build from the source, shared by numpy and torch.
+2. numpy to torch or torch to numpy:
+   1. perform dtype casting from one dtype system to another, lossless, hard abort if not possible.
+   2. no color convention conversion.
+   3. no layout change.
+3. apply target meta data:
+   1. resolve target meta data from user-provided override and per-format default.
+   2. for non-rgb fields or columns
+      1. if dtype cast is lossless, then do it.
+      2. otherwise, hard assert.
+   3. for rgb field:
+      1. if source and target dtype pair is a defined convention conversion, then do convention conversion.
+      2. otherwise, if dtyep cast is lossless, then do it.
+      3. otherwise, hard assert.
+   4. no cross-numpy-torch should happen.
+
+#### 2.2.2. The Core Design
+
+1. init
+   1. if init from numpy, do the following in sequence:
+      1. build source meta data.
+      2. numpy to torch.
+      3. apply target meta data.
+      4. assign to instance attr.
+   2. if init from torch, do the following in sequence:
+      1. build source meta data.
+      2. apply target meta data.
+      3. assign to instance attr.
+2. per-format load helpers
+   1. non-pth formats and pth format with numpy storage do the following steps in sequence
+      1. load as numpy, preserving values, dtypes, and layouts strictly.
+      2. construct `PointCloud` obj, passing raw data and override meta data as is.
+   2. pth format with torch storage do the following steps in sequence
+      1. load as torch, preserving values, dtypes, and layouts strictly.
+      2. construct `PointCloud` obj, passing raw data and override meta data as is.
+3. per-format save helpers
+   1. non-pth formats and pth format with numpy storage do the following steps in sequence
+      1. torch to numpy
+      2. apply target meta data.
+      3. for what's not specified by target meta data, apply source meta data.
+   2. pth format with torch storage do the following steps in sequence
+      1. apply target meta data.
+      2. for what's not specified by target meta data, apply source meta data.
 
 ### 2.3. Proposed Solution
 
