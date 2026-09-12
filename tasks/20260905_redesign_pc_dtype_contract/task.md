@@ -58,7 +58,7 @@ ply's subset is i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer 
    2. layout: the mapping defined by Layout Mapping.
 2. the four types of meta data: source meta data, default meta data, override meta data, and target meta data.
    1. source meta data: one whole record of what the source looked like, created when the obj is constructed, wherever the data comes from: a load from disk, or a construction from a torch tensor or a numpy array.
-      1. content: the dtype part alone, keyed on the source columns.
+      1. content: the dtype part alone, keyed on the source columns in the order the source holds them.
          1. the dtype is the conceptual dtype of the raw data (not the loaded data).
          2. examples:
             1. for the ply u4 example in Type Casting, the record holds uint32.
