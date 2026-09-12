@@ -6,19 +6,19 @@ goal: re-design pc dtype contract/provenance
 - [2. Guidelines](#2-guidelines)
   - [2.1. Problem Definition](#21-problem-definition)
   - [2.2. Proposed Solution](#22-proposed-solution)
-    - [2.2.1. Modules](#221-modules)
-      - [2.2.1.1. build source meta data](#2211-build-source-meta-data)
-      - [2.2.1.2. lossless dtype casting](#2212-lossless-dtype-casting)
-      - [2.2.1.3. numpy to torch or torch to numpy](#2213-numpy-to-torch-or-torch-to-numpy)
-      - [2.2.1.4. Color Data Convention Conversion](#2214-color-data-convention-conversion)
-      - [2.2.1.5. apply target meta data](#2215-apply-target-meta-data)
-    - [2.2.2. The Core Design](#222-the-core-design)
+    - [2.2.1. The new meta data tool](#221-the-new-meta-data-tool)
+    - [2.2.2. Modules](#222-modules)
+      - [2.2.2.1. build source meta data](#2221-build-source-meta-data)
+      - [2.2.2.2. lossless dtype casting](#2222-lossless-dtype-casting)
+      - [2.2.2.3. numpy to torch or torch to numpy](#2223-numpy-to-torch-or-torch-to-numpy)
+      - [2.2.2.4. Color Data Convention Conversion](#2224-color-data-convention-conversion)
+      - [2.2.2.5. apply target meta data](#2225-apply-target-meta-data)
+    - [2.2.3. The Core Design](#223-the-core-design)
   - [2.3. Proposed Solution](#23-proposed-solution)
     - [2.3.1. Layout Mapping](#231-layout-mapping)
-    - [2.3.2. New Meta Data API](#232-new-meta-data-api)
-    - [2.3.3. Point Cloud Data Structure Construction and I/O](#233-point-cloud-data-structure-construction-and-io)
-    - [2.3.4. What Becomes Stale Design](#234-what-becomes-stale-design)
-    - [2.3.5. Seriously Bad Behavior Observed when Working on this Task](#235-seriously-bad-behavior-observed-when-working-on-this-task)
+    - [2.3.2. Point Cloud Data Structure Construction and I/O](#232-point-cloud-data-structure-construction-and-io)
+    - [2.3.3. What Becomes Stale Design](#233-what-becomes-stale-design)
+    - [2.3.4. Seriously Bad Behavior Observed when Working on this Task](#234-seriously-bad-behavior-observed-when-working-on-this-task)
   - [2.4. Solution Constraints](#24-solution-constraints)
 - [3. Definition of Done](#3-definition-of-done)
   - [3.1. Project Consumers be Refactored](#31-project-consumers-be-refactored)
@@ -51,16 +51,50 @@ ply's subset is i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer 
 
 ### 2.2. Proposed Solution
 
-#### 2.2.1. Modules
+#### 2.2.1. The new meta data tool
 
-##### 2.2.1.1. build source meta data
+1. structure: it has two parts
+   1. dtype: the conceptual dtype.
+   2. layout: the mapping defined by Layout Mapping.
+2. the four types of meta data: source meta data, default meta data, override meta data, and target meta data.
+   1. source meta data: one whole record of what the source looked like, created when the obj is constructed, wherever the data comes from: a load from disk, or a construction from a torch tensor or a numpy array.
+      1. content: the dtype part alone, keyed on the source columns.
+         1. the dtype is the conceptual dtype of the raw data (not the loaded data).
+         2. examples:
+            1. for the ply u4 example in Type Casting, the record holds uint32.
+            2. a float128 source records float128 in meta data.
+            3. a field entering as ply u2, as numpy uint16, or as an open3d UInt16 all record the same thing.
+      2. immutability:
+         1. the record is never mutable, regardless of how the user of a `PointCloud` obj may modify its fields.
+         2. examples: adding a field, deleting a field, and overwriting an existing field all leave it exactly as it was.
+      3. travel: the record travels with the obj.
+         1. Select preserves it.
+         2. serializing a `PointCloud` and restoring it preserves it. a cache is not a source, so restoring builds no new record.
+         3. constructing a `PointCloud` from another obj's fields inherits that obj's record. another obj is not a source, so construction builds no new record.
+   3. default meta data (default layout): each format's per-format helper defines the default layout for its own format, on load and on save alike.
+      1. .ply and .las/.laz on load: when you see x, y, and z, default to stacking them into one field called xyz. when you see red, green, and blue, default to stacking them into one field called rgb.
+      2. .ply on save: xyz splits back into x, y and z, and rgb splits back into red, green and blue.
+      3. .pcd, .pth, .txt and .off: no default.
+      4. no other defaults defined for now.
+   4. override meta data:
+      1. init, load, and save each accept an override, and it reaches both the dtype and the layout at each.
+   5. target meta data: it holds one entry per field the override or the default names, each holding that field's layout and, where the override states one, its dtype.
+      1. layout: when a layout moves columns into another field, the fields those columns came from are dropped. each field takes its layout from the first of these that states one:
+         1. the override.
+         2. the default: at load, its xyz takes a ply's x, y and z, so x, y and z have no entry of their own. at save, it sees a field called xyz and turns it into columns x, y and z.
+      2. dtype: each entry takes it from the override.
+      2. for init, override is the target, because there's no default for init. the target of `__init__` is the meta data `__init__` is handed.
+
+#### 2.2.2. Modules
+
+##### 2.2.2.1. build source meta data
 
 1. conceptual dtypes:
    1. the fundamental root cause is the dtype system mismatch between numpy and torch: each is a subset of one universal, system-agnostic collection of conceptual dtypes, and neither's subset contains the other's.
    2. uint16 and int32 are two distinct conceptual dtypes. numpy int32 and torch int32 represent the same conceptual dtype
 2. build from the source, shared by numpy and torch.
 
-##### 2.2.1.2. lossless dtype casting
+##### 2.2.2.2. lossless dtype casting
 
 1. the principle: every dtype cast in init, load, and save, including those cross-numpy-torch and those applying the resolved target dtype, must be lossless. i.e., it never changes a value, in the mathematical sense. a cast that would change one hard-asserts and the program aborts.
 2. the mental model:
@@ -87,7 +121,7 @@ ply's subset is i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer 
       12. in a ply column, an int64 target goes to i4.
 4. a lossy cast belongs to the caller of these modules and never to the modules themselves. a caller wanting float32 coordinates out of a float64 source narrows them itself and hands the narrowed values in.
 
-##### 2.2.1.3. numpy to torch or torch to numpy
+##### 2.2.2.3. numpy to torch or torch to numpy
 
 1. perform lossless dtype casting from one dtype system to another, using the module described above.
 2. no color convention conversion.
@@ -95,7 +129,7 @@ ply's subset is i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer 
 4. examples:
    1. every ply dtype torch carries loads unchanged: i1 as int8, u1 as uint8, i2 as int16, i4 as int32, f4 as float32, f8 as float64.
 
-##### 2.2.1.4. Color Data Convention Conversion
+##### 2.2.2.4. Color Data Convention Conversion
 
 1. color conventions: rgb admits any integer dtype and any float dtype, unlike mesh vertex colors. the conventions are told apart by the dtype the data carries and never by inspecting the values, the same way `validate_vertex_color` tells mesh vertex colors apart. integer conventions span their dtype's full range. conventions include:
    1. uint8 names the 0 to 255 unsigned integer representation.
@@ -117,7 +151,7 @@ ply's subset is i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer 
       1. 0 to 65535 into 0 to 255: a value of 1 rounds to 0 and converts back to 0, so the conversion is lossy.
       2. 0 to 65535 into 0 to 255: a value of 257 converts to 1 and back to 257, so the conversion is lossless.
 
-##### 2.2.1.5. apply target meta data
+##### 2.2.2.5. apply target meta data
 
 1. for non-rgb fields or columns
    1. if dtype cast is lossless, then do it.
@@ -128,7 +162,22 @@ ply's subset is i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer 
    3. otherwise, hard assert.
 3. no cross-numpy-torch should happen.
 
-#### 2.2.2. The Core Design
+-----
+
+3. applying meta data:
+   1. `apply_meta_data` applies exactly the meta data it is handed, resolving nothing itself. the dtype applies first, and the layout mapping is checked only after that:
+      1. dtype (and convention):
+         1. color conversion happens in two steps:
+            1. where a conversion is defined for the pair, the values are mapped from the convention the current dtype names to the convention the target dtype names.
+            2. after convention conversion, type casting happens normally.
+         2. every other field goes through a direct type cast.
+         3. lossless is asserted. the target is applied if it's lossless. the program hard asserts if lossless cannot be achieved, or if torch cannot hold the target dtype.
+      2. layout:
+         1. the target's layout assembles the field from the columns it names
+         2. if the columns a target layout merges into one field still hold different dtypes once the target dtype has been applied, the program hard asserts and aborts.
+   3. applying the target changes the fields the obj stores and never the record, which stays exactly what the source data held.
+
+#### 2.2.3. The Core Design
 
 1. init
    1. the received `meta_data` arg is treated as target meta data directly (there isn't a second thing to resolve together).
@@ -178,49 +227,7 @@ ply's subset is i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer 
    6. a .txt holds unnamed columns and defines no column-to-field mapping. its columns are named by position.
    7. a .off names no columns and defines no column-to-field mapping. the OFF format declares its vertex block to be the point data, and those columns are named by position.
 
-#### 2.3.2. New Meta Data API
-
-1. structure: it has two parts
-   1. dtype: the conceptual dtype.
-   2. layout: the mapping defined by Layout Mapping.
-2. types of meta data: there are four meta data: the recorded meta data, the override meta data, the default meta data, and the target meta data the override and the default resolve into.
-   1. recorded meta data: one whole record of what the source looked like, created when the obj is constructed, wherever the data comes from: a load from disk, or a construction from a torch tensor or a numpy array.
-      1. content: the dtype part alone, keyed on the source columns.
-         1. the dtype is the source dtype, recorded against the source layout and not the loaded layout: the one the source column held, not the one the loaded field carries.
-            1. for the ply u4 example in Type Casting, the record holds uint32.
-            2. a float128 source records float128 in meta data.
-         2. the dtype is the conceptual dtype: a field entering as ply u2, as numpy uint16, or as an open3d UInt16 all record the same thing.
-      2. immutability: the record is never mutable. adding a field, deleting a field, and overwriting an existing field all leave it exactly as it was, while the user of a `PointCloud` obj may still modify the fields.
-      3. travel: the record travels with the obj.
-         1. Select preserves it.
-         2. serializing a `PointCloud` and restoring it preserves it. a cache is not a source, so restoring builds no new record.
-         3. constructing a `PointCloud` from another obj's fields inherits that obj's record. another obj is not a source, so construction builds no new record.
-   2. override meta data:
-      1. `__init__`, load point cloud and save point cloud each accept an override, and it reaches both the dtype and the layout at each.
-   3. default meta data (default layout): each format's per-format helper defines the default layout for its own format, on load and on save alike.
-      1. .ply and .las/.laz on load: when you see x, y, and z, default to stacking them into one field called xyz. when you see red, green, and blue, default to stacking them into one field called rgb.
-      2. .ply on save: xyz splits back into x, y and z, and rgb splits back into red, green and blue.
-      3. .pcd, .pth, .txt and .off: no default.
-      4. no other defaults defined for now.
-   4. target meta data: a per-format helper resolves it from the override and its own format's default. the target of `__init__` is the meta data `__init__` is handed. it holds one entry per field the override or the default names, each holding that field's layout and, where the override states one, its dtype.
-      1. layout: when a layout moves columns into another field, the fields those columns came from are dropped. each field takes its layout from the first of these that states one:
-         1. the override.
-         2. the default: at load, its xyz takes a ply's x, y and z, so x, y and z have no entry of their own. at save, it sees a field called xyz and turns it into columns x, y and z.
-      2. dtype: each entry takes it from the override.
-3. applying meta data:
-   1. `apply_meta_data` applies exactly the meta data it is handed, resolving nothing itself. the dtype applies first, and the layout mapping is checked only after that:
-      1. dtype (and convention):
-         1. color conversion happens in two steps:
-            1. where a conversion is defined for the pair, the values are mapped from the convention the current dtype names to the convention the target dtype names.
-            2. after convention conversion, type casting happens normally.
-         2. every other field goes through a direct type cast.
-         3. lossless is asserted. the target is applied if it's lossless. the program hard asserts if lossless cannot be achieved, or if torch cannot hold the target dtype.
-      2. layout:
-         1. the target's layout assembles the field from the columns it names
-         2. if the columns a target layout merges into one field still hold different dtypes once the target dtype has been applied, the program hard asserts and aborts.
-   3. applying the target changes the fields the obj stores and never the record, which stays exactly what the source data held.
-
-#### 2.3.3. Point Cloud Data Structure Construction and I/O
+#### 2.3.2. Point Cloud Data Structure Construction and I/O
 
 1. the `PointCloud` class:
    1. common construction by `__init__` from in-memory variables or by load point cloud from files:
@@ -239,7 +246,7 @@ ply's subset is i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer 
 2. load point cloud
    1. the per-format helpers
       1. the .ply, .pcd, .las, .laz, .txt and .off helpers load the file's columns as numpy arrays.
-      2. they construct the raw point cloud from what they loaded, so the meta data record comes from the data in disk, NOT from the type-casted data stored in the PointCloud obj. i.e., the recorded meta data is a consequence of what's inside the file in disk and nothing else.
+      2. they construct the raw point cloud from what they loaded, so the meta data record comes from the data in disk, NOT from the type-casted data stored in the PointCloud obj. i.e., the source meta data is a consequence of what's inside the file in disk and nothing else.
          1. a .las color is uint16 in the file, so the raw point cloud records uint16 and holds the color as int32.
       3. they define the default layout for each format, resolve it together with the override into the target, and hand the target to `apply_meta_data`.
       4. the only silent cast is the one that resolves the dtype system mismatch between numpy and torch, and nothing beyond it happens silently. any further lossless dtype change is the user's to instruct through the override.
@@ -263,7 +270,7 @@ ply's subset is i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer 
       2. Select asserts that indices are int64 at the point of use.
       3. the point cloud displays under `data/viewer/utils/displays/points/dash` and `data/viewer/utils/displays/points/ts` assume 0 to 255 colors, and each applies Color Data Convention Conversion to rgb in its input normalization.
 
-#### 2.3.4. What Becomes Stale Design
+#### 2.3.3. What Becomes Stale Design
 
 - the color rescale that guesses a [0, 1] range from the values and multiplies by 255
 - the narrowing of every integer field to i4
@@ -283,7 +290,7 @@ ply's subset is i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer 
       1. name_feat's renaming of a named column to feat and its reshape to [N, 1] are dropped rather than replaced because of the field-name preservation required by Point Cloud Data Structure Construction and I/O.
    3. nameInPly is removed.
 
-#### 2.3.5. Seriously Bad Behavior Observed when Working on this Task
+#### 2.3.4. Seriously Bad Behavior Observed when Working on this Task
 
 The following are mistakes repeated again and again and every time when i asked what's unclear the agent tells me it's clear enough. I hate this behavior. The following mistakes are recorded here and persisted to let you see how bad you have been behaving. this is a explicitly and strictly and permanently banned.
 
@@ -300,7 +307,7 @@ The following are mistakes repeated again and again and every time when i asked 
    1. must have a local function to build meta data from provided source data and set class attr.
    2. must use `self.apply_meta_data` to apply meta data, giving it the `meta_data` the constructor was handed.
 4. there must be one module that converts numpy to torch and vise versa with necessary dtype casting and be shared by init, load, and save.
-5. there must be one module that can return the conceptual dtype of any numpy or torch object and be shared by init and load to create the recorded meta data.
+5. there must be one module that can return the conceptual dtype of any numpy or torch object and be shared by init and load to create the source meta data.
 
 ## 3. Definition of Done
 
