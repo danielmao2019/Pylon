@@ -7,15 +7,18 @@ goal: re-design pc dtype contract/provenance
   - [2.1. Problem Definition](#21-problem-definition)
   - [2.2. Proposed Solution](#22-proposed-solution)
     - [2.2.1. Modules](#221-modules)
+      - [2.2.1.1. build source meta data](#2211-build-source-meta-data)
+      - [2.2.1.2. lossless dtype casting](#2212-lossless-dtype-casting)
+      - [2.2.1.3. numpy to torch or torch to numpy](#2213-numpy-to-torch-or-torch-to-numpy)
+      - [2.2.1.4. Color Data Convention Conversion](#2214-color-data-convention-conversion)
+      - [2.2.1.5. apply target meta data](#2215-apply-target-meta-data)
     - [2.2.2. The Core Design](#222-the-core-design)
   - [2.3. Proposed Solution](#23-proposed-solution)
-    - [2.3.1. Type Casting](#231-type-casting)
-    - [2.3.2. Color Data Convention Conversion](#232-color-data-convention-conversion)
-    - [2.3.3. Layout Mapping](#233-layout-mapping)
-    - [2.3.4. New Meta Data API](#234-new-meta-data-api)
-    - [2.3.5. Point Cloud Data Structure Construction and I/O](#235-point-cloud-data-structure-construction-and-io)
-    - [2.3.6. What Becomes Stale Design](#236-what-becomes-stale-design)
-    - [2.3.7. Seriously Bad Behavior Observed when Working on this Task](#237-seriously-bad-behavior-observed-when-working-on-this-task)
+    - [2.3.1. Layout Mapping](#231-layout-mapping)
+    - [2.3.2. New Meta Data API](#232-new-meta-data-api)
+    - [2.3.3. Point Cloud Data Structure Construction and I/O](#233-point-cloud-data-structure-construction-and-io)
+    - [2.3.4. What Becomes Stale Design](#234-what-becomes-stale-design)
+    - [2.3.5. Seriously Bad Behavior Observed when Working on this Task](#235-seriously-bad-behavior-observed-when-working-on-this-task)
   - [2.4. Solution Constraints](#24-solution-constraints)
 - [3. Definition of Done](#3-definition-of-done)
   - [3.1. Project Consumers be Refactored](#31-project-consumers-be-refactored)
@@ -28,6 +31,14 @@ goal: re-design pc dtype contract/provenance
 Any non-pth format can only deal with numpy arrays. If this library stores data in torch Tensors then there's a layer between numpy and torch.
 
 For pth format it can also work with torch directly.
+
+torch 2.2.2 has no uint16, uint32, uint64 or float128, and bfloat16, complex32, float8_e4m3fn and float8_e5m2 are its alone.
+
+numpy 1.26.4 has uint64 and float128, and has no bfloat16.
+
+numpy holds every dtype a .ply, .pcd, .las, .laz, .txt or .off file defines.
+
+ply's subset is i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer and no boolean.
 
 ## 2. Guidelines
 
@@ -42,21 +53,80 @@ For pth format it can also work with torch directly.
 
 #### 2.2.1. Modules
 
-1. build source meta data:
-   1. build from the source, shared by numpy and torch.
-2. numpy to torch or torch to numpy:
-   1. perform dtype casting from one dtype system to another, lossless, hard abort if not possible.
-   2. no color convention conversion.
-   3. no layout change.
-3. apply target meta data:
-   1. for non-rgb fields or columns
-      1. if dtype cast is lossless, then do it.
-      2. otherwise, hard assert.
-   2. for rgb field:
-      1. if source and target dtype pair is a defined convention conversion, then do convention conversion.
-      2. otherwise, if dtyep cast is lossless, then do it.
-      3. otherwise, hard assert.
-   3. no cross-numpy-torch should happen.
+##### 2.2.1.1. build source meta data
+
+1. conceptual dtypes:
+   1. the fundamental root cause is the dtype system mismatch between numpy and torch: each is a subset of one universal, system-agnostic collection of conceptual dtypes, and neither's subset contains the other's.
+   2. uint16 and int32 are two distinct conceptual dtypes. numpy int32 and torch int32 represent the same conceptual dtype
+2. build from the source, shared by numpy and torch.
+
+##### 2.2.1.2. lossless dtype casting
+
+1. the principle: every dtype cast in init, load, and save, including those cross-numpy-torch and those applying the resolved target dtype, must be lossless. i.e., it never changes a value, in the mathematical sense. a cast that would change one hard-asserts and the program aborts.
+2. the mental model:
+   1. each dtype is a set of values, and one dtype's set may sit inside another's.
+   2. examples:
+      1. float32's sits inside float64's.
+3. how to do lossless dtype casting:
+   1. every casting decision reads those sets and the values a field holds, never the dtype names alone.
+   2. when a system lacks a conceptual dtype but has one whose set contains its entire set, the smallest such dtype is used, and the cast converts whichever values are present in the data.
+   3. when the system has no such dtype, the largest narrower one it supports is used and no smaller dtype is considered after it, and the values then decide. every value inside that dtype's set means nothing is lost, so the cast converts. any value outside means something is lost, so the cast hard-asserts and the program aborts.
+   4. no field name changes the decision. xyz, rgb, indices, feat and normals cast by the same rules as any other field.
+   5. examples:
+      1. in torch storage, numpy uint16 goes to int32 and numpy uint32 goes to int64
+      2. in torch storage, a float128 source with no override uses float64. float32 and smaller dtypes are not considered.
+      3. an in-memory variable defines the dtype its tensor or array carries.
+      4. a .pth defines the dtype the stored tensor or array carries.
+      5. a .ply defines each column's stored dtype character, so an f4 column defines float32 and an f8 column defines float64.
+      6. a .pcd defines the dtype each open3d attribute carries.
+      7. a .las or .laz defines the dtype laspy materializes each dimension as: float64 for the scaled x, y and z, uint16 for the colors, and uint8 for a bit-packed field, which is an ordinary unsigned integer.
+      8. a .txt holds decimal text, which yields float64.
+      9. a .off holds decimal text, and float32 is what load point cloud keeps it at, hard-asserting on any magnitude float32 cannot hold rather than moving it onto a dtype that covers it.
+      10. a ply u2 column is held as int32 and a ply u4 column as int64.
+      11. in a ply column, a bool target goes to u1: i1 and u1 are both one byte and both contain bool's two values, and u1 is the one whose signedness matches bool's.
+      12. in a ply column, an int64 target goes to i4.
+4. a lossy cast belongs to the caller of these modules and never to the modules themselves. a caller wanting float32 coordinates out of a float64 source narrows them itself and hands the narrowed values in.
+
+##### 2.2.1.3. numpy to torch or torch to numpy
+
+1. perform lossless dtype casting from one dtype system to another, using the module described above.
+2. no color convention conversion.
+3. no layout change.
+4. examples:
+   1. every ply dtype torch carries loads unchanged: i1 as int8, u1 as uint8, i2 as int16, i4 as int32, f4 as float32, f8 as float64.
+
+##### 2.2.1.4. Color Data Convention Conversion
+
+1. color conventions: rgb admits any integer dtype and any float dtype, unlike mesh vertex colors. the conventions are told apart by the dtype the data carries and never by inspecting the values, the same way `validate_vertex_color` tells mesh vertex colors apart. integer conventions span their dtype's full range. conventions include:
+   1. uint8 names the 0 to 255 unsigned integer representation.
+   2. int8 names the -128 to 127 signed integer representation.
+   3. a float dtype names the 0 to 1 floating point representation.
+   4. uint16 names the 0 to 65535 unsigned integer representation.
+      1. an int32 color is in the uint16 convention.
+2. conversion between conventions:
+   1. range mapping: for source range $[a, b]$ and target range $[c, d]$, each channel value $x$ maps to $y = c + (x - a)(d - c)/(b - a)$ before rounding.
+      1. 0 to 255 into 0 to 1: $y = x/255$.
+      2. -128 to 127 into 0 to 1: $y = (x + 128)/255$.
+      3. -128 to 127 into 0 to 255: $y = x + 128$.
+      4. 0 to 65535 into 0 to 255: $y = x/257$.
+      5. the reverse conversion uses the same formula with the source and target ranges exchanged.
+   2. target representation:
+      1. a floating point target uses $y$ without integer rounding.
+      2. an integer target rounds $y$ to the nearest integer.
+   3. losslessness: a conversion is lossless when the source values are exactly recoverable by converting the result back to the source convention, and lossy otherwise. the conversion performs either one, because tolerating the loss belongs to whoever asked for the target convention.
+      1. 0 to 65535 into 0 to 255: a value of 1 rounds to 0 and converts back to 0, so the conversion is lossy.
+      2. 0 to 65535 into 0 to 255: a value of 257 converts to 1 and back to 257, so the conversion is lossless.
+
+##### 2.2.1.5. apply target meta data
+
+1. for non-rgb fields or columns
+   1. if dtype cast is lossless, then do it.
+   2. otherwise, hard assert.
+2. for rgb field:
+   1. if source and target dtype pair is a defined convention conversion, then do convention conversion.
+   2. otherwise, if dtyep cast is lossless, then do it.
+   3. otherwise, hard assert.
+3. no cross-numpy-torch should happen.
 
 #### 2.2.2. The Core Design
 
@@ -95,59 +165,7 @@ For pth format it can also work with torch directly.
 
 ### 2.3. Proposed Solution
 
-#### 2.3.1. Type Casting
-
-1. the fundamental root cause is the dtype system mismatch between numpy and torch: each is a subset of one universal, system-agnostic collection of conceptual dtypes, and neither's subset contains the other's.
-   1. conceptual dtype identity across systems:
-      1. uint16 and int32 are two distinct conceptual dtypes. numpy int32 and torch int32 represent the same conceptual dtype.
-      2. every ply dtype torch carries loads unchanged: i1 as int8, u1 as uint8, i2 as int16, i4 as int32, f4 as float32, f8 as float64.
-   2. each system's supported subset:
-      1. torch 2.2.2 has no uint16, uint32, uint64 or float128, and bfloat16, complex32, float8_e4m3fn and float8_e5m2 are its alone.
-      2. numpy 1.26.4 has uint64 and float128, and has no bfloat16.
-   3. numpy holds every dtype a .ply, .pcd, .las, .laz, .txt or .off file defines.
-      1. ply's subset is i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer and no boolean.
-2. every dtype cast `__init__`, load point cloud and save point cloud make must be lossless: it never changes a value, in the mathematical sense. a cast that would change one hard-asserts and the program aborts.
-   1. each dtype is a set of values, and one dtype's set may sit inside another's. float32's sits inside float64's. every casting decision reads those sets and the values a field holds, never the dtype names alone.
-   2. when a system lacks a conceptual dtype but has one whose set contains its entire set, the smallest such dtype is used, and the cast converts whichever values are present in the data.
-      1. in torch storage, numpy uint16 goes to int32 and numpy uint32 goes to int64, so a ply u2 column is held as int32 and a ply u4 column as int64.
-      2. in a ply column, a bool target goes to u1: i1 and u1 are both one byte and both contain bool's two values, and u1 is the one whose signedness matches bool's.
-   3. when the system has no such dtype, the largest narrower one it supports is used and no smaller dtype is considered after it, and the values then decide. every value inside that dtype's set means nothing is lost, so the cast converts. any value outside means something is lost, so the cast hard-asserts and the program aborts.
-      1. in torch storage, a float128 source with no override uses float64. float32 and smaller dtypes are not considered.
-      2. in a ply column, an int64 target goes to i4.
-   4. no field name changes the decision. xyz, rgb, indices, feat and normals cast by the same rules as any other field.
-   5. a lossy cast belongs to the caller of these modules and never to the modules themselves. a caller wanting float32 coordinates out of a float64 source narrows them itself and hands the narrowed values in.
-3. determining the dtype from the source, one rule per source:
-   1. an in-memory variable defines the dtype its tensor or array carries.
-   2. a .pth defines the dtype the stored tensor or array carries.
-   3. a .ply defines each column's stored dtype character, so an f4 column defines float32 and an f8 column defines float64.
-   4. a .pcd defines the dtype each open3d attribute carries.
-   5. a .las or .laz defines the dtype laspy materializes each dimension as: float64 for the scaled x, y and z, uint16 for the colors, and uint8 for a bit-packed field, which is an ordinary unsigned integer.
-   6. a .txt holds decimal text, which yields float64.
-   7. a .off holds decimal text, and float32 is what load point cloud keeps it at, hard-asserting on any magnitude float32 cannot hold rather than moving it onto a dtype that covers it.
-
-#### 2.3.2. Color Data Convention Conversion
-
-1. color conventions: rgb admits any integer dtype and any float dtype, unlike mesh vertex colors. the conventions are told apart by the dtype the data carries and never by inspecting the values, the same way `validate_vertex_color` tells mesh vertex colors apart. integer conventions span their dtype's full range. conventions include:
-   1. uint8 names the 0 to 255 unsigned integer representation.
-   2. int8 names the -128 to 127 signed integer representation.
-   3. a float dtype names the 0 to 1 floating point representation.
-   4. uint16 names the 0 to 65535 unsigned integer representation.
-      1. an int32 color is in the uint16 convention.
-2. conversion between conventions:
-   1. range mapping: for source range $[a, b]$ and target range $[c, d]$, each channel value $x$ maps to $y = c + (x - a)(d - c)/(b - a)$ before rounding.
-      1. 0 to 255 into 0 to 1: $y = x/255$.
-      2. -128 to 127 into 0 to 1: $y = (x + 128)/255$.
-      3. -128 to 127 into 0 to 255: $y = x + 128$.
-      4. 0 to 65535 into 0 to 255: $y = x/257$.
-      5. the reverse conversion uses the same formula with the source and target ranges exchanged.
-   2. target representation:
-      1. a floating point target uses $y$ without integer rounding.
-      2. an integer target rounds $y$ to the nearest integer.
-   3. losslessness: a conversion is lossless when the source values are exactly recoverable by converting the result back to the source convention, and lossy otherwise. the conversion performs either one, because tolerating the loss belongs to whoever asked for the target convention.
-      1. 0 to 65535 into 0 to 255: a value of 1 rounds to 0 and converts back to 0, so the conversion is lossy.
-      2. 0 to 65535 into 0 to 255: a value of 257 converts to 1 and back to 257, so the conversion is lossless.
-
-#### 2.3.3. Layout Mapping
+#### 2.3.1. Layout Mapping
 
 1. what it is: the mapping between the source layout and the loaded layout, with the columns the source held on one side and the fields assembled from them on the other.
 2. forward mapping: determining the layout from the source, one rule per source. each field carries the name its source gives the column, attribute or dimension it holds, and a caller wanting a field under another name, or assembled out of several columns, states that in the meta data.
@@ -160,7 +178,7 @@ For pth format it can also work with torch directly.
    6. a .txt holds unnamed columns and defines no column-to-field mapping. its columns are named by position.
    7. a .off names no columns and defines no column-to-field mapping. the OFF format declares its vertex block to be the point data, and those columns are named by position.
 
-#### 2.3.4. New Meta Data API
+#### 2.3.2. New Meta Data API
 
 1. structure: it has two parts
    1. dtype: the conceptual dtype.
@@ -202,7 +220,7 @@ For pth format it can also work with torch directly.
          2. if the columns a target layout merges into one field still hold different dtypes once the target dtype has been applied, the program hard asserts and aborts.
    3. applying the target changes the fields the obj stores and never the record, which stays exactly what the source data held.
 
-#### 2.3.5. Point Cloud Data Structure Construction and I/O
+#### 2.3.3. Point Cloud Data Structure Construction and I/O
 
 1. the `PointCloud` class:
    1. common construction by `__init__` from in-memory variables or by load point cloud from files:
@@ -245,7 +263,7 @@ For pth format it can also work with torch directly.
       2. Select asserts that indices are int64 at the point of use.
       3. the point cloud displays under `data/viewer/utils/displays/points/dash` and `data/viewer/utils/displays/points/ts` assume 0 to 255 colors, and each applies Color Data Convention Conversion to rgb in its input normalization.
 
-#### 2.3.6. What Becomes Stale Design
+#### 2.3.4. What Becomes Stale Design
 
 - the color rescale that guesses a [0, 1] range from the values and multiplies by 255
 - the narrowing of every integer field to i4
@@ -265,7 +283,7 @@ For pth format it can also work with torch directly.
       1. name_feat's renaming of a named column to feat and its reshape to [N, 1] are dropped rather than replaced because of the field-name preservation required by Point Cloud Data Structure Construction and I/O.
    3. nameInPly is removed.
 
-#### 2.3.7. Seriously Bad Behavior Observed when Working on this Task
+#### 2.3.5. Seriously Bad Behavior Observed when Working on this Task
 
 The following are mistakes repeated again and again and every time when i asked what's unclear the agent tells me it's clear enough. I hate this behavior. The following mistakes are recorded here and persisted to let you see how bad you have been behaving. this is a explicitly and strictly and permanently banned.
 
