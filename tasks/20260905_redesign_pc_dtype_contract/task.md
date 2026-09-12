@@ -69,11 +69,12 @@ For pth format it can also work with torch directly.
 
 #### 2.2.2. Color Data Convention Conversion
 
-1. color conventions: rgb admits any integer dtype and any float dtype, unlike mesh vertex colors. conventions include:
-   1. 0 to 255 unsigned integer representation.
-   2. -128 to 127 signed integer representation.
-   3. 0 to 1 floating point representation.
-   4. 0 to 65535 unsigned integer representation.
+1. color conventions: rgb admits any integer dtype and any float dtype, unlike mesh vertex colors. the conventions are told apart by the dtype the data carries and never by inspecting the values, the same way `validate_vertex_color` tells mesh vertex colors apart. integer conventions span their dtype's full range. conventions include:
+   1. uint8 names the 0 to 255 unsigned integer representation.
+   2. int8 names the -128 to 127 signed integer representation.
+   3. a float dtype names the 0 to 1 floating point representation.
+   4. uint16 names the 0 to 65535 unsigned integer representation.
+      1. an int32 color is in the uint16 convention.
 2. conversion between conventions:
    1. range mapping: for source range $[a, b]$ and target range $[c, d]$, each channel value $x$ maps to $y = c + (x - a)(d - c)/(b - a)$ before rounding.
       1. 0 to 255 into 0 to 1: $y = x/255$.
@@ -87,12 +88,6 @@ For pth format it can also work with torch directly.
    3. losslessness: a conversion is lossless when the source values are exactly recoverable by converting the result back to the source convention, and lossy otherwise. the conversion performs either one, because tolerating the loss belongs to whoever asked for the target convention.
       1. 0 to 65535 into 0 to 255: a value of 1 rounds to 0 and converts back to 0, so the conversion is lossy.
       2. 0 to 65535 into 0 to 255: a value of 257 converts to 1 and back to 257, so the conversion is lossless.
-3. naming conventions by dtype: the conventions are told apart by the dtype the data carries and never by inspecting the values, the same way `validate_vertex_color` tells mesh vertex colors apart. integer conventions span their dtype's full range.
-   1. uint8 names the 0 to 255 convention.
-   2. int8 names the -128 to 127 convention.
-   3. a float dtype names the 0 to 1 convention.
-   4. uint16 names the 0 to 65535 convention.
-      1. an int32 color is in the uint16 convention.
 
 #### 2.2.3. Layout Mapping
 
