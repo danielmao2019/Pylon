@@ -167,7 +167,7 @@ ply's subset is i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer 
       2. otherwise, hard assert.
    2. for rgb field:
       1. if source and target dtype pair is a defined convention conversion, then do convention conversion.
-      2. otherwise, if dtyep cast is lossless, then do it.
+      2. otherwise, if dtype cast is lossless, then do it.
       3. otherwise, hard assert.
    3. no cross-numpy-torch should happen.
 7. apply layout:
