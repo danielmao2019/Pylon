@@ -245,7 +245,7 @@ For pth format it can also work with torch directly.
       2. Select asserts that indices are int64 at the point of use.
       3. the point cloud displays under `data/viewer/utils/displays/points/dash` and `data/viewer/utils/displays/points/ts` assume 0 to 255 colors, and each applies Color Data Convention Conversion to rgb in its input normalization.
 
-#### 2.2.6. What Becomes Stale Design
+#### 2.3.6. What Becomes Stale Design
 
 - the color rescale that guesses a [0, 1] range from the values and multiplies by 255
 - the narrowing of every integer field to i4
@@ -265,7 +265,7 @@ For pth format it can also work with torch directly.
       1. name_feat's renaming of a named column to feat and its reshape to [N, 1] are dropped rather than replaced because of the field-name preservation required by Point Cloud Data Structure Construction and I/O.
    3. nameInPly is removed.
 
-#### 2.2.7. Seriously Bad Behavior Observed when Working on this Task
+#### 2.3.7. Seriously Bad Behavior Observed when Working on this Task
 
 The following are mistakes repeated again and again and every time when i asked what's unclear the agent tells me it's clear enough. I hate this behavior. The following mistakes are recorded here and persisted to let you see how bad you have been behaving. this is a explicitly and strictly and permanently banned.
 
@@ -273,7 +273,7 @@ The following are mistakes repeated again and again and every time when i asked 
 2. an additional argument called `layout` or `dtype` beside `meta_data` on `__init__`, load point cloud or save point cloud that's meant to do what `meta_data` is expected to cover.
 3. adding a new method to `PointCloud` being `conceptual_dtype`.
 
-### 2.3. Solution Constraints
+### 2.4. Solution Constraints
 
 1. You must use "meta_data" as the name of the new arg of init, load, and save. nothing else accepted. it is the only new arg any of the three takes: whatever else a design wants to pass fits inside `meta_data` or is derived, and no second arg is added beside it.
 2. `PointCloud` should expose a public method `apply_meta_data`, which also takes a `meta_data` arg, the target it applies.
