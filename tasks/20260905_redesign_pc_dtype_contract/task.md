@@ -154,30 +154,25 @@ goal: re-design pc dtype contract/provenance
    3. replacing rgb with a clone preserves its existing color convention.
 2. load point cloud
    1. the per-format helpers
-      1. they load and
-         1. do necessary type casting when the dtype systems mismatch and when the type cast can be lossless, before constructing the raw point cloud.
-         2. never change layout.
-      2. they construct the meta data record from the data in disk, NOT from the type-casted data stored in the PointCloud obj. i.e., the recorded meta data is a consequence of what's inside the file in disk and nothing else.
+      1. the .ply, .pcd, .las, .laz, .txt and .off helpers load the file's columns as numpy arrays.
+      2. they construct the raw point cloud from what they loaded, so the meta data record comes from the data in disk, NOT from the type-casted data stored in the PointCloud obj. i.e., the recorded meta data is a consequence of what's inside the file in disk and nothing else.
          1. a .las color is uint16 in the file, so the raw point cloud records uint16 and holds the color as int32.
-      3. they define the default layout for each format, which `apply_meta_data` applies.
-      4. the only silent cast is the one that resolves a dtype system mismatch, and nothing beyond it happens silently. any further lossless dtype change is the user's to instruct through the override.
+      3. they define the default layout for each format, resolve it together with the override into the target, and hand the target to `apply_meta_data`.
+      4. the only silent cast is the one that resolves the dtype system mismatch between numpy and torch, and nothing beyond it happens silently. any further lossless dtype change is the user's to instruct through the override.
    2. the main load API
       1. accepts a `meta_data` optional arg override.
-      2. calls the `PointCloud.apply_meta_data` passing down the `meta_data` optional arg after the per-format helpers return.
+      2. passes the `meta_data` optional arg down to the per-format helper.
       3. it knows nothing about default layout.
       4. never silently casts a dtype.
 3. save point cloud
    1. the per-format helpers
-      1. they save and
-         1. do necessary type casting when dtype systems mismatch and when type cast can be lossless.
-         2. never change layout
-      2. meta data reaches a helper in no form at all: not the record, not the override, and not a target derived from either, whatever it is called. it's just completely unrelated to the job of the per-format helpers.
+      1. they resolve the override together with their format's default layout into the target, and hand the target to `apply_meta_data`.
+      2. they turn the fields into numpy arrays and save those:
+         1. a column whose target states no dtype goes back to its recorded dtype where torch could not hold that dtype, so a .las color recorded as uint16, with no override, is saved as uint16.
+         2. they do necessary type casting when dtype systems mismatch and when type cast can be lossless.
    2. the main save API
       1. accepts a `meta_data` optional arg override.
-      2. calls the `PointCloud.apply_meta_data` passing down the `meta_data` optional arg. e.g.:
-         1. turns each multi-column field back into one field per output column, each named by the reverse mapping, so a cloud holding xyz becomes fields x, y and z.
-         2. brings a .las color recorded as uint16, with no override, back to uint16.
-      3. passes that cloud to the per-format helpers.
+      2. passes the cloud and the `meta_data` optional arg down to the per-format helper.
 4. consumers/users of `PointCloud`:
    1. any consumer of PointCloud in Pylon should be adjusted to work with the new design of PointCloud and its I/O.
       1. every caller passing dtype is updated to the meta data override.
