@@ -160,20 +160,21 @@ ply's subset is i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer 
 1. there should be a `apply_meta_data` function under a `utils` submodule of the point cloud data structure module.
 2. `apply_meta_data` takes a `meta_data` arg and applies exactly the meta data it is handed, resolving nothing itself.
 3. `apply_meta_data` should work for both torch and numpy.
-4. for what the resolved target meta data does not specify, don't touch. what this implies (incomplete list):
+4. `apply_meta_data` is the only place where a color convention is converted.
+5. for what the resolved target meta data does not specify, don't touch. what this implies (incomplete list):
    1. fields keep their own names, except where the default or an override names them.
-5. the dtype applies first, and the layout mapping is checked only after that
-6. apply dtype:
-   1. for non-rgb fields or columns
+6. the order is fixed for init, load and save alike: the dtype applies first, then the layout.
+7. apply dtype: each target key's dtype applies to the source fields or columns its layout maps it to.
+   1. for a target key outside the set rgb, colors, red, green and blue:
       1. if dtype cast is lossless, then do it.
       2. otherwise, hard assert.
-   2. for rgb field:
+   2. for a target key in the set rgb, colors, red, green and blue:
       1. if source and target dtype pair is a defined convention conversion, then do convention conversion.
       2. otherwise, if dtype cast is lossless, then do it.
       3. otherwise, hard assert.
    3. no cross-numpy-torch should happen.
-7. apply layout:
-   1. the target's layout assembles the field from the columns it names.
+8. apply layout:
+   1. each target key is assembled from the source fields or columns its layout maps it to.
    2. if the columns a target layout merges into one field still hold different dtypes once the target dtype has been applied, the program hard asserts and aborts. the columns a field is assembled from must all hold one dtype once the target dtype has been applied. disagreeing column dtypes hard-assert and abort rather than being promoted to a dtype covering them all.
 
 #### 2.2.3. The Core Design
@@ -235,7 +236,7 @@ ply's subset is i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer 
 
 #### 2.3.1. Layout Mapping
 
-1. what it is: the mapping between the source layout and the loaded layout, with the columns the source held on one side and the fields assembled from them on the other.
+1. what it is: the mapping from each target field or column to the source fields or columns it is assembled from. at load the targets are the loaded fields and the sources are the file's columns; at save the targets are the file's columns and the sources are the cloud's fields.
 2. forward mapping: determining the layout from the source, one rule per source. each field carries the name its source gives the column, attribute or dimension it holds, and a caller wanting a field under another name, or assembled out of several columns, states that in the meta data.
    1. an in-memory variable uses the identity mapping: the name a field was handed under stands for the whole block of columns it was handed as.
    2. a .pth holds one block of unnamed columns and defines no column-to-field mapping. its columns are named by position.
@@ -251,7 +252,7 @@ ply's subset is i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer 
 1. any consumer of PointCloud in Pylon should be adjusted to work with the new design of PointCloud and its I/O.
 2. every caller passing dtype is updated to the meta data override.
 3. Select asserts that indices are int64 at the point of use.
-4. the point cloud displays under `data/viewer/utils/displays/points/dash` and `data/viewer/utils/displays/points/ts` assume 0 to 255 colors, and each applies Color Data Convention Conversion to rgb in its input normalization.
+4. the point cloud displays under `data/viewer/utils/displays/points/dash` and `data/viewer/utils/displays/points/ts` assume 0 to 255 colors, and each applies Color Data Convention Conversion to rgb through `apply_meta_data` in its input normalization.
 
 #### 2.3.3. What Becomes Stale Design
 
@@ -303,6 +304,6 @@ This commit "[Project][Tasks] Merge 20260903_integrate_blend_texture_not_render 
 2. constructing a `PointCloud` from numpy arrays is in scope. the obj always stores torch tensors.
 3. uint64 is excluded from this task: it is unsupported as a source dtype for `__init__` or load point cloud and as a dtype in any meta data override. either case hard-asserts and aborts, regardless of the actual values. an override requesting another dtype does not make a uint64 source acceptable.
 4. complex and float128 are in scope, ruled in or out per case by the same representability test as every other dtype rather than by their names.
-5. convention conversion is not avoidable: save point cloud does it, and so do the point cloud displays under `data/viewer/utils/displays/points`, each reading its conventions off a dtype. what is out of scope is the effort of building a general named-convention mechanism with conversions between named conventions.
+5. convention conversion is not avoidable: save point cloud does it, and so do the point cloud displays under `data/viewer/utils/displays/points`, each through `apply_meta_data` and each reading its conventions off a dtype. what is out of scope is the effort of building a general named-convention mechanism with conversions between named conventions.
 6. every consumer this change breaks is fixed within this task, together with its tests. merging a branch that leaves a consumer broken breaks main.
 7. tests in scope are anything this task might possibly impact. that resolves to the 57 test files referencing `PointCloud`, its I/O or `Select`: the point cloud I/O suites, the `PointCloud` and `Select` suites, the vision-3d transform suites, the PCR collators and dataloaders, the viewer point cloud display suites, the PCR dataset suites, and the point cloud model and render suites.
