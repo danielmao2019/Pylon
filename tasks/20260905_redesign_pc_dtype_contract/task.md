@@ -101,7 +101,7 @@ goal: re-design pc dtype contract/provenance
 2. granularity: the record is one whole, created when the obj is constructed. inside it, the dtype is keyed on the source columns.
 3. immutability: the record is never mutable. adding a field, deleting a field, and overwriting an existing field all leave it exactly as it was.
    1. user of PointCloud obj may however modify the fields, but the meta data stays constant and immutable once created.
-4. types of meta data: there are four meta data: the recorded meta data, the override meta data, the default meta data, and the target meta data the other three resolve into.
+4. types of meta data: there are four meta data: the recorded meta data, the override meta data, the default meta data, and the target meta data the override and the default resolve into.
    1. recorded meta data: meta data records what the source looked like, upon construction. it records the source of the data, wherever the data comes from: a load from disk, or a construction from a torch tensor or a numpy array. the meta data travels with the obj.
       1. Select preserves it.
       2. serializing a `PointCloud` and restoring it preserves it. a cache is not a source, so restoring builds no new record.
