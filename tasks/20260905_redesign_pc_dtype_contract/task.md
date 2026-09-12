@@ -158,8 +158,10 @@ ply's subset is i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer 
 1. there should be a `apply_meta_data` function under a `utils` submodule of the point cloud data structure module.
 2. `apply_meta_data` takes a `meta_data` arg and applies exactly the meta data it is handed, resolving nothing itself.
 3. `apply_meta_data` should work for both torch and numpy.
-4. the dtype applies first, and the layout mapping is checked only after that
-5. apply dtype:
+4. for what the resolved target meta data does not specify, don't touch. what this implies (incomplete list):
+   1. fields keep their own names, except where the default or an override names them.
+5. the dtype applies first, and the layout mapping is checked only after that
+6. apply dtype:
    1. for non-rgb fields or columns
       1. if dtype cast is lossless, then do it.
       2. otherwise, hard assert.
@@ -168,7 +170,7 @@ ply's subset is i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer 
       2. otherwise, if dtyep cast is lossless, then do it.
       3. otherwise, hard assert.
    3. no cross-numpy-torch should happen.
-6. apply layout:
+7. apply layout:
    1. the target's layout assembles the field from the columns it names.
    2. if the columns a target layout merges into one field still hold different dtypes once the target dtype has been applied, the program hard asserts and aborts.
 
@@ -237,20 +239,14 @@ ply's subset is i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer 
 #### 2.3.2. Point Cloud Data Structure Construction and I/O
 
 1. the `PointCloud` class:
-   1. common construction by `__init__` from in-memory variables or by load point cloud from files:
-      1. no canonicalization: `PointCloud` does not canonicalize any field, color included.
-         1. rgb enters and is held exactly as it arrived, like every other field.
-         2. fields keep their own names, except where the default or an override names them.
-      2. the ONLY place init may ever have any type casting ops is by invoking the `apply_meta_data`.
-      3. a construction from a source records it from the data `__init__` is handed: numpy data is recorded from numpy and then turned into torch tensors, and torch data is recorded from torch.
-   2. validation:
+   1. validation:
       1. the columns a field is assembled from must all hold one dtype once the target dtype has been applied. disagreeing column dtypes hard-assert and abort rather than being promoted to a dtype covering them all.
       2. `PointCloud` keeps validating xyz and rgb by field name.
          1. xyz is any floating point dtype.
          2. `PointCloud` enforces that rgb values lie inside the range of their current color convention, as Color Data Convention Conversion defines it.
             1. a floating point rgb carrying a value outside 0 to 1 is refused. `PointCloud` hard-asserts and the program aborts, both when the field enters and on every later assignment to it.
-   3. replacing rgb with a clone preserves its existing color convention.
-4. consumers/users of `PointCloud`:
+   2. replacing rgb with a clone preserves its existing color convention.
+2. consumers/users of `PointCloud`:
    1. any consumer of PointCloud in Pylon should be adjusted to work with the new design of PointCloud and its I/O.
       1. every caller passing dtype is updated to the meta data override.
       2. Select asserts that indices are int64 at the point of use.
