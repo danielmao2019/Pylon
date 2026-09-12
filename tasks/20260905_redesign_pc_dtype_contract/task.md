@@ -156,7 +156,7 @@ ply's subset is i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer 
 ##### 2.2.2.5. apply target meta data
 
 1. there should be a `apply_meta_data` method of `PointCloud` to implement this.
-2. `apply_meta_data` applies exactly the meta data it is handed, resolving nothing itself.
+2. `apply_meta_data` takes a `meta_data` arg and applies exactly the meta data it is handed, resolving nothing itself.
 3. the dtype applies first, and the layout mapping is checked only after that
 4. apply dtype:
    1. for non-rgb fields or columns
@@ -295,8 +295,6 @@ The following are mistakes repeated again and again and every time when i asked 
 ### 2.4. Solution Constraints
 
 1. You must use "meta_data" as the name of the new arg of init, load, and save. nothing else accepted. it is the only new arg any of the three takes: whatever else a design wants to pass fits inside `meta_data` or is derived, and no second arg is added beside it.
-2. `PointCloud` should expose a public method `apply_meta_data`, which also takes a `meta_data` arg, the target it applies.
-   1. `apply_meta_data` must have a local helper that applies the target meta data to self.
 3. `PointCloud.__init__`
    1. must have a local function to build meta data from provided source data and set class attr.
    2. must use `self.apply_meta_data` to apply meta data, giving it the `meta_data` the constructor was handed.
