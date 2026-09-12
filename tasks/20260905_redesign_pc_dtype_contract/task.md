@@ -80,14 +80,7 @@ ply's subset is i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer 
       6. no other defaults defined for now.
    4. override meta data:
       1. init, load, and save each accept an override, and it reaches both the dtype and the layout at each.
-   5. target meta data: one entry per target field or column named by the override or the default, keyed by the target's name. each entry holds the source fields or columns the target is built from (its layout) and, where the override states one, the target's dtype.
-      1. for the layout of load and save:
-         1. when a layout moves columns into another field, the fields those columns came from are dropped.
-         2. each field takes its layout from the first of these that states one: the override, and the default.
-      2. for layout of init:
-         1. override is the target, because there's no default for init. the target of `__init__` is the meta data `__init__` is handed.
-      3. for the dtype of init, load, and save:
-         1. each entry takes it from the override.
+   5. target meta data: one entry per target field or column, keyed by the target's name. each entry holds the source fields or columns the target is built from (its layout) and, where one is stated, the target's dtype.
 
 #### 2.2.2. Modules
 
@@ -186,6 +179,8 @@ ply's subset is i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer 
          1. a floating point rgb carrying a value outside 0 to 1 is refused. 
 2. init
    1. the received `meta_data` arg is treated as target meta data directly (there isn't a second thing to resolve together).
+      1. for the layout: override is the target, because there's no default for init. the target of `__init__` is the meta data `__init__` is handed.
+      2. for the dtype: each entry takes it from the override.
    2. if init from numpy, do the following in sequence:
       1. build source meta data.
       2. numpy to torch.
@@ -202,8 +197,14 @@ ply's subset is i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer 
       3. it knows nothing about default layout.
       4. never silently casts a dtype.
    2. per-format load helpers
-      1. the received `meta_data` arg is treated as override meta data that overrides the per-format defaults.
-      2. they define the default layout for each format.
+      1. they define the default layout for each format.
+      2. they resolve the target meta data as follows:
+         1. the received `meta_data` arg is treated as override meta data that overrides the per-format defaults.
+         2. its entries are the target fields or columns the override or the default names.
+         3. for the layout:
+            1. when a layout moves columns into another field, the fields those columns came from are dropped.
+            2. each field takes its layout from the first of these that states one: the override, and the default.
+         4. for the dtype: each entry takes it from the override.
       3. non-pth formats and pth format with numpy storage do the following steps in sequence
          1. load as numpy, preserving values, dtypes, and layouts strictly.
          2. resolve target meta data from user-provided override and per-format default.
@@ -217,19 +218,24 @@ ply's subset is i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer 
       1. accepts a `meta_data` optional arg override.
       2. passes the point cloud and the `meta_data` optional arg down to the per-format helper.
    2. per-format save helpers
-      1. the received `meta_data` arg is treated as override meta data that overrides the per-format defaults.
-      2. they define the default layout for each format.
+      1. they define the default layout for each format.
+      2. they resolve the target meta data as follows:
+         1. the received `meta_data` arg is treated as override meta data that overrides the per-format defaults.
+         2. its entries are the target fields or columns the override, the default, or the source meta data names.
+         3. for the layout:
+            1. when a layout moves columns into another field, the fields those columns came from are dropped.
+            2. each field takes its layout from the first of these that states one: the override, and the default.
+         4. for the dtype: each entry takes it from the first of these that states one: the override, and the source meta data.
+         5. for the column order: the source meta data alone defines it: the columns it names come in its key order, and the columns it does not name follow.
       3. non-pth formats and pth format with numpy storage do the following steps in sequence
          1. torch to numpy
-         2. resolve target meta data from user-provided override and per-format default.
+         2. resolve target meta data from user-provided override, per-format default, and source meta data.
          3. apply target meta data.
-         4. for what's not specified by target meta data, apply source meta data.
-         5. save as file to disk.
-      4. pth format with torch storage do the following steps in sequence
-         1. resolve target meta data from user-provided override and per-format default.
-         2. apply target meta data.
-         3. for what's not specified by target meta data, apply source meta data.
          4. save as file to disk.
+      4. pth format with torch storage do the following steps in sequence
+         1. resolve target meta data from user-provided override, per-format default, and source meta data.
+         2. apply target meta data.
+         3. save as file to disk.
 
 ### 2.3. Proposed Solution
 
