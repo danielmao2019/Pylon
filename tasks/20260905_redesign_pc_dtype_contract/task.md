@@ -6,14 +6,15 @@ goal: re-design pc dtype contract/provenance
 - [2. Guidelines](#2-guidelines)
   - [2.1. Problem Definition](#21-problem-definition)
   - [2.2. Proposed Solution](#22-proposed-solution)
-    - [2.2.1. Type Casting](#221-type-casting)
-    - [2.2.2. Color Data Convention Conversion](#222-color-data-convention-conversion)
-    - [2.2.3. Layout Mapping](#223-layout-mapping)
-    - [2.2.4. New Meta Data API](#224-new-meta-data-api)
-    - [2.2.5. Point Cloud Data Structure Construction and I/O](#225-point-cloud-data-structure-construction-and-io)
-    - [2.2.6. What Becomes Stale Design](#226-what-becomes-stale-design)
-    - [2.2.7. Seriously Bad Behavior Observed when Working on this Task](#227-seriously-bad-behavior-observed-when-working-on-this-task)
-  - [2.3. Solution Constraints](#23-solution-constraints)
+  - [2.3. Proposed Solution](#23-proposed-solution)
+    - [2.3.1. Type Casting](#231-type-casting)
+    - [2.3.2. Color Data Convention Conversion](#232-color-data-convention-conversion)
+    - [2.3.3. Layout Mapping](#233-layout-mapping)
+    - [2.3.4. New Meta Data API](#234-new-meta-data-api)
+    - [2.3.5. Point Cloud Data Structure Construction and I/O](#235-point-cloud-data-structure-construction-and-io)
+    - [2.3.6. What Becomes Stale Design](#236-what-becomes-stale-design)
+    - [2.3.7. Seriously Bad Behavior Observed when Working on this Task](#237-seriously-bad-behavior-observed-when-working-on-this-task)
+  - [2.4. Solution Constraints](#24-solution-constraints)
 - [3. Definition of Done](#3-definition-of-done)
   - [3.1. Project Consumers be Refactored](#31-project-consumers-be-refactored)
   - [3.2. Task Scope](#32-task-scope)
@@ -37,7 +38,15 @@ For pth format it can also work with torch directly.
 
 ### 2.2. Proposed Solution
 
-#### 2.2.1. Type Casting
+1. load
+   1. from non-pth formats:
+      1. per-format helper
+         1. first load as numpy, preserving values, dtypes, and layouts strictly.
+         2. then cast to torch lossless. hard abort if not possible.
+
+### 2.3. Proposed Solution
+
+#### 2.3.1. Type Casting
 
 1. the fundamental root cause is the dtype system mismatch between numpy and torch: each is a subset of one universal, system-agnostic collection of conceptual dtypes, and neither's subset contains the other's.
    1. conceptual dtype identity across systems:
@@ -56,18 +65,18 @@ For pth format it can also work with torch directly.
    3. when the system has no such dtype, the largest narrower one it supports is used and no smaller dtype is considered after it, and the values then decide. every value inside that dtype's set means nothing is lost, so the cast converts. any value outside means something is lost, so the cast hard-asserts and the program aborts.
       1. in torch storage, a float128 source with no override uses float64. float32 and smaller dtypes are not considered.
       2. in a ply column, an int64 target goes to i4.
-   4. no field name changes the decision. xyz, rgb, indices, feat, colors and normals cast by the same rules as any other field.
+   4. no field name changes the decision. xyz, rgb, indices, feat and normals cast by the same rules as any other field.
    5. a lossy cast belongs to the caller of these modules and never to the modules themselves. a caller wanting float32 coordinates out of a float64 source narrows them itself and hands the narrowed values in.
 3. determining the dtype from the source, one rule per source:
    1. an in-memory variable defines the dtype its tensor or array carries.
    2. a .pth defines the dtype the stored tensor or array carries.
-   3. a .ply defines each column's stored dtype character, so an f4 column defines float32 and an f8 column defines float64, and it stores colors as u1.
+   3. a .ply defines each column's stored dtype character, so an f4 column defines float32 and an f8 column defines float64.
    4. a .pcd defines the dtype each open3d attribute carries.
    5. a .las or .laz defines the dtype laspy materializes each dimension as: float64 for the scaled x, y and z, uint16 for the colors, and uint8 for a bit-packed field, which is an ordinary unsigned integer.
    6. a .txt holds decimal text, which yields float64.
    7. a .off holds decimal text, and float32 is what load point cloud keeps it at, hard-asserting on any magnitude float32 cannot hold rather than moving it onto a dtype that covers it.
 
-#### 2.2.2. Color Data Convention Conversion
+#### 2.3.2. Color Data Convention Conversion
 
 1. color conventions: rgb admits any integer dtype and any float dtype, unlike mesh vertex colors. the conventions are told apart by the dtype the data carries and never by inspecting the values, the same way `validate_vertex_color` tells mesh vertex colors apart. integer conventions span their dtype's full range. conventions include:
    1. uint8 names the 0 to 255 unsigned integer representation.
@@ -89,7 +98,7 @@ For pth format it can also work with torch directly.
       1. 0 to 65535 into 0 to 255: a value of 1 rounds to 0 and converts back to 0, so the conversion is lossy.
       2. 0 to 65535 into 0 to 255: a value of 257 converts to 1 and back to 257, so the conversion is lossless.
 
-#### 2.2.3. Layout Mapping
+#### 2.3.3. Layout Mapping
 
 1. what it is: the mapping between the source layout and the loaded layout, with the columns the source held on one side and the fields assembled from them on the other.
 2. forward mapping: determining the layout from the source, one rule per source. each field carries the name its source gives the column, attribute or dimension it holds, and a caller wanting a field under another name, or assembled out of several columns, states that in the meta data.
@@ -102,7 +111,7 @@ For pth format it can also work with torch directly.
    6. a .txt holds unnamed columns and defines no column-to-field mapping. its columns are named by position.
    7. a .off names no columns and defines no column-to-field mapping. the OFF format declares its vertex block to be the point data, and those columns are named by position.
 
-#### 2.2.4. New Meta Data API
+#### 2.3.4. New Meta Data API
 
 1. structure: it has two parts
    1. dtype: the conceptual dtype.
@@ -114,9 +123,8 @@ For pth format it can also work with torch directly.
             1. for the ply u4 example in Type Casting, the record holds uint32.
             2. a float128 source records float128 in meta data.
          2. the dtype is the conceptual dtype: a field entering as ply u2, as numpy uint16, or as an open3d UInt16 all record the same thing.
-      2. purpose: it serves only to resolve the dtype system mismatch between numpy and torch.
-      3. immutability: the record is never mutable. adding a field, deleting a field, and overwriting an existing field all leave it exactly as it was, while the user of a `PointCloud` obj may still modify the fields.
-      4. travel: the record travels with the obj.
+      2. immutability: the record is never mutable. adding a field, deleting a field, and overwriting an existing field all leave it exactly as it was, while the user of a `PointCloud` obj may still modify the fields.
+      3. travel: the record travels with the obj.
          1. Select preserves it.
          2. serializing a `PointCloud` and restoring it preserves it. a cache is not a source, so restoring builds no new record.
          3. constructing a `PointCloud` from another obj's fields inherits that obj's record. another obj is not a source, so construction builds no new record.
@@ -145,7 +153,7 @@ For pth format it can also work with torch directly.
          2. if the columns a target layout merges into one field still hold different dtypes once the target dtype has been applied, the program hard asserts and aborts.
    3. applying the target changes the fields the obj stores and never the record, which stays exactly what the source data held.
 
-#### 2.2.5. Point Cloud Data Structure Construction and I/O
+#### 2.3.5. Point Cloud Data Structure Construction and I/O
 
 1. the `PointCloud` class:
    1. common construction by `__init__` from in-memory variables or by load point cloud from files:
