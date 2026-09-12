@@ -79,11 +79,13 @@ ply's subset is i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer 
    4. override meta data:
       1. init, load, and save each accept an override, and it reaches both the dtype and the layout at each.
    5. target meta data: it holds one entry per field the override or the default names, each holding that field's layout and, where the override states one, its dtype.
-      1. layout: when a layout moves columns into another field, the fields those columns came from are dropped. each field takes its layout from the first of these that states one:
-         1. the override.
-         2. the default: at load, its xyz takes a ply's x, y and z, so x, y and z have no entry of their own. at save, it sees a field called xyz and turns it into columns x, y and z.
-      2. dtype: each entry takes it from the override.
-      2. for init, override is the target, because there's no default for init. the target of `__init__` is the meta data `__init__` is handed.
+      1. for the layout of load and save:
+         1. when a layout moves columns into another field, the fields those columns came from are dropped.
+         2. each field takes its layout from the first of these that states one: the override, and the default.
+      2. for layout of init:
+         1. override is the target, because there's no default for init. the target of `__init__` is the meta data `__init__` is handed.
+      3. for the dtype of init, load, and save:
+         1. each entry takes it from the override.
 
 #### 2.2.2. Modules
 
