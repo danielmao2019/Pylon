@@ -91,7 +91,6 @@ goal: re-design pc dtype contract/provenance
    5. a .las or .laz names each laspy dimension separately and as ply does.
    6. a .txt holds unnamed columns and defines no column-to-field mapping. its columns are named by position.
    7. a .off names no columns and defines no column-to-field mapping. the OFF format declares its vertex block to be the point data, and those columns are named by position.
-3. reverse mapping: each field maps back to the source column names its mapping records. a field mapped from ('x', 'y', 'z') maps back to x, y and z.
 
 #### 1.1.4. New Meta Data API
 
@@ -210,12 +209,11 @@ The following are mistakes repeated again and again and every time when i asked 
 ### 1.2. Solution Constraints
 
 1. You must use "meta_data" as the name of the new arg of init, load, and save. nothing else accepted. it is the only new arg any of the three takes: whatever else a design wants to pass fits inside `meta_data` or is derived, and no second arg is added beside it.
-2. `PointCloud` should expose a public method `apply_meta_data`, which also takes a `meta_data` arg as override.
-   1. `apply_meta_data` must have a local helper that infers/derives the meta data from the recorded meta data and checks the override meta data to produce the target meta data.
-   2. `apply_meta_data` must have a local helper that applies the target meta data to self.
+2. `PointCloud` should expose a public method `apply_meta_data`, which also takes a `meta_data` arg, the target it applies.
+   1. `apply_meta_data` must have a local helper that applies the target meta data to self.
 3. `PointCloud.__init__`
    1. must have a local function to build meta data from provided source data and set class attr.
-   2. must use `self.apply_meta_data` to apply meta data, giving it the `meta_data` the constructor was handed as the override.
+   2. must use `self.apply_meta_data` to apply meta data, giving it the `meta_data` the constructor was handed.
 
 ## 2. Definition of Done
 
