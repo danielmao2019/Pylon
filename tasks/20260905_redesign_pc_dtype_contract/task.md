@@ -122,6 +122,7 @@ ply's subset is i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer 
       9. a .off holds decimal text, and float32 is what load point cloud keeps it at, hard-asserting on any magnitude float32 cannot hold rather than moving it onto a dtype that covers it.
       10. a ply u2 column is held as int32 and a ply u4 column as int64.
 4. a lossy cast belongs to the caller of these modules and never to the modules themselves. a caller wanting float32 coordinates out of a float64 source narrows them itself and hands the narrowed values in.
+5. color data convention conversion is not a dtype cast, so this principle does not apply to it. its losslessness is the round-trip one Color Data Convention Conversion defines.
 
 ##### 2.2.2.3. numpy to torch or torch to numpy
 
@@ -158,7 +159,7 @@ ply's subset is i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer 
 1. there should be a `apply_meta_data` function under a `utils` submodule of the point cloud data structure module.
 2. `apply_meta_data` takes a `meta_data` arg and applies exactly the meta data it is handed, resolving nothing itself.
 3. `apply_meta_data` should work for both torch and numpy.
-4. `apply_meta_data` is the only place where a color convention is converted.
+4. within init, load and save, `apply_meta_data` is the only place where a color convention is converted.
 5. for what the resolved target meta data does not specify, don't touch. what this implies (incomplete list):
    1. fields keep their own names, except where the default or an override names them.
 6. the order is fixed for init, load and save alike: the dtype applies first, then the layout.
@@ -167,7 +168,7 @@ ply's subset is i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer 
       1. if dtype cast is lossless, then do it.
       2. otherwise, hard assert.
    2. for a target key in the set rgb, colors, red, green and blue:
-      1. if source and target dtype pair is a defined convention conversion, then do convention conversion.
+      1. if source and target dtype pair is a defined convention conversion, then do convention conversion if it is lossless as Color Data Convention Conversion defines it, and hard assert otherwise.
       2. otherwise, if dtype cast is lossless, then do it.
       3. otherwise, hard assert.
    3. no cross-numpy-torch should happen.
@@ -250,7 +251,7 @@ ply's subset is i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer 
 1. any consumer of PointCloud in Pylon should be adjusted to work with the new design of PointCloud and its I/O.
 2. every caller passing dtype is updated to the meta data override.
 3. Select asserts that indices are int64 at the point of use.
-4. the point cloud displays under `data/viewer/utils/displays/points/dash` and `data/viewer/utils/displays/points/ts` assume 0 to 255 colors, and each applies Color Data Convention Conversion to rgb through `apply_meta_data` in its input normalization.
+4. the point cloud displays under `data/viewer/utils/displays/points/dash` and `data/viewer/utils/displays/points/ts` assume 0 to 255 colors, and each applies Color Data Convention Conversion to rgb in its input normalization.
 
 #### 2.3.3. What Becomes Stale Design
 
@@ -301,6 +302,6 @@ This commit "[Project][Tasks] Merge 20260903_integrate_blend_texture_not_render 
 2. constructing a `PointCloud` from numpy arrays is in scope. the obj always stores torch tensors.
 3. uint64 is excluded from this task: it is unsupported as a source dtype for `__init__` or load point cloud and as a dtype in any meta data override. either case hard-asserts and aborts, regardless of the actual values. an override requesting another dtype does not make a uint64 source acceptable.
 4. complex and float128 are in scope, ruled in or out per case by the same representability test as every other dtype rather than by their names.
-5. convention conversion is not avoidable: save point cloud does it, and so do the point cloud displays under `data/viewer/utils/displays/points`, each through `apply_meta_data` and each reading its conventions off a dtype. what is out of scope is the effort of building a general named-convention mechanism with conversions between named conventions.
+5. convention conversion is not avoidable: save point cloud does it through `apply_meta_data`, and so do the point cloud displays under `data/viewer/utils/displays/points`, each reading its conventions off a dtype. what is out of scope is the effort of building a general named-convention mechanism with conversions between named conventions.
 6. every consumer this change breaks is fixed within this task, together with its tests. merging a branch that leaves a consumer broken breaks main.
 7. tests in scope are anything this task might possibly impact. that resolves to the 57 test files referencing `PointCloud`, its I/O or `Select`: the point cloud I/O suites, the `PointCloud` and `Select` suites, the vision-3d transform suites, the PCR collators and dataloaders, the viewer point cloud display suites, the PCR dataset suites, and the point cloud model and render suites.
