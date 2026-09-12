@@ -96,14 +96,9 @@ goal: re-design pc dtype contract/provenance
 #### 1.1.4. New Meta Data API
 
 1. structure: it has two parts
-   1. dtype:
-      1. the record always keeps the source dtype.
-      2. it records the conceptual dtype. a field entering as ply u2, as numpy uint16, or as an open3d UInt16 all record the same thing.
-      3. it is recorded against the source layout and not the loaded layout: the dtype is the one the source column held, not the one the loaded field carries.
-         1. for the ply u4 example in Type Casting, the record holds uint32.
-         2. a float128 source records float128 in meta data.
-   2. layout: it records the mapping defined by Layout Mapping.
-2. granularity: the record is one whole, created when the obj is constructed. inside it, the dtype and the layout are both keyed on the source columns.
+   1. dtype: the conceptual dtype.
+   2. layout: the mapping defined by Layout Mapping.
+2. granularity: the record is one whole, created when the obj is constructed. inside it, the dtype is keyed on the source columns.
 3. immutability: the record is never mutable. adding a field, deleting a field, and overwriting an existing field all leave it exactly as it was.
    1. user of PointCloud obj may however modify the fields, but the meta data stays constant and immutable once created.
 4. types of meta data: there are four meta data: the recorded meta data, the override meta data, the default meta data, and the target meta data the other three resolve into.
