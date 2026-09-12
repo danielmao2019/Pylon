@@ -36,140 +36,20 @@ EXTR_CONVENTIONS: List[str] = [
 ]
 
 
-def _build_extrinsics_matrix() -> torch.Tensor:
-    """Build a valid 4x4 cam2world matrix with a proper rotation.
-
-    Args:
-        None.
-
-    Returns:
-        A 4x4 float32 camera-to-world matrix whose 3x3 block is a proper rotation.
-    """
-    return torch.tensor(
-        [
-            [0.0, -1.0, 0.0, 0.3],
-            [1.0, 0.0, 0.0, -0.2],
-            [0.0, 0.0, 1.0, 1.1],
-            [0.0, 0.0, 0.0, 1.0],
-        ],
-        dtype=torch.float32,
-    )
-
-
-def _build_extrinsics_matrices() -> List[torch.Tensor]:
-    """Build distinct valid 4x4 cam2world matrices with proper rotations.
-
-    Args:
-        None.
-
-    Returns:
-        A list of 4x4 float32 camera-to-world matrices with distinct proper
-        rotations and centers.
-    """
-    rotation_about_z = _build_extrinsics_matrix()
-    identity_rotation = torch.eye(4, dtype=torch.float32)
-    identity_rotation[:3, 3] = torch.tensor([1.0, 2.0, 3.0], dtype=torch.float32)
-    rotation_about_x = torch.tensor(
-        [
-            [1.0, 0.0, 0.0, -0.7],
-            [0.0, 0.0, -1.0, 0.4],
-            [0.0, 1.0, 0.0, 2.5],
-            [0.0, 0.0, 0.0, 1.0],
-        ],
-        dtype=torch.float32,
-    )
-    return [rotation_about_z, identity_rotation, rotation_about_x]
-
-
-def _build_extrinsics(extr_convention: str) -> CameraExtrinsics:
-    """Build a CameraExtrinsics fixture in the given pose frame.
-
-    Args:
-        extr_convention: Pose-frame convention string.
-
-    Returns:
-        A CameraExtrinsics on the CPU in the given pose frame.
-    """
-    return CameraExtrinsics(
-        extrinsics=_build_extrinsics_matrix(),
-        extr_convention=extr_convention,
-        device="cpu",
-    )
-
-
-def _build_cameras(extr_convention: str) -> Cameras:
-    """Build a multi-camera Cameras fixture in the given pose frame.
-
-    Args:
-        extr_convention: Pose-frame convention string.
-
-    Returns:
-        A Cameras of three CPU cameras with distinct poses in the given pose
-        frame.
-    """
-    pose_matrices = _build_extrinsics_matrices()
-    batch_size = len(pose_matrices)
-    intrinsics = build_camera_intrinsics(
-        model="pinhole",
-        params={
-            "fx": torch.full((batch_size,), 400.0),
-            "fy": torch.full((batch_size,), 410.0),
-            "cx": torch.full((batch_size,), 160.0),
-            "cy": torch.full((batch_size,), 120.0),
-            "h": torch.full((batch_size,), 240.0),
-            "w": torch.full((batch_size,), 320.0),
-        },
-        intr_convention="standard",
-        device="cpu",
-    )
-    extrinsics = CameraExtrinsics(
-        extrinsics=torch.stack(pose_matrices),
-        extr_convention=extr_convention,
-        device="cpu",
-    )
-    return Cameras(
-        intrinsics=intrinsics,
-        extrinsics=extrinsics,
-        device="cpu",
-    )
-
-
-def _build_pinhole_params(
-    height: int = 240,
-    width: int = 320,
-) -> Dict[str, Union[int, float]]:
-    """Build a pinhole params dict stated in the standard pixel frame.
-
-    Args:
-        height: Image height the params are stated against.
-        width: Image width the params are stated against.
-
-    Returns:
-        A pinhole params dict carrying fx / fy / cx / cy plus h / w.
-    """
-    return {
-        "fx": 400.0,
-        "fy": 410.0,
-        "cx": 150.0,
-        "cy": 110.0,
-        "h": height,
-        "w": width,
-    }
-
-
-@pytest.mark.parametrize("extr_convention", EXTR_CONVENTIONS)
-def test_validate_extr_convention_accepts_all_supported(extr_convention: str) -> None:
+def test_validate_extr_convention_accepts_all_supported() -> None:
     """validate_extr_convention accepts every supported pose-frame convention string.
 
     Args:
-        extr_convention: The pose-frame convention string under test.
+        None.
 
     Returns:
         None.
     """
-    assert (
-        validate_extr_convention(extr_convention) == extr_convention
-    ), f"{extr_convention=}"
+    for extr_convention in EXTR_CONVENTIONS:
+        assert validate_extr_convention(extr_convention) == extr_convention, (
+            "Expected validate_extr_convention to return the convention it was given. "
+            f"{extr_convention=}"
+        )
 
 
 def test_extr_convention_module_has_one_main_api_and_eight_helpers() -> None:
@@ -201,93 +81,95 @@ def test_extr_convention_module_has_one_main_api_and_eight_helpers() -> None:
     assert defined_names - public_names == expected_helpers, f"{defined_names=}"
 
 
-@pytest.mark.parametrize(
-    "source_extr_convention,target_extr_convention",
-    list(product(EXTR_CONVENTIONS, EXTR_CONVENTIONS)),
-)
+@pytest.mark.parametrize("source_extr_convention", EXTR_CONVENTIONS)
 def test_extrinsics_conversion_preserves_physical_axes_and_center(
     source_extr_convention: str,
-    target_extr_convention: str,
 ) -> None:
-    """Converting a CameraExtrinsics preserves its physical axes and center.
+    """Converting a CameraExtrinsics to every extr_convention preserves its physical axes and center.
 
     Args:
-        source_extr_convention: Source pose-frame convention.
-        target_extr_convention: Target pose-frame convention.
+        source_extr_convention: Source pose-frame convention the extrinsics is built in.
 
     Returns:
         None.
     """
     extrinsics = _build_extrinsics(extr_convention=source_extr_convention)
-    converted = extrinsics.to(extr_convention=target_extr_convention)
-    assert torch.allclose(
-        converted.center, extrinsics.center, atol=1.0e-06, rtol=0.0
-    ), f"{converted.center=} {extrinsics.center=}"
-    assert torch.allclose(
-        converted.right, extrinsics.right, atol=1.0e-06, rtol=0.0
-    ), f"{converted.right=} {extrinsics.right=}"
-    assert torch.allclose(
-        converted.forward, extrinsics.forward, atol=1.0e-06, rtol=0.0
-    ), f"{converted.forward=} {extrinsics.forward=}"
-    assert torch.allclose(
-        converted.up, extrinsics.up, atol=1.0e-06, rtol=0.0
-    ), f"{converted.up=} {extrinsics.up=}"
+    for target_extr_convention in EXTR_CONVENTIONS:
+        converted = extrinsics.to(extr_convention=target_extr_convention)
+        assert (
+            torch.allclose(converted.right, extrinsics.right, atol=1.0e-06, rtol=0.0)
+            and torch.allclose(
+                converted.forward, extrinsics.forward, atol=1.0e-06, rtol=0.0
+            )
+            and torch.allclose(converted.up, extrinsics.up, atol=1.0e-06, rtol=0.0)
+        ), (
+            "Expected the converted right / forward / up axes to equal the source ones. "
+            f"{source_extr_convention=} {target_extr_convention=} "
+            f"{converted.right=} {extrinsics.right=} {converted.forward=} "
+            f"{extrinsics.forward=} {converted.up=} {extrinsics.up=}"
+        )
+        assert torch.allclose(
+            converted.center, extrinsics.center, atol=1.0e-06, rtol=0.0
+        ), (
+            "Expected the converted center to equal the source center. "
+            f"{source_extr_convention=} {target_extr_convention=} "
+            f"{converted.center=} {extrinsics.center=}"
+        )
 
 
-@pytest.mark.parametrize(
-    "source_extr_convention,target_extr_convention",
-    list(product(EXTR_CONVENTIONS, EXTR_CONVENTIONS)),
-)
-def test_extrinsics_direct_and_via_standard_conversion_match(
-    source_extr_convention: str,
-    target_extr_convention: str,
-) -> None:
+def test_extrinsics_direct_and_via_standard_conversion_match() -> None:
     """Converting directly between two extr_conventions matches converting via the standard one.
 
     Args:
-        source_extr_convention: Source pose-frame convention.
-        target_extr_convention: Target pose-frame convention.
+        None.
 
     Returns:
         None.
     """
-    extrinsics = _build_extrinsics(extr_convention=source_extr_convention)
-    converted_direct = extrinsics.to(extr_convention=target_extr_convention)
-    converted_via_standard = extrinsics.to(extr_convention="standard").to(
-        extr_convention=target_extr_convention
-    )
-    assert torch.allclose(
-        converted_direct.extrinsics,
-        converted_via_standard.extrinsics,
-        atol=1.0e-06,
-        rtol=0.0,
-    ), f"{converted_direct.extrinsics=} {converted_via_standard.extrinsics=}"
+    for source_extr_convention, target_extr_convention in product(
+        EXTR_CONVENTIONS, EXTR_CONVENTIONS
+    ):
+        extrinsics = _build_extrinsics(extr_convention=source_extr_convention)
+        converted_direct = extrinsics.to(extr_convention=target_extr_convention)
+        converted_via_standard = extrinsics.to(extr_convention="standard").to(
+            extr_convention=target_extr_convention
+        )
+        assert torch.allclose(
+            converted_direct.extrinsics,
+            converted_via_standard.extrinsics,
+            atol=1.0e-06,
+            rtol=0.0,
+        ), (
+            "Expected the direct conversion to match the one through standard. "
+            f"{source_extr_convention=} {target_extr_convention=} "
+            f"{converted_direct.extrinsics=} {converted_via_standard.extrinsics=}"
+        )
 
 
-@pytest.mark.parametrize(
-    "source_extr_convention,target_extr_convention",
-    list(product(EXTR_CONVENTIONS, EXTR_CONVENTIONS)),
-)
+@pytest.mark.parametrize("source_extr_convention", EXTR_CONVENTIONS)
 def test_extrinsics_round_trip_returns_original_matrix(
     source_extr_convention: str,
-    target_extr_convention: str,
 ) -> None:
-    """Converting a CameraExtrinsics to another extr_convention and back returns the original matrix.
+    """Converting a CameraExtrinsics to every other extr_convention and back returns the original matrix.
 
     Args:
-        source_extr_convention: Source pose-frame convention.
-        target_extr_convention: Target pose-frame convention.
+        source_extr_convention: Source pose-frame convention the extrinsics is built in.
 
     Returns:
         None.
     """
     extrinsics = _build_extrinsics(extr_convention=source_extr_convention)
-    round_trip = extrinsics.to(extr_convention=target_extr_convention).to(
-        extr_convention=source_extr_convention
-    )
-    assert torch.allclose(
-        round_trip.extrinsics, extrinsics.extrinsics, atol=1.0e-06, rtol=0.0
-    ), f"{round_trip.extrinsics=} {extrinsics.extrinsics=}"
+    for target_extr_convention in EXTR_CONVENTIONS:
+        round_trip = extrinsics.to(extr_convention=target_extr_convention).to(
+            extr_convention=source_extr_convention
+        )
+        assert torch.allclose(
+            round_trip.extrinsics, extrinsics.extrinsics, atol=1.0e-06, rtol=0.0
+        ), (
+            "Expected the round-tripped 4x4 matrix to equal the original. "
+            f"{source_extr_convention=} {target_extr_convention=} "
+            f"{round_trip.extrinsics=} {extrinsics.extrinsics=}"
+        )
 
 
 @pytest.mark.parametrize("extr_convention", EXTR_CONVENTIONS)
@@ -685,39 +567,132 @@ def test_cameras_conversion_preserves_physical_axes_and_center(
     ), f"{converted.up=} {cameras.up=}"
 
 
-@pytest.mark.parametrize("target_extr_convention", EXTR_CONVENTIONS)
-def test_every_supported_extr_convention_is_right_handed(
-    target_extr_convention: str,
-) -> None:
-    """Each supported pose frame's (right, forward, up) triple is positively oriented.
-
-    A camera carries no change of handedness, so converting between two supported
-    conventions keeps the rotation determinant at +1.
+def _build_cameras(extr_convention: str) -> Cameras:
+    """Build a multi-camera Cameras fixture in the given pose frame.
 
     Args:
-        target_extr_convention: Target pose-frame convention.
+        extr_convention: Pose-frame convention string.
+
+    Returns:
+        A Cameras of three CPU cameras with distinct poses in the given pose frame.
+    """
+    pose_matrices = _build_extrinsics_matrices()
+    batch_size = len(pose_matrices)
+    intrinsics = build_camera_intrinsics(
+        model="pinhole",
+        params={
+            "fx": torch.full((batch_size,), 400.0),
+            "fy": torch.full((batch_size,), 410.0),
+            "cx": torch.full((batch_size,), 160.0),
+            "cy": torch.full((batch_size,), 120.0),
+            "h": torch.full((batch_size,), 240.0),
+            "w": torch.full((batch_size,), 320.0),
+        },
+        intr_convention="standard",
+        device="cpu",
+    )
+    extrinsics = CameraExtrinsics(
+        extrinsics=torch.stack(pose_matrices),
+        extr_convention=extr_convention,
+        device="cpu",
+    )
+    return Cameras(
+        intrinsics=intrinsics,
+        extrinsics=extrinsics,
+        device="cpu",
+    )
+
+
+def test_every_supported_extr_convention_is_right_handed() -> None:
+    """Each supported pose frame's (right, forward, up) triple is positively oriented.
+
+    A camera carries no change of handedness, so converting between two supported conventions keeps the rotation determinant at +1.
+
+    Args:
+        None.
 
     Returns:
         None.
     """
     extrinsics = _build_extrinsics(extr_convention="standard")
-    converted = extrinsics.to(extr_convention=target_extr_convention)
-    triple_product = torch.dot(
-        torch.linalg.cross(converted.right, converted.forward), converted.up
+    for target_extr_convention in EXTR_CONVENTIONS:
+        converted = extrinsics.to(extr_convention=target_extr_convention)
+        triple_product = torch.dot(
+            torch.linalg.cross(converted.right, converted.forward), converted.up
+        )
+        assert float(triple_product) > 0.0, (
+            "Expected the (right, forward, up) triple to be positively oriented. "
+            f"{target_extr_convention=} {float(triple_product)=}"
+        )
+        determinant = torch.linalg.det(converted.extrinsics[:3, :3])
+        assert torch.isclose(
+            determinant,
+            torch.tensor(1.0, dtype=determinant.dtype),
+            atol=1.0e-05,
+            rtol=0.0,
+        ), (
+            "Expected the converted rotation block to keep determinant +1. "
+            f"{target_extr_convention=} {float(determinant)=}"
+        )
+
+
+def _build_extrinsics(extr_convention: str) -> CameraExtrinsics:
+    """Build a CameraExtrinsics fixture in the given pose frame.
+
+    Args:
+        extr_convention: Pose-frame convention string.
+
+    Returns:
+        A CameraExtrinsics on the CPU in the given pose frame.
+    """
+    return CameraExtrinsics(
+        extrinsics=_build_extrinsics_matrix(),
+        extr_convention=extr_convention,
+        device="cpu",
     )
-    assert float(triple_product) > 0.0, (
-        "Expected the (right, forward, up) triple to be positively oriented. "
-        f"{target_extr_convention=} {float(triple_product)=}"
+
+
+def _build_extrinsics_matrices() -> List[torch.Tensor]:
+    """Build distinct valid 4x4 cam2world matrices with proper rotations.
+
+    Args:
+        None.
+
+    Returns:
+        A list of 4x4 float32 camera-to-world matrices with distinct proper rotations and centers.
+    """
+    rotation_about_z = _build_extrinsics_matrix()
+    identity_rotation = torch.eye(4, dtype=torch.float32)
+    identity_rotation[:3, 3] = torch.tensor([1.0, 2.0, 3.0], dtype=torch.float32)
+    rotation_about_x = torch.tensor(
+        [
+            [1.0, 0.0, 0.0, -0.7],
+            [0.0, 0.0, -1.0, 0.4],
+            [0.0, 1.0, 0.0, 2.5],
+            [0.0, 0.0, 0.0, 1.0],
+        ],
+        dtype=torch.float32,
     )
-    determinant = torch.linalg.det(converted.extrinsics[:3, :3])
-    assert torch.isclose(
-        determinant,
-        torch.tensor(1.0, dtype=determinant.dtype),
-        atol=1.0e-05,
-        rtol=0.0,
-    ), (
-        "Expected the converted rotation block to keep determinant +1. "
-        f"{target_extr_convention=} {float(determinant)=}"
+    return [rotation_about_z, identity_rotation, rotation_about_x]
+
+
+def _build_extrinsics_matrix() -> torch.Tensor:
+    """Build a valid 4x4 cam2world matrix with a proper rotation.
+
+    Args:
+        None.
+
+    Returns:
+        A 4x4 float32 camera-to-world matrix whose 3x3 block is a proper rotation.
+    """
+    return torch.tensor(
+        [
+            [0.0, -1.0, 0.0, 0.3],
+            [1.0, 0.0, 0.0, -0.2],
+            [0.0, 0.0, 1.0, 1.1],
+            [0.0, 0.0, 0.0, 1.0],
+        ],
+        dtype=torch.float32,
     )
 
 
@@ -1154,6 +1129,29 @@ def test_a_frame_change_is_measured_against_the_intrinsics_own_resolution() -> N
     ), f"{narrow.params=} {wide.params=}"
     assert narrow.params["h"] == 240 and narrow.params["w"] == 320, f"{narrow.params=}"
     assert wide.params["h"] == 240 and wide.params["w"] == 640, f"{wide.params=}"
+
+
+def _build_pinhole_params(
+    height: int = 240,
+    width: int = 320,
+) -> Dict[str, Union[int, float]]:
+    """Build a pinhole params dict stated in the standard pixel frame.
+
+    Args:
+        height: Image height the params are stated against.
+        width: Image width the params are stated against.
+
+    Returns:
+        A pinhole params dict carrying fx / fy / cx / cy plus h / w.
+    """
+    return {
+        "fx": 400.0,
+        "fy": 410.0,
+        "cx": 150.0,
+        "cy": 110.0,
+        "h": height,
+        "w": width,
+    }
 
 
 def test_an_intrinsics_without_a_resolution_is_refused() -> None:

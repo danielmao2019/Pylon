@@ -282,9 +282,17 @@ def _validate_rotation_matrix_list(
         assert all(isinstance(value, (int, float)) for value in row), (
             "Expected each rotation matrix row to contain numbers. " f"{row=}"
         )
-    array = np.asarray(obj, dtype=np.float64)
-    threshold = _ROTATION_MATRIX_RESIDUAL_FLOOR_ULPS * float(np.finfo(np.float64).eps)
-    _validate_rotation_matrix_numpy_against_threshold(obj=array, threshold=threshold)
+    orthogonality_residual = float(
+        np.max(np.abs(np.matmul(obj, np.transpose(obj)) - np.eye(3)))
+    )
+    determinant_residual = abs(float(np.linalg.det(obj)) - 1.0)
+    assert max(
+        orthogonality_residual, determinant_residual
+    ) <= _ROTATION_MATRIX_RESIDUAL_FLOOR_ULPS * float(np.finfo(np.float64).eps), (
+        "Expected the rotation matrix to be orthogonal with determinant +1 within the "
+        "float64 residual threshold. "
+        f"{orthogonality_residual=} {determinant_residual=} {obj=}"
+    )
     return obj
 
 

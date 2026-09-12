@@ -42,143 +42,6 @@ _NPZ_KEYS = {
 }
 
 
-def _make_extrinsics(
-    translation: List[float], extr_convention: str
-) -> CameraExtrinsics:
-    """Build a CameraExtrinsics fixture with an identity rotation.
-
-    Args:
-        translation: Length-3 camera-center translation as a list of floats.
-        extr_convention: Pose-frame convention string.
-
-    Returns:
-        A CameraExtrinsics on the CPU with the given translation and pose frame.
-    """
-    matrix = torch.eye(4, dtype=torch.float32)
-    matrix[:3, 3] = torch.tensor(translation, dtype=torch.float32)
-    return CameraExtrinsics(
-        extrinsics=matrix, extr_convention=extr_convention, device="cpu"
-    )
-
-
-def _make_single_camera() -> Camera:
-    """Build a single Camera fixture.
-
-    Args:
-        None.
-
-    Returns:
-        A Camera on the CPU with pinhole intrinsics, extrinsics, name, and id.
-    """
-    intrinsics = build_camera_intrinsics(
-        model="pinhole",
-        params={
-            "fx": 400.0,
-            "fy": 410.0,
-            "cx": 160.0,
-            "cy": 120.0,
-            "h": 240,
-            "w": 320,
-        },
-        intr_convention="standard",
-        device="cpu",
-    )
-    extrinsics = _make_extrinsics(
-        translation=[0.3, -0.2, 1.1], extr_convention="opengl"
-    )
-    return Camera(
-        intrinsics=intrinsics,
-        extrinsics=extrinsics,
-        name="frame_0",
-        id=7,
-        device="cpu",
-    )
-
-
-def _make_multi_cameras() -> Cameras:
-    """Build a multi-camera Cameras fixture whose per-camera params and poses all differ.
-
-    Args:
-        None.
-
-    Returns:
-        A Cameras of three CPU cameras carrying one batched CameraIntrinsics and one batched CameraExtrinsics, so the batch names one model and one pose frame while every projection param, pose, name (one absent) and id (one absent) still varies per camera, exercising the has_name / has_id / sentinel paths.
-    """
-    intrinsics = build_camera_intrinsics(
-        model="pinhole",
-        params={
-            "fx": torch.tensor([400.0, 405.0, 402.0]),
-            "fy": torch.tensor([410.0, 415.0, 412.0]),
-            "cx": torch.tensor([160.0, 161.0, 162.0]),
-            "cy": torch.tensor([120.0, 121.0, 122.0]),
-            "h": torch.tensor([240.0, 242.0, 244.0]),
-            "w": torch.tensor([320.0, 322.0, 324.0]),
-        },
-        intr_convention="standard",
-        device="cpu",
-    )
-    matrices = torch.eye(4, dtype=torch.float32).repeat(3, 1, 1)
-    matrices[:, :3, 3] = torch.tensor(
-        [[0.3, -0.2, 1.1], [1.3, 0.8, 2.1], [2.3, 1.8, 3.1]],
-        dtype=torch.float32,
-    )
-    extrinsics = CameraExtrinsics(
-        extrinsics=matrices, extr_convention="opengl", device="cpu"
-    )
-    names: List[Optional[str]] = ["frame_0", None, "frame_2"]
-    ids: List[Optional[int]] = [7, 8, None]
-    return Cameras(
-        intrinsics=intrinsics,
-        extrinsics=extrinsics,
-        names=names,
-        ids=ids,
-        device="cpu",
-    )
-
-
-def _assert_camera_fields_equal(loaded: Camera, original: Camera) -> None:
-    """Assert two Camera objects carry the same core serialized fields.
-
-    Args:
-        loaded: Camera recovered from serialization.
-        original: Original Camera.
-
-    Returns:
-        None.
-    """
-    assert isinstance(loaded, Camera), f"{type(loaded)=}"
-    assert (
-        loaded.intrinsics.model == original.intrinsics.model
-    ), f"{loaded.intrinsics.model=} {original.intrinsics.model=}"
-    assert (
-        loaded.intrinsics.params == original.intrinsics.params
-    ), f"{loaded.intrinsics.params=} {original.intrinsics.params=}"
-    assert torch.equal(
-        loaded.extrinsics.extrinsics, original.extrinsics.extrinsics
-    ), f"{loaded.extrinsics.extrinsics=} {original.extrinsics.extrinsics=}"
-    assert (
-        loaded.extrinsics.extr_convention == original.extrinsics.extr_convention
-    ), f"{loaded.extrinsics.extr_convention=} {original.extrinsics.extr_convention=}"
-    assert loaded.name == original.name, f"{loaded.name=} {original.name=}"
-    assert loaded.id == original.id, f"{loaded.id=} {original.id=}"
-
-
-def _assert_cameras_fields_equal(loaded: Cameras, original: Cameras) -> None:
-    """Assert two Cameras collections carry the same core serialized fields.
-
-    Args:
-        loaded: Cameras recovered from serialization.
-        original: Original Cameras.
-
-    Returns:
-        None.
-    """
-    assert isinstance(loaded, Cameras), f"{type(loaded)=}"
-    assert len(loaded) == len(original), f"{len(loaded)=} {len(original)=}"
-    for index in range(len(original)):
-        _assert_camera_fields_equal(loaded=loaded[index], original=original[index])
-
-
 def test_single_camera_json_round_trip(tmp_path: Path) -> None:
     """A single Camera survives a save then load round trip through json.
 
@@ -245,6 +108,40 @@ def test_single_camera_npz_round_trip(tmp_path: Path) -> None:
     )
     _assert_camera_fields_equal(
         loaded=Camera.load(camera_path=npz_path, device="cpu"), original=camera
+    )
+
+
+def _make_single_camera() -> Camera:
+    """Build a single Camera fixture.
+
+    Args:
+        None.
+
+    Returns:
+        A Camera on the CPU with pinhole intrinsics, extrinsics, name, and id.
+    """
+    intrinsics = build_camera_intrinsics(
+        model="pinhole",
+        params={
+            "fx": 400.0,
+            "fy": 410.0,
+            "cx": 160.0,
+            "cy": 120.0,
+            "h": 240,
+            "w": 320,
+        },
+        intr_convention="standard",
+        device="cpu",
+    )
+    extrinsics = _make_extrinsics(
+        translation=[0.3, -0.2, 1.1], extr_convention="opengl"
+    )
+    return Camera(
+        intrinsics=intrinsics,
+        extrinsics=extrinsics,
+        name="frame_0",
+        id=7,
+        device="cpu",
     )
 
 
@@ -388,6 +285,47 @@ def test_round_trip_keeps_the_batch_dtype(tmp_path: Path) -> None:
                     f"{format=} {dtype=} {key=} {loaded.intrinsics.params[key]=} "
                     f"{value=}"
                 )
+
+
+def _make_multi_cameras() -> Cameras:
+    """Build a multi-camera Cameras fixture whose per-camera params and poses all differ.
+
+    Args:
+        None.
+
+    Returns:
+        A Cameras of three CPU cameras carrying one batched CameraIntrinsics and one batched CameraExtrinsics, so the batch names one model and one pose frame while every projection param, pose, name (one absent) and id (one absent) still varies per camera, exercising the has_name / has_id / sentinel paths.
+    """
+    intrinsics = build_camera_intrinsics(
+        model="pinhole",
+        params={
+            "fx": torch.tensor([400.0, 405.0, 402.0]),
+            "fy": torch.tensor([410.0, 415.0, 412.0]),
+            "cx": torch.tensor([160.0, 161.0, 162.0]),
+            "cy": torch.tensor([120.0, 121.0, 122.0]),
+            "h": torch.tensor([240.0, 242.0, 244.0]),
+            "w": torch.tensor([320.0, 322.0, 324.0]),
+        },
+        intr_convention="standard",
+        device="cpu",
+    )
+    matrices = torch.eye(4, dtype=torch.float32).repeat(3, 1, 1)
+    matrices[:, :3, 3] = torch.tensor(
+        [[0.3, -0.2, 1.1], [1.3, 0.8, 2.1], [2.3, 1.8, 3.1]],
+        dtype=torch.float32,
+    )
+    extrinsics = CameraExtrinsics(
+        extrinsics=matrices, extr_convention="opengl", device="cpu"
+    )
+    names: List[Optional[str]] = ["frame_0", None, "frame_2"]
+    ids: List[Optional[int]] = [7, 8, None]
+    return Cameras(
+        intrinsics=intrinsics,
+        extrinsics=extrinsics,
+        names=names,
+        ids=ids,
+        device="cpu",
+    )
 
 
 def test_the_intr_convention_and_resolution_survive_round_trip() -> None:
@@ -586,3 +524,65 @@ def test_extrinsics_and_extr_convention_survive_round_trip(tmp_path: Path) -> No
             assert (
                 loaded.extrinsics.extr_convention == extr_convention
             ), f"{format=} {loaded.extrinsics.extr_convention=}"
+
+
+def _make_extrinsics(
+    translation: List[float], extr_convention: str
+) -> CameraExtrinsics:
+    """Build a CameraExtrinsics fixture with an identity rotation.
+
+    Args:
+        translation: Length-3 camera-center translation as a list of floats.
+        extr_convention: Pose-frame convention string.
+
+    Returns:
+        A CameraExtrinsics on the CPU with the given translation and pose frame.
+    """
+    matrix = torch.eye(4, dtype=torch.float32)
+    matrix[:3, 3] = torch.tensor(translation, dtype=torch.float32)
+    return CameraExtrinsics(
+        extrinsics=matrix, extr_convention=extr_convention, device="cpu"
+    )
+
+
+def _assert_cameras_fields_equal(loaded: Cameras, original: Cameras) -> None:
+    """Assert two Cameras collections carry the same core serialized fields.
+
+    Args:
+        loaded: Cameras recovered from serialization.
+        original: Original Cameras.
+
+    Returns:
+        None.
+    """
+    assert isinstance(loaded, Cameras), f"{type(loaded)=}"
+    assert len(loaded) == len(original), f"{len(loaded)=} {len(original)=}"
+    for index in range(len(original)):
+        _assert_camera_fields_equal(loaded=loaded[index], original=original[index])
+
+
+def _assert_camera_fields_equal(loaded: Camera, original: Camera) -> None:
+    """Assert two Camera objects carry the same core serialized fields.
+
+    Args:
+        loaded: Camera recovered from serialization.
+        original: Original Camera.
+
+    Returns:
+        None.
+    """
+    assert isinstance(loaded, Camera), f"{type(loaded)=}"
+    assert (
+        loaded.intrinsics.model == original.intrinsics.model
+    ), f"{loaded.intrinsics.model=} {original.intrinsics.model=}"
+    assert (
+        loaded.intrinsics.params == original.intrinsics.params
+    ), f"{loaded.intrinsics.params=} {original.intrinsics.params=}"
+    assert torch.equal(
+        loaded.extrinsics.extrinsics, original.extrinsics.extrinsics
+    ), f"{loaded.extrinsics.extrinsics=} {original.extrinsics.extrinsics=}"
+    assert (
+        loaded.extrinsics.extr_convention == original.extrinsics.extr_convention
+    ), f"{loaded.extrinsics.extr_convention=} {original.extrinsics.extr_convention=}"
+    assert loaded.name == original.name, f"{loaded.name=} {original.name=}"
+    assert loaded.id == original.id, f"{loaded.id=} {original.id=}"
