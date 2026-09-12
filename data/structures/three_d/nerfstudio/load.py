@@ -28,11 +28,11 @@ from data.structures.three_d.nerfstudio.validate import (
 
 
 def load_nerfstudio_data(
-    filepath: str | Path,
-    device: str | torch.device = torch.device("cuda"),
+    filepath: Union[str, Path],
+    device: Union[str, torch.device] = torch.device("cuda"),
 ) -> Tuple[
     Dict[str, Any],
-    Dict[str, float | int],
+    Dict[str, Union[float, int]],
     Tuple[int, int],
     str,
     torch.Tensor,
@@ -40,18 +40,28 @@ def load_nerfstudio_data(
     str,
     Cameras,
     List[str],
-    List[str] | None,
-    List[str] | None,
-    List[str] | None,
+    Optional[List[str]],
+    Optional[List[str]],
+    Optional[List[str]],
 ]:
-    # Input validations
-    assert isinstance(filepath, (str, Path)), f"{type(filepath)=}"
-    assert isinstance(device, (str, torch.device)), f"{type(device)=}"
+    """Open a NerfStudio transforms.json, validate each section of the record it holds, and return the record beside every section read out of it.
 
-    # Input normalizations
+    Args:
+        filepath: Path of the transforms.json file.
+        device: Device the K matrix and the cameras are placed on.
+
+    Returns:
+        The raw record dict, its intrinsic params (`fl_x`, `fl_y`, `cx`, `cy`, `k1`, `k2`, `p1`, `p2`), its (h, w) resolution, its camera model name, the float32 [3, 3] pinhole K matrix, the float32 [3, 4] applied transform, the ply file path relative to the record's directory, the Cameras batch posed camera-to-world in the OpenGL convention, the modality names, and the train / val / test filename lists (each None when the record carries no split).
+    """
+
+    def _validate_inputs() -> None:
+        assert isinstance(filepath, (str, Path)), f"{type(filepath)=}"
+        assert isinstance(device, (str, torch.device)), f"{type(device)=}"
+
+    _validate_inputs()
+
     path = Path(filepath).resolve()
     target_device = torch.device(device)
-
     assert path.is_file(), f"transforms.json not found: {path}"
     with path.open("r", encoding="utf-8") as handle:
         data: Dict[str, Any] = json.load(handle)
@@ -92,22 +102,55 @@ def load_nerfstudio_data(
     )
 
 
-def load_intrinsic_params(data: Dict[str, Any]) -> Dict[str, float | int]:
+def load_intrinsic_params(data: Dict[str, Any]) -> Dict[str, Union[float, int]]:
+    """Pick the focal, principal-point and k1, k2, p1, p2 distortion entries out of a NerfStudio transforms record, keeping the record's own key names.
+
+    Args:
+        data: The validated transforms record dict.
+
+    Returns:
+        The `fl_x`, `fl_y`, `cx`, `cy`, `k1`, `k2`, `p1`, `p2` entries of the record.
+    """
     keys = ["fl_x", "fl_y", "cx", "cy", "k1", "k2", "p1", "p2"]
     return {key: data[key] for key in keys}
 
 
 def load_resolution(data: Dict[str, Any]) -> Tuple[int, int]:
-    return (data["h"], data["w"])
+    """Read the image size a NerfStudio transforms record states, height first.
+
+    Args:
+        data: The validated transforms record dict.
+
+    Returns:
+        The record's (h, w).
+    """
+    return data["h"], data["w"]
 
 
 def load_camera_model(data: Dict[str, Any]) -> str:
+    """Read the camera model name a NerfStudio transforms record states.
+
+    Args:
+        data: The validated transforms record dict.
+
+    Returns:
+        The record's `camera_model` entry.
+    """
     return data["camera_model"]
 
 
 def load_intrinsics(
     data: Dict[str, Any], device: Union[str, torch.device] = torch.device("cpu")
 ) -> torch.Tensor:
+    """Build the 3x3 pinhole K matrix of a NerfStudio transforms record's fl_x, fl_y, cx and cy, then pass those and its h and w as Python scalars to the standard-frame pinhole params validation.
+
+    Args:
+        data: The validated transforms record dict.
+        device: Device the K matrix is placed on.
+
+    Returns:
+        The float32 [3, 3] pinhole K matrix `[[fl_x, 0, cx], [0, fl_y, cy], [0, 0, 1]]` in the standard (pixel raster) convention.
+    """
     intrinsics = torch.tensor(
         [
             [
@@ -141,16 +184,41 @@ def load_intrinsics(
 
 
 def load_applied_transform(data: Dict[str, Any]) -> np.ndarray:
+    """Read the applied_transform a NerfStudio transforms record carries, as a float32 array.
+
+    Args:
+        data: The validated transforms record dict.
+
+    Returns:
+        The record's applied transform as a float32 [3, 4] numpy array.
+    """
     return np.asarray(data["applied_transform"], dtype=np.float32)
 
 
 def load_ply_file_path(data: Dict[str, Any]) -> str:
+    """Read the point cloud path a NerfStudio transforms record names.
+
+    Args:
+        data: The validated transforms record dict.
+
+    Returns:
+        The record's `ply_file_path` entry, relative to the record's directory.
+    """
     return data["ply_file_path"]
 
 
 def load_cameras(
     data: Dict[str, Any], device: Union[str, torch.device] = torch.device("cpu")
 ) -> Cameras:
+    """Read the frames of one NerfStudio transforms record as the cameras that posed them.
+
+    Args:
+        data: The validated transforms record dict.
+        device: Device the cameras are placed on.
+
+    Returns:
+        A Cameras batch of one camera per frame in record order, named by the stem of the frame's `file_path` and identified by its `colmap_im_id` (None when absent), with float32 standard-convention pinhole intrinsics and each frame's `transform_matrix` as camera-to-world extrinsics in the OpenGL convention.
+    """
     frames: List[Any] = data["frames"]
     intrinsics_params = {
         "fx": float(data["fl_x"]),
@@ -160,7 +228,7 @@ def load_cameras(
         "h": int(data["h"]),
         "w": int(data["w"]),
     }
-    # One transform block governs every frame, so its params broadcast to the batch.
+    # The record's one top-level pinhole governs every frame, so its params broadcast to the batch.
     intrinsics = build_camera_intrinsics(
         model="pinhole",
         params={
@@ -180,9 +248,12 @@ def load_cameras(
         device=device,
     )
     names: List[Optional[str]] = [Path(frame["file_path"]).stem for frame in frames]
-    ids: List[Optional[int]] = [
-        frame["colmap_im_id"] if "colmap_im_id" in frame else None for frame in frames
-    ]
+    ids: List[Optional[int]] = []
+    for frame in frames:
+        if "colmap_im_id" in frame:
+            ids.append(frame["colmap_im_id"])
+        else:
+            ids.append(None)
     return Cameras(
         intrinsics=intrinsics,
         extrinsics=extrinsics,
@@ -193,24 +264,31 @@ def load_cameras(
 
 
 def load_modalities(data: Dict[str, Any]) -> List[str]:
+    """Name the modalities a NerfStudio record's frames carry, judged by which modality path keys (each MODALITY_SPECS spec's first entry) its first frame holds.
+
+    Args:
+        data: The validated transforms record dict, whose frames all carry the same modality keys.
+
+    Returns:
+        The names of the modalities whose path key the first frame holds, in MODALITY_SPECS order.
+    """
     frames: List[Any] = data["frames"]
     return [
         modality for modality, spec in MODALITY_SPECS.items() if spec[0] in frames[0]
     ]
 
 
-def load_filenames(data: Dict[str, Any]) -> List[str]:
-    frames: List[Any] = data["frames"]
-    return [Path(frame["file_path"]).stem for frame in frames]
-
-
 def load_split_filenames(
     data: Dict[str, Any],
 ) -> Tuple[Optional[List[str]], Optional[List[str]], Optional[List[str]]]:
+    """Read the train, val and test filename lists of a NerfStudio transforms record, a None for each when it carries no train_filenames.
+
+    Args:
+        data: The validated transforms record dict, carrying all three split lists or none of them.
+
+    Returns:
+        The record's train, val and test filename lists, or three Nones when it carries no split.
+    """
     if "train_filenames" not in data:
         return None, None, None
-    return (
-        data["train_filenames"],
-        data["val_filenames"],
-        data["test_filenames"],
-    )
+    return data["train_filenames"], data["val_filenames"], data["test_filenames"]
