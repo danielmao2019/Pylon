@@ -74,8 +74,10 @@ ply's subset is i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer 
    3. default meta data (default layout): each format's per-format helper defines the default layout for its own format, on load and on save alike.
       1. .ply and .las/.laz on load: when you see x, y, and z, default to stacking them into one field called xyz. when you see red, green, and blue, default to stacking them into one field called rgb.
       2. .ply on save: xyz splits back into x, y and z, and rgb splits back into red, green and blue.
-      3. .pcd, .pth, .txt and .off: default is to map the columns to '0', '1', '2', ...
-      4. no other defaults defined for now.
+      3. .pcd on load: the positions attribute becomes xyz and the colors attribute becomes rgb, matched by attribute name.
+      4. .off on load: columns 0, 1 and 2 of the vertex block become xyz, since the OFF format declares them the vertex coordinates, and every other column keeps its positional name.
+      5. .pth and .txt on load: columns 0, 1 and 2 become xyz, and every other column keeps its positional name.
+      6. no other defaults defined for now.
    4. override meta data:
       1. init, load, and save each accept an override, and it reaches both the dtype and the layout at each.
    5. target meta data: it holds one entry per field the override or the default names, each holding that field's layout and, where the override states one, its dtype.
