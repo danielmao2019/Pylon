@@ -187,39 +187,41 @@ ply's subset is i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer 
       1. build source meta data.
       2. apply target meta data.
       3. assign to instance attr.
-2. the main load API
-   1. accepts a `meta_data` optional arg override.
-   2. passes the `meta_data` optional arg down to the per-format helper.
-   3. it knows nothing about default layout.
-   4. never silently casts a dtype.
-3. per-format load helpers
-   1. the received `meta_data` arg is treated as override meta data that overrides the per-format defaults.
-   2. they define the default layout for each format.
-   3. non-pth formats and pth format with numpy storage do the following steps in sequence
-      1. load as numpy, preserving values, dtypes, and layouts strictly.
-      2. resolve target meta data from user-provided override and per-format default.
-      3. construct `PointCloud` obj, passing raw data and target meta data as is. then the init op builds the source meta data and applies the target meta data.
-   4. pth format with torch storage do the following steps in sequence
-      1. load as torch, preserving values, dtypes, and layouts strictly.
-      2. resolve target meta data from user-provided override and per-format default.
-      3. construct `PointCloud` obj, passing raw data and target meta data as is. then the init op builds the source meta data and applies the target meta data.
-4. the main save API
-   1. accepts a `meta_data` optional arg override.
-   2. passes the point cloud and the `meta_data` optional arg down to the per-format helper.
-5. per-format save helpers
-   1. the received `meta_data` arg is treated as override meta data that overrides the per-format defaults.
-   2. they define the default layout for each format.
-   3. non-pth formats and pth format with numpy storage do the following steps in sequence
-      1. torch to numpy
-      2. resolve target meta data from user-provided override and per-format default.
-      3. apply target meta data.
-      4. for what's not specified by target meta data, apply source meta data.
-      5. save as file to disk.
-   4. pth format with torch storage do the following steps in sequence
-      1. resolve target meta data from user-provided override and per-format default.
-      2. apply target meta data.
-      3. for what's not specified by target meta data, apply source meta data.
-      4. save as file to disk.
+2. load
+   1. the main load API
+      1. accepts a `meta_data` optional arg override.
+      2. passes the `meta_data` optional arg down to the per-format helper.
+      3. it knows nothing about default layout.
+      4. never silently casts a dtype.
+   2. per-format load helpers
+      1. the received `meta_data` arg is treated as override meta data that overrides the per-format defaults.
+      2. they define the default layout for each format.
+      3. non-pth formats and pth format with numpy storage do the following steps in sequence
+         1. load as numpy, preserving values, dtypes, and layouts strictly.
+         2. resolve target meta data from user-provided override and per-format default.
+         3. construct `PointCloud` obj, passing raw data and target meta data as is. then the init op builds the source meta data and applies the target meta data.
+      4. pth format with torch storage do the following steps in sequence
+         1. load as torch, preserving values, dtypes, and layouts strictly.
+         2. resolve target meta data from user-provided override and per-format default.
+         3. construct `PointCloud` obj, passing raw data and target meta data as is. then the init op builds the source meta data and applies the target meta data.
+3. save
+   1. the main save API
+      1. accepts a `meta_data` optional arg override.
+      2. passes the point cloud and the `meta_data` optional arg down to the per-format helper.
+   2. per-format save helpers
+      1. the received `meta_data` arg is treated as override meta data that overrides the per-format defaults.
+      2. they define the default layout for each format.
+      3. non-pth formats and pth format with numpy storage do the following steps in sequence
+         1. torch to numpy
+         2. resolve target meta data from user-provided override and per-format default.
+         3. apply target meta data.
+         4. for what's not specified by target meta data, apply source meta data.
+         5. save as file to disk.
+      4. pth format with torch storage do the following steps in sequence
+         1. resolve target meta data from user-provided override and per-format default.
+         2. apply target meta data.
+         3. for what's not specified by target meta data, apply source meta data.
+         4. save as file to disk.
 
 ### 2.3. Proposed Solution
 
