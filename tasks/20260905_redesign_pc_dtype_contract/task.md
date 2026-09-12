@@ -129,13 +129,13 @@ goal: re-design pc dtype contract/provenance
          2. the record.
          3. the field itself, where the record names it nowhere: the dtype it carries.
 5. applying meta data:
-   1. how the derived target is applied. the target resolves first, and the layout mapping is checked only after that:
+   1. `apply_meta_data` applies exactly the meta data it is handed, resolving nothing itself. the dtype applies first, and the layout mapping is checked only after that:
       1. dtype (and convention):
          1. color conversion happens in two steps:
             1. where a conversion is defined for the pair, the values are mapped from the convention the current dtype names to the convention the target dtype names.
             2. after convention conversion, type casting happens normally.
          2. every other field goes through a direct type cast.
-         3. lossless is asserted. the target is applied if it's lossless. the program hard asserts if lossless cannot be achieved.
+         3. lossless is asserted. the target is applied if it's lossless. the program hard asserts if lossless cannot be achieved, or if torch cannot hold the target dtype.
       2. layout:
          1. the target's layout assembles the field from the columns it names
          2. if the columns a target layout merges into one field still hold different dtypes once the target dtype has been applied, the program hard asserts and aborts.
