@@ -57,6 +57,7 @@ scene_rendering.py
 render_on_main.py
 ├── import argparse
 ├── import torch
+├── from models.three_d.point_cloud.render.common.apply_point_size_postprocessing import apply_point_size_postprocessing
 ├── from models.three_d.point_cloud.render.common.create_circular_kernel_offsets import create_circular_kernel_offsets
 ├── from scene_rendering import DEVICES, POINT_SIZES, RENDERERS, RETURN_MASK_OPTIONS, build_camera, build_point_cloud, render_single_camera
 ├── def main() -> None
@@ -74,7 +75,12 @@ render_on_main.py
 │   ├── for each point size
 │   │   ├── calls create_circular_kernel_offsets(point_size=point_size, device=torch.device("cpu"))
 │   │   └── impls kernels[point size] = the offsets it returned
-│   └── impls torch.save a dict of renders and kernels to args.output_path
+│   ├── impls dilations = an empty dict keyed by (device, scene name, camera index, point size)
+│   ├── for each device of DEVICES, scene, camera index and point size above one
+│   │   ├── impls depth_map = renders at (device, scene name, camera index, "depth", 1.0, False) with the depth entry's own background set to positive infinity
+│   │   ├── calls apply_point_size_postprocessing(rendered_image=depth_map, depth_map=depth_map, point_size=point_size, ignore_value=float("inf"))
+│   │   └── impls dilations[key] = the map it returned
+│   └── impls torch.save a dict of renders, kernels and dilations to args.output_path
 └── if __name__ == "__main__"
     └── calls main()
 ```
@@ -93,9 +99,11 @@ prove_equivalence.py
 ├── from typing import Any, Dict, List, Tuple, Union
 ├── impls REPO_ROOT = the repo root three levels above this file, inserted at the front of sys.path when absent so the repo-level imports below resolve
 ├── import torch
+├── from data.structures.three_d.camera.camera import Camera
 ├── from data.structures.three_d.camera.cameras import Cameras
 ├── from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
 ├── from data.structures.three_d.camera.intrinsics.camera_intrinsics import build_camera_intrinsics
+├── from data.structures.three_d.point_cloud.point_cloud import PointCloud
 ├── from models.three_d.point_cloud.render.common.apply_point_size_postprocessing import apply_point_size_postprocessing
 ├── from models.three_d.point_cloud.render.common.create_circular_kernel_offsets import create_circular_kernel_offsets
 ├── from models.three_d.point_cloud.render.common.prepare_points_for_rendering import prepare_points_for_rendering
@@ -113,7 +121,8 @@ prove_equivalence.py
 │   ├── calls compare_single_camera_to_main(scenes=scenes, main_renders=main_renders)
 │   ├── calls compare_batch_to_one_by_one(scenes=scenes)
 │   ├── calls summarize_point_size_changes(main_renders=main_renders)
-│   ├── impls report = the main and branch commits, the devices, that main rendered under deterministic algorithms, both comparison records with their required checks tallied, and the point-size summary  # main's scatter is racy on cuda otherwise, so its reference is the deterministic one
+│   ├── impls branch_worktree_clean = whether git status --porcelain run in REPO_ROOT prints nothing  # a report is evidence only for the commit it names
+│   ├── impls report = the main and branch commits, branch_worktree_clean, the devices, that main rendered under deterministic algorithms, both comparison records with their required checks tallied, and the point-size summary  # main's scatter is racy on cuda otherwise, so its reference is the deterministic one
 │   ├── impls write report as json to output_dir / "equivalence_report.json"
 │   ├── impls print one summary line per tally
 │   └── if any required check failed
@@ -131,7 +140,7 @@ prove_equivalence.py
 │   ├── impls collisions = twenty thousand points in a cube of side two about the origin, four opengl pinhole cameras on a sphere of radius four aimed at it, rendered at the (48, 64) the intrinsics state
 │   ├── impls culling = two thousand points in a cube of side twelve, three opencv pinhole cameras on a radius-four sphere each seeing a different subset, intrinsics stated at (120, 160) but rendered at (60, 80), uint8 colours
 │   ├── impls sparse = three hundred points in a cube of side one, three standard-convention pinhole cameras on a sphere of radius three, rendered at the (90, 120) the intrinsics state
-│   ├── impls few_points = twenty-five points in a cube of side two about the origin, three opencv pinhole cameras on a sphere of radius four, rendered at the (30, 40) the intrinsics state  # few enough rows that CUDA picks its small-matrix kernels
+│   ├── impls few_points = twelve points in a cube of side two about the origin, three opencv pinhole cameras on a sphere of radius four, rendered at the (30, 40) the intrinsics state  # at most sixteen rows, the most CUDA's small-matrix kernel takes
 │   ├── for each scene
 │   │   ├── impls rgb, labels, normals = per-point colours, int64 labels below twenty, unit normals, all drawn from generator
 │   │   └── impls cameras = one {params, extrinsics} per pose, each extrinsics an opencv look-at cam2world restated in the scene's convention by its fixed axis change
@@ -178,7 +187,7 @@ prove_equivalence.py
 │   │   │       ├── if device is cpu
 │   │   │       │   └── calls compare_exactly(output=the rows valid keeps in that camera's slice of the batched points, with those rows' point indices, reference=that camera's points and original_data_indices)
 │   │   │       ├── else
-│   │   │       │   └── calls compare_preparations(output=the batched points and valid mask at that camera's slice, reference=that camera's points and original_data_indices, resolution=scene["resolution"])  # CUDA's batched inverse and product round unlike a single camera's
+│   │   │       │   └── calls compare_preparations(output=the batched points and valid mask at that camera's slice, reference=that camera's points and original_data_indices, pc=pc, camera=that camera, resolution=scene["resolution"])  # CUDA's batched inverse and product round unlike a single camera's
 │   │   │       └── impls records gain a "prepare" record carrying that comparison and num_divide
 │   │   ├── impls rendering_points, valid = the points and valid mask of the unchunked batched preparation  # one input handed to both sides, so the rasterizing stage is measured apart from the rounding before it
 │   │   ├── for each return_mask
@@ -209,7 +218,7 @@ prove_equivalence.py
 │   ├── calls Cameras(intrinsics=the intrinsics it built, extrinsics=the extrinsics it built, device=device)
 │   └── return  # that batch
 ├── def summarize_point_size_changes(main_renders: Dict[str, Any]) -> Dict[str, Any]
-│   ├── # Records the two facts that account for every difference from main above one pixel: which point sizes grow a different disc on each side, and that main's depth-based entries ignore the point size altogether.
+│   ├── # Records the three facts that account for every difference from main above one pixel: which point sizes grow a different disc on each side, that main's depth-based entries ignore the point size altogether, and which neighbour each side's dilation keeps on one depth map.
 │   ├── impls summary = an empty dict
 │   ├── for each point size
 │   │   ├── calls create_circular_kernel_offsets(point_size=point_size, device=torch.device("cpu"))
@@ -217,13 +226,19 @@ prove_equivalence.py
 │   ├── for each of main's depth and normal_2d renders at every point size
 │   │   ├── calls compare_exactly(output=that render, reference=main's render of the same device, scene, camera and mask option at point size one)
 │   │   └── impls summary tallies whether that comparison came out equal
+│   ├── for each device, scene, camera and point size above one
+│   │   ├── impls depth_map = main's depth render of that device, scene and camera at point size one without a mask, the depth entry's own background set to positive infinity  # the map render_on_main dilated with main's own dilation
+│   │   ├── calls apply_point_size_postprocessing(rendered_image=depth_map, depth_map=depth_map, point_size=point_size, ignore_value=float("inf"))
+│   │   ├── calls compare_exactly(output=the map it returned, reference=main's dilation of the same device, scene, camera and point size)
+│   │   └── impls summary tallies whether that comparison came out equal  # main keeps the last nearer neighbour in kernel order, this branch the nearest
 │   └── return summary
-├── def compare_preparations(output: Tuple[torch.Tensor, torch.Tensor], reference: Tuple[torch.Tensor, torch.Tensor], resolution: Tuple[int, int]) -> Dict[str, Any]
+├── def compare_preparations(output: Tuple[torch.Tensor, torch.Tensor], reference: Tuple[torch.Tensor, torch.Tensor], pc: PointCloud, camera: Camera, resolution: Tuple[int, int]) -> Dict[str, Any]
 │   ├── # Decides whether two preparations of one camera agree up to floating-point rounding, the test a cuda batch's preparation is held to.
 │   ├── impls points, valid = output as cpu tensors
 │   ├── impls reference_points, reference_indices = reference as cpu tensors  # the single camera's survivors and the points they are
 │   ├── impls reference_valid = a mask over the slice's point axis, True at reference_indices
-│   ├── impls tolerance = a few units in the last place of the points' dtype, relative to each coordinate's magnitude
+│   ├── impls magnitude = the larger of the norm of camera's centre and the largest coordinate magnitude in pc  # the size of the numbers the world-to-camera transform rounds
+│   ├── impls tolerance = per point either side keeps, a few units in the last place of the points' dtype times magnitude, times camera's fx over its depth for x and fy over its depth for y  # the projection multiplies camera-frame rounding by focal length over depth
 │   ├── impls kept = valid & reference_valid
 │   ├── impls points_close = every kept point's (x, y, depth) agrees with the reference row of that same point within tolerance  # a point either side culls lands on no pixel, so its coordinates carry nothing to compare
 │   ├── impls flipped = the points where valid and reference_valid differ
