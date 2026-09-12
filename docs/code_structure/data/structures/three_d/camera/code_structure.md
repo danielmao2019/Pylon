@@ -17,8 +17,6 @@ validation.py
 │   ├── impls asserts the extrinsics matrix carries exactly one leading batch axis, [B, 4, 4]  # the agreement below reads B off that axis, which an unbatched [4, 4] would also offer
 │   ├── impls asserts the two components agree on the extent of their leading batch axis
 │   ├── impls asserts names and ids are each None or hold one entry per camera in the batch
-│   ├── impls asserts device is None or a valid torch device spec
-│   ├── impls asserts dtype is None or a floating torch dtype
 │   └── return
 └── def validate_camera_attributes(intrinsics: "CameraIntrinsics", extrinsics: "CameraExtrinsics", name: Optional[str], id: Optional[int], device: Optional[Union[str, torch.device]], dtype: Optional[torch.dtype]) -> None
     ├── # Single-entry validation for Camera.__init__: validate component objects, metadata, and optional tensor placement request.
@@ -280,7 +278,6 @@ io.py
 ├── import numpy as np
 ├── import torch
 ├── from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
-├── from data.structures.three_d.camera.extrinsics.validation import validate_camera_extrinsics
 ├── from data.structures.three_d.camera.intrinsics.camera_intrinsics import build_camera_intrinsics
 ├── if TYPE_CHECKING  # annotation-only imports; runtime imports of Camera / Cameras are inline in the functions that need them (camera.py and cameras.py import io.py, so a top-level import would cycle)
 │   ├── from data.structures.three_d.camera.camera import Camera
@@ -398,19 +395,17 @@ io.py
 │   ├── from data.structures.three_d.camera.cameras import Cameras  # inline runtime import; cameras.py imports io.py, so this would cycle at module top
 │   ├── def _validate_inputs [local]
 │   │   ├── impls assert per_camera_dicts is a non-empty list
-│   │   └── for each per-camera dict
-│   │       ├── impls assert it is a dict whose keys are exactly _CAMERA_JSON_KEYS
-│   │       ├── impls assert its model is a str
-│   │       ├── impls assert its params is a dict
-│   │       ├── impls assert its intr_convention is a str
-│   │       ├── impls assert its extr_convention is a str
-│   │       ├── impls assert its dtype is a str spelling a floating torch dtype
-│   │       ├── impls assert its name is None or a str
-│   │       └── impls assert its id is None or an int
+│   │   ├── for each per-camera dict
+│   │   │   ├── impls assert it is a dict whose keys are exactly _CAMERA_JSON_KEYS
+│   │   │   ├── impls assert its params is a dict
+│   │   │   ├── impls assert its dtype is a str spelling a torch dtype
+│   │   │   ├── impls assert its name is None or a str
+│   │   │   └── impls assert its id is None or an int
+│   │   ├── impls assert the dicts agree on model, intr_convention and extr_convention  # the batch shares one projection expression
+│   │   └── impls assert the dicts agree on dtype  # a batch holds one dtype
 │   ├── calls _validate_inputs
-│   ├── impls asserts the per-camera dicts agree on model, intr_convention and extr_convention  # the batch shares one projection expression
-│   ├── impls asserts the per-camera dicts agree on dtype  # a batch holds one dtype
-│   ├── impls dtype = the torch dtype their shared dtype entry spells  # the one dtype both components are rebuilt in
+│   ├── impls model, intr_convention, extr_convention = the one value each of those entries holds across the dicts
+│   ├── impls dtype = the torch dtype the dicts' one dtype entry spells
 │   ├── impls params_columns = each param name mapped to the [N] column gathered from that key across the dicts  # impls-node-one-step:skip; json stores a row per camera where npz stores a column per field
 │   ├── impls names, ids = the name and id columns gathered the same way  # json stores both directly, where npz needs has_name / has_id flags
 │   ├── calls _deserialize_intrinsics_params(params=params_columns, device=device, dtype=dtype)
@@ -431,19 +426,19 @@ io.py
 │   ├── # Map the plural batched-array npz payload to a Cameras.
 │   ├── from data.structures.three_d.camera.cameras import Cameras  # inline runtime import; cameras.py imports io.py, so this would cycle at module top
 │   ├── def _validate_inputs [local]
-│   │   ├── impls assert payload is a dict whose keys are exactly _CAMERA_NPZ_KEYS
-│   │   ├── impls assert payload["extrinsics"] is a floating-point ndarray batched as [N, 4, 4]  # whichever floating dtype the saved batch held
-│   │   ├── calls validate_camera_extrinsics(extrinsics)  # batched validation of all views' 4x4 cam2world
+│   │   ├── impls assert payload's keys are exactly _CAMERA_NPZ_KEYS
+│   │   ├── impls assert payload["extrinsics"] is an ndarray carrying a leading batch axis  # batch_size is read off it
 │   │   ├── for each of the nine per-camera keys
 │   │   │   └── impls assert its array is an ndarray of shape (batch_size,)
-│   │   └── impls assert every entry of payload["dtype"] spells a floating torch dtype
+│   │   ├── impls assert payload["model"], payload["intr_convention"] and payload["extr_convention"] are each constant over the batch  # one model and one frame pair is what lets the batch share a single projection expression
+│   │   ├── impls assert every entry of payload["dtype"] spells a torch dtype
+│   │   └── impls assert payload["dtype"] is constant over the batch  # a batch holds one dtype
 │   ├── calls _validate_inputs
 │   ├── impls extrinsics = payload["extrinsics"], the batched [N, 4, 4] cam2world array
 │   ├── impls batch_size = extrinsics.shape[0]
 │   ├── impls model_array, params_array, intr_convention_array, extr_convention_array, dtype_array, name_array, has_name_array, id_array, has_id_array — the nine per-camera arrays read from payload
-│   ├── impls asserts model_array, intr_convention_array and extr_convention_array are each constant over the batch  # one model and one frame pair is what lets the batch share a single projection expression
-│   ├── impls asserts dtype_array is constant over the batch  # a batch holds one dtype
-│   ├── impls dtype = the torch dtype dtype_array's shared entry spells  # the one dtype both components are rebuilt in
+│   ├── impls model, intr_convention, extr_convention = the one value model_array, intr_convention_array and extr_convention_array each hold
+│   ├── impls dtype = the torch dtype dtype_array's one entry spells
 │   ├── impls names, ids = the name and id arrays as lists, each entry taken only where its has_name / has_id flag is set  # impls-node-one-step:skip
 │   ├── impls params_columns = the per-camera json rows decoded and re-gathered into one column per param name
 │   ├── calls _deserialize_intrinsics_params(params=params_columns, device=device, dtype=dtype)
