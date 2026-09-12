@@ -9,7 +9,7 @@ _ROTATION_MATRIX_RESIDUAL_FLOOR_ULPS = 32
 
 
 def validate_camera_extrinsics_attributes(
-    extrinsics: Any, extr_convention: Any, device: Any, dtype: Any = None
+    extrinsics: Any, extr_convention: Any, device: Any, dtype: Any
 ) -> None:
     """Validate the 4x4 cam2world matrix, pose frame, device, and dtype.
 
@@ -24,8 +24,8 @@ def validate_camera_extrinsics_attributes(
     Returns:
         None.
     """
-    validate_extr_convention(extr_convention)
     validate_camera_extrinsics(extrinsics)
+    validate_extr_convention(extr_convention)
     assert device is None or isinstance(device, (str, torch.device)), (
         "Expected CameraExtrinsics device to be None, a string, or torch.device. "
         f"{type(device)=}"
@@ -83,7 +83,7 @@ def validate_camera_extrinsics(
     )
 
 
-def _validate_camera_extrinsics_numpy(obj: Any) -> np.ndarray:
+def _validate_camera_extrinsics_numpy(obj: np.ndarray) -> np.ndarray:
     """Validate a (..., 4, 4) numpy camera-extrinsics (cam2world) matrix.
 
     Args:
@@ -110,7 +110,7 @@ def _validate_camera_extrinsics_numpy(obj: Any) -> np.ndarray:
     return obj
 
 
-def _validate_camera_extrinsics_torch(obj: Any) -> torch.Tensor:
+def _validate_camera_extrinsics_torch(obj: torch.Tensor) -> torch.Tensor:
     """Validate a (..., 4, 4) torch camera-extrinsics (cam2world) matrix.
 
     Args:
@@ -195,7 +195,7 @@ def validate_rotation_matrix(
     )
 
 
-def _validate_rotation_matrix_numpy(obj: Any) -> np.ndarray:
+def _validate_rotation_matrix_numpy(obj: np.ndarray) -> np.ndarray:
     """Validate a (..., 3, 3) numpy rotation matrix; dispatch tolerance on dtype.
 
     Args:
@@ -227,7 +227,7 @@ def _validate_rotation_matrix_numpy(obj: Any) -> np.ndarray:
     assert 0, "should not reach here."
 
 
-def _validate_rotation_matrix_torch(obj: Any) -> torch.Tensor:
+def _validate_rotation_matrix_torch(obj: torch.Tensor) -> torch.Tensor:
     """Validate a (..., 3, 3) torch rotation matrix; dispatch tolerance on dtype.
 
     Args:
