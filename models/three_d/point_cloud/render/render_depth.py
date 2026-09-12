@@ -62,8 +62,8 @@ def render_depth_from_point_cloud(
         point_size=point_size,
     )
 
-    # Prepare points for rendering
-    rendered_points, valid = prepare_points_for_rendering(
+    # Prepare points for rendering; a single camera's validity is None, its culled points already dropped
+    rendered_points, valid, _ = prepare_points_for_rendering(
         pc=pc,
         camera=camera,
         resolution=resolution,
@@ -129,11 +129,11 @@ def render_depth_from_rendering_points(
     Reads at each pixel the depth of the point that owns it, so occlusion is decided by depth rather than by which write landed last.
 
     Args:
-        rendering_points: Pre-processed points [..., N, 3] with (x, y, depth), the point axis in pc.xyz order and the leading axes enumerating the cameras rendered.
+        rendering_points: Pre-processed points [..., N, 3] float torch.Tensor of (x, y, depth), the leading axes enumerating the cameras rendered.
         resolution: Target resolution as (height, width) tuple.
         ignore_value: Fill value for pixels with no point projections (default: inf).
         return_mask: If True, also return valid pixel mask (default: False).
-        valid: Optional [..., N] bool torch.Tensor marking which points each camera keeps; a point marked False never owns a pixel, and None means every point of rendering_points is marked.
+        valid: Optional [..., N] bool torch.Tensor marking which points each camera keeps, the only points the rasterization reads; None means the caller already dropped its culled points, so every point of rendering_points is read.
 
     Returns:
         If return_mask is False:
@@ -142,46 +142,50 @@ def render_depth_from_rendering_points(
             Tuple of (depth map tensor, valid mask tensor of shape [..., H, W]).
     """
     render_height, render_width = resolution
-    if valid is None:
-        valid = torch.ones(
-            rendering_points.shape[:-1],
-            dtype=torch.bool,
-            device=rendering_points.device,
-        )
-
-    # Resolve, per pixel, the valid point with the smallest depth landing there, reduced per pixel rather than scattered so occlusion does not depend on which write lands last. A culled point is parked on pixel 0, whose out-of-image coordinates are not scatterable, and its depth of positive infinity keeps it from ever owning that pixel.
     num_points = rendering_points.shape[-2]
-    pixel_index = (
-        rendering_points[..., 1].long() * render_width + rendering_points[..., 0].long()
+
+    # Each kept entry is a (camera, point) pair, flattened as camera * num_points + point
+    if valid is None:
+        # The caller already dropped its culled points, as a single camera does
+        kept = torch.arange(
+            rendering_points.shape[:-1].numel(), device=rendering_points.device
+        )
+    else:
+        # The reduction reads these alone, so no work goes to the points a camera culled
+        kept = torch.nonzero(valid.reshape(-1), as_tuple=True)[0]
+    kept_points = rendering_points.reshape(-1, 3)[kept]
+    kept_pixel = (
+        (kept // num_points) * (render_height * render_width)
+        + kept_points[:, 1].long() * render_width
+        + kept_points[:, 0].long()
     )
-    pixel_index = pixel_index.masked_fill(~valid, 0)
-    depth_key = rendering_points[..., 2].masked_fill(~valid, float('inf'))
+    kept_depth = kept_points[:, 2]
+
+    # Resolve, per pixel, the kept point with the smallest depth landing there, reduced per pixel rather than scattered so occlusion does not depend on which write lands last
+    num_pixels = rendering_points.shape[:-2].numel() * render_height * render_width
     nearest_depth = torch.full(
-        size=rendering_points.shape[:-2] + (render_height * render_width,),
+        size=(num_pixels,),
         fill_value=float('inf'),
         dtype=rendering_points.dtype,
         device=rendering_points.device,
     ).scatter_reduce_(
-        dim=-1,
-        index=pixel_index,
-        src=depth_key,
+        dim=0,
+        index=kept_pixel,
+        src=kept_depth,
         reduce='amin',
         include_self=True,
     )
     # The point indices reduce the same way, so two points tying on depth resolve to the lower index.
-    point_index = torch.arange(
-        num_points, dtype=torch.int64, device=rendering_points.device
-    ).expand_as(pixel_index)
-    owns_pixel = valid & (depth_key == nearest_depth.gather(dim=-1, index=pixel_index))
+    owning = torch.nonzero(kept_depth == nearest_depth[kept_pixel], as_tuple=True)[0]
     nearest_point_index = torch.full(
-        size=rendering_points.shape[:-2] + (render_height * render_width,),
+        size=(num_pixels,),
         fill_value=num_points,
         dtype=torch.int64,
         device=rendering_points.device,
     ).scatter_reduce_(
-        dim=-1,
-        index=pixel_index,
-        src=torch.where(owns_pixel, point_index, num_points),
+        dim=0,
+        index=kept_pixel[owning],
+        src=kept[owning] % num_points,
         reduce='amin',
         include_self=True,
     )

@@ -23,90 +23,6 @@ from models.three_d.point_cloud.render.render_mask import (
 )
 
 
-def render_segmentation_from_rendering_points(
-    rendering_points: torch.Tensor,
-    valid: torch.Tensor,
-    pc: PointCloud,
-    key: str,
-    resolution: Tuple[int, int],
-    ignore_value: int = 255,
-) -> torch.Tensor:
-    """Render segmentation map from pre-processed rendering points.
-
-    Args:
-        rendering_points: Pre-processed points [N, 3] float torch.Tensor of (x, y, depth), the point axis in pc.xyz order.
-        valid: [N] bool torch.Tensor marking which points the camera keeps; a point marked False never owns a pixel.
-        pc: Point cloud containing segmentation labels under specified key.
-        key: Key name for segmentation labels in pc.
-        resolution: Target resolution as (height, width) tuple.
-        ignore_value: Fill value for pixels with no point projections (default: 255).
-
-    Returns:
-        Segmentation map torch.Tensor of shape [H, W], int64.
-
-    Raises:
-        AssertionError: If labels tensor is empty.
-    """
-    assert hasattr(pc, key), f"PointCloud missing '{key}' field"
-    render_height, render_width = resolution
-    labels = getattr(pc, key)
-    assert (
-        labels.numel() > 0
-    ), f"Labels tensor must not be empty, got {labels.numel()} elements"
-
-    # Resolve, per pixel, the valid point with the smallest depth landing there, reduced per pixel rather than scattered so occlusion does not depend on which write lands last. A culled point is parked on pixel 0, whose out-of-image coordinates are not scatterable, and its depth of positive infinity keeps it from ever owning that pixel.
-    num_points = rendering_points.shape[-2]
-    pixel_index = (
-        rendering_points[..., 1].long() * render_width + rendering_points[..., 0].long()
-    )
-    pixel_index = pixel_index.masked_fill(~valid, 0)
-    depth_key = rendering_points[..., 2].masked_fill(~valid, float('inf'))
-    nearest_depth = torch.full(
-        size=rendering_points.shape[:-2] + (render_height * render_width,),
-        fill_value=float('inf'),
-        dtype=rendering_points.dtype,
-        device=rendering_points.device,
-    ).scatter_reduce_(
-        dim=-1,
-        index=pixel_index,
-        src=depth_key,
-        reduce='amin',
-        include_self=True,
-    )
-    # The point indices reduce the same way, so two points tying on depth resolve to the lower index.
-    point_index = torch.arange(
-        num_points, dtype=torch.int64, device=rendering_points.device
-    ).expand_as(pixel_index)
-    owns_pixel = valid & (depth_key == nearest_depth.gather(dim=-1, index=pixel_index))
-    nearest_point_index = torch.full(
-        size=rendering_points.shape[:-2] + (render_height * render_width,),
-        fill_value=num_points,
-        dtype=torch.int64,
-        device=rendering_points.device,
-    ).scatter_reduce_(
-        dim=-1,
-        index=pixel_index,
-        src=torch.where(owns_pixel, point_index, num_points),
-        reduce='amin',
-        include_self=True,
-    )
-    nearest_point_index = nearest_point_index.masked_fill(
-        nearest_point_index == num_points, -1
-    ).reshape(rendering_points.shape[:-2] + (render_height, render_width))
-
-    # Read the label of the point that owns each pixel
-    pixel_labels = labels[nearest_point_index.clamp(min=0)]
-
-    # Blank the pixels no surviving point landed on
-    seg_map = torch.where(
-        nearest_point_index >= 0,
-        pixel_labels.to(torch.int64),
-        torch.tensor(ignore_value, dtype=torch.int64, device=rendering_points.device),
-    )
-
-    return seg_map
-
-
 def render_segmentation_from_point_cloud(
     pc: PointCloud,
     key: str,
@@ -151,8 +67,8 @@ def render_segmentation_from_point_cloud(
         point_size=point_size,
     )
 
-    # Prepare points for rendering
-    rendering_points, valid = prepare_points_for_rendering(
+    # Prepare points for rendering; a single camera's validity is None, its culled points already dropped
+    rendering_points, _, original_data_indices = prepare_points_for_rendering(
         pc=pc,
         camera=camera,
         resolution=resolution,
@@ -161,7 +77,7 @@ def render_segmentation_from_point_cloud(
     # Render segmentation map
     seg_map = render_segmentation_from_rendering_points(
         rendering_points=rendering_points,
-        valid=valid,
+        original_data_indices=original_data_indices,
         pc=pc,
         key=key,
         resolution=resolution,
@@ -175,7 +91,6 @@ def render_segmentation_from_point_cloud(
             resolution=resolution,
             ignore_value=float('inf'),
             return_mask=False,
-            valid=valid,
         )
 
         # The discs the dilation reaches are exactly the pixels the dilated depth map keeps finite
@@ -207,9 +122,92 @@ def render_segmentation_from_point_cloud(
                 rendering_points=rendering_points,
                 resolution=resolution,
                 device=rendering_points.device,
-                valid=valid,
             )
 
         return seg_map, valid_mask
     else:
         return seg_map
+
+
+def render_segmentation_from_rendering_points(
+    rendering_points: torch.Tensor,
+    original_data_indices: torch.Tensor,
+    pc: PointCloud,
+    key: str,
+    resolution: Tuple[int, int],
+    ignore_value: int = 255,
+) -> torch.Tensor:
+    """Render segmentation map from pre-processed rendering points.
+
+    Args:
+        rendering_points: Pre-processed points [M, 3] float torch.Tensor of (x, y, depth), one row per point the camera kept.
+        original_data_indices: [M] int64 torch.Tensor holding, for each row of rendering_points, the index of its point in pc.xyz.
+        pc: Point cloud containing segmentation labels under specified key.
+        key: Key name for segmentation labels in pc.
+        resolution: Target resolution as (height, width) tuple.
+        ignore_value: Fill value for pixels with no point projections (default: 255).
+
+    Returns:
+        Segmentation map torch.Tensor of shape [H, W], int64.
+
+    Raises:
+        AssertionError: If labels tensor is empty.
+    """
+    assert hasattr(pc, key), f"PointCloud missing '{key}' field"
+    render_height, render_width = resolution
+    labels = getattr(pc, key)
+    assert (
+        labels.numel() > 0
+    ), f"Labels tensor must not be empty, got {labels.numel()} elements"
+
+    # One label per row of rendering_points
+    labels = labels[original_data_indices]
+
+    # Resolve, per pixel, the point with the smallest depth landing there, reduced per pixel rather than scattered so occlusion does not depend on which write lands last.
+    num_points = rendering_points.shape[0]
+    pixel_index = (
+        rendering_points[:, 1].long() * render_width + rendering_points[:, 0].long()
+    )
+    nearest_depth = torch.full(
+        size=(render_height * render_width,),
+        fill_value=float('inf'),
+        dtype=rendering_points.dtype,
+        device=rendering_points.device,
+    ).scatter_reduce_(
+        dim=0,
+        index=pixel_index,
+        src=rendering_points[:, 2],
+        reduce='amin',
+        include_self=True,
+    )
+    # The point indices reduce the same way, so two points tying on depth resolve to the lower index.
+    owning = torch.nonzero(
+        rendering_points[:, 2] == nearest_depth[pixel_index], as_tuple=True
+    )[0]
+    nearest_point_index = torch.full(
+        size=(render_height * render_width,),
+        fill_value=num_points,
+        dtype=torch.int64,
+        device=rendering_points.device,
+    ).scatter_reduce_(
+        dim=0,
+        index=pixel_index[owning],
+        src=owning,
+        reduce='amin',
+        include_self=True,
+    )
+    nearest_point_index = nearest_point_index.masked_fill(
+        nearest_point_index == num_points, -1
+    ).reshape(render_height, render_width)
+
+    # Read the label of the point that owns each pixel
+    pixel_labels = labels[nearest_point_index.clamp(min=0)]
+
+    # Blank the pixels no surviving point landed on
+    seg_map = torch.where(
+        nearest_point_index >= 0,
+        pixel_labels.to(torch.int64),
+        torch.tensor(ignore_value, dtype=torch.int64, device=rendering_points.device),
+    )
+
+    return seg_map
