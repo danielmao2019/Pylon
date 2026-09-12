@@ -74,35 +74,6 @@ def transform_intr_convention(
     return params
 
 
-def _standard_to_opengl(
-    params: Dict[str, Union[int, float, torch.Tensor]],
-    model: str,
-) -> Dict[str, Union[int, float, torch.Tensor]]:
-    """Restate pixel params on OpenGL's device frame.
-
-    Its origin is the image's centre, its x runs with standard's toward the right
-    edge and its y against it toward the top, each axis spanning its own side.
-
-    Args:
-        params: The model's named intrinsics params on the standard pixel frame.
-        model: Camera-model identifier string the focal keys belong to.
-
-    Returns:
-        The params on the opengl frame.
-    """
-    unit_x = 2.0 / params["w"]
-    unit_y = 2.0 / params["h"]
-    params = _centre_principal_point(params=params)
-    params = _reverse_axes(params=params, axes=("y",))
-    params = _rescale_intr_params(
-        params=params,
-        model=model,
-        unit_x=unit_x,
-        unit_y=unit_y,
-    )
-    return params
-
-
 def _opengl_to_standard(
     params: Dict[str, Union[int, float, torch.Tensor]],
     model: str,
@@ -129,6 +100,91 @@ def _opengl_to_standard(
     )
     params = _reverse_axes(params=params, axes=("y",))
     params = _uncentre_principal_point(params=params)
+    return params
+
+
+def _pytorch3d_to_standard(
+    params: Dict[str, Union[int, float, torch.Tensor]],
+    model: str,
+) -> Dict[str, Union[int, float, torch.Tensor]]:
+    """Restate PyTorch3D device params back on the standard pixel frame.
+
+    Args:
+        params: The model's named intrinsics params on the pytorch3d frame.
+        model: Camera-model identifier string the focal keys belong to.
+
+    Returns:
+        The params on the standard frame.
+    """
+    if isinstance(params["h"], torch.Tensor) or isinstance(params["w"], torch.Tensor):
+        unit = (
+            torch.minimum(torch.as_tensor(params["h"]), torch.as_tensor(params["w"]))
+            / 2.0
+        )
+    else:
+        unit = min(params["h"], params["w"]) / 2.0
+    params = _rescale_intr_params(
+        params=params,
+        model=model,
+        unit_x=unit,
+        unit_y=unit,
+    )
+    params = _reverse_axes(params=params, axes=("x", "y"))
+    params = _uncentre_principal_point(params=params)
+    return params
+
+
+def _vulkan_to_standard(
+    params: Dict[str, Union[int, float, torch.Tensor]],
+    model: str,
+) -> Dict[str, Union[int, float, torch.Tensor]]:
+    """Restate Vulkan device params back on the standard pixel frame.
+
+    Args:
+        params: The model's named intrinsics params on the vulkan frame.
+        model: Camera-model identifier string the focal keys belong to.
+
+    Returns:
+        The params on the standard frame.
+    """
+    unit_x = params["w"] / 2.0
+    unit_y = params["h"] / 2.0
+    params = _rescale_intr_params(
+        params=params,
+        model=model,
+        unit_x=unit_x,
+        unit_y=unit_y,
+    )
+    params = _uncentre_principal_point(params=params)
+    return params
+
+
+def _standard_to_opengl(
+    params: Dict[str, Union[int, float, torch.Tensor]],
+    model: str,
+) -> Dict[str, Union[int, float, torch.Tensor]]:
+    """Restate pixel params on OpenGL's device frame.
+
+    Its origin is the image's centre, its x runs with standard's toward the right
+    edge and its y against it toward the top, each axis spanning its own side.
+
+    Args:
+        params: The model's named intrinsics params on the standard pixel frame.
+        model: Camera-model identifier string the focal keys belong to.
+
+    Returns:
+        The params on the opengl frame.
+    """
+    unit_x = 2.0 / params["w"]
+    unit_y = 2.0 / params["h"]
+    params = _centre_principal_point(params=params)
+    params = _reverse_axes(params=params, axes=("y",))
+    params = _rescale_intr_params(
+        params=params,
+        model=model,
+        unit_x=unit_x,
+        unit_y=unit_y,
+    )
     return params
 
 
@@ -166,37 +222,6 @@ def _standard_to_pytorch3d(
     return params
 
 
-def _pytorch3d_to_standard(
-    params: Dict[str, Union[int, float, torch.Tensor]],
-    model: str,
-) -> Dict[str, Union[int, float, torch.Tensor]]:
-    """Restate PyTorch3D device params back on the standard pixel frame.
-
-    Args:
-        params: The model's named intrinsics params on the pytorch3d frame.
-        model: Camera-model identifier string the focal keys belong to.
-
-    Returns:
-        The params on the standard frame.
-    """
-    if isinstance(params["h"], torch.Tensor) or isinstance(params["w"], torch.Tensor):
-        unit = (
-            torch.minimum(torch.as_tensor(params["h"]), torch.as_tensor(params["w"]))
-            / 2.0
-        )
-    else:
-        unit = min(params["h"], params["w"]) / 2.0
-    params = _rescale_intr_params(
-        params=params,
-        model=model,
-        unit_x=unit,
-        unit_y=unit,
-    )
-    params = _reverse_axes(params=params, axes=("x", "y"))
-    params = _uncentre_principal_point(params=params)
-    return params
-
-
 def _standard_to_vulkan(
     params: Dict[str, Union[int, float, torch.Tensor]],
     model: str,
@@ -225,31 +250,6 @@ def _standard_to_vulkan(
     return params
 
 
-def _vulkan_to_standard(
-    params: Dict[str, Union[int, float, torch.Tensor]],
-    model: str,
-) -> Dict[str, Union[int, float, torch.Tensor]]:
-    """Restate Vulkan device params back on the standard pixel frame.
-
-    Args:
-        params: The model's named intrinsics params on the vulkan frame.
-        model: Camera-model identifier string the focal keys belong to.
-
-    Returns:
-        The params on the standard frame.
-    """
-    unit_x = params["w"] / 2.0
-    unit_y = params["h"] / 2.0
-    params = _rescale_intr_params(
-        params=params,
-        model=model,
-        unit_x=unit_x,
-        unit_y=unit_y,
-    )
-    params = _uncentre_principal_point(params=params)
-    return params
-
-
 def _centre_principal_point(
     params: Dict[str, Union[int, float, torch.Tensor]],
 ) -> Dict[str, Union[int, float, torch.Tensor]]:
@@ -264,23 +264,6 @@ def _centre_principal_point(
     params = dict(params)
     params["cx"] = params["cx"] - params["w"] / 2.0
     params["cy"] = params["cy"] - params["h"] / 2.0
-    return params
-
-
-def _uncentre_principal_point(
-    params: Dict[str, Union[int, float, torch.Tensor]],
-) -> Dict[str, Union[int, float, torch.Tensor]]:
-    """Move the principal point back off the image's centre onto its top-left corner.
-
-    Args:
-        params: The model's named intrinsics params on a centred origin.
-
-    Returns:
-        The params on a corner origin.
-    """
-    params = dict(params)
-    params["cx"] = params["cx"] + params["w"] / 2.0
-    params["cy"] = params["cy"] + params["h"] / 2.0
     return params
 
 
@@ -307,6 +290,23 @@ def _reverse_axes(
             "Expected each reversed image axis to be x or y. " f"{axis=} {axes=}"
         )
         params[f"c{axis}"] = -params[f"c{axis}"]
+    return params
+
+
+def _uncentre_principal_point(
+    params: Dict[str, Union[int, float, torch.Tensor]],
+) -> Dict[str, Union[int, float, torch.Tensor]]:
+    """Move the principal point back off the image's centre onto its top-left corner.
+
+    Args:
+        params: The model's named intrinsics params on a centred origin.
+
+    Returns:
+        The params on a corner origin.
+    """
+    params = dict(params)
+    params["cx"] = params["cx"] + params["w"] / 2.0
+    params["cy"] = params["cy"] + params["h"] / 2.0
     return params
 
 
