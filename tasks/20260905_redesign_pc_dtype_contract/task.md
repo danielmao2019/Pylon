@@ -214,6 +214,8 @@ The following are mistakes repeated again and again and every time when i asked 
 3. `PointCloud.__init__`
    1. must have a local function to build meta data from provided source data and set class attr.
    2. must use `self.apply_meta_data` to apply meta data, giving it the `meta_data` the constructor was handed.
+4. there must be one module that converts numpy to torch and vise versa with necessary dtype casting and be shared by init, load, and save.
+5. there must be one module that can return the conceptual dtype of any numpy or torch object and be shared by init and load to create the recorded meta data.
 
 ## 2. Definition of Done
 
