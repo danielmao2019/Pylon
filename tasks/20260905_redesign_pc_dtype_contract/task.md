@@ -248,11 +248,10 @@ ply's subset is i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer 
 
 #### 2.3.2. Consumers
 
-1. consumers/users of `PointCloud`:
-   1. any consumer of PointCloud in Pylon should be adjusted to work with the new design of PointCloud and its I/O.
-      1. every caller passing dtype is updated to the meta data override.
-      2. Select asserts that indices are int64 at the point of use.
-      3. the point cloud displays under `data/viewer/utils/displays/points/dash` and `data/viewer/utils/displays/points/ts` assume 0 to 255 colors, and each applies Color Data Convention Conversion to rgb in its input normalization.
+1. any consumer of PointCloud in Pylon should be adjusted to work with the new design of PointCloud and its I/O.
+2. every caller passing dtype is updated to the meta data override.
+3. Select asserts that indices are int64 at the point of use.
+4. the point cloud displays under `data/viewer/utils/displays/points/dash` and `data/viewer/utils/displays/points/ts` assume 0 to 255 colors, and each applies Color Data Convention Conversion to rgb in its input normalization.
 
 #### 2.3.3. What Becomes Stale Design
 
