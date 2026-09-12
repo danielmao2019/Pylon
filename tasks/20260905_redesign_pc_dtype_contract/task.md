@@ -49,43 +49,49 @@ For pth format it can also work with torch directly.
    2. no color convention conversion.
    3. no layout change.
 3. apply target meta data:
-   1. resolve target meta data from user-provided override and per-format default.
-   2. for non-rgb fields or columns
+   1. for non-rgb fields or columns
       1. if dtype cast is lossless, then do it.
       2. otherwise, hard assert.
-   3. for rgb field:
+   2. for rgb field:
       1. if source and target dtype pair is a defined convention conversion, then do convention conversion.
       2. otherwise, if dtyep cast is lossless, then do it.
       3. otherwise, hard assert.
-   4. no cross-numpy-torch should happen.
+   3. no cross-numpy-torch should happen.
 
 #### 2.2.2. The Core Design
 
 1. init
-   1. if init from numpy, do the following in sequence:
+   1. the received `meta_data` arg is treated as target meta data directly (there isn't a second thing to resolve together).
+   2. if init from numpy, do the following in sequence:
       1. build source meta data.
       2. numpy to torch.
       3. apply target meta data.
       4. assign to instance attr.
-   2. if init from torch, do the following in sequence:
+   3. if init from torch, do the following in sequence:
       1. build source meta data.
       2. apply target meta data.
       3. assign to instance attr.
 2. per-format load helpers
-   1. non-pth formats and pth format with numpy storage do the following steps in sequence
+   1. the received `meta_data` arg is treated as override meta data that overrides the per-format defaults.
+   2. non-pth formats and pth format with numpy storage do the following steps in sequence
       1. load as numpy, preserving values, dtypes, and layouts strictly.
-      2. construct `PointCloud` obj, passing raw data and override meta data as is.
-   2. pth format with torch storage do the following steps in sequence
+      2. resolve target meta data from user-provided override and per-format default.
+      3. construct `PointCloud` obj, passing raw data and target meta data as is.
+   3. pth format with torch storage do the following steps in sequence
       1. load as torch, preserving values, dtypes, and layouts strictly.
-      2. construct `PointCloud` obj, passing raw data and override meta data as is.
+      2. resolve target meta data from user-provided override and per-format default.
+      3. construct `PointCloud` obj, passing raw data and target meta data as is.
 3. per-format save helpers
-   1. non-pth formats and pth format with numpy storage do the following steps in sequence
+   1. the received `meta_data` arg is treated as override meta data that overrides the per-format defaults.
+   2. non-pth formats and pth format with numpy storage do the following steps in sequence
       1. torch to numpy
       2. apply target meta data.
       3. for what's not specified by target meta data, apply source meta data.
-   2. pth format with torch storage do the following steps in sequence
+      4. save as file to disk.
+   3. pth format with torch storage do the following steps in sequence
       1. apply target meta data.
       2. for what's not specified by target meta data, apply source meta data.
+      3. save as file to disk.
 
 ### 2.3. Proposed Solution
 
