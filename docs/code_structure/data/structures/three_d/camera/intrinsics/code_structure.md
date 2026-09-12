@@ -36,6 +36,7 @@ validation.py
 │   └── return intr_convention
 ├── def validate_camera_intrinsics_params(model: str, intr_convention: str, params: Any) -> Dict[str, torch.Tensor]
 │   ├── # Validate the named tensor intrinsics params: the resolution keys every model carries, the projection keys that model's own dispatch owns, and the invariants holding only across those keys together.
+│   ├── impls assert params is a dict whose every value is a floating torch.Tensor of at most one axis  # checked first, since every check below reads a value's shape
 │   ├── impls assert params carries h and w, both positive and all params sharing one leading batch shape  # impls-node-one-step:skip; the resolution, named the way every resolution in this repo is ordered: h first, and a scalar param is the empty-batch case
 │   ├── def _validate_projection_params() -> Dict[str, torch.Tensor] [local]
 │   │   ├── # Dispatches the projection keys onto the model that owns them, every model being a structurally equivalent sibling here.
@@ -54,19 +55,16 @@ validation.py
 │   └── return params
 ├── def _validate_camera_intrinsics_params_simple_pinhole(params: Any) -> Dict[str, torch.Tensor]
 │   ├── # Validate simple_pinhole params: a single shared focal length f plus the principal point cx / cy.
-│   ├── impls asserts every param is a torch.Tensor
 │   ├── impls asserts params is a Dict[str, torch.Tensor] with exactly keys {f, cx, cy, h, w}
 │   ├── impls asserts f > 0 and cx and cy are finite  # impls-node-one-step:skip; where on the image the principal point may fall is the frame's to say
 │   └── return params
 ├── def _validate_camera_intrinsics_params_pinhole(params: Any) -> Dict[str, torch.Tensor]
 │   ├── # Validate pinhole params: independent focal lengths fx / fy plus the principal point cx / cy.
-│   ├── impls asserts every param is a torch.Tensor
 │   ├── impls asserts params is a Dict[str, torch.Tensor] with exactly keys {fx, fy, cx, cy, h, w}
 │   ├── impls asserts fx > 0 and fy > 0 and cx and cy are finite  # impls-node-one-step:skip
 │   └── return params
 ├── def _validate_camera_intrinsics_params_ortho(params: Any) -> Dict[str, torch.Tensor]
 │   ├── # Validate ortho (weak-perspective) params: focal scales fx / fy plus the principal-point offset cx / cy.
-│   ├── impls asserts every param is a torch.Tensor
 │   ├── impls asserts params is a Dict[str, torch.Tensor] with exactly keys {fx, fy, cx, cy, h, w}
 │   ├── impls asserts fx > 0 and fy > 0 and cx and cy are finite  # impls-node-one-step:skip
 │   └── return params
