@@ -64,23 +64,24 @@ ply's subset is i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer 
             1. for the ply u4 example in Type Casting, the record holds uint32.
             2. a float128 source records float128 in meta data.
             3. a field entering as ply u2, as numpy uint16, or as an open3d UInt16 all record the same thing.
-      2. immutability:
+      2. for a multi-element .ply, the names of the elements that were not loaded.
+      3. immutability:
          1. the record is never mutable, regardless of how the user of a `PointCloud` obj may modify its fields.
          2. examples: adding a field, deleting a field, and overwriting an existing field all leave it exactly as it was.
-      3. travel: the record travels with the obj.
+      4. travel: the record travels with the obj.
          1. Select preserves it.
          2. serializing a `PointCloud` and restoring it preserves it. a cache is not a source, so restoring builds no new record.
          3. a `PointCloud` derived from another obj's fields is built by copying that obj rather than through init, so it inherits that obj's record. another obj is not a source, so no new record is built.
-   3. default meta data (default layout): each format's per-format helper defines the default layout for its own format, on load and on save alike.
+   2. default meta data (default layout): each format's per-format helper defines the default layout for its own format, on load and on save alike.
       1. .ply and .las/.laz on load: when you see x, y, and z, default to stacking them into one field called xyz. when you see red, green, and blue, default to stacking them into one field called rgb.
       2. .ply on save: xyz splits back into x, y and z, and rgb splits back into red, green and blue.
       3. .pcd on load: the positions attribute becomes xyz and the colors attribute becomes rgb, matched by attribute name.
       4. .off on load: columns 0, 1 and 2 of the vertex block become xyz, since the OFF format declares them the vertex coordinates, and every other column keeps its positional name.
       5. .pth and .txt on load: columns 0, 1 and 2 become xyz, and every other column keeps its positional name.
       6. no other defaults defined for now.
-   4. override meta data:
+   3. override meta data:
       1. init, load, and save each accept an override, and it reaches both the dtype and the layout at each.
-   5. target meta data: one entry per target field or column, keyed by the target's name. each entry holds the source fields or columns the target is built from (its layout) and, where one is stated, the target's dtype.
+   4. target meta data: one entry per target field or column, keyed by the target's name. each entry holds the source fields or columns the target is built from (its layout) and, where one is stated, the target's dtype.
 
 #### 2.2.2. Modules
 
@@ -236,6 +237,7 @@ ply's subset is i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer 
          1. resolve target meta data from user-provided override, per-format default, and source meta data.
          2. apply target meta data.
          3. save as file to disk.
+      5. a cloud whose source meta data names unloaded .ply elements cannot be saved: it hard-asserts, because those elements were never loaded and so cannot be written back.
 
 ### 2.3. Proposed Solution
 
@@ -246,7 +248,10 @@ ply's subset is i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer 
    1. an in-memory variable uses the identity mapping: the name a field was handed under stands for the whole block of columns it was handed as.
    2. a .pth holds one block of unnamed columns and defines no column-to-field mapping. its columns are named by position.
    3. a .ply names each column, so a column called x becomes a field called x and a column called intensity becomes a field called intensity.
-      1. in a file with more than one separately named group of columns, a column's name is its group's name and its own together, so a column called x in a group called vertex becomes a field called vertex.x.
+      1. a multi-element .ply is one whose header declares more than one `element`, e.g. `element vertex` and `element face`:
+         1. exactly one element is loaded: the one whose properties include x, y and z, whatever it is named. more than one such element hard-asserts.
+         2. its columns keep their own names, so x stays x rather than becoming vertex.x.
+         3. the other elements are not loaded.
    4. a .pcd names each open3d attribute, so the positions attribute becomes a field called positions and the colors attribute becomes a field called colors.
    5. a .las or .laz names each laspy dimension separately and as ply does, except for positions: laspy's scaled float64 x, y and z stand in for its raw int32 X, Y and Z dimensions.
    6. a .txt holds unnamed columns and defines no column-to-field mapping. its columns are named by position.
