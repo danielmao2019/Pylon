@@ -70,7 +70,7 @@ ply's subset is i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer 
       3. travel: the record travels with the obj.
          1. Select preserves it.
          2. serializing a `PointCloud` and restoring it preserves it. a cache is not a source, so restoring builds no new record.
-         3. constructing a `PointCloud` from another obj's fields inherits that obj's record. another obj is not a source, so construction builds no new record.
+         3. a `PointCloud` derived from another obj's fields is built by copying that obj rather than through init, so it inherits that obj's record. another obj is not a source, so no new record is built.
    3. default meta data (default layout): each format's per-format helper defines the default layout for its own format, on load and on save alike.
       1. .ply and .las/.laz on load: when you see x, y, and z, default to stacking them into one field called xyz. when you see red, green, and blue, default to stacking them into one field called rgb.
       2. .ply on save: xyz splits back into x, y and z, and rgb splits back into red, green and blue.
