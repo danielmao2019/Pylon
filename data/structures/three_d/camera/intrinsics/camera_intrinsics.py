@@ -925,92 +925,52 @@ def _resolve_target_resolution(
             f"{resolution=} {scale=}"
         )
         if resolution is not None:
-            assert isinstance(
-                resolution, (int, tuple, list, np.ndarray, torch.Tensor)
+            assert (isinstance(resolution, int) and resolution > 0) or (
+                (
+                    isinstance(resolution, (tuple, list))
+                    or (
+                        isinstance(resolution, (np.ndarray, torch.Tensor))
+                        and resolution.ndim == 1
+                    )
+                )
+                and len(resolution) == 2
+                and all(
+                    isinstance(side, (int, float, np.number, torch.Tensor))
+                    and float(side) > 0
+                    and float(side).is_integer()
+                    for side in resolution
+                )
             ), (
-                "Expected resolution to be a positive int or length-2 array-like. "
-                f"{type(resolution)=}"
+                "Expected resolution to be a positive int or a length-2 array-like of "
+                "positive integer-valued entries. "
+                f"{resolution=}"
             )
-            if isinstance(resolution, int):
-                assert resolution > 0, (
-                    "Expected scalar resolution to be positive. " f"{resolution=}"
-                )
-            elif isinstance(resolution, (tuple, list)):
-                assert len(resolution) == 2, (
-                    "Expected resolution to have length 2. " f"{resolution=}"
-                )
-                assert all(isinstance(item, int) for item in resolution), (
-                    "Expected resolution values to be integers. " f"{resolution=}"
-                )
-                assert all(item > 0 for item in resolution), (
-                    "Expected resolution values to be positive. " f"{resolution=}"
-                )
-            elif isinstance(resolution, np.ndarray):
-                assert resolution.size in (1, 2), (
-                    "Expected numpy resolution to contain one or two values. "
-                    f"{resolution.shape=}"
-                )
-                assert np.issubdtype(resolution.dtype, np.integer), (
-                    "Expected numpy resolution values to be integers. "
-                    f"{resolution.dtype=}"
-                )
-                assert bool(np.all(resolution > 0)), (
-                    "Expected numpy resolution values to be positive. " f"{resolution=}"
-                )
-            elif isinstance(resolution, torch.Tensor):
-                assert resolution.numel() in (1, 2), (
-                    "Expected tensor resolution to contain one or two values. "
-                    f"{resolution.shape=}"
-                )
-                assert not resolution.is_floating_point(), (
-                    "Expected tensor resolution values to be integers. "
-                    f"{resolution.dtype=}"
-                )
-                assert bool(torch.all(resolution > 0)), (
-                    "Expected tensor resolution values to be positive. "
-                    f"{resolution=}"
-                )
         if scale is not None:
-            assert isinstance(
-                scale, (int, float, tuple, list, np.ndarray, torch.Tensor)
+            assert (
+                (
+                    isinstance(scale, (int, float))
+                    or (isinstance(scale, torch.Tensor) and scale.ndim == 0)
+                )
+                and float(scale) > 0
+            ) or (
+                (
+                    isinstance(scale, (tuple, list))
+                    or (
+                        isinstance(scale, (np.ndarray, torch.Tensor))
+                        and scale.ndim == 1
+                    )
+                )
+                and len(scale) == 2
+                and all(
+                    isinstance(factor, (int, float, np.number, torch.Tensor))
+                    and float(factor) > 0
+                    for factor in scale
+                )
             ), (
-                "Expected scale to be a positive number or length-2 array-like. "
-                f"{type(scale)=}"
+                "Expected scale to be a positive number or a length-2 array-like pair "
+                "of positive numbers. "
+                f"{scale=}"
             )
-            if isinstance(scale, (int, float)):
-                assert float(scale) > 0.0, (
-                    "Expected scalar scale to be positive. " f"{scale=}"
-                )
-            elif isinstance(scale, (tuple, list)):
-                assert len(scale) == 2, "Expected scale to have length 2. " f"{scale=}"
-                assert all(
-                    isinstance(item, (int, float, torch.Tensor)) for item in scale
-                ), (
-                    "Expected scale values to be numbers or scalar tensors. "
-                    f"{scale=}"
-                )
-            elif isinstance(scale, np.ndarray):
-                assert scale.size in (1, 2), (
-                    "Expected numpy scale to contain one or two values. "
-                    f"{scale.shape=}"
-                )
-                assert np.issubdtype(scale.dtype, np.number), (
-                    "Expected numpy scale values to be numeric. " f"{scale.dtype=}"
-                )
-                assert bool(np.all(scale > 0)), (
-                    "Expected numpy scale values to be positive. " f"{scale=}"
-                )
-            elif isinstance(scale, torch.Tensor):
-                assert scale.numel() in (1, 2), (
-                    "Expected tensor scale to contain one or two values. "
-                    f"{scale.shape=}"
-                )
-                assert scale.is_floating_point(), (
-                    "Expected tensor scale values to be floating. " f"{scale.dtype=}"
-                )
-                assert bool(torch.all(scale > 0)), (
-                    "Expected tensor scale values to be positive. " f"{scale=}"
-                )
 
     _validate_inputs()
 
@@ -1037,40 +997,14 @@ def _resolve_target_resolution(
         if resolution is not None:
             if isinstance(resolution, int):
                 resolution = (resolution, resolution)
-            elif isinstance(resolution, (tuple, list)):
+            elif isinstance(resolution, (tuple, list, np.ndarray, torch.Tensor)):
                 resolution = (int(resolution[0]), int(resolution[1]))
-            elif isinstance(resolution, np.ndarray):
-                values = resolution.reshape(-1)
-                if values.size == 1:
-                    resolution = (int(values[0]), int(values[0]))
-                else:
-                    resolution = (int(values[0]), int(values[1]))
-            elif isinstance(resolution, torch.Tensor):
-                values = resolution.reshape(-1)
-                if values.numel() == 1:
-                    side = int(values[0].detach().cpu().item())
-                    resolution = (side, side)
-                else:
-                    resolution = (
-                        int(values[0].detach().cpu().item()),
-                        int(values[1].detach().cpu().item()),
-                    )
         if scale is not None:
-            if isinstance(scale, (int, float)):
+            if isinstance(scale, (int, float)) or (
+                isinstance(scale, torch.Tensor) and scale.ndim == 0
+            ):
                 scale = (scale, scale)
-            elif isinstance(scale, np.ndarray):
-                values = scale.reshape(-1)
-                if values.size == 1:
-                    scale = (float(values[0]), float(values[0]))
-                else:
-                    scale = (float(values[0]), float(values[1]))
-            elif isinstance(scale, torch.Tensor):
-                values = scale.reshape(-1)
-                if values.numel() == 1:
-                    scale = (values[0], values[0])
-                else:
-                    scale = (values[0], values[1])
-            elif isinstance(scale, list):
+            elif isinstance(scale, (tuple, list, np.ndarray, torch.Tensor)):
                 scale = (scale[0], scale[1])
         return resolution, scale
 
