@@ -155,29 +155,21 @@ ply's subset is i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer 
 
 ##### 2.2.2.5. apply target meta data
 
-1. for non-rgb fields or columns
-   1. if dtype cast is lossless, then do it.
-   2. otherwise, hard assert.
-2. for rgb field:
-   1. if source and target dtype pair is a defined convention conversion, then do convention conversion.
-   2. otherwise, if dtyep cast is lossless, then do it.
-   3. otherwise, hard assert.
-3. no cross-numpy-torch should happen.
-
------
-
-3. applying meta data:
-   1. `apply_meta_data` applies exactly the meta data it is handed, resolving nothing itself. the dtype applies first, and the layout mapping is checked only after that:
-      1. dtype (and convention):
-         1. color conversion happens in two steps:
-            1. where a conversion is defined for the pair, the values are mapped from the convention the current dtype names to the convention the target dtype names.
-            2. after convention conversion, type casting happens normally.
-         2. every other field goes through a direct type cast.
-         3. lossless is asserted. the target is applied if it's lossless. the program hard asserts if lossless cannot be achieved, or if torch cannot hold the target dtype.
-      2. layout:
-         1. the target's layout assembles the field from the columns it names
-         2. if the columns a target layout merges into one field still hold different dtypes once the target dtype has been applied, the program hard asserts and aborts.
-   3. applying the target changes the fields the obj stores and never the record, which stays exactly what the source data held.
+1. there should be a `apply_meta_data` method of `PointCloud` to implement this.
+2. `apply_meta_data` applies exactly the meta data it is handed, resolving nothing itself.
+3. the dtype applies first, and the layout mapping is checked only after that
+4. apply dtype:
+   1. for non-rgb fields or columns
+      1. if dtype cast is lossless, then do it.
+      2. otherwise, hard assert.
+   2. for rgb field:
+      1. if source and target dtype pair is a defined convention conversion, then do convention conversion.
+      2. otherwise, if dtyep cast is lossless, then do it.
+      3. otherwise, hard assert.
+   3. no cross-numpy-torch should happen.
+5. apply layout:
+   1. the target's layout assembles the field from the columns it names.
+   2. if the columns a target layout merges into one field still hold different dtypes once the target dtype has been applied, the program hard asserts and aborts.
 
 #### 2.2.3. The Core Design
 
