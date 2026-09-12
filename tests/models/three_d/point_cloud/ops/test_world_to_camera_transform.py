@@ -7,7 +7,7 @@ from models.three_d.point_cloud.ops.world_to_camera_transform import (
 
 
 def test_world_to_camera_transform_carries_the_camera_batch_axis() -> None:
-    """A stack of extrinsics maps one cloud through every pose in one call, each slice equal to what that pose maps on its own, which is the contract the batched renderer rests on.
+    """A stack of extrinsics maps one cloud through every pose in one call, each slice equal to what that pose maps on its own, bit for bit on cpu and within floating-point rounding on cuda, which is the contract the batched renderer rests on.
 
     Args:
         None.
@@ -41,11 +41,21 @@ def test_world_to_camera_transform_carries_the_camera_batch_axis() -> None:
             one_pose_points_camera = world_to_camera_transform(
                 points=points, extrinsics=extrinsics[index]
             )
-            assert torch.equal(points_camera[index], one_pose_points_camera), (
-                "Expected the batched result's slice to equal what that pose maps on "
-                f"its own. {device=} {index=} {points_camera[index]=} "
-                f"{one_pose_points_camera=}"
-            )
+            if device.type == "cpu":
+                assert torch.equal(points_camera[index], one_pose_points_camera), (
+                    "Expected the batched result's slice to equal what that pose maps "
+                    f"on its own. {device=} {index=} {points_camera[index]=} "
+                    f"{one_pose_points_camera=}"
+                )
+            else:
+                # CUDA inverts and multiplies a stack of several poses with batched kernels that round unlike a single pose's; the tolerances are float32 rounding (torch.testing's float32 defaults).
+                assert torch.allclose(
+                    points_camera[index], one_pose_points_camera, rtol=1.3e-6, atol=1e-5
+                ), (
+                    "Expected the batched result's slice to agree with what that pose "
+                    f"maps on its own within float32 rounding. {device=} {index=} "
+                    f"{(points_camera[index] - one_pose_points_camera).abs().max()=}"
+                )
 
 
 def test_world_to_camera_transform_batch_of_one_keeps_its_axis() -> None:
