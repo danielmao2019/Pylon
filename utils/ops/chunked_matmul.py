@@ -4,77 +4,6 @@ from typing import Optional
 import torch
 
 
-def _validate_inputs(
-    large: torch.Tensor,
-    small: torch.Tensor,
-    inplace: bool,
-    max_divide: int,
-    num_divide: Optional[int],
-) -> None:
-    assert isinstance(
-        large, torch.Tensor
-    ), f"large must be a torch.Tensor, got {type(large)=}"
-    assert isinstance(
-        small, torch.Tensor
-    ), f"small must be a torch.Tensor, got {type(small)=}"
-    assert (
-        large.ndim == 2
-    ), f"large must be a 2D tensor, got {large.ndim=} with {large.shape=}"
-    assert (
-        small.ndim >= 2
-    ), f"small must be at least 2D, got {small.ndim=} with {small.shape=}"
-    assert (
-        small.shape[-2] == small.shape[-1]
-    ), f"small must be square in its trailing two axes, got {small.shape=}"
-    assert (
-        large.shape[1] == small.shape[-2]
-    ), f"inner dimensions must match for matmul, got {large.shape=} and {small.shape=}"
-    assert (
-        large.device == small.device
-    ), f"operands must be on the same device, got {large.device=} and {small.device=}"
-    assert (
-        large.dtype == small.dtype
-    ), f"operands must share the same dtype, got {large.dtype=} and {small.dtype=}"
-    assert isinstance(inplace, bool), f"inplace must be a bool, got {type(inplace)=}"
-    assert (
-        isinstance(max_divide, int) and max_divide >= 0
-    ), f"max_divide must be a non-negative int, got {type(max_divide)=} {max_divide=}"
-    assert num_divide is None or (
-        isinstance(num_divide, int) and num_divide >= 0
-    ), f"num_divide must be None or a non-negative int, got {type(num_divide)=} {num_divide=}"
-    if inplace:
-        assert (
-            small.ndim == 2
-        ), f"inplace=True requires a 2D small: leading axes make the product wider than large, leaving nothing to overwrite in place, got {small.shape=}"
-        assert (
-            not large.requires_grad and not small.requires_grad
-        ), f"inplace=True overwrites large and is illegal under autograd, got {large.requires_grad=} and {small.requires_grad=}"
-
-
-def _matmul_chunk(
-    large: torch.Tensor, small: torch.Tensor, out: torch.Tensor, direct: bool
-) -> None:
-    """Write the product large @ small into out for one row-chunk, as one plain 2-D product per [K, K] entry of small's leading axes.
-
-    Args:
-        large: Left operand chunk of shape [b, K], any floating dtype.
-        small: Contiguous right square operand of shape [..., K, K], same dtype and device as large; each [K, K] entry of its leading axes multiplies large on its own, and an unbatched [K, K] small is its single entry.
-        out: Destination chunk of shape [..., b, M], same dtype and device as large, whose leading axes match small's; each [b, M] entry receives the product with the matching small entry; may alias large's rows only when direct is False.
-        direct: When True the GEMM writes straight into out with no intermediate (out must be a distinct, non-grad buffer); when False a temp-copy assignment is used (autograd-safe, and the only correct form when out aliases large, since a GEMM whose out aliases an operand is undefined behavior).
-
-    Returns:
-        None.
-    """
-    # One plain product per entry: CUDA's batched product rounds unlike the unbatched one at some row counts, and each entry must match what it gives multiplied alone. view addresses the entries without a copy, and each entry is indexed on its own so the autograd path may write into it in place.
-    small_entries = small.view(-1, *small.shape[-2:])
-    out_entries = out.view(-1, *out.shape[-2:])
-    for index in range(small_entries.shape[0]):
-        if direct:
-            torch.matmul(large, small_entries[index], out=out_entries[index])
-        else:
-            out_entries[index][:] = large @ small_entries[index]
-
-
 def chunked_matmul(
     large: torch.Tensor,
     small: torch.Tensor,
@@ -96,13 +25,51 @@ def chunked_matmul(
     Returns:
         The [..., N, M] product carrying small's leading axes, same dtype and device as large; the large object itself when inplace, which a batched small therefore cannot produce.
     """
-    _validate_inputs(
-        large=large,
-        small=small,
-        inplace=inplace,
-        max_divide=max_divide,
-        num_divide=num_divide,
-    )
+
+    def _validate_inputs() -> None:
+        assert isinstance(
+            large, torch.Tensor
+        ), f"large must be a torch.Tensor, got {type(large)=}"
+        assert (
+            large.ndim == 2
+        ), f"large must be a 2D tensor, got {large.ndim=} with {large.shape=}"
+        assert isinstance(
+            small, torch.Tensor
+        ), f"small must be a torch.Tensor, got {type(small)=}"
+        assert (
+            small.ndim >= 2
+        ), f"small must be at least 2D, got {small.ndim=} with {small.shape=}"
+        assert (
+            small.shape[-2] == small.shape[-1]
+        ), f"small must be square in its trailing two axes, got {small.shape=}"
+        assert (
+            large.shape[1] == small.shape[-2]
+        ), f"inner dimensions must match for matmul, got {large.shape=} and {small.shape=}"
+        assert (
+            large.device == small.device
+        ), f"operands must be on the same device, got {large.device=} and {small.device=}"
+        assert (
+            large.dtype == small.dtype
+        ), f"operands must share the same dtype, got {large.dtype=} and {small.dtype=}"
+        assert isinstance(
+            inplace, bool
+        ), f"inplace must be a bool, got {type(inplace)=}"
+        if inplace:
+            assert (
+                small.ndim == 2
+            ), f"inplace=True requires a 2D small: leading axes make the product wider than large, leaving nothing to overwrite in place, got {small.shape=}"
+            assert (
+                not large.requires_grad and not small.requires_grad
+            ), f"inplace=True overwrites large and is illegal under autograd, got {large.requires_grad=} and {small.requires_grad=}"
+        assert (
+            isinstance(max_divide, int) and max_divide >= 0
+        ), f"max_divide must be a non-negative int, got {type(max_divide)=} {max_divide=}"
+        assert num_divide is None or (
+            isinstance(num_divide, int) and num_divide >= 0
+        ), f"num_divide must be None or a non-negative int, got {type(num_divide)=} {num_divide=}"
+
+    _validate_inputs()
+
     small = small.contiguous()
 
     N = large.shape[0]
@@ -132,5 +99,28 @@ def chunked_matmul(
             bs = max(1, bs // 2)
             torch.cuda.empty_cache()
             continue
+        # Advance only after the chunk succeeds.
         i = j
     return out
+
+
+def _matmul_chunk(
+    large: torch.Tensor, small: torch.Tensor, out: torch.Tensor, direct: bool
+) -> None:
+    """Write the product large @ small into out for one row-chunk, as one product broadcast over small's leading axes.
+
+    Args:
+        large: Left operand chunk of shape [b, K], any floating dtype.
+        small: Contiguous right square operand of shape [..., K, K], same dtype and device as large; its leading axes broadcast large, so every [K, K] entry multiplies the same chunk, and an unbatched [K, K] small is its single entry.
+        out: Destination chunk of shape [..., b, M], same dtype and device as large, whose leading axes match small's; may alias large's rows only when direct is False.
+        direct: When True the product writes straight into out with no intermediate (out must be a distinct, non-grad buffer); when False a temp-copy assignment is used (autograd-safe, and the only correct form when out aliases large, since a product whose out aliases an operand is undefined behavior).
+
+    Returns:
+        None.
+    """
+    if direct:
+        # One batched product, broadcast over small's leading axes.
+        torch.matmul(large, small, out=out)
+    else:
+        # The same broadcast product through a temporary.
+        out[...] = large @ small
