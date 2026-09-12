@@ -248,7 +248,7 @@ ply's subset is i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer 
    3. a .ply names each column, so a column called x becomes a field called x and a column called intensity becomes a field called intensity.
       1. in a file with more than one separately named group of columns, a column's name is its group's name and its own together, so a column called x in a group called vertex becomes a field called vertex.x.
    4. a .pcd names each open3d attribute, so the positions attribute becomes a field called positions and the colors attribute becomes a field called colors.
-   5. a .las or .laz names each laspy dimension separately and as ply does.
+   5. a .las or .laz names each laspy dimension separately and as ply does, except for positions: laspy's scaled float64 x, y and z stand in for its raw int32 X, Y and Z dimensions.
    6. a .txt holds unnamed columns and defines no column-to-field mapping. its columns are named by position.
    7. a .off names no columns and defines no column-to-field mapping. the OFF format declares its vertex block to be the point data, and those columns are named by position.
 
