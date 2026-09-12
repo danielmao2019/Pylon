@@ -177,10 +177,11 @@ ply's subset is i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer 
 #### 2.2.3. The Core Design
 
 1. validation:
-   1. `PointCloud` keeps validating xyz and rgb by field name.
-      1. xyz is any floating point dtype.
-      2. `PointCloud` enforces that rgb values lie inside the range of their current color convention, as Color Data Convention Conversion defines it.
-         1. a floating point rgb carrying a value outside 0 to 1 is refused. `PointCloud` hard-asserts and the program aborts, both when the field enters and on every later assignment to it.
+   1. xyz is any floating point dtype.
+   2. rgb:
+      1. `PointCloud` enforces that rgb values lie inside the range of their current color convention, as Color Data Convention Conversion defines it. `PointCloud` hard-asserts and the program aborts, both when the field enters and on every later assignment to it.
+      2. examples:
+         1. a floating point rgb carrying a value outside 0 to 1 is refused. 
 2. init
    1. the received `meta_data` arg is treated as target meta data directly (there isn't a second thing to resolve together).
    2. if init from numpy, do the following in sequence:
