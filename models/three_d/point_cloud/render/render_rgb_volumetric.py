@@ -31,6 +31,184 @@ from models.three_d.splatfacto.load_splatfacto import load_splatfacto_model
 from models.three_d.splatfacto.render import render_rgb_from_splatfacto
 
 
+def render_rgb_from_point_cloud_volumetric(
+    pc: PointCloud,
+    camera: Camera,
+    resolution: Tuple[int, int],
+    debug: bool = False,
+) -> torch.Tensor:
+    """Render one view volumetrically: cull to the points that project, ring the view with auxiliary cameras, train a splatfacto model on that tiny dataset, and evaluate it back at the original camera.
+
+    Args:
+        pc: PointCloud with xyz and rgb fields in world coordinates.
+        camera: Single Camera to render through; its native image size is read as twice its principal point.
+        resolution: Target resolution as an (H, W) tuple, the native size divided by one of the downscale factors 1, 2, 4, 8.
+        debug: If True, keep the dataset workspace at ./test_volumetric_rendering instead of a temporary directory deleted afterwards.
+
+    Returns:
+        [3, H, W] float32 torch.Tensor RGB image in [0, 1] rendered by the trained splatfacto model at camera, on the device of pc.
+    """
+    total_start = time.time()
+    logging.info("[volumetric] Pipeline start")
+
+    assert isinstance(pc, PointCloud), f"{type(pc)=}"
+    assert isinstance(camera, Camera), f"{type(camera)=}"
+
+    render_height, render_width = resolution
+    assert render_height > 0 and render_width > 0, "Render resolution must be positive"
+
+    intrinsics = camera.intrinsics
+    extrinsics = camera.extrinsics
+    convention = camera.extrinsics.extr_convention
+
+    native_width = int(round(float(intrinsics.cx * 2.0)))
+    native_height = int(round(float(intrinsics.cy * 2.0)))
+    assert (
+        native_width > 0 and native_height > 0
+    ), "Invalid image dimensions inferred from intrinsics"
+    downscale_ratio_w = native_width / float(render_width)
+    downscale_ratio_h = native_height / float(render_height)
+    downscale_estimate = 0.5 * (downscale_ratio_w + downscale_ratio_h)
+
+    valid_factors = [1, 2, 4, 8]
+    downscale_factor = min(
+        valid_factors, key=lambda factor: abs(downscale_estimate - factor)
+    )
+
+    assert (
+        math.isfinite(downscale_estimate)
+        and abs(downscale_ratio_w - downscale_factor) <= 0.01
+        and abs(downscale_ratio_h - downscale_factor) <= 0.01
+    ), (
+        "Render resolution does not correspond to a supported downscale factor. "
+        f"Expected close to one of {valid_factors}, got ratios "
+        f"({downscale_ratio_w:.3f}, {downscale_ratio_h:.3f}) with abs errors "
+        f"({abs(downscale_ratio_w - downscale_factor):.3e}, {abs(downscale_ratio_h - downscale_factor):.3e})."
+    )
+
+    stage_start = time.time()
+    _, _, image_plane_points_indices = prepare_points_for_rendering(
+        pc=pc,
+        camera=camera,
+        resolution=resolution,
+    )
+    pc = Select(indices=image_plane_points_indices)(pc)
+    aux_cameras = gen_auxiliary_cameras(
+        points=pc.xyz,
+        camera=camera,
+    )
+    train_extrinsics = [extrinsics] + [
+        aux_camera.extrinsics for aux_camera in aux_cameras
+    ]
+    logging.info(
+        "[volumetric] Visibility filtering & auxiliary cameras done in %.2fs (cameras=%d)",
+        time.time() - stage_start,
+        len(train_extrinsics),
+    )
+
+    stage_start = time.time()
+    images: List[torch.Tensor] = []
+    masks: List[torch.Tensor] = []
+    for _extrinsics in train_extrinsics:
+        render_camera = Camera(
+            intrinsics=intrinsics,
+            extrinsics=_extrinsics,
+            device=pc.device,
+        )
+        image, mask = render_rgb_from_point_cloud(
+            pc=pc,
+            camera=render_camera,
+            resolution=resolution,
+            return_mask=True,
+        )
+        images.append(image)
+        masks.append(mask)
+    logging.info(
+        "[volumetric] Rendered %d base RGB/mask pairs in %.2fs",
+        len(images),
+        time.time() - stage_start,
+    )
+
+    target_device = pc.xyz.device
+
+    if debug:
+        tempdir = Path("./test_volumetric_rendering")
+        tempdir.mkdir(parents=True, exist_ok=True)
+        cleanup_fn = None
+        logging.info("[volumetric] Workspace retained at %s", tempdir)
+    else:
+        temp_dir_context = tempfile.TemporaryDirectory()
+        tempdir = Path(temp_dir_context.name)
+        cleanup_fn = temp_dir_context.cleanup
+
+    try:
+        stage_start = time.time()
+        logging.info(
+            "[volumetric] Writing images, masks, and point cloud to %s", tempdir
+        )
+        _create_images(
+            images=images,
+            output_root=tempdir,
+            downscale_factor=downscale_factor,
+        )
+        _create_masks(
+            masks=masks,
+            output_root=tempdir,
+            downscale_factor=downscale_factor,
+        )
+        _create_ply(pc=pc, output_root=tempdir)
+        _create_nerfstudio(
+            intrinsics=intrinsics,
+            train_extrinsics=train_extrinsics,
+            eval_extrinsics=extrinsics,
+            convention=convention,
+            output_root=tempdir,
+        )
+        logging.info(
+            "[volumetric] Dataset artifacts written in %.2fs",
+            time.time() - stage_start,
+        )
+
+        dataset_root = Path(tempdir)
+        stage_start = time.time()
+        model_dir = _run_ns_train_splatfacto(
+            dataset_root=dataset_root,
+            downscale_factor=downscale_factor,
+        )
+        logging.info(
+            "[volumetric] ns-train completed in %.2fs",
+            time.time() - stage_start,
+        )
+
+        stage_start = time.time()
+        _assert_checkpoint_exists(model_dir=model_dir)
+        pipeline = load_splatfacto_model(model_dir=str(model_dir), device=target_device)
+        logging.info(
+            "[volumetric] Loaded trained model in %.2fs",
+            time.time() - stage_start,
+        )
+
+        stage_start = time.time()
+        rendered_image = render_rgb_from_splatfacto(
+            model=pipeline,
+            camera=camera,
+            resolution=resolution,
+        )
+        logging.info(
+            "[volumetric] Evaluation render finished in %.2fs",
+            time.time() - stage_start,
+        )
+    finally:
+        if cleanup_fn is not None:
+            cleanup_fn()
+
+    logging.info(
+        "[volumetric] Pipeline finished in %.2fs",
+        time.time() - total_start,
+    )
+    return rendered_image.to(device=target_device)
+
+
 def gen_auxiliary_cameras(
     points: torch.Tensor,
     camera: Camera,
@@ -79,13 +257,14 @@ def gen_auxiliary_cameras(
         aux_standard[:3, :3] = extrinsics_standard[:3, :3]
         aux_standard[:3, 3] = position
 
+        aux_extrinsics = CameraExtrinsics(
+            extrinsics=aux_standard,
+            extr_convention="standard",
+            device=device,
+        )
         aux_camera = Camera(
             intrinsics=camera.intrinsics,
-            extrinsics=CameraExtrinsics(
-                extrinsics=aux_standard,
-                extr_convention="standard",
-                device=device,
-            ),
+            extrinsics=aux_extrinsics,
             device=device,
         ).to(extr_convention=camera.extrinsics.extr_convention)
         auxiliary_cameras.append(aux_camera)
@@ -318,182 +497,3 @@ def _assert_checkpoint_exists(model_dir: Path) -> Path:
         checkpoint_path.is_file()
     ), f"Training did not reach 30K iterations; missing checkpoint {checkpoint_path}"
     return checkpoint_path
-
-
-def render_rgb_from_point_cloud_volumetric(
-    pc: PointCloud,
-    camera: Camera,
-    resolution: Tuple[int, int],
-    debug: bool = False,
-) -> torch.Tensor:
-    """Render one view volumetrically: cull to the points that project, ring the view with auxiliary cameras, train a splatfacto model on that tiny dataset, and evaluate it back at the original camera.
-
-    Args:
-        pc: PointCloud with xyz and rgb fields in world coordinates.
-        camera: Single Camera to render through; its native image size is read as twice its principal point.
-        resolution: Target resolution as an (H, W) tuple, the native size divided by one of the downscale factors 1, 2, 4, 8.
-        debug: If True, keep the dataset workspace at ./test_volumetric_rendering instead of a temporary directory deleted afterwards.
-
-    Returns:
-        [3, H, W] float32 torch.Tensor RGB image in [0, 1] rendered by the trained splatfacto model at camera, on the device of pc.
-    """
-    total_start = time.time()
-    logging.info("[volumetric] Pipeline start")
-
-    assert isinstance(pc, PointCloud), f"{type(pc)=}"
-    assert isinstance(camera, Camera), f"{type(camera)=}"
-
-    render_height, render_width = resolution
-    assert render_height > 0 and render_width > 0, "Render resolution must be positive"
-
-    intrinsics = camera.intrinsics
-    extrinsics = camera.extrinsics
-    convention = camera.extrinsics.extr_convention
-
-    native_width = int(round(float(intrinsics.cx * 2.0)))
-    native_height = int(round(float(intrinsics.cy * 2.0)))
-    assert (
-        native_width > 0 and native_height > 0
-    ), "Invalid image dimensions inferred from intrinsics"
-    downscale_ratio_w = native_width / float(render_width)
-    downscale_ratio_h = native_height / float(render_height)
-    downscale_estimate = 0.5 * (downscale_ratio_w + downscale_ratio_h)
-
-    valid_factors = [1, 2, 4, 8]
-    downscale_factor = min(
-        valid_factors, key=lambda factor: abs(downscale_estimate - factor)
-    )
-
-    assert (
-        math.isfinite(downscale_estimate)
-        and abs(downscale_ratio_w - downscale_factor) <= 0.01
-        and abs(downscale_ratio_h - downscale_factor) <= 0.01
-    ), (
-        "Render resolution does not correspond to a supported downscale factor. "
-        f"Expected close to one of {valid_factors}, got ratios "
-        f"({downscale_ratio_w:.3f}, {downscale_ratio_h:.3f}) with abs errors "
-        f"({abs(downscale_ratio_w - downscale_factor):.3e}, {abs(downscale_ratio_h - downscale_factor):.3e})."
-    )
-
-    stage_start = time.time()
-    _, valid = prepare_points_for_rendering(
-        pc=pc,
-        camera=camera,
-        resolution=resolution,
-    )
-    image_plane_points_indices = torch.nonzero(valid, as_tuple=True)[0]
-    pc = Select(indices=image_plane_points_indices)(pc)
-    aux_cameras = gen_auxiliary_cameras(
-        points=pc.xyz,
-        camera=camera,
-    )
-    train_extrinsics = [extrinsics] + [
-        aux_camera.extrinsics for aux_camera in aux_cameras
-    ]
-    logging.info(
-        "[volumetric] Visibility filtering & auxiliary cameras done in %.2fs (cameras=%d)",
-        time.time() - stage_start,
-        len(train_extrinsics),
-    )
-
-    stage_start = time.time()
-    images: List[torch.Tensor] = []
-    masks: List[torch.Tensor] = []
-    for _extrinsics in train_extrinsics:
-        render_camera = Camera(
-            intrinsics=intrinsics,
-            extrinsics=_extrinsics,
-            device=pc.device,
-        )
-        image, mask = render_rgb_from_point_cloud(
-            pc=pc,
-            camera=render_camera,
-            resolution=resolution,
-            return_mask=True,
-        )
-        images.append(image)
-        masks.append(mask)
-    logging.info(
-        "[volumetric] Rendered %d base RGB/mask pairs in %.2fs",
-        len(images),
-        time.time() - stage_start,
-    )
-
-    target_device = pc.xyz.device
-
-    if debug:
-        tempdir = Path("./test_volumetric_rendering")
-        tempdir.mkdir(parents=True, exist_ok=True)
-        cleanup_fn = None
-        logging.info("[volumetric] Workspace retained at %s", tempdir)
-    else:
-        temp_dir_context = tempfile.TemporaryDirectory()
-        tempdir = Path(temp_dir_context.name)
-        cleanup_fn = temp_dir_context.cleanup
-
-    try:
-        stage_start = time.time()
-        logging.info(
-            "[volumetric] Writing images, masks, and point cloud to %s", tempdir
-        )
-        _create_images(
-            images=images,
-            output_root=tempdir,
-            downscale_factor=downscale_factor,
-        )
-        _create_masks(
-            masks=masks,
-            output_root=tempdir,
-            downscale_factor=downscale_factor,
-        )
-        _create_ply(pc=pc, output_root=tempdir)
-        _create_nerfstudio(
-            intrinsics=intrinsics,
-            train_extrinsics=train_extrinsics,
-            eval_extrinsics=extrinsics,
-            convention=convention,
-            output_root=tempdir,
-        )
-        logging.info(
-            "[volumetric] Dataset artifacts written in %.2fs",
-            time.time() - stage_start,
-        )
-
-        dataset_root = Path(tempdir)
-        stage_start = time.time()
-        model_dir = _run_ns_train_splatfacto(
-            dataset_root=dataset_root,
-            downscale_factor=downscale_factor,
-        )
-        logging.info(
-            "[volumetric] ns-train completed in %.2fs",
-            time.time() - stage_start,
-        )
-
-        stage_start = time.time()
-        _assert_checkpoint_exists(model_dir=model_dir)
-        pipeline = load_splatfacto_model(model_dir=str(model_dir), device=target_device)
-        logging.info(
-            "[volumetric] Loaded trained model in %.2fs",
-            time.time() - stage_start,
-        )
-
-        stage_start = time.time()
-        rendered_image = render_rgb_from_splatfacto(
-            model=pipeline,
-            camera=camera,
-            resolution=resolution,
-        )
-        logging.info(
-            "[volumetric] Evaluation render finished in %.2fs",
-            time.time() - stage_start,
-        )
-    finally:
-        if cleanup_fn is not None:
-            cleanup_fn()
-
-    logging.info(
-        "[volumetric] Pipeline finished in %.2fs",
-        time.time() - total_start,
-    )
-    return rendered_image.to(device=target_device)
