@@ -36,7 +36,7 @@ goal: re-design pc dtype contract/provenance
 2. every dtype cast `__init__`, load point cloud and save point cloud make must be lossless: it never changes a value, in the mathematical sense. a cast that would change one hard-asserts and the program aborts.
    1. each dtype is a set of values, and one dtype's set may sit inside another's. float32's sits inside float64's. every casting decision reads those sets and the values a field holds, never the dtype names alone.
    2. when a system lacks a conceptual dtype but has one whose set contains its entire set, the smallest such dtype is used, and the cast converts whichever values are present in the data.
-      1. in torch storage, ply u2 and numpy uint16 both go to int32, and ply u4 and numpy uint32 both go to int64.
+      1. in torch storage, numpy uint16 goes to int32 and numpy uint32 goes to int64, so a ply u2 column is held as int32 and a ply u4 column as int64.
       2. in a ply column, a bool target goes to u1: i1 and u1 are both one byte and both contain bool's two values, and u1 is the one whose signedness matches bool's.
    3. when the system has no such dtype, the largest narrower one it supports is used and no smaller dtype is considered after it, and the values then decide. every value inside that dtype's set means nothing is lost, so the cast converts. any value outside means something is lost, so the cast hard-asserts and the program aborts.
       1. in torch storage, a float128 source with no override uses float64. float32 and smaller dtypes are not considered.
