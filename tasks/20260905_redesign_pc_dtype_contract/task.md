@@ -221,12 +221,12 @@ ply's subset is i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer 
       1. they define the default layout for each format.
       2. they resolve the target meta data as follows:
          1. the received `meta_data` arg is treated as override meta data that overrides the per-format defaults.
-         2. its entries are the target fields or columns the override, the default, or the source meta data names.
+         2. its entries are the target fields or columns the override or the default names, and every other column being written whose name is a source meta data key. source meta data keys that name no column being written are ignored.
          3. for the layout:
             1. when a layout moves columns into another field, the fields those columns came from are dropped.
             2. each field takes its layout from the first of these that states one: the override, and the default.
-         4. for the dtype: each entry takes it from the first of these that states one: the override, and the source meta data.
-         5. for the column order: the source meta data alone defines it: the columns it names come in its key order, and the columns it does not name follow.
+         4. for the dtype: each entry takes it from the first of these that states one: the override, and the source meta data key of the same name.
+         5. for the column order: the source meta data alone defines it: the columns being written that it names come in its key order, and the columns being written that it does not name follow, in the cloud's field order.
       3. non-pth formats and pth format with numpy storage do the following steps in sequence
          1. torch to numpy
          2. resolve target meta data from user-provided override, per-format default, and source meta data.
