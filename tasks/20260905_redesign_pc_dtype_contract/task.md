@@ -33,6 +33,7 @@ For pth format it can also work with torch directly.
 1. A load-save round trip must preserve the values, dtypes, and layout strictly.
 2. When user provides override meta data to init, load, or save, the system must either realize that strictly or fail fast and loud, and never deliver anything that's not what asked for.
 3. `PointCloud` should store torch Tensors, never numpy arrays.
+4. `PointCloud` should always store point positions as `xyz` field and point colors as `rgb` field.
 
 ### 2.2. Proposed Solution
 
