@@ -135,12 +135,23 @@ def validate_camera_intrinsics_params(
     )
 
     def _validate_projection_params() -> Dict[str, torch.Tensor]:
+        """Dispatch the projection keys onto the model that owns them, every model being a structurally equivalent sibling here.
+
+        Args:
+            None; reads the enclosing call's ``model`` and ``params``.
+
+        Returns:
+            The params, their projection keys validated by the model's own helper.
+        """
         if model == "simple_pinhole":
-            return _validate_camera_intrinsics_params_simple_pinhole(params=params)
+            _validate_camera_intrinsics_params_simple_pinhole(params=params)
+            return params
         if model == "pinhole":
-            return _validate_camera_intrinsics_params_pinhole(params=params)
+            _validate_camera_intrinsics_params_pinhole(params=params)
+            return params
         if model == "ortho":
-            return _validate_camera_intrinsics_params_ortho(params=params)
+            _validate_camera_intrinsics_params_ortho(params=params)
+            return params
         assert 0, "Should not reach here. " f"{model=}"
 
     _validate_projection_params()

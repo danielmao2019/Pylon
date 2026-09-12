@@ -573,23 +573,6 @@ class CameraIntrinsics(ABC):
         """
 
         def _validate_inputs() -> None:
-            assert device is None or isinstance(device, (str, torch.device)), (
-                "Expected target device to be None, a string, or torch.device. "
-                f"{device=}"
-            )
-            assert dtype is None or isinstance(dtype, torch.dtype), (
-                "Expected target dtype to be None or a torch dtype. " f"{dtype=}"
-            )
-            if dtype is not None:
-                assert torch.empty((), dtype=dtype).is_floating_point(), (
-                    "Expected target dtype to be floating. " f"{dtype=}"
-                )
-            assert isinstance(non_blocking, bool), (
-                "Expected non_blocking to be a bool. " f"{type(non_blocking)=}"
-            )
-            assert isinstance(copy, bool), (
-                "Expected copy to be a bool. " f"{type(copy)=}"
-            )
             if intr_convention is not None:
                 validate_intr_convention(intr_convention=intr_convention)
 

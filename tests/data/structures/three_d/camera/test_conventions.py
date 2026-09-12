@@ -635,9 +635,7 @@ def test_transform_extrinsics_normalizes_translation_input() -> None:
     expected = extrinsics.transform_extrinsics(
         scale=scale, rotation=rotation, translation=translation_torch
     )
-    translations: List[
-        Union[np.ndarray, torch.Tensor, Tuple[float, ...], List[float]]
-    ] = [
+    translations = [
         translation_torch.numpy(),
         translation_torch,
         tuple(translation_torch.tolist()),
