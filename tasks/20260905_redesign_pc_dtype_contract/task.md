@@ -2,27 +2,40 @@ goal: re-design pc dtype contract/provenance
 
 ## Table of Contents <!-- omit in toc -->
 
-- [1. Guidelines](#1-guidelines)
-  - [1.1. Proposed Solution](#11-proposed-solution)
-    - [1.1.1. Type Casting](#111-type-casting)
-    - [1.1.2. Color Data Convention Conversion](#112-color-data-convention-conversion)
-    - [1.1.3. Layout Mapping](#113-layout-mapping)
-    - [1.1.4. New Meta Data API](#114-new-meta-data-api)
-    - [1.1.5. Point Cloud Data Structure Construction and I/O](#115-point-cloud-data-structure-construction-and-io)
-    - [1.1.6. What Becomes Stale Design](#116-what-becomes-stale-design)
-    - [1.1.7. Seriously Bad Behavior Observed when Working on this Task](#117-seriously-bad-behavior-observed-when-working-on-this-task)
-  - [1.2. Solution Constraints](#12-solution-constraints)
-- [2. Definition of Done](#2-definition-of-done)
-  - [2.1. Project Consumers be Refactored](#21-project-consumers-be-refactored)
-  - [2.2. Task Scope](#22-task-scope)
+- [1. Knowledge](#1-knowledge)
+- [2. Guidelines](#2-guidelines)
+  - [2.1. Problem Definition](#21-problem-definition)
+  - [2.2. Proposed Solution](#22-proposed-solution)
+    - [2.2.1. Type Casting](#221-type-casting)
+    - [2.2.2. Color Data Convention Conversion](#222-color-data-convention-conversion)
+    - [2.2.3. Layout Mapping](#223-layout-mapping)
+    - [2.2.4. New Meta Data API](#224-new-meta-data-api)
+    - [2.2.5. Point Cloud Data Structure Construction and I/O](#225-point-cloud-data-structure-construction-and-io)
+    - [2.2.6. What Becomes Stale Design](#226-what-becomes-stale-design)
+    - [2.2.7. Seriously Bad Behavior Observed when Working on this Task](#227-seriously-bad-behavior-observed-when-working-on-this-task)
+  - [2.3. Solution Constraints](#23-solution-constraints)
+- [3. Definition of Done](#3-definition-of-done)
+  - [3.1. Project Consumers be Refactored](#31-project-consumers-be-refactored)
+  - [3.2. Task Scope](#32-task-scope)
 
 ----------
 
-## 1. Guidelines
+## 1. Knowledge
 
-### 1.1. Proposed Solution
+Any non-pth format can only deal with numpy arrays. If this library stores data in torch Tensors then there's a layer between numpy and torch.
 
-#### 1.1.1. Type Casting
+For pth format it can also work with torch directly.
+
+## 2. Guidelines
+
+### 2.1. Problem Definition
+
+1. A load-save round trip must preserve the values, dtypes, and layout strictly.
+2. When user provides override meta data to init, load, or save, the system must either realize that strictly or fail fast and loud, and never deliver anything that's not what asked for.
+
+### 2.2. Proposed Solution
+
+#### 2.2.1. Type Casting
 
 1. the fundamental root cause is the dtype system mismatch between numpy and torch: each is a subset of one universal, system-agnostic collection of conceptual dtypes, and neither's subset contains the other's.
    1. conceptual dtype identity across systems:
@@ -52,7 +65,7 @@ goal: re-design pc dtype contract/provenance
    6. a .txt holds decimal text, which yields float64.
    7. a .off holds decimal text, and float32 is what load point cloud keeps it at, hard-asserting on any magnitude float32 cannot hold rather than moving it onto a dtype that covers it.
 
-#### 1.1.2. Color Data Convention Conversion
+#### 2.2.2. Color Data Convention Conversion
 
 1. color conventions: rgb admits any integer dtype and any float dtype, unlike mesh vertex colors. conventions include:
    1. 0 to 255 unsigned integer representation.
@@ -79,7 +92,7 @@ goal: re-design pc dtype contract/provenance
    4. uint16 names the 0 to 65535 convention.
       1. an int32 color is in the uint16 convention.
 
-#### 1.1.3. Layout Mapping
+#### 2.2.3. Layout Mapping
 
 1. what it is: the mapping between the source layout and the loaded layout, with the columns the source held on one side and the fields assembled from them on the other.
 2. forward mapping: determining the layout from the source, one rule per source. each field carries the name its source gives the column, attribute or dimension it holds, and a caller wanting a field under another name, or assembled out of several columns, states that in the meta data.
@@ -92,7 +105,7 @@ goal: re-design pc dtype contract/provenance
    6. a .txt holds unnamed columns and defines no column-to-field mapping. its columns are named by position.
    7. a .off names no columns and defines no column-to-field mapping. the OFF format declares its vertex block to be the point data, and those columns are named by position.
 
-#### 1.1.4. New Meta Data API
+#### 2.2.4. New Meta Data API
 
 1. structure: it has two parts
    1. dtype: the conceptual dtype.
@@ -135,7 +148,7 @@ goal: re-design pc dtype contract/provenance
          2. if the columns a target layout merges into one field still hold different dtypes once the target dtype has been applied, the program hard asserts and aborts.
    3. applying the target changes the fields the obj stores and never the record, which stays exactly what the source data held.
 
-#### 1.1.5. Point Cloud Data Structure Construction and I/O
+#### 2.2.5. Point Cloud Data Structure Construction and I/O
 
 1. the `PointCloud` class:
    1. common construction by `__init__` from in-memory variables or by load point cloud from files:
@@ -178,7 +191,7 @@ goal: re-design pc dtype contract/provenance
       2. Select asserts that indices are int64 at the point of use.
       3. the point cloud displays under `data/viewer/utils/displays/points/dash` and `data/viewer/utils/displays/points/ts` assume 0 to 255 colors, and each applies Color Data Convention Conversion to rgb in its input normalization.
 
-#### 1.1.6. What Becomes Stale Design
+#### 2.2.6. What Becomes Stale Design
 
 - the color rescale that guesses a [0, 1] range from the values and multiplies by 255
 - the narrowing of every integer field to i4
@@ -198,7 +211,7 @@ goal: re-design pc dtype contract/provenance
       1. name_feat's renaming of a named column to feat and its reshape to [N, 1] are dropped rather than replaced because of the field-name preservation required by Point Cloud Data Structure Construction and I/O.
    3. nameInPly is removed.
 
-#### 1.1.7. Seriously Bad Behavior Observed when Working on this Task
+#### 2.2.7. Seriously Bad Behavior Observed when Working on this Task
 
 The following are mistakes repeated again and again and every time when i asked what's unclear the agent tells me it's clear enough. I hate this behavior. The following mistakes are recorded here and persisted to let you see how bad you have been behaving. this is a explicitly and strictly and permanently banned.
 
@@ -206,7 +219,7 @@ The following are mistakes repeated again and again and every time when i asked 
 2. an additional argument called `layout` or `dtype` beside `meta_data` on `__init__`, load point cloud or save point cloud that's meant to do what `meta_data` is expected to cover.
 3. adding a new method to `PointCloud` being `conceptual_dtype`.
 
-### 1.2. Solution Constraints
+### 2.3. Solution Constraints
 
 1. You must use "meta_data" as the name of the new arg of init, load, and save. nothing else accepted. it is the only new arg any of the three takes: whatever else a design wants to pass fits inside `meta_data` or is derived, and no second arg is added beside it.
 2. `PointCloud` should expose a public method `apply_meta_data`, which also takes a `meta_data` arg, the target it applies.
@@ -217,19 +230,19 @@ The following are mistakes repeated again and again and every time when i asked 
 4. there must be one module that converts numpy to torch and vise versa with necessary dtype casting and be shared by init, load, and save.
 5. there must be one module that can return the conceptual dtype of any numpy or torch object and be shared by init and load to create the recorded meta data.
 
-## 2. Definition of Done
+## 3. Definition of Done
 
 1. Skeleton design and code conformance to skeleton both done. Tests in-scope all passes.
 2. This branch is rebased onto latest `main`.
 3. Confirmation message that this task is all done and this branch is good to merge.
 
-### 2.1. Project Consumers be Refactored
+### 3.1. Project Consumers be Refactored
 
 consumers are equivalently refactored: what a consumer does is what it did before, and only the API it reaches PointCloud through changes.
 
 This commit "[Project][Tasks] Merge 20260903_integrate_blend_texture_not_render (#17)" in the iVISION project made a patch to `data/structures/three_d/point_cloud/io/load_point_cloud.py` to silence the dtype bug with point clouds. This task should be considered as the official solution to be adopted. Once this task's branch is merged into `Pylon:main`, the iVISION project should have their main rebased onto `Pylon:main` (a mirror `lib` in the iVISION project), so that the patch to `data/structures/three_d/point_cloud/io/load_point_cloud.py` is discarded from that commit and the new design by this task is adopted in the iVISION project.
 
-### 2.2. Task Scope
+### 3.2. Task Scope
 
 1. load: .pth, .ply, .pcd, .las, .laz, .off, .txt. save: .ply. neither expands.
 2. constructing a `PointCloud` from numpy arrays is in scope. the obj always stores torch tensors.
