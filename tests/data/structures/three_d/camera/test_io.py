@@ -24,6 +24,7 @@ _JSON_KEYS = {
     "intr_convention",
     "extrinsics",
     "extr_convention",
+    "dtype",
     "name",
     "id",
 }
@@ -33,6 +34,7 @@ _NPZ_KEYS = {
     "extrinsics",
     "intr_convention",
     "extr_convention",
+    "dtype",
     "name",
     "has_name",
     "id",
@@ -304,6 +306,88 @@ def test_multi_cameras_npz_round_trip(tmp_path: Path) -> None:
     _assert_cameras_fields_equal(
         loaded=load_cameras(cameras_path=npz_path, device="cpu"), original=cameras
     )
+
+
+def test_round_trip_keeps_the_batch_dtype(tmp_path: Path) -> None:
+    """Both formats record the batch's dtype and rebuild both components in it, so a batch loads back in the dtype it was saved in rather than one the format imposes.
+
+    Args:
+        tmp_path: Temporary output directory.
+
+    Returns:
+        None.
+    """
+    for format in ("json", "npz"):
+        for dtype in (torch.float32, torch.float64):
+            # A third has no exact float32 spelling, so a float32 detour on the way back would change it.
+            intrinsics = build_camera_intrinsics(
+                model="pinhole",
+                params={
+                    "fx": torch.tensor([1000.0, 1003.0, 1006.0], dtype=torch.float64)
+                    / 3.0,
+                    "fy": torch.tensor([1001.0, 1004.0, 1007.0], dtype=torch.float64)
+                    / 3.0,
+                    "cx": torch.tensor([481.0, 484.0, 487.0], dtype=torch.float64)
+                    / 3.0,
+                    "cy": torch.tensor([361.0, 364.0, 367.0], dtype=torch.float64)
+                    / 3.0,
+                    "h": torch.full((3,), 240.0, dtype=torch.float64),
+                    "w": torch.full((3,), 320.0, dtype=torch.float64),
+                },
+                intr_convention="standard",
+                device="cpu",
+                dtype=dtype,
+            )
+            matrices = torch.eye(4, dtype=torch.float64).repeat(3, 1, 1)
+            matrices[:, :3, 3] = (
+                torch.tensor(
+                    [[1.0, 2.0, 4.0], [5.0, 7.0, 8.0], [10.0, 11.0, 13.0]],
+                    dtype=torch.float64,
+                )
+                / 3.0
+            )
+            extrinsics = CameraExtrinsics(
+                extrinsics=matrices,
+                extr_convention="opengl",
+                device="cpu",
+                dtype=dtype,
+            )
+            cameras = Cameras(
+                intrinsics=intrinsics, extrinsics=extrinsics, device="cpu"
+            )
+            cameras_path = tmp_path / f"{dtype}.{format}"
+            save_cameras(cameras=cameras, cameras_path=cameras_path)
+            loaded = load_cameras(cameras_path=cameras_path, device="cpu")
+
+            param_dtypes = {
+                key: value.dtype for key, value in loaded.intrinsics.params.items()
+            }
+            assert (
+                loaded.dtype == dtype
+                and loaded.extrinsics.dtype == dtype
+                and loaded.extrinsics.extrinsics.dtype == dtype
+                and loaded.intrinsics.dtype == dtype
+                and all(param_dtype == dtype for param_dtype in param_dtypes.values())
+            ), (
+                "Expected the loaded batch and both its components to carry the dtype "
+                "it was saved in. "
+                f"{format=} {dtype=} {loaded.dtype=} "
+                f"{loaded.extrinsics.extrinsics.dtype=} {param_dtypes=}"
+            )
+            assert torch.equal(
+                loaded.extrinsics.extrinsics, cameras.extrinsics.extrinsics
+            ), (
+                "Expected the loaded extrinsics stack to equal the saved one exactly. "
+                f"{format=} {dtype=} {loaded.extrinsics.extrinsics=} "
+                f"{cameras.extrinsics.extrinsics=}"
+            )
+            for key, value in cameras.intrinsics.params.items():
+                assert torch.equal(loaded.intrinsics.params[key], value), (
+                    "Expected every loaded intrinsics param to equal the saved one "
+                    "exactly. "
+                    f"{format=} {dtype=} {key=} {loaded.intrinsics.params[key]=} "
+                    f"{value=}"
+                )
 
 
 def test_the_intr_convention_and_resolution_survive_round_trip() -> None:

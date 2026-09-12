@@ -33,8 +33,8 @@ class Cameras:
             extrinsics: Batched CameraExtrinsics whose camera-to-world matrix is a ``[B, 4, 4]`` torch.Tensor.
             names: Optional per-camera list of optional names, parallel to the batch axis.
             ids: Optional per-camera list of optional ids, parallel to the batch axis.
-            device: Optional target device for the batch's tensors.
-            dtype: Optional target floating dtype for the batch's tensors.
+            device: Optional target device for the batch's tensors; ``None`` resolves to the given extrinsics' own device.
+            dtype: Optional target floating dtype for the batch's tensors; ``None`` resolves to the given extrinsics' own dtype.
 
         Returns:
             None.
@@ -64,16 +64,28 @@ class Cameras:
             CameraExtrinsics,
             List[Optional[str]],
             List[Optional[int]],
+            torch.device,
+            torch.dtype,
         ]:
-            if device is not None or dtype is not None:
-                intrinsics = intrinsics.to(device=device, dtype=dtype)
-                extrinsics = extrinsics.to(device=device, dtype=dtype)
+            if device is None:
+                # The one exception: an unset device resolves to the given extrinsics'.
+                device = extrinsics.device
+            # One physical device has one spelling here, so a cuda and a cuda:0 naming it never compare unequal.
+            device = torch.device(device)
+            if device.type == "cuda" and device.index is None:
+                device = torch.device("cuda", torch.cuda.current_device())
+            if dtype is None:
+                # The one exception: an unset dtype resolves to the given extrinsics'.
+                dtype = extrinsics.dtype
+            # Both components are brought to the resolved device and dtype, never the other way around.
+            intrinsics = intrinsics.to(device=device, dtype=dtype)
+            extrinsics = extrinsics.to(device=device, dtype=dtype)
             batch_size = len(extrinsics.extrinsics)
             names = names if names is not None else [None] * batch_size
             ids = ids if ids is not None else [None] * batch_size
-            return intrinsics, extrinsics, names, ids
+            return intrinsics, extrinsics, names, ids, device, dtype
 
-        intrinsics, extrinsics, names, ids = _normalize_inputs(
+        intrinsics, extrinsics, names, ids, device, dtype = _normalize_inputs(
             intrinsics=intrinsics,
             extrinsics=extrinsics,
             names=names,
@@ -96,6 +108,8 @@ class Cameras:
                 f"{name=} {self._name_to_index[name]=} {index=} {names=}"
             )
             self._name_to_index[name] = index
+        self._device: torch.device = device
+        self._dtype: torch.dtype = dtype
 
     @property
     def intrinsics(self) -> CameraIntrinsics:
@@ -159,11 +173,14 @@ class Cameras:
             copy=copy,
             extr_convention=extr_convention,
         )
+        # The requested placement is handed on, so the new batch's device and dtype follow it.
         cameras = Cameras(
             intrinsics=intrinsics,
             extrinsics=extrinsics,
             names=self._names,
             ids=self._ids,
+            device=device,
+            dtype=dtype,
         )
         return cameras
 
@@ -364,27 +381,27 @@ class Cameras:
 
     @property
     def device(self) -> torch.device:
-        """The device the component tensors live on.
+        """The device this batch was constructed on.
 
         Args:
             None.
 
         Returns:
-            The device.
+            The torch.device its component tensors were brought to at construction.
         """
-        return self._extrinsics.device
+        return self._device
 
     @property
     def dtype(self) -> torch.dtype:
-        """The dtype shared by the component tensors.
+        """The dtype this batch was constructed with.
 
         Args:
             None.
 
         Returns:
-            The torch dtype.
+            The floating torch dtype its component tensors were cast to at construction.
         """
-        return self._extrinsics.dtype
+        return self._dtype
 
     @property
     def center(self) -> torch.Tensor:

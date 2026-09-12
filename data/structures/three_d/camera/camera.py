@@ -291,11 +291,8 @@ class Camera:
             Union[
                 int,
                 float,
-                Tuple[
-                    Union[int, float, torch.Tensor],
-                    Union[int, float, torch.Tensor],
-                ],
-                List[Union[int, float, torch.Tensor]],
+                Tuple[Union[int, float], Union[int, float]],
+                List[Union[int, float]],
                 np.ndarray,
                 torch.Tensor,
             ]

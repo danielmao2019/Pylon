@@ -30,8 +30,8 @@ class CameraExtrinsics:
         Args:
             extrinsics: 4x4 camera-to-world extrinsics matrix as a numpy array, torch.Tensor, or nested numeric list.
             extr_convention: Coordinate-frame convention string.
-            device: Optional target device for the extrinsics tensor.
-            dtype: Optional target floating dtype for the extrinsics tensor.
+            device: Optional target device for the extrinsics tensor; ``None`` resolves to the given matrix's own device, cpu for a numpy array or nested list.
+            dtype: Optional target floating dtype for the extrinsics tensor; ``None`` resolves to the given matrix's own dtype, float32 for a nested list.
 
         Returns:
             None.
@@ -48,17 +48,26 @@ class CameraExtrinsics:
             device: Optional[Union[str, torch.device]],
             dtype: Optional[torch.dtype],
         ) -> Tuple[torch.Tensor, torch.device, torch.dtype]:
-            if dtype is not None:
-                dtype = dtype
-            elif isinstance(extrinsics, torch.Tensor):
-                dtype = extrinsics.dtype
-            elif isinstance(extrinsics, np.ndarray):
-                dtype = torch.as_tensor(extrinsics).dtype
-            else:
-                dtype = torch.float32
-            extrinsics = torch.as_tensor(extrinsics).to(device=device, dtype=dtype)
-            # Read off the materialized tensor, the same rule the intrinsics side uses, so an un-indexed cuda and an indexed cuda:0 do not disagree when Camera asserts its two components share a device.
-            device = extrinsics.device
+            if device is None:
+                # The one exception: an unset device resolves to the given matrix's, so a component __getitem__ rebuilds stays where its batch is.
+                device = (
+                    extrinsics.device
+                    if isinstance(extrinsics, torch.Tensor)
+                    else torch.device("cpu")
+                )
+            # One physical device has one spelling here, so a cuda and a cuda:0 naming it never compare unequal.
+            device = torch.device(device)
+            if device.type == "cuda" and device.index is None:
+                device = torch.device("cuda", torch.cuda.current_device())
+            if dtype is None:
+                # The one exception: an unset dtype resolves to the given matrix's, so a component __getitem__ rebuilds keeps the dtype its batch holds.
+                dtype = (
+                    torch.as_tensor(extrinsics).dtype
+                    if isinstance(extrinsics, (torch.Tensor, np.ndarray))
+                    else torch.float32
+                )
+            # The matrix follows the resolved device and dtype, never the other way around.
+            extrinsics = torch.as_tensor(extrinsics, device=device, dtype=dtype)
             return extrinsics, device, dtype
 
         extrinsics, device, dtype = _normalize_inputs(

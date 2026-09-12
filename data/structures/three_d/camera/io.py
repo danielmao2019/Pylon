@@ -8,9 +8,6 @@ import numpy as np
 import torch
 
 from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
-from data.structures.three_d.camera.extrinsics.validation import (
-    validate_camera_extrinsics,
-)
 from data.structures.three_d.camera.intrinsics.camera_intrinsics import (
     build_camera_intrinsics,
 )
@@ -29,6 +26,7 @@ _CAMERA_JSON_KEYS = {
     "intr_convention",
     "extrinsics",
     "extr_convention",
+    "dtype",
     "name",
     "id",
 }
@@ -38,6 +36,7 @@ _CAMERA_NPZ_KEYS = {
     "intr_convention",
     "extrinsics",
     "extr_convention",
+    "dtype",
     "name",
     "has_name",
     "id",
@@ -328,6 +327,7 @@ def _serialize_cameras_json(cameras: "Cameras") -> List[Dict[str, Any]]:
                 "intr_convention": camera.intrinsics.intr_convention,
                 "extrinsics": camera.extrinsics.extrinsics.detach().cpu().tolist(),
                 "extr_convention": camera.extrinsics.extr_convention,
+                "dtype": str(camera.dtype).removeprefix("torch."),
                 "name": camera.name,
                 "id": camera.id,
             }
@@ -369,21 +369,17 @@ def _deserialize_cameras_json(
                 "Expected each json camera payload to contain exactly the Camera "
                 f"JSON fields. {set(per_camera_dict.keys())=} {_CAMERA_JSON_KEYS=}"
             )
-            assert isinstance(per_camera_dict["model"], str), (
-                "Expected json camera model to be a string. "
-                f"{type(per_camera_dict['model'])=}"
-            )
             assert isinstance(per_camera_dict["params"], dict), (
                 "Expected json camera params to be a dictionary. "
                 f"{type(per_camera_dict['params'])=}"
             )
-            assert isinstance(per_camera_dict["intr_convention"], str), (
-                "Expected json camera intr_convention to be a string. "
-                f"{type(per_camera_dict['intr_convention'])=}"
-            )
-            assert isinstance(per_camera_dict["extr_convention"], str), (
-                "Expected json camera extr_convention to be a string. "
-                f"{type(per_camera_dict['extr_convention'])=}"
+            assert (
+                isinstance(per_camera_dict["dtype"], str)
+                and hasattr(torch, per_camera_dict["dtype"])
+                and isinstance(getattr(torch, per_camera_dict["dtype"]), torch.dtype)
+            ), (
+                "Expected json camera dtype to be a string spelling a torch dtype. "
+                f"{per_camera_dict['dtype']=}"
             )
             assert per_camera_dict["name"] is None or isinstance(
                 per_camera_dict["name"], str
@@ -397,35 +393,30 @@ def _deserialize_cameras_json(
                 "Expected json camera id to be None or an integer. "
                 f"{type(per_camera_dict['id'])=}"
             )
+        # The batch shares one projection expression, so it shares one model and one frame per half.
+        for key in ("model", "intr_convention", "extr_convention"):
+            assert all(
+                per_camera_dict[key] == per_camera_dicts[0][key]
+                for per_camera_dict in per_camera_dicts
+            ), (
+                f"Expected every json camera payload to name one shared {key}. "
+                f"{[per_camera_dict[key] for per_camera_dict in per_camera_dicts]=}"
+            )
+        assert all(
+            per_camera_dict["dtype"] == per_camera_dicts[0]["dtype"]
+            for per_camera_dict in per_camera_dicts
+        ), (
+            "Expected every json camera payload to name one shared dtype, since a "
+            "batch holds one. "
+            f"{[per_camera_dict['dtype'] for per_camera_dict in per_camera_dicts]=}"
+        )
 
     _validate_inputs()
 
-    # The batch shares one projection expression, so it shares one model and one frame per half.
     model = per_camera_dicts[0]["model"]
     intr_convention = per_camera_dicts[0]["intr_convention"]
     extr_convention = per_camera_dicts[0]["extr_convention"]
-    assert all(
-        per_camera_dict["model"] == model for per_camera_dict in per_camera_dicts
-    ), (
-        "Expected every json camera payload to name one shared camera model. "
-        f"{model=} {[per_camera_dict['model'] for per_camera_dict in per_camera_dicts]=}"
-    )
-    assert all(
-        per_camera_dict["intr_convention"] == intr_convention
-        for per_camera_dict in per_camera_dicts
-    ), (
-        "Expected every json camera payload to name one shared image-plane frame. "
-        f"{intr_convention=} "
-        f"{[per_camera_dict['intr_convention'] for per_camera_dict in per_camera_dicts]=}"
-    )
-    assert all(
-        per_camera_dict["extr_convention"] == extr_convention
-        for per_camera_dict in per_camera_dicts
-    ), (
-        "Expected every json camera payload to name one shared pose frame. "
-        f"{extr_convention=} "
-        f"{[per_camera_dict['extr_convention'] for per_camera_dict in per_camera_dicts]=}"
-    )
+    dtype = getattr(torch, per_camera_dicts[0]["dtype"])
 
     # json stores a row per camera where npz stores a column per field.
     params_columns: Dict[str, List[Union[int, float]]] = {
@@ -439,7 +430,9 @@ def _deserialize_cameras_json(
         per_camera_dict["id"] for per_camera_dict in per_camera_dicts
     ]
 
-    tensor_params = _deserialize_intrinsics_params(params=params_columns, device=device)
+    tensor_params = _deserialize_intrinsics_params(
+        params=params_columns, device=device, dtype=dtype
+    )
     intrinsics = build_camera_intrinsics(
         model=model,
         params=tensor_params,
@@ -449,11 +442,11 @@ def _deserialize_cameras_json(
     extrinsics_batched = CameraExtrinsics(
         extrinsics=torch.as_tensor(
             [per_camera_dict["extrinsics"] for per_camera_dict in per_camera_dicts],
-            dtype=torch.float32,
-            device=device,
+            dtype=dtype,
         ),
         extr_convention=extr_convention,
         device=device,
+        dtype=dtype,
     )
 
     return Cameras(
@@ -472,7 +465,7 @@ def _serialize_cameras_npz(cameras: "Cameras") -> Dict[str, Any]:
         cameras: A `Cameras` collection to serialize.
 
     Returns:
-        The batched-array npz payload keyed by `_CAMERA_NPZ_KEYS`: per-camera `model` strings, json-encoded `params` strings, stacked float32 extrinsics `[N, 4, 4]`, per-camera `intr_convention` / `extr_convention` / `name` / `id` arrays of length N with `has_name` / `has_id` flag arrays and a `-1` id sentinel for absent ids.
+        The batched-array npz payload keyed by `_CAMERA_NPZ_KEYS`: per-camera `model` strings, json-encoded `params` strings, stacked extrinsics `[N, 4, 4]` in the batch's own dtype, per-camera `intr_convention` / `extr_convention` / `dtype` (spelled by its torch name, e.g. `float64`) / `name` / `id` arrays of length N with `has_name` / `has_id` flag arrays and a `-1` id sentinel for absent ids.
     """
     serialized_params: List[Dict[str, Union[int, float]]] = []
     for camera in cameras:
@@ -487,9 +480,10 @@ def _serialize_cameras_npz(cameras: "Cameras") -> Dict[str, Any]:
     models = np.array([cameras.intrinsics.model] * batch_size)
     intr_conventions = np.array([cameras.intrinsics.intr_convention] * batch_size)
     extr_conventions = np.array([cameras.extrinsics.extr_convention] * batch_size)
+    dtypes = np.array([str(cameras.dtype).removeprefix("torch.")] * batch_size)
 
-    # The loader asserts float32, whatever dtype the batch holds.
-    extrinsics = cameras.extrinsics.extrinsics.detach().cpu().to(torch.float32).numpy()
+    # The archive carries the dtype, so the loader rebuilds the batch in it.
+    extrinsics = cameras.extrinsics.extrinsics.detach().cpu().numpy()
 
     names = np.array(["" if name is None else name for name in cameras.names])
     has_names = np.array([name is not None for name in cameras.names])
@@ -505,6 +499,7 @@ def _serialize_cameras_npz(cameras: "Cameras") -> Dict[str, Any]:
         "intr_convention": intr_conventions,
         "extrinsics": extrinsics,
         "extr_convention": extr_conventions,
+        "dtype": dtypes,
         "name": names,
         "has_name": has_names,
         "id": ids,
@@ -518,7 +513,7 @@ def _deserialize_cameras_npz(
     """Map the plural batched-array npz payload to a Cameras.
 
     Args:
-        payload: The batched-array npz payload keyed by `_CAMERA_NPZ_KEYS`: per-camera `model` strings, json-encoded `params` strings, stacked extrinsics `[N, 4, 4]`, per-camera `intr_convention` / `extr_convention` / `name` / `id` arrays of length N with `has_name` / `has_id` flag arrays and a `-1` id sentinel.
+        payload: The batched-array npz payload keyed by `_CAMERA_NPZ_KEYS`: per-camera `model` strings, json-encoded `params` strings, stacked extrinsics `[N, 4, 4]` in the batch's own dtype, per-camera `intr_convention` / `extr_convention` / `dtype` / `name` / `id` arrays of length N with `has_name` / `has_id` flag arrays and a `-1` id sentinel.
         device: Target device for the decoded extrinsics tensors.
 
     Returns:
@@ -528,46 +523,57 @@ def _deserialize_cameras_npz(
     from data.structures.three_d.camera.cameras import Cameras
 
     def _validate_inputs() -> None:
-        assert isinstance(payload, dict), (
-            "Expected Cameras NPZ payload to be a dictionary. " f"{type(payload)=}"
-        )
-        payload_keys = set(payload.keys())
-        assert payload_keys == _CAMERA_NPZ_KEYS, (
+        assert set(payload.keys()) == _CAMERA_NPZ_KEYS, (
             "Expected Cameras NPZ payload to match a supported schema. "
-            f"{payload_keys=} {_CAMERA_NPZ_KEYS=}"
+            f"{set(payload.keys())=} {_CAMERA_NPZ_KEYS=}"
         )
-        extrinsics = payload["extrinsics"]
-        assert isinstance(extrinsics, np.ndarray), (
+        assert isinstance(payload["extrinsics"], np.ndarray), (
             "Expected Cameras NPZ extrinsics to be a numpy array. "
-            f"{type(extrinsics)=}"
+            f"{type(payload['extrinsics'])=}"
         )
-        assert extrinsics.dtype == np.float32, (
-            "Expected Cameras NPZ extrinsics to use float32. " f"{extrinsics.dtype=}"
+        # The batch size is read off the extrinsics' leading axis.
+        assert payload["extrinsics"].ndim == 3, (
+            "Expected Cameras NPZ extrinsics to carry a leading batch axis, [N, 4, 4]. "
+            f"{payload['extrinsics'].shape=}"
         )
-        assert extrinsics.ndim == 3, (
-            "Expected Cameras NPZ extrinsics to be batched as [N, 4, 4]. "
-            f"{extrinsics.shape=}"
-        )
-        validate_camera_extrinsics(extrinsics)
-        batch_size = extrinsics.shape[0]
         for key in (
             "model",
             "params",
             "intr_convention",
             "extr_convention",
+            "dtype",
             "name",
             "has_name",
             "id",
             "has_id",
         ):
-            array = payload[key]
-            assert isinstance(array, np.ndarray), (
-                f"Expected Cameras NPZ {key} to be a numpy array. " f"{type(array)=}"
+            assert isinstance(payload[key], np.ndarray), (
+                f"Expected Cameras NPZ {key} to be a numpy array. "
+                f"{type(payload[key])=}"
             )
-            assert array.shape == (batch_size,), (
+            assert payload[key].shape == (payload["extrinsics"].shape[0],), (
                 f"Expected Cameras NPZ {key} array length to match the batch size. "
-                f"{array.shape=} {batch_size=}"
+                f"{payload[key].shape=} {payload['extrinsics'].shape=}"
             )
+        # One model and one frame pair is what lets the batch share a single projection expression.
+        for key in ("model", "intr_convention", "extr_convention"):
+            assert bool(np.all(payload[key] == payload[key][0])), (
+                f"Expected the Cameras NPZ {key} column to be constant over the "
+                f"batch. {payload[key]=}"
+            )
+        for entry in payload["dtype"]:
+            assert (
+                isinstance(entry, str)
+                and hasattr(torch, entry)
+                and isinstance(getattr(torch, entry), torch.dtype)
+            ), (
+                "Expected every Cameras NPZ dtype entry to spell a torch dtype. "
+                f"{entry=} {payload['dtype']=}"
+            )
+        assert bool(np.all(payload["dtype"] == payload["dtype"][0])), (
+            "Expected the Cameras NPZ dtype column to be constant over the batch, "
+            f"since a batch holds one. {payload['dtype']=}"
+        )
 
     _validate_inputs()
 
@@ -577,27 +583,16 @@ def _deserialize_cameras_npz(
     params_array = payload["params"]
     intr_convention_array = payload["intr_convention"]
     extr_convention_array = payload["extr_convention"]
+    dtype_array = payload["dtype"]
     name_array = payload["name"]
     has_name_array = payload["has_name"]
     id_array = payload["id"]
     has_id_array = payload["has_id"]
 
-    # One model and one frame pair is what lets the batch share a single projection expression.
     model = str(model_array[0].item())
     intr_convention = str(intr_convention_array[0].item())
     extr_convention = str(extr_convention_array[0].item())
-    assert bool(np.all(model_array == model_array[0])), (
-        "Expected the Cameras NPZ model column to be constant over the batch. "
-        f"{model_array=}"
-    )
-    assert bool(np.all(intr_convention_array == intr_convention_array[0])), (
-        "Expected the Cameras NPZ intr_convention column to be constant over the "
-        f"batch. {intr_convention_array=}"
-    )
-    assert bool(np.all(extr_convention_array == extr_convention_array[0])), (
-        "Expected the Cameras NPZ extr_convention column to be constant over the "
-        f"batch. {extr_convention_array=}"
-    )
+    dtype = getattr(torch, str(dtype_array[0].item()))
 
     names: List[Optional[str]] = [
         str(name_array[index].item()) if bool(has_name_array[index].item()) else None
@@ -614,17 +609,21 @@ def _deserialize_cameras_npz(
         key: [params_row[key] for params_row in params_rows] for key in params_rows[0]
     }
 
-    tensor_params = _deserialize_intrinsics_params(params=params_columns, device=device)
+    tensor_params = _deserialize_intrinsics_params(
+        params=params_columns, device=device, dtype=dtype
+    )
     intrinsics = build_camera_intrinsics(
         model=model,
         params=tensor_params,
         intr_convention=intr_convention,
         device=device,
     )
+    # The whole [N, 4, 4] stack at once, in the dtype the archive stored.
     extrinsics_batched = CameraExtrinsics(
-        extrinsics=torch.as_tensor(extrinsics, dtype=torch.float32, device=device),
+        extrinsics=extrinsics,
         extr_convention=extr_convention,
         device=device,
+        dtype=dtype,
     )
 
     return Cameras(
@@ -671,7 +670,7 @@ def _serialize_intrinsics_params(
 def _deserialize_intrinsics_params(
     params: Dict[str, Union[List[int], List[float]]],
     device: torch.device,
-    dtype: torch.dtype = torch.float32,
+    dtype: torch.dtype,
 ) -> Dict[str, torch.Tensor]:
     """Map the serialized numeric columns back to the tensor params a batch carries, at the camera I/O boundary.
 

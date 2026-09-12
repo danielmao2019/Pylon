@@ -64,19 +64,6 @@ def validate_cameras_attributes(
         f"{ids=} {batch_size=}"
     )
 
-    assert device is None or isinstance(device, (str, torch.device)), (
-        "Expected Cameras device to be None, a string, or torch.device. "
-        f"{type(device)=}"
-    )
-
-    assert dtype is None or isinstance(dtype, torch.dtype), (
-        "Expected Cameras dtype to be None or a torch dtype. " f"{type(dtype)=}"
-    )
-    if dtype is not None:
-        assert torch.empty((), dtype=dtype).is_floating_point(), (
-            "Expected Cameras dtype to be floating. " f"{dtype=}"
-        )
-
 
 def validate_camera_attributes(
     intrinsics: "CameraIntrinsics",

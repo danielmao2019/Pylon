@@ -8,7 +8,6 @@ import torch
 from data.structures.three_d.camera.intrinsics.conventions import (
     transform_intr_convention,
 )
-from data.structures.three_d.camera.intrinsics.scaling import resolve_target_resolution
 from data.structures.three_d.camera.intrinsics.validation import (
     validate_camera_intrinsics_attributes,
     validate_intr_convention,
@@ -35,8 +34,8 @@ class CameraIntrinsics(ABC):
         Args:
             params: The model's named intrinsics parameters, every one of them sharing one leading batch shape — ``[]`` for a single camera, ``[B]`` for a batch of them; carries the resolution keys ``h`` / ``w`` alongside the projection keys.
             intr_convention: Image-plane frame the params are stated in, one of ``standard`` / ``opengl`` / ``pytorch3d`` / ``vulkan``.
-            device: Optional target device for the tensor params.
-            dtype: Optional target floating dtype for the tensor params.
+            device: Optional target device for the tensor params; ``None`` resolves to the device of the first tensor param, cpu when none is a tensor.
+            dtype: Optional target floating dtype for the tensor params; ``None`` resolves to the dtype of the first floating tensor or numpy param, float32 when none is.
 
         Returns:
             None.
@@ -87,31 +86,52 @@ class CameraIntrinsics(ABC):
 
         def _normalize_inputs(
             params: Dict[str, Union[int, float, np.ndarray, torch.Tensor]],
-        ) -> Dict[str, torch.Tensor]:
-            target_device = torch.device("cpu")
-            for value in params.values():
-                if isinstance(value, torch.Tensor):
-                    target_device = value.device
-                    break
-
-            target_dtype = torch.get_default_dtype()
-            for value in params.values():
-                if isinstance(value, torch.Tensor) and value.is_floating_point():
-                    target_dtype = value.dtype
-                    break
-                if isinstance(value, np.ndarray) and np.issubdtype(
-                    value.dtype, np.floating
-                ):
-                    target_dtype = torch.as_tensor(value.reshape(-1)[0]).dtype
-                    break
-
+            device: Optional[Union[str, torch.device]],
+            dtype: Optional[torch.dtype],
+        ) -> Tuple[Dict[str, torch.Tensor], torch.device, torch.dtype]:
+            if device is None:
+                # The one exception: an unset device resolves to the given params', so a component __getitem__ rebuilds stays where its batch is.
+                device = next(
+                    (
+                        value.device
+                        for value in params.values()
+                        if isinstance(value, torch.Tensor)
+                    ),
+                    torch.device("cpu"),
+                )
+            # One physical device has one spelling here, so a cuda and a cuda:0 naming it never compare unequal.
+            device = torch.device(device)
+            if device.type == "cuda" and device.index is None:
+                device = torch.device("cuda", torch.cuda.current_device())
+            if dtype is None:
+                # The one exception: an unset dtype resolves to the given params', so a component __getitem__ rebuilds keeps the dtype its batch holds.
+                dtype = next(
+                    (
+                        torch.as_tensor(value).dtype
+                        for value in params.values()
+                        if (
+                            isinstance(value, torch.Tensor)
+                            and value.is_floating_point()
+                        )
+                        or (
+                            isinstance(value, np.ndarray)
+                            and np.issubdtype(value.dtype, np.floating)
+                        )
+                    ),
+                    torch.float32,
+                )
+            # Every param follows the resolved device and dtype, never the other way around.
             params = {
-                key: torch.as_tensor(value).to(device=target_device, dtype=target_dtype)
+                key: torch.as_tensor(value, device=device, dtype=dtype)
                 for key, value in params.items()
             }
-            return params
+            return params, device, dtype
 
-        params = _normalize_inputs(params=params)
+        params, device, dtype = _normalize_inputs(
+            params=params,
+            device=device,
+            dtype=dtype,
+        )
 
         validate_camera_intrinsics_attributes(
             model=type(self).MODEL,
@@ -123,14 +143,8 @@ class CameraIntrinsics(ABC):
 
         self._params: Dict[str, torch.Tensor] = params
         self._intr_convention: str = intr_convention
-        self._device: torch.device = next(iter(params.values())).device
-        self._dtype: torch.dtype = next(iter(params.values())).dtype
-        if device is not None or dtype is not None:
-            intrinsics = self.to(device=device, dtype=dtype)
-            self._params = intrinsics.params
-            self._intr_convention = intrinsics.intr_convention
-            self._device = intrinsics.device
-            self._dtype = intrinsics.dtype
+        self._device: torch.device = device
+        self._dtype: torch.dtype = dtype
 
     @property
     def model(self) -> str:
@@ -211,6 +225,235 @@ class CameraIntrinsics(ABC):
             intr_convention=self._intr_convention,
         )
 
+    def scale_intrinsics(
+        self,
+        resolution: Optional[
+            Union[int, Tuple[int, int], List[int], np.ndarray, torch.Tensor]
+        ] = None,
+        scale: Optional[
+            Union[
+                int,
+                float,
+                Tuple[Union[int, float], Union[int, float]],
+                List[Union[int, float]],
+                np.ndarray,
+                torch.Tensor,
+            ]
+        ] = None,
+    ) -> "CameraIntrinsics":
+        """Return this CameraIntrinsics restated against a different resolution.
+
+        The diagonal case of an intrinsics transform, so this builds that transform and the one owner applies it. Exactly one of ``resolution`` or ``scale`` must be provided.
+
+        Args:
+            resolution: Optional target image resolution as one integer side or ``(height, width)``.
+            scale: Optional uniform scale, or a per-axis ``(sx, sy)`` pair.
+
+        Returns:
+            A new CameraIntrinsics of the same model stated against the target resolution.
+        """
+
+        def _validate_inputs() -> None:
+            assert (resolution is None) ^ (scale is None), (
+                "Expected exactly one of resolution or scale to be provided. "
+                f"{resolution=} {scale=}"
+            )
+
+        _validate_inputs()
+
+        def _normalize_inputs(
+            resolution: Optional[
+                Union[int, Tuple[int, int], List[int], np.ndarray, torch.Tensor]
+            ],
+            scale: Optional[
+                Union[
+                    int,
+                    float,
+                    Tuple[Union[int, float], Union[int, float]],
+                    List[Union[int, float]],
+                    np.ndarray,
+                    torch.Tensor,
+                ]
+            ],
+        ) -> Tuple[
+            Tuple[Union[int, torch.Tensor], Union[int, torch.Tensor]],
+            torch.Tensor,
+            torch.Tensor,
+        ]:
+            resolution = _resolve_target_resolution(
+                params=self._params,
+                resolution=resolution,
+                scale=scale,
+            )
+            if scale is not None:
+                # Taken raw rather than re-derived from resolution, which _resolve_target_resolution detached and rounded to whole pixels, severing a tensor factor from the autograd graph.
+                if isinstance(scale, (tuple, list)):
+                    sx = torch.as_tensor(
+                        scale[0],
+                        device=self._device,
+                        dtype=self._dtype,
+                    ).reshape(())
+                    sy = torch.as_tensor(
+                        scale[1],
+                        device=self._device,
+                        dtype=self._dtype,
+                    ).reshape(())
+                else:
+                    scale = torch.as_tensor(
+                        scale, device=self._device, dtype=self._dtype
+                    )
+                    if scale.numel() == 1:
+                        scale = scale.reshape(())
+                        sx, sy = scale, scale
+                    else:
+                        scale = scale.reshape(2)
+                        sx, sy = scale[0], scale[1]
+            else:
+                # The size the params are already stated against is two of those params, the one place every model states it.
+                sx = (
+                    torch.as_tensor(
+                        resolution[1], dtype=self._dtype, device=self._device
+                    )
+                    / self._params["w"]
+                )
+                sy = (
+                    torch.as_tensor(
+                        resolution[0], dtype=self._dtype, device=self._device
+                    )
+                    / self._params["h"]
+                )
+            return resolution, sx, sy
+
+        resolution, sx, sy = _normalize_inputs(resolution=resolution, scale=scale)
+
+        # A rounded raster and a raw factor are not exactly consistent when the product is not whole; the gradient is what this trade keeps.
+        zero = torch.zeros_like(sx)
+        one = torch.ones_like(sx)
+        transform = torch.stack(
+            [
+                torch.stack([sx, zero, zero], dim=-1),
+                torch.stack([zero, sy, zero], dim=-1),
+                torch.stack([zero, zero, one], dim=-1),
+            ],
+            dim=-2,
+        )
+        return self.transform_intrinsics(transform=transform, resolution=resolution)
+
+    def transform_intrinsics(
+        self,
+        transform: torch.Tensor,
+        resolution: Tuple[Union[int, torch.Tensor], Union[int, torch.Tensor]],
+    ) -> "CameraIntrinsics":
+        """Return this CameraIntrinsics restated onto another image by a pixel-frame affine.
+
+        The raster that image is named alongside it, because a 3x3 carries no size of its own.
+
+        Args:
+            transform: Axis-aligned pixel-frame affine as a ``(..., 3, 3)`` floating torch.Tensor whose ``[..., 0, 1]`` / ``[..., 1, 0]`` entries are zero and whose last row is ``[0, 0, 1]``, the leading dims being the camera batch a single affine leaves empty.
+            resolution: The target image's own resolution as ``(height, width)`` integer values, scalar integer-valued tensors, or ``[B]`` integer-valued tensors naming one side per camera.
+
+        Returns:
+            A new CameraIntrinsics of the same model, on this intrinsics' own image-plane frame, stated against ``resolution``.
+        """
+
+        def _validate_inputs() -> None:
+            assert isinstance(transform, torch.Tensor), (
+                "Expected the intrinsics transform to be a torch.Tensor. "
+                f"{type(transform)=}"
+            )
+            assert transform.shape[-2:] == (3, 3), (
+                "Expected the intrinsics transform trailing dims to be (3, 3). "
+                f"{transform.shape=}"
+            )
+            assert transform.is_floating_point(), (
+                "Expected the intrinsics transform dtype to be floating. "
+                f"{transform.dtype=}"
+            )
+            last_row = transform[..., 2, :].detach().cpu()
+            assert torch.equal(
+                last_row,
+                torch.tensor([0.0, 0.0, 1.0], dtype=transform.dtype).expand(
+                    last_row.shape
+                ),
+            ), (
+                "Expected the intrinsics transform last row to be [0, 0, 1]. "
+                f"{last_row=}"
+            )
+            # An axis-aligned affine is the only kind that keeps a skew-free K skew-free.
+            assert bool(torch.all(transform[..., 0, 1] == 0.0)) and bool(
+                torch.all(transform[..., 1, 0] == 0.0)
+            ), (
+                "Expected the intrinsics transform to be axis-aligned, its "
+                "off-diagonal entries [..., 0, 1] and [..., 1, 0] zero. "
+                f"{transform[..., 0, 1]=} {transform[..., 1, 0]=}"
+            )
+            assert isinstance(resolution, tuple) and len(resolution) == 2, (
+                "Expected resolution to be a (height, width) tuple of length 2. "
+                f"{resolution=}"
+            )
+            for value in resolution:
+                assert isinstance(value, (int, torch.Tensor)), (
+                    "Expected resolution values to be integers or tensors. "
+                    f"{type(value)=} {resolution=}"
+                )
+                if isinstance(value, torch.Tensor):
+                    assert value.ndim <= 1, (
+                        "Expected tensor resolution values to be scalar or to carry "
+                        f"one entry per camera. {value.shape=}"
+                    )
+                    assert torch.equal(value, torch.round(value)), (
+                        "Expected tensor resolution values to be integer-valued. "
+                        f"{value=}"
+                    )
+                    assert bool(torch.all(value > 0)), (
+                        "Expected tensor resolution values to be positive. " f"{value=}"
+                    )
+                else:
+                    assert value > 0, (
+                        "Expected resolution values to be positive integers. "
+                        f"{resolution=}"
+                    )
+
+        _validate_inputs()
+
+        def _normalize_inputs(
+            transform: torch.Tensor,
+            resolution: Tuple[Union[int, torch.Tensor], Union[int, torch.Tensor]],
+        ) -> Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+            transform = transform.to(device=self._device, dtype=self._dtype)
+            resolution = tuple(
+                torch.as_tensor(value, device=self._device, dtype=self._dtype)
+                for value in resolution
+            )
+            return transform, resolution
+
+        transform, resolution = _normalize_inputs(
+            transform=transform,
+            resolution=resolution,
+        )
+
+        # An affine between two rasters composes only with a K stated in them, so the camera is read in pixels.
+        standard = self.to(intr_convention="standard")
+        zero = torch.zeros_like(standard.fx)
+        one = torch.ones_like(standard.fx)
+        K = transform @ torch.stack(
+            [
+                torch.stack([standard.fx, zero, standard.cx], dim=-1),
+                torch.stack([zero, standard.fy, standard.cy], dim=-1),
+                torch.stack([zero, zero, one], dim=-1),
+            ],
+            dim=-2,
+        )
+        params = self._focal_params(fx=K[..., 0, 0], fy=K[..., 1, 1])
+        params["cx"] = K[..., 0, 2]
+        params["cy"] = K[..., 1, 2]
+        # A single raster names the same sides for every camera of a batch.
+        params["h"] = torch.broadcast_to(resolution[0], K.shape[:-2])
+        params["w"] = torch.broadcast_to(resolution[1], K.shape[:-2])
+        transformed = type(self)(params=params, intr_convention="standard")
+        intrinsics = transformed.to(intr_convention=self._intr_convention)
+        return intrinsics
+
     @property
     def cx(self) -> torch.Tensor:
         """The horizontal principal-point coordinate.
@@ -270,6 +513,22 @@ class CameraIntrinsics(ABC):
 
         Returns:
             The vertical focal length / scale as a ``[]`` or ``[B]`` tensor.
+        """
+        raise NotImplementedError
+
+    @classmethod
+    @abstractmethod
+    def _focal_params(
+        cls, fx: torch.Tensor, fy: torch.Tensor
+    ) -> Dict[str, torch.Tensor]:
+        """The inverse of the fx / fy accessors: state a horizontal and a vertical focal in this model's own focal params.
+
+        Args:
+            fx: The horizontal focal length / scale as a ``[]`` or ``[B]`` tensor.
+            fy: The vertical focal length / scale, shaped like ``fx``.
+
+        Returns:
+            This model's focal params keyed by their own names.
         """
         raise NotImplementedError
 
@@ -336,17 +595,6 @@ class CameraIntrinsics(ABC):
 
         _validate_inputs()
 
-        target_device = torch.device(device) if device is not None else self._device
-        target_dtype = dtype if dtype is not None else self._dtype
-        target_intr_convention = intr_convention or self._intr_convention
-        if (
-            target_device == self._device
-            and target_dtype == self._dtype
-            and target_intr_convention == self._intr_convention
-            and copy is False
-        ):
-            return self
-
         params = self._params
         if intr_convention is not None and intr_convention != self._intr_convention:
             params = transform_intr_convention(
@@ -357,270 +605,25 @@ class CameraIntrinsics(ABC):
             )
         params = {
             key: value.to(
-                device=target_device,
-                dtype=target_dtype,
+                device=device,
+                dtype=dtype,
                 non_blocking=non_blocking,
                 copy=copy,
             )
             for key, value in params.items()
         }
-        return type(self)(
+        if (
+            (device is None or torch.device(device) == self._device)
+            and (dtype is None or dtype == self._dtype)
+            and (intr_convention is None or intr_convention == self._intr_convention)
+            and copy is False
+        ):
+            return self
+        intrinsics = type(self)(
             params=params,
-            intr_convention=target_intr_convention,
+            intr_convention=intr_convention or self._intr_convention,
         )
-
-    def transform_intrinsics(
-        self,
-        transform: torch.Tensor,
-        resolution: Tuple[Union[int, torch.Tensor], Union[int, torch.Tensor]],
-    ) -> "CameraIntrinsics":
-        """Return this CameraIntrinsics restated onto another image by a pixel-frame affine.
-
-        The raster that image is named alongside it, because a 3x3 carries no size of its own.
-
-        Args:
-            transform: Pixel-frame affine as a ``(..., 3, 3)`` floating torch.Tensor whose last row is ``[0, 0, 1]``, the leading dims being the camera batch a single affine leaves empty.
-            resolution: The target image's own resolution as ``(height, width)`` integer values, scalar integer-valued tensors, or ``[B]`` integer-valued tensors naming one side per camera.
-
-        Returns:
-            A new CameraIntrinsics of the same model, on this intrinsics' own image-plane frame, stated against ``resolution``.
-        """
-
-        def _validate_inputs() -> None:
-            assert isinstance(transform, torch.Tensor), (
-                "Expected the intrinsics transform to be a torch.Tensor. "
-                f"{type(transform)=}"
-            )
-            assert transform.shape[-2:] == (3, 3), (
-                "Expected the intrinsics transform trailing dims to be (3, 3). "
-                f"{transform.shape=}"
-            )
-            assert transform.is_floating_point(), (
-                "Expected the intrinsics transform dtype to be floating. "
-                f"{transform.dtype=}"
-            )
-            last_row = transform[..., 2, :].detach().cpu()
-            assert torch.equal(
-                last_row,
-                torch.tensor([0.0, 0.0, 1.0], dtype=transform.dtype).expand(
-                    last_row.shape
-                ),
-            ), (
-                "Expected the intrinsics transform last row to be [0, 0, 1]. "
-                f"{last_row=}"
-            )
-            assert isinstance(resolution, tuple) and len(resolution) == 2, (
-                "Expected resolution to be a (height, width) tuple of length 2. "
-                f"{resolution=}"
-            )
-            for value in resolution:
-                assert isinstance(value, (int, torch.Tensor)), (
-                    "Expected resolution values to be integers or tensors. "
-                    f"{type(value)=} {resolution=}"
-                )
-                if isinstance(value, torch.Tensor):
-                    assert value.ndim <= 1, (
-                        "Expected tensor resolution values to be scalar or to carry "
-                        f"one entry per camera. {value.shape=}"
-                    )
-                    assert torch.equal(value, torch.round(value)), (
-                        "Expected tensor resolution values to be integer-valued. "
-                        f"{value=}"
-                    )
-                    assert bool(torch.all(value > 0)), (
-                        "Expected tensor resolution values to be positive. " f"{value=}"
-                    )
-                else:
-                    assert value > 0, (
-                        "Expected resolution values to be positive integers. "
-                        f"{resolution=}"
-                    )
-
-        _validate_inputs()
-
-        def _normalize_inputs(
-            transform: torch.Tensor,
-            resolution: Tuple[Union[int, torch.Tensor], Union[int, torch.Tensor]],
-        ) -> Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
-            transform = transform.to(device=self._device, dtype=self._dtype)
-            resolution = tuple(
-                torch.as_tensor(value, device=self._device, dtype=self._dtype)
-                for value in resolution
-            )
-            return transform, resolution
-
-        transform, resolution = _normalize_inputs(
-            transform=transform,
-            resolution=resolution,
-        )
-
-        params = transform_intr_convention(
-            params=self._params,
-            model=type(self).MODEL,
-            source_intr_convention=self._intr_convention,
-            target_intr_convention="standard",
-        )
-        if type(self).MODEL == "simple_pinhole":
-            fx, fy = params["f"], params["f"]
-        else:
-            fx, fy = params["fx"], params["fy"]
-        source_matrix = torch.zeros(
-            fx.shape + (3, 3),
-            dtype=self._dtype,
-            device=self._device,
-        )
-        source_matrix[..., 0, 0] = fx
-        source_matrix[..., 1, 1] = fy
-        source_matrix[..., 0, 2] = params["cx"]
-        source_matrix[..., 1, 2] = params["cy"]
-        source_matrix[..., 2, 2] = 1.0
-        target_matrix = transform @ source_matrix
-        if type(self).MODEL == "simple_pinhole":
-            assert bool(
-                torch.all(
-                    torch.isclose(target_matrix[..., 0, 0], target_matrix[..., 1, 1])
-                )
-            ), (
-                "Expected the affine to scale both image axes alike for "
-                "simple_pinhole, whose one shared f holds one ratio. "
-                f"{target_matrix[..., 0, 0]=} {target_matrix[..., 1, 1]=}"
-            )
-        if type(self).MODEL == "simple_pinhole":
-            params = {"f": target_matrix[..., 0, 0]}
-        else:
-            params = {
-                "fx": target_matrix[..., 0, 0],
-                "fy": target_matrix[..., 1, 1],
-            }
-        params["cx"] = target_matrix[..., 0, 2]
-        params["cy"] = target_matrix[..., 1, 2]
-        batch_shape = target_matrix.shape[:-2]
-        params["h"] = torch.broadcast_to(resolution[0], batch_shape)
-        params["w"] = torch.broadcast_to(resolution[1], batch_shape)
-        params = transform_intr_convention(
-            params=params,
-            model=type(self).MODEL,
-            source_intr_convention="standard",
-            target_intr_convention=self._intr_convention,
-        )
-        return type(self)(
-            params=params,
-            intr_convention=self._intr_convention,
-        )
-
-    def scale_intrinsics(
-        self,
-        resolution: Optional[
-            Union[int, Tuple[int, int], List[int], np.ndarray, torch.Tensor]
-        ] = None,
-        scale: Optional[
-            Union[
-                int,
-                float,
-                Tuple[Union[int, float], Union[int, float]],
-                List[Union[int, float]],
-                np.ndarray,
-                torch.Tensor,
-            ]
-        ] = None,
-    ) -> "CameraIntrinsics":
-        """Return this CameraIntrinsics restated against a different resolution.
-
-        The diagonal case of an intrinsics transform, so this builds that transform and the one owner applies it. Exactly one of ``resolution`` or ``scale`` must be provided.
-
-        Args:
-            resolution: Optional target image resolution as one integer side or ``(height, width)``.
-            scale: Optional uniform scale, or a per-axis ``(sx, sy)`` pair.
-
-        Returns:
-            A new CameraIntrinsics of the same model stated against the target resolution.
-        """
-
-        def _validate_inputs() -> None:
-            assert (resolution is None) ^ (scale is None), (
-                "Expected exactly one of resolution or scale to be provided. "
-                f"{resolution=} {scale=}"
-            )
-
-        _validate_inputs()
-
-        def _normalize_inputs(
-            resolution: Optional[
-                Union[int, Tuple[int, int], List[int], np.ndarray, torch.Tensor]
-            ],
-            scale: Optional[
-                Union[
-                    int,
-                    float,
-                    Tuple[Union[int, float], Union[int, float]],
-                    List[Union[int, float]],
-                    np.ndarray,
-                    torch.Tensor,
-                ]
-            ],
-        ) -> Tuple[
-            Tuple[Union[int, torch.Tensor], Union[int, torch.Tensor]],
-            torch.Tensor,
-            torch.Tensor,
-        ]:
-            resolution = resolve_target_resolution(
-                params=self._params,
-                resolution=resolution,
-                scale=scale,
-            )
-            if scale is not None:
-                # Taken raw rather than re-derived from resolution, which resolve_target_resolution detached and rounded to whole pixels, severing a tensor factor from the autograd graph.
-                if isinstance(scale, (tuple, list)):
-                    sx = torch.as_tensor(
-                        scale[0],
-                        device=self._device,
-                        dtype=self._dtype,
-                    ).reshape(())
-                    sy = torch.as_tensor(
-                        scale[1],
-                        device=self._device,
-                        dtype=self._dtype,
-                    ).reshape(())
-                else:
-                    scale = torch.as_tensor(
-                        scale, device=self._device, dtype=self._dtype
-                    )
-                    if scale.numel() == 1:
-                        scale = scale.reshape(())
-                        sx, sy = scale, scale
-                    else:
-                        scale = scale.reshape(2)
-                        sx, sy = scale[0], scale[1]
-            else:
-                # The size the params are already stated against is two of those params, the one place every model states it.
-                sx = (
-                    torch.as_tensor(
-                        resolution[1], dtype=self._dtype, device=self._device
-                    )
-                    / self._params["w"]
-                )
-                sy = (
-                    torch.as_tensor(
-                        resolution[0], dtype=self._dtype, device=self._device
-                    )
-                    / self._params["h"]
-                )
-            return resolution, sx, sy
-
-        resolution, sx, sy = _normalize_inputs(resolution=resolution, scale=scale)
-
-        # A rounded raster and a raw factor are not exactly consistent when the product is not whole; the gradient is what this trade keeps.
-        zero = torch.zeros_like(sx)
-        one = torch.ones_like(sx)
-        transform = torch.stack(
-            [
-                torch.stack([sx, zero, zero], dim=-1),
-                torch.stack([zero, sy, zero], dim=-1),
-                torch.stack([zero, zero, one], dim=-1),
-            ],
-            dim=-2,
-        )
-        return self.transform_intrinsics(transform=transform, resolution=resolution)
+        return intrinsics
 
 
 class CameraIntrinsicsSimplePinhole(CameraIntrinsics):
@@ -651,6 +654,27 @@ class CameraIntrinsicsSimplePinhole(CameraIntrinsics):
             The ``[]`` (unbatched) or ``[B]`` (batched) tensor ``params["f"]``.
         """
         return self._params["f"]
+
+    @classmethod
+    def _focal_params(
+        cls, fx: torch.Tensor, fy: torch.Tensor
+    ) -> Dict[str, torch.Tensor]:
+        """State the pair as the one shared focal f, since this model states its two focals as one f.
+
+        Args:
+            fx: The horizontal focal length as a ``[]`` or ``[B]`` tensor.
+            fy: The vertical focal length, shaped like ``fx``.
+
+        Returns:
+            The ``{"f": fx}`` focal params.
+        """
+        # One shared f holds one ratio, so an affine scaling the axes apart leaves this model nothing to state the second in.
+        assert bool(torch.all(torch.isclose(fx, fy))), (
+            "Expected the horizontal and vertical focal to agree at every entry for "
+            "simple_pinhole, whose one shared f holds one ratio. "
+            f"{fx=} {fy=}"
+        )
+        return {"f": fx}
 
     def project(
         self, points_camera: torch.Tensor, inplace: bool = False
@@ -730,6 +754,21 @@ class CameraIntrinsicsPinhole(CameraIntrinsics):
             The ``[]`` (unbatched) or ``[B]`` (batched) tensor ``params["fy"]``.
         """
         return self._params["fy"]
+
+    @classmethod
+    def _focal_params(
+        cls, fx: torch.Tensor, fy: torch.Tensor
+    ) -> Dict[str, torch.Tensor]:
+        """State the pair as this model's independent fx / fy focal lengths.
+
+        Args:
+            fx: The horizontal focal length as a ``[]`` or ``[B]`` tensor.
+            fy: The vertical focal length, shaped like ``fx``.
+
+        Returns:
+            The ``{"fx": fx, "fy": fy}`` focal params.
+        """
+        return {"fx": fx, "fy": fy}
 
     def project(
         self, points_camera: torch.Tensor, inplace: bool = False
@@ -815,6 +854,21 @@ class CameraIntrinsicsOrtho(CameraIntrinsics):
         """
         return self._params["fy"]
 
+    @classmethod
+    def _focal_params(
+        cls, fx: torch.Tensor, fy: torch.Tensor
+    ) -> Dict[str, torch.Tensor]:
+        """State the pair as this model's independent fx / fy focal scales.
+
+        Args:
+            fx: The horizontal focal scale as a ``[]`` or ``[B]`` tensor.
+            fy: The vertical focal scale, shaped like ``fx``.
+
+        Returns:
+            The ``{"fx": fx, "fy": fy}`` focal params.
+        """
+        return {"fx": fx, "fy": fy}
+
     def project(
         self, points_camera: torch.Tensor, inplace: bool = False
     ) -> torch.Tensor:
@@ -853,6 +907,209 @@ class CameraIntrinsicsOrtho(CameraIntrinsics):
         out[..., 0].mul_(fx).add_(cx)
         out[..., 1].mul_(fy).add_(cy)
         return out
+
+
+def _resolve_target_resolution(
+    params: Dict[str, torch.Tensor],
+    resolution: Optional[
+        Union[int, Tuple[int, int], List[int], np.ndarray, torch.Tensor]
+    ] = None,
+    scale: Optional[
+        Union[
+            int,
+            float,
+            Tuple[Union[int, float], Union[int, float]],
+            List[Union[int, float]],
+            np.ndarray,
+            torch.Tensor,
+        ]
+    ] = None,
+) -> Tuple[Union[int, torch.Tensor], Union[int, torch.Tensor]]:
+    """Resolve the two ways a caller names a target resolution into the single form a rescale reads.
+
+    Args:
+        params: The model's named intrinsics params, carrying the ``h`` / ``w`` values the current resolution is read off, scalar for one camera and ``[B]`` for a batch.
+        resolution: Optional target image resolution as one integer side or ``(height, width)``.
+        scale: Optional uniform factor, or a per-axis ``(sx, sy)`` pair, on the resolution the params already carry.
+
+    Returns:
+        The target image resolution as a ``(height, width)`` pair: positive ints when the resolution is given, and int64 torch.Tensors shaped like the params' ``h`` / ``w`` (``[]`` for one camera, ``[B]`` for a batch, one side per camera) when a factor is applied.
+    """
+
+    def _validate_inputs() -> None:
+        assert (resolution is None) ^ (scale is None), (
+            "Expected exactly one of resolution or scale to be provided. "
+            f"{resolution=} {scale=}"
+        )
+        if resolution is not None:
+            assert isinstance(
+                resolution, (int, tuple, list, np.ndarray, torch.Tensor)
+            ), (
+                "Expected resolution to be a positive int or length-2 array-like. "
+                f"{type(resolution)=}"
+            )
+            if isinstance(resolution, int):
+                assert resolution > 0, (
+                    "Expected scalar resolution to be positive. " f"{resolution=}"
+                )
+            elif isinstance(resolution, (tuple, list)):
+                assert len(resolution) == 2, (
+                    "Expected resolution to have length 2. " f"{resolution=}"
+                )
+                assert all(isinstance(item, int) for item in resolution), (
+                    "Expected resolution values to be integers. " f"{resolution=}"
+                )
+                assert all(item > 0 for item in resolution), (
+                    "Expected resolution values to be positive. " f"{resolution=}"
+                )
+            elif isinstance(resolution, np.ndarray):
+                assert resolution.size in (1, 2), (
+                    "Expected numpy resolution to contain one or two values. "
+                    f"{resolution.shape=}"
+                )
+                assert np.issubdtype(resolution.dtype, np.integer), (
+                    "Expected numpy resolution values to be integers. "
+                    f"{resolution.dtype=}"
+                )
+                assert bool(np.all(resolution > 0)), (
+                    "Expected numpy resolution values to be positive. " f"{resolution=}"
+                )
+            elif isinstance(resolution, torch.Tensor):
+                assert resolution.numel() in (1, 2), (
+                    "Expected tensor resolution to contain one or two values. "
+                    f"{resolution.shape=}"
+                )
+                assert not resolution.is_floating_point(), (
+                    "Expected tensor resolution values to be integers. "
+                    f"{resolution.dtype=}"
+                )
+                assert bool(torch.all(resolution > 0)), (
+                    "Expected tensor resolution values to be positive. "
+                    f"{resolution=}"
+                )
+        if scale is not None:
+            assert isinstance(
+                scale, (int, float, tuple, list, np.ndarray, torch.Tensor)
+            ), (
+                "Expected scale to be a positive number or length-2 array-like. "
+                f"{type(scale)=}"
+            )
+            if isinstance(scale, (int, float)):
+                assert float(scale) > 0.0, (
+                    "Expected scalar scale to be positive. " f"{scale=}"
+                )
+            elif isinstance(scale, (tuple, list)):
+                assert len(scale) == 2, "Expected scale to have length 2. " f"{scale=}"
+                assert all(
+                    isinstance(item, (int, float, torch.Tensor)) for item in scale
+                ), (
+                    "Expected scale values to be numbers or scalar tensors. "
+                    f"{scale=}"
+                )
+            elif isinstance(scale, np.ndarray):
+                assert scale.size in (1, 2), (
+                    "Expected numpy scale to contain one or two values. "
+                    f"{scale.shape=}"
+                )
+                assert np.issubdtype(scale.dtype, np.number), (
+                    "Expected numpy scale values to be numeric. " f"{scale.dtype=}"
+                )
+                assert bool(np.all(scale > 0)), (
+                    "Expected numpy scale values to be positive. " f"{scale=}"
+                )
+            elif isinstance(scale, torch.Tensor):
+                assert scale.numel() in (1, 2), (
+                    "Expected tensor scale to contain one or two values. "
+                    f"{scale.shape=}"
+                )
+                assert scale.is_floating_point(), (
+                    "Expected tensor scale values to be floating. " f"{scale.dtype=}"
+                )
+                assert bool(torch.all(scale > 0)), (
+                    "Expected tensor scale values to be positive. " f"{scale=}"
+                )
+
+    _validate_inputs()
+
+    def _normalize_inputs(
+        resolution: Optional[
+            Union[int, Tuple[int, int], List[int], np.ndarray, torch.Tensor]
+        ],
+        scale: Optional[
+            Union[
+                int,
+                float,
+                Tuple[Union[int, float, torch.Tensor], Union[int, float, torch.Tensor]],
+                List[Union[int, float, torch.Tensor]],
+                np.ndarray,
+                torch.Tensor,
+            ]
+        ],
+    ) -> Tuple[
+        Optional[Tuple[int, int]],
+        Optional[
+            Tuple[Union[int, float, torch.Tensor], Union[int, float, torch.Tensor]]
+        ],
+    ]:
+        if resolution is not None:
+            if isinstance(resolution, int):
+                resolution = (resolution, resolution)
+            elif isinstance(resolution, (tuple, list)):
+                resolution = (int(resolution[0]), int(resolution[1]))
+            elif isinstance(resolution, np.ndarray):
+                values = resolution.reshape(-1)
+                if values.size == 1:
+                    resolution = (int(values[0]), int(values[0]))
+                else:
+                    resolution = (int(values[0]), int(values[1]))
+            elif isinstance(resolution, torch.Tensor):
+                values = resolution.reshape(-1)
+                if values.numel() == 1:
+                    side = int(values[0].detach().cpu().item())
+                    resolution = (side, side)
+                else:
+                    resolution = (
+                        int(values[0].detach().cpu().item()),
+                        int(values[1].detach().cpu().item()),
+                    )
+        if scale is not None:
+            if isinstance(scale, (int, float)):
+                scale = (scale, scale)
+            elif isinstance(scale, np.ndarray):
+                values = scale.reshape(-1)
+                if values.size == 1:
+                    scale = (float(values[0]), float(values[0]))
+                else:
+                    scale = (float(values[0]), float(values[1]))
+            elif isinstance(scale, torch.Tensor):
+                values = scale.reshape(-1)
+                if values.numel() == 1:
+                    scale = (values[0], values[0])
+                else:
+                    scale = (values[0], values[1])
+            elif isinstance(scale, list):
+                scale = (scale[0], scale[1])
+        return resolution, scale
+
+    resolution, scale = _normalize_inputs(resolution=resolution, scale=scale)
+
+    if resolution is not None:
+        return resolution
+    if scale is not None:
+        height = torch.round(
+            torch.as_tensor(params["h"]).detach().cpu().double()
+            * torch.as_tensor(scale[1]).detach().cpu().double()
+        ).long()
+        width = torch.round(
+            torch.as_tensor(params["w"]).detach().cpu().double()
+            * torch.as_tensor(scale[0]).detach().cpu().double()
+        ).long()
+        assert bool(torch.all(height > 0)) and bool(torch.all(width > 0)), (
+            "Expected a scale that keeps both image sides positive. "
+            f"{height=} {width=} {scale=}"
+        )
+        return height, width
+    assert 0, "Should not reach here. " f"{resolution=} {scale=}"
 
 
 def build_camera_intrinsics(

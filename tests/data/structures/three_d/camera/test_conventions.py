@@ -19,9 +19,9 @@ from data.structures.three_d.camera.intrinsics.camera_intrinsics import (
     build_camera_intrinsics,
 )
 from data.structures.three_d.camera.intrinsics.conventions import (
+    _rescale_intr_params,
     transform_intr_convention,
 )
-from data.structures.three_d.camera.intrinsics.scaling import rescale_intr_params
 from data.structures.three_d.camera.intrinsics.validation import (
     validate_camera_intrinsics_invariants,
     validate_intr_convention,
@@ -495,6 +495,83 @@ def test_camera_and_cameras_to_keep_tensor_state_on_the_autograd_path() -> None:
     assert matrix.grad is not None, f"{matrix.grad=}"
 
 
+def test_cameras_device_and_dtype_follow_the_given_placement() -> None:
+    """A Cameras takes its device and dtype from the ones it is handed, bringing both components to them, and falls back to its extrinsics' own only for one left unset.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    matrix = _build_extrinsics_matrix()
+    intrinsics = build_camera_intrinsics(
+        model="pinhole",
+        params={
+            key: torch.tensor([value], dtype=torch.float32)
+            for key, value in _build_pinhole_params().items()
+        },
+        intr_convention="standard",
+        device="cpu",
+    )
+    extrinsics = CameraExtrinsics(
+        extrinsics=matrix[None],
+        extr_convention="standard",
+        device="cpu",
+    )
+
+    unset = Cameras(intrinsics=intrinsics, extrinsics=extrinsics)
+    assert unset.device == extrinsics.device == torch.device("cpu"), (
+        "Expected a Cameras handed no device to take its extrinsics' own. "
+        f"{unset.device=} {extrinsics.device=}"
+    )
+    assert unset.dtype == extrinsics.dtype == torch.float32, (
+        "Expected a Cameras handed no dtype to take its extrinsics' own. "
+        f"{unset.dtype=} {extrinsics.dtype=}"
+    )
+
+    cast = Cameras(intrinsics=intrinsics, extrinsics=extrinsics, dtype=torch.float64)
+    param_dtypes = {key: value.dtype for key, value in cast.intrinsics.params.items()}
+    assert cast.dtype == torch.float64, (
+        "Expected a Cameras handed a dtype to take it. " f"{cast.dtype=}"
+    )
+    assert cast.extrinsics.extrinsics.dtype == torch.float64, (
+        "Expected the extrinsics matrix to be cast to the dtype the batch was handed. "
+        f"{cast.extrinsics.extrinsics.dtype=}"
+    )
+    assert all(dtype == torch.float64 for dtype in param_dtypes.values()), (
+        "Expected every intrinsics param to be cast to the dtype the batch was handed. "
+        f"{param_dtypes=}"
+    )
+    assert cast.device == torch.device("cpu"), (
+        "Expected a Cameras handed only a dtype to keep its extrinsics' device. "
+        f"{cast.device=}"
+    )
+
+    if torch.cuda.is_available():
+        moved = Cameras(intrinsics=intrinsics, extrinsics=extrinsics, device="cuda")
+        cuda_zero = torch.device("cuda:0")
+        param_devices = {
+            key: value.device for key, value in moved.intrinsics.params.items()
+        }
+        assert moved.device == cuda_zero, (
+            "Expected a Cameras handed cuda to spell the device with its index. "
+            f"{moved.device=}"
+        )
+        assert moved.extrinsics.extrinsics.device == cuda_zero, (
+            "Expected the extrinsics matrix to be brought to the batch's device. "
+            f"{moved.extrinsics.extrinsics.device=}"
+        )
+        assert all(device == cuda_zero for device in param_devices.values()), (
+            "Expected every intrinsics param to be brought to the batch's device. "
+            f"{param_devices=}"
+        )
+        assert moved.dtype == torch.float32, (
+            "Expected a Cameras handed only a device to keep its extrinsics' dtype. "
+            f"{moved.dtype=}"
+        )
+
+
 def test_transform_extrinsics_normalizes_rotation_input() -> None:
     """transform_extrinsics normalizes each rotation representation to the pose tensor.
 
@@ -679,9 +756,10 @@ def test_intr_convention_module_has_one_main_api_and_six_spoke_helpers() -> None
     ]
     public = [name for name in functions if not name.startswith("_")]
     assert public == ["transform_intr_convention"], f"{public=}"
-    assert (
-        inspect.getsource(intr_conventions).count("rescale_intr_params") > 0
-    ), f"{functions=}"
+    assert "_rescale_intr_params" in functions, (
+        "Expected the per-axis rescale each spoke ends in to be the conventions "
+        f"module's own private helper. {functions=}"
+    )
     spokes = {
         f"_{direction}"
         for direction in (
@@ -699,7 +777,7 @@ def test_intr_convention_module_has_one_main_api_and_six_spoke_helpers() -> None
 
 
 def test_a_frame_change_comes_down_to_the_same_per_axis_rescale() -> None:
-    """A frame change's only length step is the per-axis rescale scaling owns.
+    """A frame change's only length step is the per-axis rescale the conventions module owns.
 
     Args:
         None.
@@ -708,7 +786,7 @@ def test_a_frame_change_comes_down_to_the_same_per_axis_rescale() -> None:
         None.
     """
     params = _build_pinhole_params()
-    rescaled = rescale_intr_params(
+    rescaled = _rescale_intr_params(
         params=params,
         model="pinhole",
         unit_x=2.0,
@@ -736,7 +814,7 @@ def test_a_frame_change_comes_down_to_the_same_per_axis_rescale() -> None:
             target_intr_convention="opengl",
         )
     with pytest.raises(AssertionError):
-        rescale_intr_params(
+        _rescale_intr_params(
             params=simple_params,
             model="simple_pinhole",
             unit_x=2.0,

@@ -2,8 +2,6 @@ from typing import Dict, Tuple, Union
 
 import torch
 
-from data.structures.three_d.camera.intrinsics.scaling import rescale_intr_params
-
 
 def transform_intr_convention(
     params: Dict[str, Union[int, float, torch.Tensor]],
@@ -96,7 +94,7 @@ def _standard_to_opengl(
     unit_y = 2.0 / params["h"]
     params = _centre_principal_point(params=params)
     params = _reverse_axes(params=params, axes=("y",))
-    params = rescale_intr_params(
+    params = _rescale_intr_params(
         params=params,
         model=model,
         unit_x=unit_x,
@@ -123,7 +121,7 @@ def _opengl_to_standard(
     """
     unit_x = params["w"] / 2.0
     unit_y = params["h"] / 2.0
-    params = rescale_intr_params(
+    params = _rescale_intr_params(
         params=params,
         model=model,
         unit_x=unit_x,
@@ -159,7 +157,7 @@ def _standard_to_pytorch3d(
         unit = 2.0 / min(params["h"], params["w"])
     params = _centre_principal_point(params=params)
     params = _reverse_axes(params=params, axes=("x", "y"))
-    params = rescale_intr_params(
+    params = _rescale_intr_params(
         params=params,
         model=model,
         unit_x=unit,
@@ -188,7 +186,7 @@ def _pytorch3d_to_standard(
         )
     else:
         unit = min(params["h"], params["w"]) / 2.0
-    params = rescale_intr_params(
+    params = _rescale_intr_params(
         params=params,
         model=model,
         unit_x=unit,
@@ -218,7 +216,7 @@ def _standard_to_vulkan(
     unit_x = 2.0 / params["w"]
     unit_y = 2.0 / params["h"]
     params = _centre_principal_point(params=params)
-    params = rescale_intr_params(
+    params = _rescale_intr_params(
         params=params,
         model=model,
         unit_x=unit_x,
@@ -242,7 +240,7 @@ def _vulkan_to_standard(
     """
     unit_x = params["w"] / 2.0
     unit_y = params["h"] / 2.0
-    params = rescale_intr_params(
+    params = _rescale_intr_params(
         params=params,
         model=model,
         unit_x=unit_x,
@@ -309,4 +307,65 @@ def _reverse_axes(
             "Expected each reversed image axis to be x or y. " f"{axis=} {axes=}"
         )
         params[f"c{axis}"] = -params[f"c{axis}"]
+    return params
+
+
+def _rescale_intr_params(
+    params: Dict[str, Union[int, float, torch.Tensor]],
+    model: str,
+    unit_x: Union[int, float, torch.Tensor],
+    unit_y: Union[int, float, torch.Tensor],
+) -> Dict[str, Union[int, float, torch.Tensor]]:
+    """Restate image-plane params under a per-axis unit factor.
+
+    This changes the unit for the focal params and for the cx / cy coordinate or offset params; origin translations and axis reversals are handled by the convention spokes.
+
+    Args:
+        params: The model's named intrinsics params; carries scalar ``cx`` / ``cy`` / ``h`` / ``w`` plus the model's focal key(s) (``f`` for simple_pinhole, ``fx`` / ``fy`` otherwise).
+        model: Camera-model identifier string the focal keys belong to.
+        unit_x: Horizontal-axis scalar factor every horizontal length is restated by.
+        unit_y: Vertical-axis scalar factor every vertical length is restated by.
+
+    Returns:
+        A new params dict whose focal and ``cx`` / ``cy`` params are restated in the target unit, with ``h`` and ``w`` left where they are.
+    """
+    params = dict(params)
+    params["cx"] = unit_x * params["cx"]
+    params["cy"] = unit_y * params["cy"]
+
+    def _rescale_focal(
+        params: Dict[str, Union[int, float, torch.Tensor]],
+    ) -> Dict[str, Union[int, float, torch.Tensor]]:
+        """Scale whichever focal params the model carries.
+
+        Args:
+            params: The params dict whose ``cx`` / ``cy`` params are already restated.
+
+        Returns:
+            The params dict with its focal params restated in the target unit.
+        """
+        if model == "simple_pinhole":
+            if isinstance(unit_x, torch.Tensor) or isinstance(unit_y, torch.Tensor):
+                assert torch.equal(torch.as_tensor(unit_x), torch.as_tensor(unit_y)), (
+                    "Expected one shared axis factor for simple_pinhole, whose single "
+                    "f cannot carry two different axis scales. "
+                    f"{unit_x=} {unit_y=}"
+                )
+            else:
+                assert unit_x == unit_y, (
+                    "Expected one shared axis factor for simple_pinhole, whose single "
+                    "f cannot carry two different axis scales. "
+                    f"{unit_x=} {unit_y=}"
+                )
+            params["f"] = unit_x * params["f"]
+            return params
+        if model in {"pinhole", "ortho"}:
+            params["fx"] = unit_x * params["fx"]
+            params["fy"] = unit_y * params["fy"]
+            return params
+        raise NotImplementedError(
+            "No focal rescale rule for this camera model. " f"{model=}"
+        )
+
+    params = _rescale_focal(params=params)
     return params

@@ -1314,6 +1314,49 @@ def test_a_shared_focal_refuses_a_transform_that_scales_the_axes_apart() -> None
         intrinsics.transform_intrinsics(transform=transform, resolution=(120, 640))
 
 
+def test_transform_intrinsics_refuses_a_sheared_affine() -> None:
+    """A skew-free K stays skew-free only under an axis-aligned affine, so an affine carrying an off-diagonal entry aborts rather than having it dropped.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    sheared = torch.tensor(
+        [[1.0, 0.25, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+        dtype=torch.float32,
+    )
+    model_params: Dict[str, Dict[str, Union[int, float]]] = {
+        "simple_pinhole": {"f": 400.0, "cx": 160.0, "cy": 120.0, "h": 240, "w": 320},
+        "pinhole": {
+            "fx": 400.0,
+            "fy": 410.0,
+            "cx": 160.0,
+            "cy": 120.0,
+            "h": 240,
+            "w": 320,
+        },
+        "ortho": {
+            "fx": 400.0,
+            "fy": 410.0,
+            "cx": 160.0,
+            "cy": 120.0,
+            "h": 240,
+            "w": 320,
+        },
+    }
+    for model, params in model_params.items():
+        intrinsics = build_camera_intrinsics(
+            model=model,
+            params=params,
+            intr_convention="standard",
+            device="cpu",
+        )
+        with pytest.raises(AssertionError):
+            intrinsics.transform_intrinsics(transform=sheared, resolution=(240, 320))
+
+
 def test_a_resize_is_the_diagonal_case_of_a_transform() -> None:
     """A resize scales both axes about the pixel frame's own origin, which is a diagonal affine.
 
