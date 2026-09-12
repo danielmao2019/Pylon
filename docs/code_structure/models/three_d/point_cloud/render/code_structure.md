@@ -145,8 +145,9 @@ render_depth.py
 ├── from models.three_d.point_cloud.render.render_mask import render_mask_from_rendering_points
 ├── def render_depth_from_point_cloud(pc: PointCloud, camera: Union[Camera, Cameras], resolution: Tuple[int, int], ignore_value: float = -1.0, return_mask: bool = False, point_size: float = 1.0) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]
 │   ├── # Renders a point cloud through the camera to a depth map, chaining validation, projection, and rasterization; a Camera gives [H, W] and a Cameras gives [B, H, W] down the same path.
-│   ├── assert isinstance(pc, PointCloud)  # f"{type(pc)=}"
-│   ├── calls validate_rendering_inputs(pc=pc, camera=camera, resolution=resolution, ignore_value=ignore_value, return_mask=return_mask, point_size=point_size)  # camera is whichever of Camera / Cameras the caller passed, so the shared preconditions are checked over either
+│   ├── def _validate_inputs [local]
+│   │   └── calls validate_rendering_inputs(pc=pc, camera=camera, resolution=resolution, ignore_value=ignore_value, return_mask=return_mask, point_size=point_size)  # camera is whichever of Camera / Cameras the caller passed, so the shared preconditions are checked over either
+│   ├── calls _validate_inputs()
 │   ├── calls prepare_points_for_rendering(pc=pc, camera=camera, resolution=resolution)
 │   ├── impls rendered_points, valid = the first two of the three it returned  # a single camera's validity is None, its culled points already dropped
 │   ├── if point_size > 1.0
@@ -217,9 +218,11 @@ render_normal.py
 ├── from models.three_d.point_cloud.render.render_mask import render_mask_from_rendering_points
 ├── def render_normal_from_point_cloud_3d(pc: PointCloud, camera: Camera, resolution: Tuple[int, int], ignore_value: float = 0.0, return_mask: bool = False, point_size: float = 1.0) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]
 │   ├── # Renders the normals a point cloud already carries through the camera to a normal map, chaining validation, projection, rasterization, and point-size dilation.
-│   ├── assert isinstance(pc, PointCloud)  # f"{type(pc)=}"
-│   ├── assert hasattr(pc, "normals")      # "PointCloud must contain normals field"
-│   ├── calls validate_rendering_inputs(pc=pc, camera=camera, resolution=resolution, ignore_value=ignore_value, return_mask=return_mask, point_size=point_size)
+│   ├── def _validate_inputs [local]
+│   │   ├── calls validate_rendering_inputs(pc=pc, camera=camera, resolution=resolution, ignore_value=ignore_value, return_mask=return_mask, point_size=point_size)
+│   │   ├── assert hasattr(pc, "normals")      # "PointCloud must contain normals field"
+│   │   └── assert isinstance(camera, Camera)  # f"{type(camera)=}"; this entry renders one camera, a batch being the depth entry's
+│   ├── calls _validate_inputs()
 │   ├── calls prepare_points_for_rendering(pc=pc, camera=camera, resolution=resolution)
 │   ├── impls rendering_points, original_data_indices = the first and third of the three it returned  # a single camera's validity is None, its culled points already dropped
 │   ├── calls render_normal_from_rendering_points_3d(rendering_points=rendering_points, original_data_indices=original_data_indices, pc_data=pc, camera=camera, resolution=resolution, ignore_value=ignore_value)
@@ -276,9 +279,11 @@ render_rgb.py
 ├── from models.three_d.point_cloud.render.render_mask import render_mask_from_rendering_points
 ├── def render_rgb_from_point_cloud(pc: PointCloud, camera: Camera, resolution: Tuple[int, int], ignore_value: float = 0.0, return_mask: bool = False, point_size: float = 1.0) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]
 │   ├── # Renders a point cloud's colours through the camera to an RGB image, chaining validation, projection, rasterization, and point-size dilation.
-│   ├── assert isinstance(pc, PointCloud)  # f"{type(pc)=}"
-│   ├── assert hasattr(pc, "rgb")          # "PointCloud must contain rgb field"
-│   ├── calls validate_rendering_inputs(pc=pc, camera=camera, resolution=resolution, ignore_value=ignore_value, return_mask=return_mask, point_size=point_size)
+│   ├── def _validate_inputs [local]
+│   │   ├── calls validate_rendering_inputs(pc=pc, camera=camera, resolution=resolution, ignore_value=ignore_value, return_mask=return_mask, point_size=point_size)
+│   │   ├── assert hasattr(pc, "rgb")          # "PointCloud must contain rgb field"
+│   │   └── assert isinstance(camera, Camera)  # f"{type(camera)=}"; this entry renders one camera, a batch being the depth entry's
+│   ├── calls _validate_inputs()
 │   ├── calls prepare_points_for_rendering(pc=pc, camera=camera, resolution=resolution)
 │   ├── impls rendering_points, original_data_indices = the first and third of the three it returned  # a single camera's validity is None, its culled points already dropped
 │   ├── calls render_rgb_from_rendering_points(rendering_points=rendering_points, original_data_indices=original_data_indices, pc=pc, resolution=resolution, ignore_value=ignore_value)
@@ -527,9 +532,11 @@ render_segmentation.py
 ├── from models.three_d.point_cloud.render.render_mask import render_mask_from_rendering_points
 ├── def render_segmentation_from_point_cloud(pc: PointCloud, key: str, camera: Camera, resolution: Tuple[int, int], ignore_value: int = 255, return_mask: bool = False, point_size: float = 1.0) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]
 │   ├── # Renders the labels a point cloud carries under key through the camera to a segmentation map, chaining validation, projection, rasterization, and point-size dilation.
-│   ├── assert isinstance(pc, PointCloud)  # f"{type(pc)=}"
-│   ├── assert hasattr(pc, key)            # f"PointCloud must contain '{key}' field"
-│   ├── calls validate_rendering_inputs(pc=pc, camera=camera, resolution=resolution, ignore_value=ignore_value, return_mask=return_mask, point_size=point_size)
+│   ├── def _validate_inputs [local]
+│   │   ├── calls validate_rendering_inputs(pc=pc, camera=camera, resolution=resolution, ignore_value=ignore_value, return_mask=return_mask, point_size=point_size)
+│   │   ├── assert hasattr(pc, key)            # f"PointCloud must contain '{key}' field"
+│   │   └── assert isinstance(camera, Camera)  # f"{type(camera)=}"; this entry renders one camera, a batch being the depth entry's
+│   ├── calls _validate_inputs()
 │   ├── calls prepare_points_for_rendering(pc=pc, camera=camera, resolution=resolution)
 │   ├── impls rendering_points, original_data_indices = the first and third of the three it returned  # a single camera's validity is None, its culled points already dropped
 │   ├── calls render_segmentation_from_rendering_points(rendering_points=rendering_points, original_data_indices=original_data_indices, pc=pc, key=key, resolution=resolution, ignore_value=ignore_value)
