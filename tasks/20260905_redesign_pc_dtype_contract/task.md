@@ -80,7 +80,7 @@ ply's subset is i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer 
       6. no other defaults defined for now.
    4. override meta data:
       1. init, load, and save each accept an override, and it reaches both the dtype and the layout at each.
-   5. target meta data: it holds one entry per field the override or the default names, each holding that field's layout and, where the override states one, its dtype.
+   5. target meta data: one entry per target field or column named by the override or the default, keyed by the target's name. each entry holds the source fields or columns the target is built from (its layout) and, where the override states one, the target's dtype.
       1. for the layout of load and save:
          1. when a layout moves columns into another field, the fields those columns came from are dropped.
          2. each field takes its layout from the first of these that states one: the override, and the default.
