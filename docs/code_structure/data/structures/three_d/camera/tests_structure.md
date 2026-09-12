@@ -395,15 +395,17 @@ test_io.py
 │   ├── calls load_cameras(cameras_path=that path, device="cpu")
 │   ├── calls _assert_cameras_fields_equal(loaded=what it loaded, original=cameras)
 │   └── return
-├── def test_npz_round_trip_keeps_the_batch_dtype
-│   ├── # The npz archive stores the extrinsics stack in the batch's own dtype, so a batch loads back in the dtype it was saved in rather than one the format imposes.
-│   ├── for each dtype of float32 and float64
-│   │   ├── calls _make_multi_cameras
-│   │   ├── calls cameras.to(dtype=dtype)  # -> cameras, the fixture restated in dtype
-│   │   ├── calls save_cameras(cameras=cameras, cameras_path=a .npz path under tmp_path)
-│   │   ├── calls load_cameras(cameras_path=that path, device="cpu")
-│   │   ├── impls assert the loaded batch, its extrinsics and its intrinsics all carry dtype
-│   │   └── impls assert the loaded extrinsics stack equals the saved one exactly
+├── def test_round_trip_keeps_the_batch_dtype
+│   ├── # Both formats record the batch's dtype and rebuild both components in it, so a batch loads back in the dtype it was saved in rather than one the format imposes.
+│   ├── for each format in {json, npz}
+│   │   └── for each dtype of float32 and float64
+│   │       ├── calls build_camera_intrinsics(model="pinhole", params=a [3] column per pinhole key whose focal and principal-point entries are thirds, intr_convention="standard", device="cpu", dtype=dtype)  # a third has no exact float32 spelling, so a float32 detour on the way back would change it
+│   │       ├── calls CameraExtrinsics(extrinsics=a [3, 4, 4] stack of identities whose translation columns are thirds, extr_convention="opengl", device="cpu", dtype=dtype)
+│   │       ├── calls Cameras(intrinsics=intrinsics, extrinsics=extrinsics, device="cpu")
+│   │       ├── calls save_cameras(cameras=cameras, cameras_path=a tmp_path file with that format's suffix)
+│   │       ├── calls load_cameras(cameras_path=that path, device="cpu")
+│   │       ├── impls assert the loaded batch, its extrinsics and its intrinsics all carry dtype
+│   │       └── impls assert the loaded extrinsics stack and every intrinsics param equal the saved ones exactly
 │   └── return
 ├── def _make_multi_cameras
 │   ├── # Builds the three-camera Cameras fixture both collection round trips run on, its cameras differing in param values, centre, name and id so the payload spans every per-camera path the format has to carry.
