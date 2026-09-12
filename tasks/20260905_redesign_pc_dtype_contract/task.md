@@ -121,8 +121,6 @@ ply's subset is i1, u1, i2, u2, i4, u4, f4 and f8, so ply has no 64-bit integer 
       8. a .txt holds decimal text, which yields float64.
       9. a .off holds decimal text, and float32 is what load point cloud keeps it at, hard-asserting on any magnitude float32 cannot hold rather than moving it onto a dtype that covers it.
       10. a ply u2 column is held as int32 and a ply u4 column as int64.
-      11. in a ply column, a bool target goes to u1: i1 and u1 are both one byte and both contain bool's two values, and u1 is the one whose signedness matches bool's.
-      12. in a ply column, an int64 target goes to i4.
 4. a lossy cast belongs to the caller of these modules and never to the modules themselves. a caller wanting float32 coordinates out of a float64 source narrows them itself and hands the narrowed values in.
 
 ##### 2.2.2.3. numpy to torch or torch to numpy
