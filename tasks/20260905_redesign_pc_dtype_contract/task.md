@@ -98,14 +98,19 @@ goal: re-design pc dtype contract/provenance
 1. structure: it has two parts
    1. dtype: the conceptual dtype.
    2. layout: the mapping defined by Layout Mapping.
-2. granularity: the record is one whole, created when the obj is constructed. inside it, the dtype is keyed on the source columns.
-3. immutability: the record is never mutable. adding a field, deleting a field, and overwriting an existing field all leave it exactly as it was.
-   1. user of PointCloud obj may however modify the fields, but the meta data stays constant and immutable once created.
-4. types of meta data: there are four meta data: the recorded meta data, the override meta data, the default meta data, and the target meta data the override and the default resolve into.
-   1. recorded meta data: meta data records what the source looked like, upon construction. it records the source of the data, wherever the data comes from: a load from disk, or a construction from a torch tensor or a numpy array. the meta data travels with the obj.
-      1. Select preserves it.
-      2. serializing a `PointCloud` and restoring it preserves it. a cache is not a source, so restoring builds no new record.
-      3. constructing a `PointCloud` from another obj's fields inherits that obj's record. another obj is not a source, so construction builds no new record.
+2. types of meta data: there are four meta data: the recorded meta data, the override meta data, the default meta data, and the target meta data the override and the default resolve into.
+   1. recorded meta data: one whole record of what the source looked like, created when the obj is constructed, wherever the data comes from: a load from disk, or a construction from a torch tensor or a numpy array.
+      1. content: the dtype part alone, keyed on the source columns.
+         1. the dtype is the source dtype, recorded against the source layout and not the loaded layout: the one the source column held, not the one the loaded field carries.
+            1. for the ply u4 example in Type Casting, the record holds uint32.
+            2. a float128 source records float128 in meta data.
+         2. the dtype is the conceptual dtype: a field entering as ply u2, as numpy uint16, or as an open3d UInt16 all record the same thing.
+      2. purpose: it serves only to resolve the dtype system mismatch between numpy and torch.
+      3. immutability: the record is never mutable. adding a field, deleting a field, and overwriting an existing field all leave it exactly as it was, while the user of a `PointCloud` obj may still modify the fields.
+      4. travel: the record travels with the obj.
+         1. Select preserves it.
+         2. serializing a `PointCloud` and restoring it preserves it. a cache is not a source, so restoring builds no new record.
+         3. constructing a `PointCloud` from another obj's fields inherits that obj's record. another obj is not a source, so construction builds no new record.
    2. override meta data:
       1. `__init__`, load point cloud and save point cloud each accept an override, and it reaches both the dtype and the layout at each.
    3. default meta data (default layout): each format's per-format helper defines the default layout for its own format, on load and on save alike.
@@ -113,17 +118,12 @@ goal: re-design pc dtype contract/provenance
       2. .ply on save: xyz splits back into x, y and z, and rgb splits back into red, green and blue.
       3. .pcd, .pth, .txt and .off: no default.
       4. no other defaults defined for now.
-   4. target meta data: one entry per field, each holding that field's layout and dtype.
+   4. target meta data: a per-format helper resolves it from the override and its own format's default. the target of `__init__` is the meta data `__init__` is handed. it holds one entry per field the override or the default names, each holding that field's layout and, where the override states one, its dtype.
       1. layout: when a layout moves columns into another field, the fields those columns came from are dropped. each field takes its layout from the first of these that states one:
          1. the override.
          2. the default: at load, its xyz takes a ply's x, y and z, so x, y and z have no entry of their own. at save, it sees a field called xyz and turns it into columns x, y and z.
-         3. the record.
-         4. the field itself, where the record names it nowhere: its name serves as the layout.
-      2. dtype: each entry takes it from the first of these that states one:
-         1. the override.
-         2. the record.
-         3. the field itself, where the record names it nowhere: the dtype it carries.
-5. applying meta data:
+      2. dtype: each entry takes it from the override.
+3. applying meta data:
    1. `apply_meta_data` applies exactly the meta data it is handed, resolving nothing itself. the dtype applies first, and the layout mapping is checked only after that:
       1. dtype (and convention):
          1. color conversion happens in two steps:
@@ -144,6 +144,7 @@ goal: re-design pc dtype contract/provenance
          1. rgb enters and is held exactly as it arrived, like every other field.
          2. fields keep their own names, except where the default or an override names them.
       2. the ONLY place init may ever have any type casting ops is by invoking the `apply_meta_data`.
+      3. a construction from a source records it from the data `__init__` is handed: numpy data is recorded from numpy and then turned into torch tensors, and torch data is recorded from torch.
    2. validation:
       1. the columns a field is assembled from must all hold one dtype once the target dtype has been applied. disagreeing column dtypes hard-assert and abort rather than being promoted to a dtype covering them all.
       2. `PointCloud` keeps validating xyz and rgb by field name.
