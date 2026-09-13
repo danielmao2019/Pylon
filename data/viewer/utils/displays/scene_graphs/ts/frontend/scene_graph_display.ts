@@ -49,6 +49,7 @@ interface SceneGraphPayload {
   labels: SceneGraphLabelEntry[];
 }
 
+// Renders a self-contained scene-graph display: baked node/edge geometry plus HTML label overlay projected per frame, its trackball holding the camera's roll about lockRoll (a non-zero THREE.Vector3 world-space axis of any length, handed to createTrackballCameraControls unchanged) or leaving roll free when lockRoll is null.
 export function renderSceneGraphDisplay({
   displayResponse,
   initialCameraState = null,
@@ -57,6 +58,7 @@ export function renderSceneGraphDisplay({
   edgeWidth,
   labelFontSize,
   labelColor,
+  lockRoll = null,
 }: {
   displayResponse: SceneGraphDisplayResponse;
   initialCameraState?: CameraState | null;
@@ -65,6 +67,7 @@ export function renderSceneGraphDisplay({
   edgeWidth?: number;
   labelFontSize?: number;
   labelColor?: string;
+  lockRoll?: THREE.Vector3 | null;
 }): LeafVNode {
   const leaf: LeafVNode = {
     kind: "leaf",
@@ -84,7 +87,7 @@ export function renderSceneGraphDisplay({
         labelColor,
       });
       scene.add(object);
-      const controls = createTrackballCameraControls({ container, camera, renderer, initialCameraState });
+      const controls = createTrackballCameraControls({ container, camera, renderer, initialCameraState, lockRoll });
       renderSceneGraphScene({ scene, camera, renderer, controls, labels, labelOverlay, labelFontSize, labelColor });
       return container;
     },
