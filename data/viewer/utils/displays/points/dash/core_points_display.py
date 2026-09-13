@@ -26,7 +26,7 @@ from data.structures.three_d.point_cloud.random_select import RandomSelect
 from data.transforms.vision_3d.pclod import create_lod_function
 from data.viewer.dataset.context import get_viewer_context
 from data.viewer.utils.controls.camera.camera_controls.dash.trackball_camera_controls import (
-    create_dash_trackball_camera_controls,
+    create_dash_plotly_trackball_camera_controls,
 )
 from data.viewer.utils.segmentation import get_color
 
@@ -863,41 +863,43 @@ def create_dash_points_display(
     point_cloud: PointCloud,
     point_size: Optional[float] = None,
     point_color: Optional[str] = None,
+    lock_roll: Optional[Tuple[float, float, float]] = None,
 ) -> dcc.Graph:
-    """Render a Dash point-cloud display element.
+    """Render a Dash point-cloud display element under its trackball camera controls.
 
-    The `point_size` and `point_color` overrides are opt-in. When supplied,
-    `point_color` replaces per-point colors with a uniform color so the consumer
-    can override the rendered look without rebuilding the point-cloud data.
+    The `point_size` and `point_color` overrides are opt-in. When supplied, `point_color` replaces per-point colors with a uniform color so the consumer can override the rendered look without rebuilding the point-cloud data.
 
     Args:
-        point_cloud: PointCloud to render; `xyz` holds the point positions and an
-            optional `rgb` field holds per-point colors.
-        point_size: Optional uniform marker size override; when None the
-            bounding-sphere heuristic computes the size.
-        point_color: Optional uniform marker color override (CSS color string);
-            when None per-point colors or the lib default color is used.
+        point_cloud: PointCloud to render; `xyz` holds the point positions and an optional `rgb` field holds per-point colors.
+        point_size: Optional uniform marker size override; when None the bounding-sphere heuristic computes the size.
+        point_color: Optional uniform marker color override (CSS color string); when None per-point colors or the lib default color is used.
+        lock_roll: Optional axis to hold camera roll about through every drag, as a non-zero `(x, y, z)` world-space direction of any length in the point cloud's own world frame, handed unchanged to `create_dash_plotly_trackball_camera_controls`; None leaves roll free.
 
     Returns:
-        Dash `dcc.Graph` wrapping the point-cloud scene.
+        Dash `dcc.Graph` wrapping the point-cloud scene under its trackball camera controls, carrying the roll-locked pattern-matching component id when `lock_roll` is supplied and no id otherwise.
     """
-    assert isinstance(point_cloud, PointCloud), (
-        "Expected `point_cloud` to be a `PointCloud` instance. " f"{type(point_cloud)=}"
-    )
-    assert point_size is None or isinstance(point_size, (int, float)), (
-        "Expected `point_size` to be None or numeric. " f"{type(point_size)=}"
-    )
-    assert point_color is None or isinstance(point_color, str), (
-        "Expected `point_color` to be None or a CSS color string. "
-        f"{type(point_color)=}"
-    )
+
+    def _validate_inputs() -> None:
+        assert isinstance(point_cloud, PointCloud), (
+            "Expected `point_cloud` to be a `PointCloud` instance. "
+            f"{type(point_cloud)=}"
+        )
+        assert point_size is None or isinstance(point_size, (int, float)), (
+            "Expected `point_size` to be None or numeric. " f"{type(point_size)=}"
+        )
+        assert point_color is None or isinstance(point_color, str), (
+            "Expected `point_color` to be None or a CSS color string. "
+            f"{type(point_color)=}"
+        )
+
+    _validate_inputs()
 
     scene = create_dash_points_scene(
         point_cloud=point_cloud,
         point_size=point_size,
         point_color=point_color,
     )
-    controls = create_dash_trackball_camera_controls
+    controls = create_dash_plotly_trackball_camera_controls(lock_roll=lock_roll)
     return create_dash_points_component(
         scene=scene,
         controls=controls,
@@ -963,22 +965,37 @@ def create_dash_points_scene(
 
 def create_dash_points_component(
     scene: go.Scatter3d,
-    controls: Any,
+    controls: Dict[str, Any],
 ) -> dcc.Graph:
-    """Wrap the point-cloud scene and camera controls into a Dash component.
+    """Assemble the Dash component that hosts the point-cloud scene under its trackball camera controls.
 
     Args:
         scene: Plotly `go.Scatter3d` marker trace for the point cloud.
-        controls: Dash trackball camera-controls factory for the renderer.
+        controls: The Plotly gl3d controls `create_dash_plotly_trackball_camera_controls` built, a dict of exactly `"scene"` (the `layout.scene` configuration dict) and `"graph_id"` (None, or the roll-locked pattern-matching component id dict).
 
     Returns:
-        Dash `dcc.Graph` rendering the point-cloud scene.
+        Dash `dcc.Graph` rendering the point-cloud scene under `controls["scene"]`, carrying `controls["graph_id"]` as its component id when that id is not None.
     """
-    assert isinstance(scene, go.Scatter3d), (
-        "Expected `scene` to be a Plotly `go.Scatter3d` trace. " f"{type(scene)=}"
+
+    def _validate_inputs() -> None:
+        assert isinstance(scene, go.Scatter3d), (
+            "Expected `scene` to be a Plotly `go.Scatter3d` trace. " f"{type(scene)=}"
+        )
+        assert isinstance(controls, dict) and set(controls) == {"scene", "graph_id"}, (
+            "Expected `controls` to be the Plotly gl3d controls, a dict of exactly "
+            "`scene` and `graph_id`. "
+            f"{controls=}"
+        )
+
+    _validate_inputs()
+
+    display = dcc.Graph(
+        figure=go.Figure(data=[scene], layout={"scene": controls["scene"]})
     )
-    component = dcc.Graph(figure=go.Figure(data=[scene]))
-    return component
+    if controls["graph_id"] is not None:
+        # The pattern-matching id the roll-lock callback holds this graph by.
+        display.id = controls["graph_id"]
+    return display
 
 
 def get_point_cloud_display_stats(

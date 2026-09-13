@@ -17,28 +17,26 @@ import {
 } from "data/viewer/utils/displays/utils/ts/frontend/three_scene_helpers";
 import { createTrackballCameraControls } from "data/viewer/utils/controls/camera/camera_controls/ts/frontend/trackball_camera_controls";
 
-// Composes one layered display response into a shared spatial WebGL scene or a
-// stacked raster DOM container per cell, routing on the backend-stamped
-// layer_class.
+// Composes one layered display response into a shared spatial WebGL scene or a stacked raster DOM container per cell, routing on the backend-stamped layer_class.
 //
 // Args:
-//   layeredDisplayResponse: the layered response carrying its base + aux layers
-//     and the backend-stamped layer_class that selects the spatial/raster branch.
-//   initialCameraState: initial framing for the spatial branch's one shared camera
-//     (camera-to-world extrinsics + intrinsics); null uses the camera's default
-//     framing.
+//   layeredDisplayResponse: the layered response carrying its base + aux layers and the backend-stamped layer_class that selects the spatial/raster branch.
+//   initialCameraState: initial framing for the spatial branch's one shared camera (camera-to-world extrinsics + intrinsics); null uses the camera's default framing.
+//   lockRoll: world-space axis the spatial branch's one shared camera holds its roll about (a non-zero THREE.Vector3 of any length), forwarded to the spatial branch only; null leaves the trackball free.
 //
 // Returns:
 //   The container LeafVNode for the routed layer class.
 export function renderLayeredDisplay({
   layeredDisplayResponse,
   initialCameraState,
+  lockRoll = null,
 }: {
   layeredDisplayResponse: LayeredDisplayResponse;
   initialCameraState: CameraState | null;
+  lockRoll?: THREE.Vector3 | null;
 }): LeafVNode {
   if (layeredDisplayResponse.layer_class === "spatial") {
-    return renderLayeredSpatialDisplay({ layeredDisplayResponse, initialCameraState });
+    return renderLayeredSpatialDisplay({ layeredDisplayResponse, initialCameraState, lockRoll });
   }
   if (layeredDisplayResponse.layer_class === "raster") {
     return renderLayeredRasterDisplay({ layeredDisplayResponse });
@@ -48,25 +46,23 @@ export function renderLayeredDisplay({
   );
 }
 
-// Renders the base + aux spatial layers into one shared scene/camera as a
-// slot_id-keyed LeafVNode, the shared camera owning the framing and the additive
-// pick seam.
+// Renders the base + aux spatial layers into one shared scene/camera as a slot_id-keyed LeafVNode, the shared camera owning the framing and the additive pick seam.
 //
 // Args:
-//   layeredDisplayResponse: the layered response whose base + aux layers are built
-//     into the one shared scene.
-//   initialCameraState: initial framing for the one shared camera (camera-to-world
-//     extrinsics + intrinsics); null uses the camera's default framing.
+//   layeredDisplayResponse: the layered response whose base + aux layers are built into the one shared scene.
+//   initialCameraState: initial framing for the one shared camera (camera-to-world extrinsics + intrinsics); null uses the camera's default framing.
+//   lockRoll: world-space axis the one shared camera's trackball holds the roll about (a non-zero THREE.Vector3 of any length), handed to createTrackballCameraControls unchanged; null leaves the trackball free.
 //
 // Returns:
-//   A LeafVNode keyed by layeredDisplayResponse.slot_id whose render() mounts the
-//   shared spatial context.
+//   A LeafVNode keyed by layeredDisplayResponse.slot_id whose render() mounts the shared spatial context.
 function renderLayeredSpatialDisplay({
   layeredDisplayResponse,
   initialCameraState,
+  lockRoll = null,
 }: {
   layeredDisplayResponse: LayeredDisplayResponse;
   initialCameraState: CameraState | null;
+  lockRoll?: THREE.Vector3 | null;
 }): LeafVNode {
   const leaf: LeafVNode = {
     kind: "leaf",
@@ -83,6 +79,7 @@ function renderLayeredSpatialDisplay({
         camera,
         renderer,
         initialCameraState,
+        lockRoll,
       });
       _syncCameraState({ container, controls });
       attachThreeScenePickSeam({ container, camera, scenes: [scene] });

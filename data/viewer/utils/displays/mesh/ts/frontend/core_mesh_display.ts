@@ -73,19 +73,21 @@ interface MeshPayload {
   texture: MeshTextureVertexColor | MeshTextureUVTextureMap | null;
 }
 
-// Render a self-contained mesh display element initialized at initialCameraState.
+// Render a self-contained mesh display element initialized at initialCameraState, its trackball holding the camera's roll about lockRoll (a non-zero THREE.Vector3 world-space axis of any length, handed to createTrackballCameraControls unchanged) or leaving roll free when lockRoll is null.
 export function renderMeshDisplay({
   displayResponse,
   initialCameraState = null,
   meshColor,
   meshOpacity,
   meshSide,
+  lockRoll = null,
 }: {
   displayResponse: MeshDisplayResponse;
   initialCameraState?: CameraState | null;
   meshColor?: string;
   meshOpacity?: number;
   meshSide?: THREE.Side;
+  lockRoll?: THREE.Vector3 | null;
 }): LeafVNode {
   const leaf: LeafVNode = {
     kind: "leaf",
@@ -97,7 +99,7 @@ export function renderMeshDisplay({
       });
       const object = createMeshObject({ displayResponse, meshColor, meshOpacity, meshSide });
       scene.add(object);
-      const controls = createTrackballCameraControls({ container, camera, renderer, initialCameraState });
+      const controls = createTrackballCameraControls({ container, camera, renderer, initialCameraState, lockRoll });
       renderMeshScene({ scene, camera, renderer, controls });
       return container;
     },

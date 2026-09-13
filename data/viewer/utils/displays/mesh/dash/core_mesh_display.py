@@ -21,6 +21,7 @@ from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import (
     MeshTextureVertexColor,
 )
 from data.viewer.utils.controls.camera.camera_controls.dash.trackball_camera_controls import (
+    create_dash_plotly_trackball_camera_controls,
     create_dash_trackball_camera_controls,
 )
 from data.viewer.utils.controls.camera.camera_sync.threejs import (
@@ -1093,41 +1094,39 @@ def create_dash_mesh_display(
     mesh_color: Optional[str] = None,
     mesh_opacity: Optional[float] = None,
     mesh_side: Optional[str] = None,
+    lock_roll: Optional[Tuple[float, float, float]] = None,
 ) -> dcc.Graph:
-    """Render a Dash mesh display element.
+    """Render a Dash mesh display element under its trackball camera controls.
 
-    The `mesh_color`, `mesh_opacity`, and `mesh_side` overrides are opt-in.
-    When supplied, `mesh_color` replaces the mesh's texture/per-vertex colors
-    with a uniform color so the consumer can override the rendered look without
-    rebuilding the mesh data.
+    The `mesh_color`, `mesh_opacity`, and `mesh_side` overrides are opt-in. When supplied, `mesh_color` replaces the mesh's texture/per-vertex colors with a uniform color so the consumer can override the rendered look without rebuilding the mesh data.
 
     Args:
-        mesh: `Mesh` to render; carries either a `MeshTextureVertexColor` or a
-            `MeshTextureUVTextureMap` texture.
-        mesh_color: Optional uniform color override (CSS color string); when
-            None the mesh's texture/per-vertex colors or the lib default color
-            is used.
-        mesh_opacity: Optional opacity override in `[0, 1]`; when None
-            `DEFAULT_MESH_OPACITY` is used.
-        mesh_side: Optional side mode override; when None `DEFAULT_MESH_SIDE`
-            is used.
+        mesh: `Mesh` to render; carries either a `MeshTextureVertexColor` or a `MeshTextureUVTextureMap` texture.
+        mesh_color: Optional uniform color override (CSS color string); when None the mesh's texture/per-vertex colors or the lib default color is used.
+        mesh_opacity: Optional opacity override in `[0, 1]`; when None `DEFAULT_MESH_OPACITY` is used.
+        mesh_side: Optional side mode override; when None `DEFAULT_MESH_SIDE` is used.
+        lock_roll: Optional axis to hold camera roll about through every drag, as a non-zero `(x, y, z)` world-space direction of any length in the mesh's own world frame, handed unchanged to `create_dash_plotly_trackball_camera_controls`; None leaves roll free.
 
     Returns:
-        Dash `dcc.Graph` wrapping the mesh scene.
+        Dash `dcc.Graph` wrapping the mesh scene under its trackball camera controls, carrying the roll-locked pattern-matching component id when `lock_roll` is supplied and no id otherwise.
     """
-    assert isinstance(mesh, Mesh), (
-        "Expected `mesh` to be a `Mesh` instance. " f"{type(mesh)=}"
-    )
-    assert mesh_color is None or isinstance(mesh_color, str), (
-        "Expected `mesh_color` to be None or a CSS color string. "
-        f"{type(mesh_color)=}"
-    )
-    assert mesh_opacity is None or isinstance(mesh_opacity, (int, float)), (
-        "Expected `mesh_opacity` to be None or numeric. " f"{type(mesh_opacity)=}"
-    )
-    assert mesh_side is None or isinstance(mesh_side, str), (
-        "Expected `mesh_side` to be None or a string. " f"{type(mesh_side)=}"
-    )
+
+    def _validate_inputs() -> None:
+        assert isinstance(mesh, Mesh), (
+            "Expected `mesh` to be a `Mesh` instance. " f"{type(mesh)=}"
+        )
+        assert mesh_color is None or isinstance(mesh_color, str), (
+            "Expected `mesh_color` to be None or a CSS color string. "
+            f"{type(mesh_color)=}"
+        )
+        assert mesh_opacity is None or isinstance(mesh_opacity, (int, float)), (
+            "Expected `mesh_opacity` to be None or numeric. " f"{type(mesh_opacity)=}"
+        )
+        assert mesh_side is None or isinstance(mesh_side, str), (
+            "Expected `mesh_side` to be None or a string. " f"{type(mesh_side)=}"
+        )
+
+    _validate_inputs()
 
     scene = create_dash_mesh_scene(
         mesh=mesh,
@@ -1135,7 +1134,7 @@ def create_dash_mesh_display(
         mesh_opacity=mesh_opacity,
         mesh_side=mesh_side,
     )
-    controls = create_dash_trackball_camera_controls
+    controls = create_dash_plotly_trackball_camera_controls(lock_roll=lock_roll)
     return create_dash_mesh_component(
         scene=scene,
         controls=controls,
@@ -1357,19 +1356,34 @@ def _create_dash_uv_texture_map_mesh_scene(
 
 def create_dash_mesh_component(
     scene: go.Mesh3d,
-    controls: Any,
+    controls: Dict[str, Any],
 ) -> dcc.Graph:
-    """Wrap the mesh scene and camera controls into a Dash component.
+    """Assemble the Dash component that hosts the Mesh3d scene under its trackball camera controls.
 
     Args:
         scene: Plotly `go.Mesh3d` trace for the mesh.
-        controls: Dash trackball camera-controls factory for the renderer.
+        controls: The Plotly gl3d controls `create_dash_plotly_trackball_camera_controls` built, a dict of exactly `"scene"` (the `layout.scene` configuration dict) and `"graph_id"` (None, or the roll-locked pattern-matching component id dict).
 
     Returns:
-        Dash `dcc.Graph` rendering the mesh scene.
+        Dash `dcc.Graph` rendering the mesh scene under `controls["scene"]`, carrying `controls["graph_id"]` as its component id when that id is not None.
     """
-    assert isinstance(scene, go.Mesh3d), (
-        "Expected `scene` to be a Plotly `go.Mesh3d` trace. " f"{type(scene)=}"
+
+    def _validate_inputs() -> None:
+        assert isinstance(scene, go.Mesh3d), (
+            "Expected `scene` to be a Plotly `go.Mesh3d` trace. " f"{type(scene)=}"
+        )
+        assert isinstance(controls, dict) and set(controls) == {"scene", "graph_id"}, (
+            "Expected `controls` to be the Plotly gl3d controls, a dict of exactly "
+            "`scene` and `graph_id`. "
+            f"{controls=}"
+        )
+
+    _validate_inputs()
+
+    display = dcc.Graph(
+        figure=go.Figure(data=[scene], layout={"scene": controls["scene"]})
     )
-    component = dcc.Graph(figure=go.Figure(data=[scene]))
-    return component
+    if controls["graph_id"] is not None:
+        # The pattern-matching id the roll-lock callback holds this graph by.
+        display.id = controls["graph_id"]
+    return display
