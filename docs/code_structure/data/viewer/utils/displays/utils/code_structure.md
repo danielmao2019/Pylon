@@ -135,16 +135,16 @@ layered_display_container.ts
 ├── import "data/viewer/utils/displays/utils/ts/frontend/register_layer_renderers";  # side-effect: eager-glob-loads every modality so its self-registration populates the registry before any render
 ├── import { createSpatialDisplayScene, startThreeSceneRenderLoop, attachThreeScenePickSeam } from "data/viewer/utils/displays/utils/ts/frontend/three_scene_helpers";
 ├── import { createTrackballCameraControls } from "data/viewer/utils/controls/camera/camera_controls/ts/frontend/trackball_camera_controls";
-├── export function renderLayeredDisplay({ layeredDisplayResponse, initialCameraState, }: { layeredDisplayResponse: LayeredDisplayResponse; initialCameraState: CameraState | null; }): LeafVNode
+├── export function renderLayeredDisplay({ layeredDisplayResponse, initialCameraState, lockRoll = null }: { layeredDisplayResponse: LayeredDisplayResponse; initialCameraState: CameraState | null; lockRoll?: THREE.Vector3 | null }): LeafVNode
 │   ├── # Composes one layered display response into a shared spatial WebGL scene or a stacked raster DOM container per cell, routing on the backend-stamped layer_class.
 │   ├── if layeredDisplayResponse.layer_class is "spatial"
-│   │   ├── calls renderLayeredSpatialDisplay({ layeredDisplayResponse, initialCameraState })
+│   │   ├── calls renderLayeredSpatialDisplay({ layeredDisplayResponse, initialCameraState, lockRoll })
 │   │   └── return
 │   ├── if layeredDisplayResponse.layer_class is "raster"
 │   │   ├── calls renderLayeredRasterDisplay({ layeredDisplayResponse })
 │   │   └── return
 │   └── throw layered display response has an unknown layer class: ${JSON.stringify(layeredDisplayResponse.layer_class)}
-├── function renderLayeredSpatialDisplay({ layeredDisplayResponse, initialCameraState, }: { layeredDisplayResponse: LayeredDisplayResponse; initialCameraState: CameraState | null; }): LeafVNode
+├── function renderLayeredSpatialDisplay({ layeredDisplayResponse, initialCameraState, lockRoll = null }: { layeredDisplayResponse: LayeredDisplayResponse; initialCameraState: CameraState | null; lockRoll?: THREE.Vector3 | null }): LeafVNode
 │   ├── # Renders the base and aux spatial layers into one shared scene and camera, that camera owning the framing and the additive pick seam.
 │   ├── () => [local]
 │   │   ├── # The leaf's render: mounts the shared spatial context and returns its container.
@@ -154,7 +154,7 @@ layered_display_container.ts
 │   │   │   ├── # Per layer object: adds it to the one shared scene.
 │   │   │   └── impls scene.add(object)
 │   │   ├── impls layerObjects each added through that step
-│   │   ├── calls createTrackballCameraControls({ container, camera, renderer, initialCameraState })  # -> controls, owned by the one shared camera
+│   │   ├── calls createTrackballCameraControls({ container, camera, renderer, initialCameraState, lockRoll })  # -> controls, owned by the one shared camera
 │   │   ├── calls _syncCameraState({ container, controls })
 │   │   ├── calls attachThreeScenePickSeam({ container, camera, scenes: [scene] })
 │   │   ├── calls renderLayeredSpatialScene({ scene, camera, renderer, controls })

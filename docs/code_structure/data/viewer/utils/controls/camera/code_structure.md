@@ -65,38 +65,303 @@ types.ts
 
 ```text
 trackball_camera_controls.py
-├── def create_dash_trackball_camera_controls
+├── import base64
+├── import json
+├── from uuid import uuid4
+├── from dash import ALL, Input, clientside_callback
+├── PLOTLY_POSE_CLAMPING_DRAGMODE = "turntable"  # Plotly gl3d dragmode that pins camera.up onto world +Z, and the one a scene naming no dragmode runs
+├── PLOTLY_FREE_ROLL_DRAGMODE = "orbit"          # Plotly gl3d dragmode whose left-drag carries camera.up with the drag, leaving roll free
+├── PLOTLY_DATA_PROPORTION_ASPECTMODE = "data"   # Plotly gl3d aspectmode that draws every axis at its data's own proportions, so a world direction keeps its angles in the scene's normalized space
+├── ROLL_LOCKED_GRAPH_ID_TYPE = "dash-roll-locked-graph"  # type of the pattern-matching component id a roll-locked Plotly gl3d display's dcc.Graph carries, the key the roll-lock callback matches it on
+├── ROLL_LOCK_CALLBACK_SCRIPT                    # text of roll_lock.js beside this module, the clientside roll-lock source this module registers
+├── def create_dash_trackball_camera_controls(renderer_controls=None, lock_roll=None)  # renderer_controls: a renderer's own camera-control JavaScript source, or None for a Plotly gl3d display, whose trackball is Plotly's own; lock_roll: a non-zero (x, y, z) world-space axis of any length, or None for the free trackball
 │   ├── # Builds and validates the Dash trackball controls that every 3D Dash spatial display must use.
-│   ├── calls create_dash_renderer_trackball_camera_controls
-│   ├── calls assert_dash_trackball_camera_controls
-│   └── return
-├── def create_dash_renderer_trackball_camera_controls
+│   ├── calls create_dash_renderer_trackball_camera_controls(renderer_controls=renderer_controls, lock_roll=lock_roll)
+│   ├── calls assert_dash_trackball_camera_controls(controls=controls, lock_roll=lock_roll)
+│   └── return controls
+├── def create_dash_renderer_trackball_camera_controls(renderer_controls, lock_roll)
 │   ├── # Constructs the Dash renderer-specific trackball controls wiring left-drag rotate, right-drag pan, wheel zoom, and context-menu suppression.
-│   ├── impls Dash renderer-specific trackball camera controls with left-button rotation, right-button panning, mouse-wheel zoom, and suppressed canvas context menu  # impls-node-one-step:skip
+│   ├── if renderer_controls is not None
+│   │   └── return renderer_controls  # exactly as they arrived, so a display handing over its own source renders what it rendered before lock_roll existed
+│   ├── impls plotly_controls = {"scene": {"dragmode": PLOTLY_FREE_ROLL_DRAGMODE}, "graph_id": None}  # the layout.scene configuration a Plotly gl3d display's figure carries and the component id its dcc.Graph carries, Plotly itself wiring left-button rotation, right-button panning, mouse-wheel zoom, and the suppressed canvas context menu
+│   ├── if lock_roll is not None
+│   │   ├── impls axis = lock_roll normalized to unit length
+│   │   ├── impls plotly_controls["scene"]["aspectmode"] = PLOTLY_DATA_PROPORTION_ASPECTMODE  # the scene keeps world directions, so the camera.up below sits on the lock from the first frame and a data-extent change leaves the lock axis in place
+│   │   ├── impls plotly_controls["scene"]["camera"] = {"up": {"x": axis[0], "y": axis[1], "z": axis[2]}}
+│   │   └── impls plotly_controls["graph_id"] = {"type": ROLL_LOCKED_GRAPH_ID_TYPE, "index": uuid4().hex, "lock_roll": base64.b64encode(json.dumps(axis).encode()).decode()}  # index keeps two roll-locked graphs on one page apart; lock_roll hands the callback this graph's axis, base64 so no id value holds a "." Dash escapes in output ids
+│   └── return plotly_controls
+├── def assert_dash_trackball_camera_controls(controls, lock_roll=None)
+│   ├── # Validates the constructed Dash controls satisfy every trackball contract by running the mouse-mapping, no-orbit, no-pose-clamp, and roll-lock assertions.
+│   ├── calls assert_dash_trackball_mouse_mapping(controls=controls)
+│   ├── calls assert_dash_no_orbit_camera_controls(controls=controls)
+│   ├── calls assert_dash_no_camera_pose_clamps(controls=controls, lock_roll=lock_roll)
+│   ├── calls assert_dash_roll_lock(controls=controls, lock_roll=lock_roll)
 │   └── return
-├── def assert_dash_trackball_camera_controls
-│   ├── # Validates the constructed Dash controls satisfy every trackball contract by running the mouse-mapping, no-orbit, and no-pose-clamp assertions.
-│   ├── calls assert_dash_trackball_mouse_mapping
-│   ├── calls assert_dash_no_orbit_camera_controls
-│   ├── calls assert_dash_no_camera_pose_clamps
-│   └── return
-├── def assert_dash_trackball_mouse_mapping
+├── def assert_dash_trackball_mouse_mapping(controls)
 │   ├── # Asserts the Dash controls map left-drag to rotate, right-drag to pan, and wheel to zoom, and that the canvas suppresses its context menu.
+│   ├── if controls are Plotly gl3d controls
+│   │   ├── if their scene configuration names a dragmode other than PLOTLY_FREE_ROLL_DRAGMODE or PLOTLY_POSE_CLAMPING_DRAGMODE
+│   │   │   └── raise invalid trackball camera controls  # Plotly wires the three-button mapping and suppresses the context menu natively only under a rotation dragmode
+│   │   └── return
 │   ├── if controls do not map left-button drag to rotation, right-button drag to panning, and mouse-wheel scroll to zoom
 │   │   └── raise invalid trackball camera controls
 │   ├── if viewer canvas does not suppress the default browser context menu
 │   │   └── raise context menu blocks trackball panning
 │   └── return
-├── def assert_dash_no_orbit_camera_controls
+├── def assert_dash_no_orbit_camera_controls(controls)
 │   ├── # Asserts the Dash controls do not use forbidden orbit-style target-locked camera semantics.
-│   ├── if controls use orbit-style target-locked camera semantics
+│   ├── if controls use orbit-style target-locked camera semantics  # three's OrbitControls in a renderer source, a pinned camera.center in a Plotly scene configuration
 │   │   └── raise orbit-style camera controls are forbidden
 │   └── return
-└── def assert_dash_no_camera_pose_clamps
-    ├── # Asserts the Dash controls impose no camera-pose restriction on polar angle, azimuth angle, target lock, distance, pan, translation, or rotation.
-    ├── if controls restrict polar angle, azimuth angle, target lock, distance bounds, pan, translation, or rotation
-    │   └── raise restricted camera pose controls
-    └── return
+├── def assert_dash_no_camera_pose_clamps(controls, lock_roll=None)
+│   ├── # Asserts the Dash controls impose no camera-pose restriction on polar angle, azimuth angle, target lock, distance, pan, translation, or rotation beyond the polar band a roll lock costs.
+│   ├── if controls are Plotly gl3d controls whose scene configuration runs PLOTLY_POSE_CLAMPING_DRAGMODE, by name or by naming no dragmode
+│   │   └── raise restricted camera pose controls
+│   ├── if controls restrict azimuth angle, target lock, distance bounds, pan, or translation
+│   │   └── raise restricted camera pose controls
+│   ├── if lock_roll is None and controls restrict polar angle or rotation
+│   │   └── raise restricted camera pose controls
+│   ├── if lock_roll is not None and controls restrict rotation
+│   │   └── raise roll lock must cost only the roll axis and the polar extremes
+│   └── return
+├── def assert_dash_roll_lock(controls, lock_roll=None)
+│   ├── # Asserts roll is held about lock_roll when one is supplied and left free when none is, this module owning no axis of its own.
+│   ├── if lock_roll is not None and controls let the camera right axis tilt away from perpendicular to lock_roll
+│   │   └── raise roll-locked camera controls must keep the camera right axis perpendicular to the supplied axis
+│   ├── if lock_roll is not None and controls let the camera up vector cross to the far side of lock_roll
+│   │   └── raise roll-locked camera controls must keep the camera up vector on the supplied axis's side
+│   ├── if lock_roll is not None and controls are Plotly gl3d controls
+│   │   ├── if their scene's aspectmode is not PLOTLY_DATA_PROPORTION_ASPECTMODE
+│   │   │   └── raise roll-locked Plotly controls must draw the scene at its data's own proportions
+│   │   ├── if their graph_id is not a ROLL_LOCKED_GRAPH_ID_TYPE id whose lock_roll, decoded base64 then JSON, is lock_roll normalized
+│   │   │   └── raise roll-locked Plotly controls must carry the graph id the roll-lock callback matches, with the supplied axis
+│   │   ├── calls assert_dash_roll_lock(controls=ROLL_LOCK_CALLBACK_SCRIPT, lock_roll=lock_roll)  # the callback that id is matched by holds the lock only as far as its own source does
+│   │   └── return
+│   ├── if lock_roll is None and controls constrain the camera right axis against any axis  # a pinned camera.up or a roll-locked graph_id in Plotly controls, the roll-lock vocabulary in a renderer source
+│   │   └── raise free trackball camera controls must leave camera roll unconstrained
+│   └── return
+└── impls clientside_callback(ROLL_LOCK_CALLBACK_SCRIPT, Input({"type": ROLL_LOCKED_GRAPH_ID_TYPE, "index": ALL, "lock_roll": ALL}, "relayoutData"))  # module-load registration of the one roll-lock callback, ahead of every Dash app's server setup, so a roll-locked graph a callback adds after the page loaded is matched like one built into the layout
+```
+
+`data/viewer/utils/controls/camera/camera_controls/dash/roll_lock.js`
+
+```text
+roll_lock.js
+└── function holdRollLockedGraphs(relayoutDataList)  # the one clientside callback trackball_camera_controls.py registers; relayoutDataList: the relayoutData of every graph its ROLL_LOCKED_GRAPH_ID_TYPE pattern matches
+    ├── # Holds the camera roll of every roll-locked Plotly gl3d graph on the page about the axis its own component id carries, each time any of them reports a relayout.
+    ├── function resolveGraphElementId(graphId) [local]
+    │   ├── # Resolves the DOM id Dash renders a pattern-matching component id onto, the way dash-renderer stringifies one.
+    │   ├── impls graphElementId = "{" + the keys of graphId sorted, each written as JSON.stringify(key) + ":" + JSON.stringify(graphId[key]), joined by "," + "}"
+    │   └── return graphElementId
+    ├── function createRollLockCallback(graphElementId, worldAxis) [local]  # graphElementId: the DOM id dcc.Graph renders the graph's component id onto; worldAxis: the unit-length lock axis in the data's own world frame, as an [x, y, z] array
+    │   ├── # Builds the lock one graph holds: the callback that holds its gl3d scene's camera roll about worldAxis, as the scene draws it, through every drag.
+    │   ├── impls ROLL_LOCK_POLAR_ANGLE_EPSILON = the radians the roll-locked camera stops short of either pole of axis
+    │   ├── impls ROLL_LOCK_VIOLATION_EPSILON = the squared distance at or below which a reported up vector already equals the roll-locked one
+    │   ├── impls ROLL_LOCK_RADIANS_PER_DRAG_UNIT = the radians the view controller's own trackball turns per unit of the screen-space drag it hands its rotation
+    │   ├── impls ROLL_LOCK_SUB_STEP_RADIANS = the largest turn one roll-locked drag keyframe takes from the keyframe before it
+    │   ├── impls axis, ROLL_LOCK_FALLBACK_MERIDIAN = the lock axis in the mounted scene's normalized space and the meridian an eye sitting on it is banded onto, both set by resolveSceneAxis each time the lock is held on a scene
+    │   ├── function rollLockCallback(relayoutData) [local]
+    │   │   ├── # Re-holds the lock on graphElementId's gl3d scene each time the roll-lock callback runs, its first render included.
+    │   │   ├── calls resolveMountedScene()
+    │   │   ├── if graphElementId's gl3d scene has not mounted yet
+    │   │   │   ├── impls window.requestAnimationFrame re-runs rollLockCallback(relayoutData) once the scene mounts
+    │   │   │   └── return window.dash_clientside.no_update
+    │   │   ├── calls holdSceneRollLock(scene)
+    │   │   ├── calls subscribeRollLock(graphDiv)
+    │   │   ├── calls applyRollLock(graphDiv, scene.getCamera())
+    │   │   └── return window.dash_clientside.no_update
+    │   ├── function resolveMountedScene() [local]
+    │   │   ├── # Resolves graphElementId's Plotly graph div and its gl3d scene, or null while the scene has not mounted.
+    │   │   ├── impls graphDiv = the .js-plotly-plot element inside the wrapper whose DOM id is graphElementId
+    │   │   ├── if graphDiv, its full layout, or that layout's gl3d scene does not exist yet
+    │   │   │   └── return null
+    │   │   ├── impls mountedScene = { graphDiv, scene: graphDiv._fullLayout.scene._scene }
+    │   │   └── return mountedScene
+    │   ├── function holdSceneRollLock(scene) [local]
+    │   │   ├── # Holds the lock on one gl3d scene: on the view controller it turns now, and on each one it builds later from the camera the layout stores, before that controller draws a frame.
+    │   │   ├── calls resolveSceneAxis(scene)
+    │   │   ├── calls holdRollLock(scene.camera.view)
+    │   │   ├── if scene already holds the lock
+    │   │   │   └── return
+    │   │   ├── impls marks scene as holding the lock
+    │   │   ├── function rollLockedInitializeGLCamera() [local]
+    │   │   │   ├── # Builds the scene's camera through its own initializeGLCamera, as a projection switch does, then holds the lock on the new view controller in the same call.
+    │   │   │   ├── impls the scene's own initializeGLCamera()
+    │   │   │   ├── calls holdRollLock(scene.camera.view)
+    │   │   │   └── return
+    │   │   ├── impls scene.initializeGLCamera = rollLockedInitializeGLCamera, the scene's own initializeGLCamera kept for rollLockedInitializeGLCamera to build through
+    │   │   └── return
+    │   ├── function resolveSceneAxis(scene) [local]
+    │   │   ├── # Resolves the lock axis in the scene's normalized space, where Plotly draws each world axis scaled by its aspect ratio over its range, so worldAxis stays upright on screen under any aspect.
+    │   │   ├── impls sceneScale = for each of x, y and z, that axis's scene.fullSceneLayout.aspectratio over the span of that axis's range, the per-axis scale the scene draws world coordinates at
+    │   │   ├── impls axis = vectorNormalize(worldAxis scaled componentwise by sceneScale)
+    │   │   ├── impls ROLL_LOCK_FALLBACK_MERIDIAN = vectorNormalize(vectorCross(axis, the world basis vector axis leans on least))
+    │   │   └── return
+    │   ├── function holdRollLock(view) [local]
+    │   │   ├── # Holds the lock on one gl3d scene's view controller, once per view controller, since a replotted graph arrives with a view controller of its own.
+    │   │   ├── if view already holds the lock
+    │   │   │   └── return
+    │   │   ├── impls marks view as holding the lock
+    │   │   ├── for each camera controller in view's controller list  # orbital, turntable and matrix; view's own lookAt writes into every one of them
+    │   │   │   └── calls holdControllerRollLock(controller)
+    │   │   ├── impls view.lookAt(view.lastT(), the pose view holds now), so a view controller a replot built from a rolled stored camera draws on the lock from its next frame
+    │   │   ├── function rollLockedRotate(time, yaw, pitch, roll) [local]  # roll: the pure roll a horizontal wheel scroll hands the rotation, which the lock drops
+    │   │   │   ├── # Turns the camera by one drag step, as yaw about axis plus pitch about the camera right axis, written as roll-locked sub-step keyframes.
+    │   │   │   ├── impls subStepCount = the fewest sub-steps that keep each one's turn within ROLL_LOCK_SUB_STEP_RADIANS
+    │   │   │   ├── for each sub-step, at evenly spaced times from view's newest keyframe to time  # the renderer then only interpolates between locked poses a bounded turn apart
+    │   │   │   │   ├── calls resolveTurnedPose(the eye and center view holds at the sub-step's time, yaw / subStepCount, pitch / subStepCount)
+    │   │   │   │   └── impls view.lookAt(the sub-step's time, the turned eye, the center, the turned up)
+    │   │   │   └── return
+    │   │   ├── impls view.rotate = rollLockedRotate
+    │   │   └── return
+    │   ├── function holdControllerRollLock(controller) [local]
+    │   │   ├── # Wraps one camera controller's lookAt so every pose written into its keyframes goes in roll-locked — a drag step, a relayout, a reset-camera button, a replot, and a rotation-mode switch writing into the newly active controller directly.
+    │   │   ├── function rollLockedLookAt(time, eye, center, up) [local]  # up: the written up, which the lock re-derives from the view direction and axis
+    │   │   │   ├── # Writes one pose into the controller's keyframes on the lock.
+    │   │   │   ├── impls fills each of eye and center the caller left null from the controller's own pose at time
+    │   │   │   ├── calls resolveRollLockedPose(eye, center)
+    │   │   │   ├── impls the controller's own lookAt(time, the roll-locked eye, center, the roll-locked up)
+    │   │   │   ├── if that write appended a keyframe to the controller's quaternion rotation  # the orbital controller's; the turntable controller keeps angles, which have no second hemisphere
+    │   │   │   │   └── calls alignRotationKeyframeHemisphere(controller.rotation)
+    │   │   │   └── return
+    │   │   ├── impls controller.lookAt = rollLockedLookAt, the controller's own lookAt kept for rollLockedLookAt to write through
+    │   │   └── return
+    │   ├── function alignRotationKeyframeHemisphere(rotation) [local]
+    │   │   ├── # Negates the newest rotation keyframe's quaternion when it sits in the opposite hemisphere from the keyframe before it, so the renderer's componentwise interpolation between the two takes the short way round.
+    │   │   ├── if the newest and the previous keyframe quaternions have a non-negative dot product
+    │   │   │   └── return
+    │   │   ├── impls negates the newest keyframe's four components in rotation's state
+    │   │   └── return
+    │   ├── function subscribeRollLock(graphDiv) [local]
+    │   │   ├── # Subscribes the lock once to graphDiv's plotly_relayout and plotly_afterplot events and to the scenes Plotly mounts inside it, so the camera the layout stores is rewritten to the roll-locked pose the renderer already draws.
+    │   │   ├── if graphDiv already carries the subscription
+    │   │   │   └── return
+    │   │   ├── impls graphDiv.__rollLock = { writing: false }, the in-flight flag applyRollLock holds while its own relayout lands
+    │   │   ├── function rewriteWrittenCamera(eventData) [local]
+    │   │   │   ├── # Rewrites the camera one relayout event wrote into the layout onto the lock.
+    │   │   │   ├── calls resolveWrittenCamera(graphDiv, eventData)
+    │   │   │   ├── if the event wrote no camera
+    │   │   │   │   └── return
+    │   │   │   ├── calls applyRollLock(graphDiv, writtenCamera)
+    │   │   │   └── return
+    │   │   ├── impls graphDiv.on("plotly_relayout", rewriteWrittenCamera)
+    │   │   ├── function rewriteReplottedCamera() [local]
+    │   │   │   ├── # Re-holds the lock after each replot, since a Dash figure update reports its camera to no relayout event and a projection switch rebuilds the scene's view controller from the camera the layout stores.
+    │   │   │   ├── calls resolveMountedScene()
+    │   │   │   ├── if graphElementId's gl3d scene is not mounted
+    │   │   │   │   └── return
+    │   │   │   ├── calls holdSceneRollLock(scene)
+    │   │   │   ├── calls applyRollLock(graphDiv, graphDiv._fullLayout.scene.camera)  # the full layout this replot just rebuilt
+    │   │   │   └── return
+    │   │   ├── impls graphDiv.on("plotly_afterplot", rewriteReplottedCamera)
+    │   │   ├── function holdRebuiltScene() [local]
+    │   │   │   ├── # Holds the lock on a gl3d scene Plotly builds anew inside graphDiv, as a figure update that drops the 3D trace and adds it back does, from a mutation observer that runs before that scene's first animation frame.
+    │   │   │   ├── calls resolveMountedScene()
+    │   │   │   ├── if graphElementId's gl3d scene is not mounted
+    │   │   │   │   └── return
+    │   │   │   ├── calls holdSceneRollLock(scene)
+    │   │   │   └── return
+    │   │   ├── impls new MutationObserver(holdRebuiltScene).observe(graphDiv, { childList: true, subtree: true })  # runs as Plotly.react's synchronous part ends, before the rebuilt scene's first animation frame, where plotly_afterplot runs later
+    │   │   └── return
+    │   ├── function resolveWrittenCamera(graphDiv, eventData) [local]
+    │   │   ├── # Resolves the camera one relayout event wrote into graphDiv's layout, or null when it wrote none.
+    │   │   ├── if eventData carries scene.camera whole  # a drag, pan or zoom reports the camera it saved, which the full layout may no longer hold
+    │   │   │   └── return eventData["scene.camera"]
+    │   │   ├── if eventData writes a scene.camera key path or scene.dragmode  # a key-path write rebuilds the full layout's camera, and a switch to turntable re-seats that camera's up on world +Z
+    │   │   │   └── return graphDiv._fullLayout.scene.camera
+    │   │   └── return null
+    │   ├── function applyRollLock(graphDiv, camera) [local]  # camera: a Plotly layout camera, its eye, center and up {x, y, z} records
+    │   │   ├── # Writes the roll-locked pose back to the graph when the camera it reports sits off the lock.
+    │   │   ├── for each of camera.eye, camera.center and camera.up
+    │   │   │   └── calls recordToVector(record)
+    │   │   ├── calls resolveRollLockedPose(eye, center)
+    │   │   ├── if up already lies within ROLL_LOCK_VIOLATION_EPSILON of the roll-locked up
+    │   │   │   └── return
+    │   │   ├── if graphDiv's own roll-lock relayout is still in flight
+    │   │   │   └── return
+    │   │   ├── for each of the roll-locked eye and up
+    │   │   │   └── calls vectorToRecord(vector)
+    │   │   ├── impls Plotly.relayout(graphDiv, the roll-locked eye and up records), graphDiv's in-flight flag held until it resolves
+    │   │   └── return
+    │   ├── function resolveTurnedPose(eye, center, yaw, pitch) [local]
+    │   │   ├── # Turns a roll-locked pose by one drag step's yaw about axis and pitch about the camera right axis.
+    │   │   ├── calls resolveBandedOffset(vectorSubtract(eye, center))
+    │   │   ├── calls vectorRotateAboutAxis(bandedOffset, axis, ROLL_LOCK_RADIANS_PER_DRAG_UNIT × yaw)
+    │   │   ├── impls right = vectorNormalize(vectorCross(vectorScale(yawedOffset, −1), axis))
+    │   │   ├── impls pitchAngle = −ROLL_LOCK_RADIANS_PER_DRAG_UNIT × pitch, clamped to the polar band ROLL_LOCK_POLAR_ANGLE_EPSILON short of both poles of axis, so a drag stops at a pole instead of carrying the view through it
+    │   │   ├── calls vectorRotateAboutAxis(yawedOffset, right, pitchAngle)
+    │   │   ├── impls turnedUp = vectorNormalize(vectorCross(right, vectorScale(turnedOffset, −1)))
+    │   │   ├── impls turnedPose = { eye: vectorAdd(center, turnedOffset), up: turnedUp }
+    │   │   └── return turnedPose
+    │   ├── function resolveRollLockedPose(eye, center) [local]  # eye, center: [x, y, z] arrays
+    │   │   ├── # Resolves the pose the lock holds a camera at: its eye where it was written, banded off the poles, and the up vector the view direction from that eye and axis determine, whatever up was written.
+    │   │   ├── calls resolveBandedOffset(vectorSubtract(eye, center))
+    │   │   ├── impls rollLockedEye = vectorAdd(center, bandedOffset)
+    │   │   ├── impls forward = vectorNormalize(vectorSubtract(center, rollLockedEye))
+    │   │   ├── impls right = vectorNormalize(vectorCross(forward, axis)), held perpendicular to axis
+    │   │   ├── impls rollLockedPose = { eye: rollLockedEye, up: vectorNormalize(vectorCross(right, forward)) }
+    │   │   └── return rollLockedPose
+    │   ├── function resolveBandedOffset(offset) [local]
+    │   │   ├── # Bands an eye offset's polar angle off axis into [ROLL_LOCK_POLAR_ANGLE_EPSILON, π − ROLL_LOCK_POLAR_ANGLE_EPSILON], rebuilding it at the banded angle on its own meridian.
+    │   │   ├── impls polarAngle = the angle between offset and axis, from vectorDot(offset, axis) over the length of offset
+    │   │   ├── if polarAngle already lies inside the band
+    │   │   │   └── return offset
+    │   │   ├── calls resolveMeridian(offset)
+    │   │   ├── impls bandedPolarAngle = polarAngle clamped into the band
+    │   │   ├── impls bandedOffset = vectorAdd(vectorScale(axis, |offset|·cos(bandedPolarAngle)), vectorScale(meridian, |offset|·sin(bandedPolarAngle)))
+    │   │   └── return bandedOffset
+    │   ├── function resolveMeridian(offset) [local]
+    │   │   ├── # Resolves the meridian an eye offset stands on, as a unit vector perpendicular to axis.
+    │   │   ├── impls meridian = vectorSubtract(offset, vectorScale(axis, vectorDot(offset, axis)))
+    │   │   ├── if meridian has zero length  # an offset on axis stands on every meridian at once
+    │   │   │   └── return ROLL_LOCK_FALLBACK_MERIDIAN
+    │   │   ├── calls vectorNormalize(meridian)
+    │   │   └── return unitMeridian
+    │   ├── function vectorRotateAboutAxis(vector, unitAxis, angle) [local]
+    │   │   ├── # Rotates a vector about a unit axis by an angle in radians, right-handed, the way a drag's yaw and pitch turn the eye offset.
+    │   │   ├── impls rotated = Rodrigues' rotation of vector about unitAxis by angle, composed from vectorScale, vectorCross, vectorDot and vectorAdd
+    │   │   └── return rotated
+    │   ├── function vectorAdd(left, right) [local]
+    │   │   ├── # Adds two [x, y, z] arrays.
+    │   │   ├── impls sum = the componentwise sum of left and right
+    │   │   └── return sum
+    │   ├── function vectorSubtract(left, right) [local]
+    │   │   ├── # Subtracts one [x, y, z] array from another.
+    │   │   ├── impls difference = the componentwise difference of left and right
+    │   │   └── return difference
+    │   ├── function vectorScale(vector, scalar) [local]
+    │   │   ├── # Scales an [x, y, z] array by a scalar, negation included.
+    │   │   ├── impls scaled = each component of vector times scalar
+    │   │   └── return scaled
+    │   ├── function vectorDot(left, right) [local]
+    │   │   ├── # Resolves the dot product of two [x, y, z] arrays, a squared length when both are one vector.
+    │   │   ├── impls dot = the sum of the componentwise products of left and right
+    │   │   └── return dot
+    │   ├── function vectorCross(left, right) [local]
+    │   │   ├── # Resolves the cross product of two [x, y, z] arrays.
+    │   │   ├── impls cross = the right-handed cross product of left and right
+    │   │   └── return cross
+    │   ├── function vectorNormalize(vector) [local]
+    │   │   ├── # Scales an [x, y, z] array to unit length.
+    │   │   ├── if vector has zero length  # a camera the polar band does not cover, surfaced rather than handed on as a NaN pose
+    │   │   │   └── throw cannot normalize a zero-length vector
+    │   │   ├── impls unit = vector scaled by one over its length
+    │   │   └── return unit
+    │   ├── function recordToVector(record) [local]
+    │   │   ├── # Converts a Plotly {x, y, z} camera record to an [x, y, z] array.
+    │   │   ├── impls vector = [record.x, record.y, record.z]
+    │   │   └── return vector
+    │   ├── function vectorToRecord(vector) [local]
+    │   │   ├── # Converts an [x, y, z] array to a Plotly {x, y, z} camera record.
+    │   │   ├── impls record = { x: vector[0], y: vector[1], z: vector[2] }
+    │   │   └── return record
+    │   └── return rollLockCallback
+    ├── for each matched input in window.dash_clientside.callback_context.inputs_list[0]  # one { id, property, value } per graph the pattern matches, a graph a Dash callback adds after the page loaded included
+    │   ├── calls resolveGraphElementId(input.id)
+    │   ├── impls worldAxis = JSON.parse(atob(input.id.lock_roll)), the unit-length axis create_dash_trackball_camera_controls normalized and base64-encoded
+    │   ├── calls createRollLockCallback(graphElementId, worldAxis)
+    │   └── calls rollLockCallback(input.value)
+    └── return window.dash_clientside.no_update
 ```
 
 `data/viewer/utils/controls/camera/camera_controls/ts/frontend/trackball_camera_controls.ts`
@@ -108,185 +373,110 @@ trackball_camera_controls.ts
 ├── import type { CameraState } from "data/viewer/utils/controls/camera/camera_state/ts/frontend/types";
 ├── export const DEFAULT_TRACKBALL_PERSPECTIVE_CAMERA_FOV: number = 45
 │   └── # Shared vertical-FOV (degrees) every TS spatial display must construct its THREE.PerspectiveCamera with — 45° is the standard 50mm-equivalent lens FOV, trading perspective realism against off-center foreshortening for the orbit-around-near-scene-content use case this lib targets.
-├── type CameraStateListener = (cameraState: CameraState) => void
-├── interface RendererTrackballCameraControls
-│   ├── targetElement: HTMLElement
-│   ├── getCameraState: () => CameraState | null
-│   ├── applyCameraState: (cameraState: CameraState | null) => void
-│   └── subscribeCameraStateChange: (listener: CameraStateListener) => () => void
-├── export interface TrackballCameraControls
-│   ├── getCameraState: () => CameraState | null
-│   ├── applyCameraState: (cameraState: CameraState | null) => void
-│   └── subscribeCameraStateChange: (listener: CameraStateListener) => () => void
-├── export interface ThreeTrackballCameraControls extends TrackballCameraControls
-│   ├── target: THREE.Vector3
-│   ├── addEventListener: (type: "change", listener: () => void) => void
-│   ├── handleResize: () => void
-│   └── update: () => void
-├── export function createTrackballCameraControls(args: { targetElement: HTMLElement; initialCameraState?: CameraState | null; }): TrackballCameraControls; [abstract]
-│   └── # Declares the element form: trackball controls over a target element.
-├── export function createTrackballCameraControls(args: { camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; container: HTMLElement; initialCameraState?: CameraState | null; }): ThreeTrackballCameraControls; [abstract]
-│   └── # Declares the three.js form: trackball controls over a camera, its renderer and its container.
-├── export function createTrackballCameraControls(args: | { targetElement: HTMLElement; initialCameraState?: CameraState | null; } | { camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; container: HTMLElement; initialCameraState?: CameraState | null; }, ): TrackballCameraControls | ThreeTrackballCameraControls
-│   ├── # Builds the trackball controls in the form its args select: three.js controls for a camera, else validated controls over the target element.
-│   ├── if ("camera" in args)
-│   │   ├── calls createThreeTrackballCameraControls(args)
+├── ROLL_LOCKED_POLAR_ANGLE_EPSILON   # radians the roll-locked camera stops short of either pole of the lock axis
+├── interface ThreeTrackballCameraControls
+│   ├── getCameraState
+│   │   └── # serializes the entire camera state (every CameraState field — both intrinsics and extrinsics) into a CameraState
+│   ├── applyCameraState
+│   │   └── # applies the entire CameraState (every field — both intrinsics and extrinsics) to the underlying camera and controls
+│   ├── subscribeCameraStateChange
+│   ├── target
+│   ├── noRotate
+│   ├── noZoom
+│   ├── noPan
+│   ├── minDistance
+│   ├── maxDistance
+│   ├── rollLockAxis               # the unit-length axis roll is locked about; null on the free trackball
+│   ├── rollLockPolarAngleEpsilon  # ROLL_LOCKED_POLAR_ANGLE_EPSILON on a roll-locked construction; null on the free trackball
+│   ├── addEventListener
+│   ├── handleResize
+│   └── update
+├── function createTrackballCameraControls({ container, camera, renderer, initialCameraState, lockRoll = null })  # lockRoll: a non-zero THREE.Vector3 world-space axis of any length, or null for the free trackball
+│   ├── # Builds, validates, and returns the trackball controls, seeding them from initialCameraState and observing the container's data-camera-state attribute for external sync.
+│   ├── calls createRendererTrackballCameraControls({ camera, renderer, lockRoll })
+│   ├── calls assertTrackballCameraControls({ controls, camera, renderer, lockRoll })
+│   ├── if initialCameraState is not null
+│   │   └── calls controls.applyCameraState(initialCameraState)
+│   ├── impls MutationObserver on container's `data-camera-state` attribute → controls.applyCameraState(parsed state)
+│   └── return
+├── function createRendererTrackballCameraControls({ camera, renderer, lockRoll })
+│   ├── # Constructs the renderer-specific trackball controls wiring left-drag rotate, right-drag pan, wheel zoom, and context-menu suppression.
+│   ├── impls renderer-specific trackball camera controls with left-button rotation, right-button panning, mouse-wheel zoom, and suppressed canvas context menu  # impls-node-one-step:skip
+│   ├── if lockRoll is not null
+│   │   ├── impls rollLockAxis = lockRoll normalized to unit length
+│   │   ├── impls threeControls.noRotate = true, so the roll-locked left-drag below replaces three's free rotation while its right-drag pan and wheel zoom stay
+│   │   ├── calls holdRollLockedCameraPose({ camera, target: threeControls.target, rollLockAxis })  # the framing the controls are constructed on
+│   │   ├── for each left-drag pointer move
+│   │   │   ├── impls radiansPerPixel = threeControls.rotateSpeed / (0.5 × renderer.domElement.clientWidth), the free trackball's own rotation per pixel
+│   │   │   ├── calls resolveRollLockBandedOffset({ offset: camera.position minus threeControls.target, rollLockAxis })
+│   │   │   ├── impls yaws the banded offset about rollLockAxis by the horizontal pointer delta times radiansPerPixel
+│   │   │   ├── impls pitches it about the camera right axis by the vertical pointer delta times radiansPerPixel, clamped to the polar band short of both poles, so a drag stops at a pole instead of carrying the view through it
+│   │   │   ├── calls holdRollLockedCameraPose({ camera, target: threeControls.target, rollLockAxis })
+│   │   │   └── impls threeControls.dispatchEvent({ type: "change" })
+│   │   ├── impls controls.applyCameraState re-holds the roll-locked pose through holdRollLockedCameraPose after applying each state it is handed
+│   │   ├── impls threeControls.update runs holdRollLockedCameraPose before three's own update, so a target or position a caller writes directly is held from the next update on
 │   │   └── return
-│   ├── impls const { targetElement, initialCameraState = null } = args
-│   ├── calls createRendererTrackballCameraControls({ targetElement, initialCameraState, })  # -> controls
-│   ├── calls assertTrackballCameraControls(controls)
-│   └── return controls
-├── function createThreeTrackballCameraControls(args: { camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; container: HTMLElement; initialCameraState?: CameraState | null; }): ThreeTrackballCameraControls
-│   ├── # Wraps three.js TrackballControls on the renderer's canvas as trackball camera controls, seeded from initialCameraState and re-applying the container's data-camera-state attribute on every change.
-│   ├── impls const { camera, renderer, container, initialCameraState = null } = args
-│   ├── impls const threeControls = new ThreeTrackballControlsImpl(camera, renderer.domElement)
-│   ├── impls const listeners = new Set<CameraStateListener>()
-│   ├── impls threeControls.rotateSpeed = 3
-│   ├── impls threeControls.zoomSpeed = 1.5
-│   ├── impls threeControls.panSpeed = 0.8
-│   ├── impls threeControls.staticMoving = true
-│   ├── (event: MouseEvent) => [local]
-│   │   ├── # The canvas contextmenu listener: suppresses the browser menu so right-drag pans.
-│   │   └── impls event.preventDefault()
-│   ├── impls renderer.domElement.addEventListener("contextmenu", that listener)
-│   ├── () => [local]
-│   │   ├── # The controls change listener: serializes the camera and hands the state to every subscribed listener.
-│   │   ├── calls buildThreeTrackballCameraState({ camera, controls: threeControls, })  # -> cameraState
-│   │   └── for (const listener of listeners)
-│   │       └── calls listener(cameraState)
-│   ├── impls threeControls.addEventListener("change", that listener)
-│   ├── () => [local]
-│   │   ├── # getCameraState: serializes the camera and its controls.
-│   │   └── calls buildThreeTrackballCameraState({ camera, controls: threeControls, })
-│   ├── (cameraState: CameraState | null): void => [local]
-│   │   ├── # applyCameraState: applies the state onto the camera and its controls.
-│   │   └── calls applyThreeTrackballCameraState({ camera, controls: threeControls, cameraState, })
-│   ├── (listener: CameraStateListener) => [local]
-│   │   ├── # subscribeCameraStateChange: registers the listener and returns its unsubscribe.
-│   │   ├── if (typeof listener !== "function")
-│   │   │   └── throw new Error("camera state listener must be a function")
-│   │   ├── impls listeners.add(listener)
-│   │   ├── () => [local]
-│   │   │   ├── # The unsubscribe: removes the listener.
-│   │   │   └── impls listeners.delete(listener)
-│   │   └── return
-│   ├── impls const result = Object.assign(threeControls, { getCameraState, applyCameraState, subscribeCameraStateChange }), each being its lambda above
-│   ├── if (initialCameraState !== null)
-│   │   └── calls result.applyCameraState(initialCameraState)
-│   ├── () => [local]
-│   │   ├── # The container observer: re-applies the container's data-camera-state attribute, skipping an unparseable value.
-│   │   ├── impls const raw = container.dataset.cameraState
-│   │   ├── if (raw === undefined)
-│   │   │   └── return
-│   │   ├── try
-│   │   │   └── calls result.applyCameraState(JSON.parse(raw) as CameraState)
-│   │   └── catch
-│   │       └── # ignore unparseable dataset values
-│   ├── impls const observer = new MutationObserver(that observer callback)
-│   ├── impls observer.observe(container, { attributeFilter: ["data-camera-state"], attributes: true, })
-│   └── return result
-├── function createRendererTrackballCameraControls(args: { targetElement: HTMLElement; initialCameraState: CameraState | null; }): RendererTrackballCameraControls
-│   ├── # Builds trackball controls over a target element, syncing its camera state across the element's data-camera-state attribute, its embedded renderer iframe and its listeners, and marking the element with the trackball contract.
-│   ├── impls const { targetElement, initialCameraState } = args
-│   ├── impls let currentCameraState = initialCameraState
-│   ├── impls let internallyWrittenCameraStateToken: string | null | undefined = undefined
-│   ├── impls const listeners: CameraStateListener[] = []
-│   ├── function setInternallyWrittenCameraStateToken( token: string | null, ): void [local]
-│   │   ├── # Records the token these controls last wrote onto the element, so the observer skips their own write.
-│   │   └── impls internallyWrittenCameraStateToken = token
-│   ├── function applyCameraState(cameraState: CameraState | null): void [local]
-│   │   ├── # Applies a caller-given camera state: keeps it, writes it onto the element, and posts it to the embedded renderer.
-│   │   ├── impls currentCameraState = cameraState
-│   │   ├── calls writeInternalCameraStateToTargetElement({ targetElement, cameraState, setInternallyWrittenCameraStateToken, })
-│   │   └── calls postCameraStateToEmbeddedRenderer({ targetElement, cameraState, })
-│   ├── function emitCameraStateChange(cameraState: CameraState): void [local]
-│   │   ├── # Publishes a renderer-reported camera state: keeps it, writes it onto the element, hands it to every listener, and dispatches a bubbling camera-pose-change event.
-│   │   ├── impls currentCameraState = cameraState
-│   │   ├── calls writeInternalCameraStateToTargetElement({ targetElement, cameraState, setInternallyWrittenCameraStateToken, })
-│   │   ├── for (const listener of listeners)
-│   │   │   └── calls listener(cameraState)
-│   │   └── impls targetElement.dispatchEvent(new CustomEvent<CameraState>("camera-pose-change", { bubbles: true, detail: cameraState, }))
-│   ├── () => [local]
-│   │   ├── # The element observer: skips the controls' own write, and adopts any other write of the element's camera state.
-│   │   ├── calls readCameraStateTokenFromTargetElement(targetElement)  # -> targetElementCameraStateToken
-│   │   ├── if ( internallyWrittenCameraStateToken !== undefined && targetElementCameraStateToken === internallyWrittenCameraStateToken )
-│   │   │   ├── impls internallyWrittenCameraStateToken = undefined
-│   │   │   └── return
-│   │   ├── impls internallyWrittenCameraStateToken = undefined
-│   │   ├── calls readCameraStateFromTargetElement(targetElement)
-│   │   └── calls applyExternalCameraState(readCameraStateFromTargetElement(targetElement))
-│   ├── impls const mutationObserver = new MutationObserver(that observer callback)
-│   ├── impls mutationObserver.observe(targetElement, { attributeFilter: ["data-camera-state"], attributes: true, })
-│   ├── (event: MessageEvent<unknown>) => [local]
-│   │   ├── # The window message listener: emits the camera state that the element's own embedded renderer reports from this origin.
-│   │   ├── calls isEmbeddedRendererMessageSource({ targetElement, source: event.source })
-│   │   ├── if (!isEmbeddedRendererMessageSource({ targetElement, source: event.source }))
-│   │   │   └── return
-│   │   ├── if (event.origin !== window.location.origin)
-│   │   │   └── return
-│   │   ├── impls const message = event.data
-│   │   ├── calls isTrackballCameraStateChangeMessage(message)
-│   │   ├── if (!isTrackballCameraStateChangeMessage(message))
-│   │   │   └── return
-│   │   └── calls emitCameraStateChange(message.cameraState)
-│   ├── impls window.addEventListener("message", that listener)
-│   ├── if (targetElement instanceof HTMLIFrameElement)
-│   │   ├── () => [local]
-│   │   │   ├── # The iframe load listener: posts the kept camera state to the freshly loaded renderer.
-│   │   │   └── calls postCameraStateToEmbeddedRenderer({ targetElement, cameraState: currentCameraState, })
-│   │   └── impls targetElement.addEventListener("load", that listener)
-│   ├── impls targetElement.dataset.cameraControlMode = "trackball"
-│   ├── impls targetElement.dataset.trackballMouseMapping = "left-drag-rotate/right-drag-pan/wheel-zoom"
-│   ├── impls targetElement.dataset.contextMenuBehavior = "suppressed-for-trackball-pan"
-│   ├── if (currentCameraState !== null)
-│   │   └── calls applyCameraState(currentCameraState)
-│   ├── function applyExternalCameraState(cameraState: CameraState | null): void [local]
-│   │   ├── # Adopts a camera state written onto the element from outside: keeps it and posts it to the embedded renderer.
-│   │   ├── impls currentCameraState = cameraState
-│   │   └── calls postCameraStateToEmbeddedRenderer({ targetElement, cameraState, })
-│   ├── () => [local]
-│   │   ├── # getCameraState: reads the kept camera state.
-│   │   └── impls currentCameraState
-│   ├── (listener: CameraStateListener) => [local]
-│   │   ├── # subscribeCameraStateChange: registers the listener and returns its unsubscribe.
-│   │   ├── if (typeof listener !== "function")
-│   │   │   └── throw new Error("camera state listener must be a function")
-│   │   ├── impls listeners.push(listener)
-│   │   ├── () => [local]
-│   │   │   ├── # The unsubscribe: removes the listener while it is still registered.
-│   │   │   ├── impls const index = listeners.indexOf(listener)
-│   │   │   └── if (index >= 0)
-│   │   │       └── impls listeners.splice(index, 1)
-│   │   └── return
-│   ├── impls controls = { targetElement, getCameraState, applyCameraState, subscribeCameraStateChange }, getCameraState and subscribeCameraStateChange being their lambdas above  # impls-node-one-step:skip — names two lambda fields
-│   └── return controls
-├── function assertTrackballCameraControls( controls: RendererTrackballCameraControls, ): void
-│   ├── # Validates the constructed controls satisfy every trackball contract by running the mouse-mapping, no-orbit, and no-pose-clamp assertions.
-│   ├── calls assertTrackballMouseMapping(controls)
-│   ├── calls assertNoOrbitCameraControls(controls)
-│   └── calls assertNoCameraPoseClamps(controls)
-├── function assertTrackballMouseMapping( controls: RendererTrackballCameraControls, ): void
-│   ├── # Asserts the target element is marked with the left-drag-rotate / right-drag-pan / wheel-zoom mapping and with context-menu suppression for trackball panning.
-│   ├── impls const mapping = controls.targetElement.dataset.trackballMouseMapping
-│   ├── if (mapping !== "left-drag-rotate/right-drag-pan/wheel-zoom")
-│   │   └── throw new Error("invalid trackball camera controls")
-│   └── if ( controls.targetElement.dataset.contextMenuBehavior !== "suppressed-for-trackball-pan" )
-│       └── throw new Error("context menu blocks trackball panning")
-├── function assertNoOrbitCameraControls( controls: RendererTrackballCameraControls, ): void
-│   ├── # Asserts the target element is marked with neither an orbit camera-control mode nor an orbit camera-control family.
-│   ├── impls const mode = controls.targetElement.dataset.cameraControlMode
-│   ├── impls const family = controls.targetElement.dataset.cameraControlFamily
-│   └── if (mode === "orbit" || family === "orbit")
-│       └── throw new Error("orbit-style camera controls are forbidden")
-├── function assertNoCameraPoseClamps( controls: RendererTrackballCameraControls, ): void
-│   ├── # Asserts the target element carries none of the camera-pose restriction keys on polar angle, azimuth angle, target lock, distance, pan, translation, or rotation.
-│   ├── impls const forbiddenRestrictionKeys = [ "cameraPolarAngleLimit", "cameraAzimuthAngleLimit", "cameraTargetLock", "cameraDistanceBounds", "cameraPanLimit", "cameraTranslationLimit", "cameraRotationLimit", ]
-│   ├── (key) => [local]
-│   │   ├── # The find predicate: whether the target element carries that restriction key.
-│   │   └── impls controls.targetElement.dataset[key] !== undefined
-│   ├── impls const restrictedKey = forbiddenRestrictionKeys.find(that predicate)
-│   └── if (restrictedKey !== undefined)
-│       └── throw new Error(`restricted camera pose controls: ${restrictedKey}`)
+│   └── return  # the controls exactly as they arrived, so a caller naming no axis renders what it rendered before this argument existed
+├── function holdRollLockedCameraPose({ camera, target, rollLockAxis })
+│   ├── # Holds the camera on the roll-locked pose its own framing implies, the eye banded off the lock axis and camera.up re-derived from the view direction and that axis.
+│   ├── calls resolveRollLockBandedOffset({ offset: camera.position minus target, rollLockAxis })
+│   ├── impls cameraRightAxis = normalize(cross(-bandedOffset, rollLockAxis))
+│   ├── impls camera.position = target + bandedOffset
+│   ├── impls camera.up = normalize(cross(cameraRightAxis, normalize(-bandedOffset)))
+│   ├── impls camera.lookAt(target)
+│   └── return
+├── function resolveRollLockBandedOffset({ offset, rollLockAxis })
+│   ├── # Bands an eye offset's polar angle off the lock axis into [ROLL_LOCKED_POLAR_ANGLE_EPSILON, π − ROLL_LOCKED_POLAR_ANGLE_EPSILON], rebuilding it at the banded angle on its own meridian.
+│   ├── if the offset's polar angle already lies inside the band
+│   │   └── return offset
+│   ├── calls resolveRollLockMeridian({ offset, rollLockAxis })
+│   ├── impls bandedOffset = meridian × radius·sin(banded polar angle) + rollLockAxis × radius·cos(banded polar angle)
+│   └── return bandedOffset
+├── function resolveRollLockMeridian({ offset, rollLockAxis })
+│   ├── # Resolves the meridian an eye offset stands on, as a unit vector perpendicular to the lock axis.
+│   ├── impls meridian = offset minus its projection onto rollLockAxis
+│   ├── if meridian has non-zero length
+│   │   ├── impls meridian.normalize()
+│   │   └── return meridian
+│   ├── impls fallbackMeridian = normalize(cross(rollLockAxis, the world basis vector rollLockAxis leans on least))  # an offset on the axis stands on every meridian at once
+│   └── return fallbackMeridian
+├── function assertTrackballCameraControls({ controls, camera, renderer, lockRoll })
+│   ├── # Validates the constructed controls satisfy every trackball contract by running the mouse-mapping, no-orbit, no-pose-clamp, and roll-lock assertions.
+│   ├── calls assertTrackballMouseMapping({ controls, renderer })
+│   ├── calls assertNoOrbitCameraControls({ controls })
+│   ├── calls assertNoCameraPoseClamps({ controls, lockRoll })
+│   ├── calls assertRollLock({ controls, camera, lockRoll })
+│   └── return
+├── function assertTrackballMouseMapping
+│   ├── # Asserts the controls map left-drag to rotate, right-drag to pan, and wheel to zoom, and that the canvas suppresses its context menu.
+│   ├── if controls do not map left-button drag to rotation, right-button drag to panning, and mouse-wheel scroll to zoom
+│   │   └── throw invalid trackball camera controls
+│   ├── if viewer canvas does not suppress the default browser context menu
+│   │   └── throw context menu blocks trackball panning
+│   └── return
+├── function assertNoOrbitCameraControls
+│   ├── # Asserts the controls do not use forbidden orbit-style target-locked camera semantics.
+│   ├── if controls use orbit-style target-locked camera semantics
+│   │   └── throw orbit-style camera controls are forbidden
+│   └── return
+├── function assertNoCameraPoseClamps({ controls, lockRoll })
+│   ├── # Asserts the controls impose no camera-pose restriction on polar angle, azimuth angle, target lock, distance, pan, translation, or rotation beyond the polar band a roll lock costs.
+│   ├── if controls restrict azimuth angle, target lock, distance bounds, pan, or translation
+│   │   └── throw restricted camera pose controls
+│   ├── if lockRoll is null and controls restrict polar angle or rotation
+│   │   └── throw restricted camera pose controls
+│   ├── if lockRoll is not null and three's rotation is off with no roll-locked rotation replacing it
+│   │   └── throw roll lock must cost only the roll axis and the polar extremes
+│   └── return
+├── function assertRollLock({ controls, camera, lockRoll })
+│   ├── # Asserts roll is held about lockRoll when one is supplied and left free when none is, this module owning no axis of its own.
+│   ├── if lockRoll is not null and controls let the camera right axis tilt away from perpendicular to lockRoll
+│   │   └── throw roll-locked camera controls must keep the camera right axis perpendicular to the supplied axis
+│   ├── if lockRoll is not null and controls let the camera up vector cross to the far side of lockRoll
+│   │   └── throw roll-locked camera controls must keep the camera up vector on the supplied axis's side
+│   ├── if lockRoll is null and controls constrain the camera right axis against any axis
+│   │   └── throw free trackball camera controls must leave camera roll unconstrained
+│   └── return
 ├── function buildThreeTrackballCameraState({ camera, controls, }: { camera: THREE.PerspectiveCamera; controls: ThreeTrackballControlsImpl; }): CameraState
 │   ├── # Serializes a three.js perspective camera and its trackball controls into a CameraState.
 │   ├── calls vectorToRecord(camera.position)
@@ -336,81 +526,10 @@ trackball_camera_controls.ts
 │   ├── calls isVectorRecord(value)
 │   ├── impls isQuaternion = whether value is a vector record whose w is a number too
 │   └── return isQuaternion
-├── function isVectorRecord(value: unknown): value is { x: number; y: number; z: number; }
-│   ├── # Narrows an unknown CameraState field to a vector record.
-│   ├── impls isVector = whether value is a non-null object whose x, y and z are all numbers  # impls-node-one-step:skip — one boolean expression
-│   └── return isVector
-├── function writeInternalCameraStateToTargetElement(args: { targetElement: HTMLElement; cameraState: CameraState | null; setInternallyWrittenCameraStateToken: (token: string | null) => void; }): void
-│   ├── # Writes a camera state onto the element's data-camera-state attribute and, when that changed the attribute, records its token as the controls' own write.
-│   ├── impls const { targetElement, cameraState, setInternallyWrittenCameraStateToken, } = args
-│   ├── calls serializeCameraState(cameraState)  # -> serializedCameraState
-│   ├── calls writeCameraStateToTargetElement({ targetElement, cameraState, serializedCameraState, })
-│   └── if ( writeCameraStateToTargetElement({ targetElement, cameraState, serializedCameraState, }) )
-│       └── calls setInternallyWrittenCameraStateToken(serializedCameraState)
-├── function serializeCameraState(cameraState: CameraState | null): string | null
-│   ├── # Serializes a camera state into its JSON token, a null state staying null.
-│   ├── if (cameraState === null)
-│   │   └── return null
-│   ├── impls cameraStateToken = JSON.stringify(cameraState)
-│   └── return cameraStateToken
-├── function writeCameraStateToTargetElement(args: { targetElement: HTMLElement; cameraState: CameraState | null; serializedCameraState: string | null; }): boolean
-│   ├── # Writes the serialized camera state onto the element's data-camera-state attribute, deleting the attribute for a null state, and returns whether the attribute changed.
-│   ├── impls const { targetElement, cameraState, serializedCameraState } = args
-│   ├── calls readCameraStateTokenFromTargetElement(targetElement)
-│   ├── if ( readCameraStateTokenFromTargetElement(targetElement) === serializedCameraState )
-│   │   └── return false
-│   ├── if (cameraState === null)
-│   │   ├── impls delete targetElement.dataset.cameraState
-│   │   └── return true
-│   ├── if (serializedCameraState === null)
-│   │   └── throw new Error("serialized camera state is unexpectedly null")
-│   ├── impls targetElement.dataset.cameraState = serializedCameraState
-│   └── return true
-├── function readCameraStateTokenFromTargetElement( targetElement: HTMLElement, ): string | null
-│   ├── # Reads the element's raw data-camera-state token, null when the attribute is absent.
-│   ├── impls cameraStateToken = targetElement.dataset.cameraState ?? null
-│   └── return cameraStateToken
-├── function postCameraStateToEmbeddedRenderer(args: { targetElement: HTMLElement; cameraState: CameraState | null; }): void
-│   ├── # Posts a camera state to the element's embedded renderer window, when the element is an iframe holding one.
-│   ├── impls const { targetElement, cameraState } = args
-│   ├── if (!(targetElement instanceof HTMLIFrameElement))
-│   │   └── return
-│   ├── impls const targetWindow = targetElement.contentWindow
-│   ├── if (targetWindow === null)
-│   │   └── return
-│   └── impls targetWindow.postMessage({ cameraState, type: "trackball-camera-state", }, window.location.origin)
-├── function readCameraStateFromTargetElement( targetElement: HTMLElement, ): CameraState | null
-│   ├── # Parses the element's data-camera-state attribute into a validated CameraState, null when the attribute is absent.
-│   ├── impls const serializedCameraState = targetElement.dataset.cameraState
-│   ├── if (serializedCameraState === undefined)
-│   │   └── return null
-│   ├── impls const parsedCameraState: unknown = JSON.parse(serializedCameraState)
-│   ├── calls isCameraState(parsedCameraState)
-│   ├── if (!isCameraState(parsedCameraState))
-│   │   └── throw new Error("target camera state does not match CameraState")
-│   └── return parsedCameraState
-├── function isEmbeddedRendererMessageSource(args: { targetElement: HTMLElement; source: MessageEventSource | null; }): boolean
-│   ├── # Checks whether a message came from the window of the element's own embedded renderer iframe.
-│   ├── impls const { targetElement, source } = args
-│   ├── impls isEmbeddedRendererSource = (targetElement instanceof HTMLIFrameElement && source !== null && source === targetElement.contentWindow)
-│   └── return isEmbeddedRendererSource
-├── function isTrackballCameraStateChangeMessage( value: unknown, ): value is { type: "trackball-camera-state-change"; cameraState: CameraState }
-│   ├── # Narrows an unknown message to a trackball camera-state-change message carrying a CameraState.
-│   ├── calls isRecord(value)
-│   ├── calls isCameraState(value.cameraState)
-│   ├── impls isStateChangeMessage = whether value is a record typed "trackball-camera-state-change" whose cameraState is a CameraState
-│   └── return isStateChangeMessage
-├── function isCameraState(value: unknown): value is CameraState
-│   ├── # Narrows an unknown value to a CameraState by its record fields, string conventions, and null-or-string name and id.
-│   ├── calls isRecord(value)
-│   ├── calls isRecord(value.intrinsics)
-│   ├── calls isRecord(value.extrinsics)
-│   ├── impls isCameraStateValue = whether value is a record whose intrinsics and extrinsics are records, whose intr_convention and extr_convention are strings, and whose name and id are each null or a string  # impls-node-one-step:skip — one boolean expression
-│   └── return isCameraStateValue
-└── function isRecord(value: unknown): value is Record<string, unknown>
-    ├── # Narrows an unknown value to a non-null object record.
-    ├── impls isObjectRecord = value !== null && typeof value === "object"
-    └── return isObjectRecord
+└── function isVectorRecord(value: unknown): value is { x: number; y: number; z: number; }
+    ├── # Narrows an unknown CameraState field to a vector record.
+    ├── impls isVector = whether value is a non-null object whose x, y and z are all numbers  # impls-node-one-step:skip — one boolean expression
+    └── return isVector
 ```
 
 `data/viewer/utils/controls/camera/camera_sync/dash/camera_sync.py`
