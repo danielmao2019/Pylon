@@ -27,7 +27,7 @@ apis.py
 
 ```text
 core_points_display.py
-├── from typing import Optional
+├── from typing import Optional, Tuple
 ├── import plotly.graph_objects as go
 ├── from dash import dcc
 ├── from data.structures.three_d.point_cloud.point_cloud import PointCloud
@@ -35,11 +35,11 @@ core_points_display.py
 ├── DEFAULT_POINT_SIZE_FLOOR = 0.005  # absolute floor for visibility at typical canonical-world camera framings; used by the bounding-sphere heuristic when point_size is not supplied
 ├── DEFAULT_POINT_SIZE_RATIO = 0.002  # fraction of point-cloud bounding-sphere radius used as the heuristic default size; lib-owned default, documented + overridable
 ├── DEFAULT_POINT_COLOR = "#cccccc"   # uniform fallback color used when the point cloud has no per-point colors AND the caller does not supply point_color; lib-owned default, overridable
-├── def create_dash_points_display(point_cloud: PointCloud, point_size: Optional[float] = None, point_color: Optional[str] = None) -> dcc.Graph
+├── def create_dash_points_display(point_cloud: PointCloud, point_size: Optional[float] = None, point_color: Optional[str] = None, lock_roll: Optional[Tuple[float, float, float]] = None) -> dcc.Graph
 │   ├── # Renders a Dash point-cloud display element; point_size and point_color overrides are opt-in. point_color when supplied replaces per-point colors with a uniform color so the consumer can override the rendered look without rebuilding the data.
 │   ├── calls create_dash_points_scene(point_cloud=point_cloud, point_size=point_size, point_color=point_color)
-│   ├── calls create_dash_trackball_camera_controls
-│   ├── calls create_dash_points_component
+│   ├── calls create_dash_trackball_camera_controls(lock_roll=lock_roll)
+│   ├── calls create_dash_points_component(scene=scene, controls=controls)
 │   └── return
 ├── def create_dash_points_scene(point_cloud: PointCloud, point_size: Optional[float] = None, point_color: Optional[str] = None) -> go.Scatter3d
 │   ├── # Sync-builds the Plotly Scatter3d trace from the point cloud.
@@ -206,12 +206,12 @@ core_points_display.ts
 ├── const DEFAULT_POINT_SIZE_FLOOR = 0.005  # number — absolute floor for visibility at typical canonical-world camera framings; used by the bounding-sphere heuristic when pointSize is not supplied
 ├── const DEFAULT_POINT_SIZE_RATIO = 0.002  # number — fraction of geometry bounding-sphere radius used as the heuristic default size; lib-owned default, documented + overridable
 ├── const DEFAULT_POINT_COLOR = "#cccccc"   # hex color — uniform fallback used when geometry has no per-point colors AND the caller does not supply pointColor; lib-owned default, overridable
-├── function renderPointsDisplay({ displayResponse, initialCameraState, pointSize, pointColor }: { displayResponse: PointDisplayResponse; initialCameraState?: CameraState | null; pointSize?: number; pointColor?: string }): LeafVNode
+├── function renderPointsDisplay({ displayResponse, initialCameraState, pointSize, pointColor, lockRoll = null }: { displayResponse: PointDisplayResponse; initialCameraState?: CameraState | null; pointSize?: number; pointColor?: string; lockRoll?: THREE.Vector3 | null }): LeafVNode
 │   ├── # Renders a self-contained point-cloud display element initialized at initialCameraState.
 │   ├── calls createSpatialDisplayScene({ initialCameraState })
 │   ├── calls createPointsObject({ displayResponse, pointSize, pointColor })   → object
 │   ├── impls scene.add(object)
-│   ├── calls createTrackballCameraControls({ container, camera, renderer, initialCameraState })
+│   ├── calls createTrackballCameraControls({ container, camera, renderer, initialCameraState, lockRoll })
 │   ├── calls renderPointsScene({ scene, camera, renderer, controls })
 │   └── return LeafVNode keyed by displayResponse.url
 ├── function createPointsObject({ displayResponse, pointSize, pointColor }: { displayResponse: PointDisplayResponse; pointSize?: number; pointColor?: string }): THREE.Object3D

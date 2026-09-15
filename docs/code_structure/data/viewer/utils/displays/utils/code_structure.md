@@ -135,18 +135,18 @@ layered_display_container.ts
 ├── import "data/viewer/utils/displays/utils/ts/frontend/register_layer_renderers";  # side-effect: eager-glob-loads every modality so its self-registration populates the registry before any render
 ├── import { createSpatialDisplayScene, startThreeSceneRenderLoop, attachThreeScenePickSeam } from "data/viewer/utils/displays/utils/ts/frontend/three_scene_helpers";
 ├── import { createTrackballCameraControls } from "data/viewer/utils/controls/camera/camera_controls/ts/frontend/trackball_camera_controls";
-├── function renderLayeredDisplay({ layeredDisplayResponse, initialCameraState }: { layeredDisplayResponse: LayeredDisplayResponse; initialCameraState: CameraState | null }): LeafVNode
+├── function renderLayeredDisplay({ layeredDisplayResponse, initialCameraState, lockRoll = null }: { layeredDisplayResponse: LayeredDisplayResponse; initialCameraState: CameraState | null; lockRoll?: THREE.Vector3 | null }): LeafVNode
 │   ├── # Composes one layered display response into a shared spatial WebGL scene or a stacked raster DOM container per cell, routing on the backend-stamped layer_class.
 │   ├── if layeredDisplayResponse.layer_class == "spatial"
-│   │   └── return renderLayeredSpatialDisplay({ layeredDisplayResponse, initialCameraState })
+│   │   └── return renderLayeredSpatialDisplay({ layeredDisplayResponse, initialCameraState, lockRoll })
 │   └── if layeredDisplayResponse.layer_class == "raster"
 │       └── return renderLayeredRasterDisplay({ layeredDisplayResponse })
-├── function renderLayeredSpatialDisplay({ layeredDisplayResponse, initialCameraState }: { layeredDisplayResponse: LayeredDisplayResponse; initialCameraState: CameraState | null }): LeafVNode
+├── function renderLayeredSpatialDisplay({ layeredDisplayResponse, initialCameraState, lockRoll = null }: { layeredDisplayResponse: LayeredDisplayResponse; initialCameraState: CameraState | null; lockRoll?: THREE.Vector3 | null }): LeafVNode
 │   ├── # Renders the base + aux spatial layers into one shared scene/camera as a slot_id-keyed LeafVNode, the shared camera owning the framing and the additive pick seam.
 │   ├── calls createSpatialDisplayScene({ initialCameraState })                                     → { container, scene, camera, renderer }
 │   ├── calls createLayerObjects({ layeredDisplayResponse })                                        → layerObjects
 │   ├── impls layerObjects.forEach(object => scene.add(object))
-│   ├── calls createTrackballCameraControls({ container, camera, renderer, initialCameraState })    → controls  # the one shared camera owns the controls
+│   ├── calls createTrackballCameraControls({ container, camera, renderer, initialCameraState, lockRoll })    → controls  # the one shared camera owns the controls
 │   ├── calls _syncCameraState({ container, controls })                         # publish this cell's shared-camera pose now and on every change for cross-cell sync
 │   ├── calls attachThreeScenePickSeam({ container, camera, scenes: [scene] })  # augment the container with the pickAt seam over the one shared scene
 │   ├── calls renderLayeredSpatialScene({ scene, camera, renderer, controls })

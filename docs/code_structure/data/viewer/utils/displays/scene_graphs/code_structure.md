@@ -99,12 +99,12 @@ scene_graph_display.ts
 ├── const DEFAULT_EDGE_WIDTH = 1.0         # number — line width fallback for edges when the caller does not supply edgeWidth; lib-owned default, overridable
 ├── const DEFAULT_LABEL_FONT_SIZE = 12     # px — font size fallback for overlay labels when the caller does not supply labelFontSize; lib-owned default, overridable
 ├── const DEFAULT_LABEL_COLOR = "#000000"  # hex color — text color fallback for overlay labels when the caller does not supply labelColor; lib-owned default, overridable
-├── function renderSceneGraphDisplay({ displayResponse, initialCameraState, nodeSize, edgeColor, edgeWidth, labelFontSize, labelColor }: { displayResponse: SceneGraphDisplayResponse; initialCameraState?: CameraState | null; nodeSize?: number; edgeColor?: string; edgeWidth?: number; labelFontSize?: number; labelColor?: string }): LeafVNode
+├── function renderSceneGraphDisplay({ displayResponse, initialCameraState, nodeSize, edgeColor, edgeWidth, labelFontSize, labelColor, lockRoll = null }: { displayResponse: SceneGraphDisplayResponse; initialCameraState?: CameraState | null; nodeSize?: number; edgeColor?: string; edgeWidth?: number; labelFontSize?: number; labelColor?: string; lockRoll?: THREE.Vector3 | null }): LeafVNode
 │   ├── # Renders a self-contained scene-graph display: baked node/edge geometry plus HTML label overlay projected per frame.
 │   ├── calls createSpatialDisplayScene({ initialCameraState })
 │   ├── calls createSceneGraphObject({ container, displayResponse, nodeSize, edgeColor, edgeWidth, labelFontSize, labelColor })   → { object, labels, labelOverlay }
 │   ├── impls scene.add(object)
-│   ├── calls createTrackballCameraControls({ container, camera, renderer, initialCameraState })
+│   ├── calls createTrackballCameraControls({ container, camera, renderer, initialCameraState, lockRoll })
 │   ├── calls renderSceneGraphScene({ scene, camera, renderer, controls, labels, labelOverlay, labelFontSize, labelColor })
 │   └── return LeafVNode keyed by displayResponse.url
 ├── function createSceneGraphObject({ container, displayResponse, nodeSize, edgeColor, edgeWidth, labelFontSize, labelColor }: { container: HTMLDivElement; displayResponse: SceneGraphDisplayResponse; nodeSize?: number; edgeColor?: string; edgeWidth?: number; labelFontSize?: number; labelColor?: string }): { object: THREE.Object3D; labels: object[]; labelOverlay: HTMLDivElement }

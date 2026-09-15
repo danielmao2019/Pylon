@@ -47,18 +47,18 @@ apis.py
 
 ```text
 core_mesh_display.py
-├── from typing import Any, Optional
+├── from typing import Any, Optional, Tuple
 ├── import plotly.graph_objects as go
 ├── from dash import dcc
 ├── from data.viewer.utils.controls.camera.camera_controls.dash.trackball_camera_controls import create_dash_trackball_camera_controls
 ├── DEFAULT_MESH_COLOR = "#cccccc"  # uniform fallback color used when geometry has no texture AND has no per-vertex colors AND the caller does not supply mesh_color; lib-owned default, overridable
 ├── DEFAULT_MESH_OPACITY = 1.0      # opaque default applied when the caller does not supply mesh_opacity; lib-owned default, overridable
 ├── DEFAULT_MESH_SIDE = "double"    # fallback side mode for visibility under arbitrary camera framings when the caller does not supply mesh_side; lib-owned default, overridable
-├── def create_dash_mesh_display(mesh: Any, mesh_color: Optional[str] = None, mesh_opacity: Optional[float] = None, mesh_side: Optional[str] = None) -> dcc.Graph
+├── def create_dash_mesh_display(mesh: Any, mesh_color: Optional[str] = None, mesh_opacity: Optional[float] = None, mesh_side: Optional[str] = None, lock_roll: Optional[Tuple[float, float, float]] = None) -> dcc.Graph
 │   ├── # Renders a Dash mesh display element with trackball camera controls; mesh_color, mesh_opacity, and mesh_side overrides are opt-in.
 │   ├── calls create_dash_mesh_scene(mesh=mesh, mesh_color=mesh_color, mesh_opacity=mesh_opacity, mesh_side=mesh_side)
-│   ├── calls create_dash_trackball_camera_controls
-│   ├── calls create_dash_mesh_component
+│   ├── calls create_dash_trackball_camera_controls(lock_roll=lock_roll)
+│   ├── calls create_dash_mesh_component(scene=scene, controls=controls)
 │   └── return
 ├── def create_dash_mesh_scene(mesh: Any, mesh_color: Optional[str] = None, mesh_opacity: Optional[float] = None, mesh_side: Optional[str] = None) -> go.Mesh3d
 │   ├── # Sync-builds the Plotly Mesh3d trace from the mesh.
@@ -314,12 +314,12 @@ core_mesh_display.ts
 │   ├── uvTextureMap: THREE.Texture  # the texture image
 │   ├── vertsUvs: Float32Array       # [VT, 2] UV coordinates
 │   └── facesUvs: Uint32Array        # [F, 3] flattened — per-face UV-vertex indices
-├── function renderMeshDisplay({ displayResponse, initialCameraState, meshColor, meshOpacity, meshSide }: { displayResponse: MeshDisplayResponse; initialCameraState?: CameraState | null; meshColor?: string; meshOpacity?: number; meshSide?: THREE.Side }): LeafVNode
+├── function renderMeshDisplay({ displayResponse, initialCameraState, meshColor, meshOpacity, meshSide, lockRoll = null }: { displayResponse: MeshDisplayResponse; initialCameraState?: CameraState | null; meshColor?: string; meshOpacity?: number; meshSide?: THREE.Side; lockRoll?: THREE.Vector3 | null }): LeafVNode
 │   ├── # Renders a self-contained mesh display element initialized at initialCameraState.
 │   ├── calls createSpatialDisplayScene({ initialCameraState })
 │   ├── calls createMeshObject({ displayResponse, meshColor, meshOpacity, meshSide })   → object
 │   ├── impls scene.add(object)
-│   ├── calls createTrackballCameraControls({ container, camera, renderer, initialCameraState })
+│   ├── calls createTrackballCameraControls({ container, camera, renderer, initialCameraState, lockRoll })
 │   ├── calls renderMeshScene({ scene, camera, renderer, controls })
 │   └── return LeafVNode keyed by displayResponse.url
 ├── function createMeshObject({ displayResponse, meshColor, meshOpacity, meshSide }: { displayResponse: MeshDisplayResponse; meshColor?: string; meshOpacity?: number; meshSide?: THREE.Side }): THREE.Object3D
