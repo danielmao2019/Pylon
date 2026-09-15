@@ -90,10 +90,12 @@ core_mesh_display.py
 │   ├── else
 │   │   └── impls effective_color = DEFAULT_MESH_COLOR
 │   └── return
-└── def create_dash_mesh_component
-    ├── # Assembles the Dash component that hosts the Mesh3d scene and its trackball camera controls.
+└── def create_dash_mesh_component(scene, controls)  # controls: the Plotly gl3d controls create_dash_trackball_camera_controls built
+    ├── # Assembles the Dash component that hosts the Mesh3d scene under its trackball camera controls.
     ├── impls assert isinstance(scene, go.Mesh3d)
-    ├── impls display = dcc.Graph(figure=go.Figure(data=[scene]))
+    ├── impls display = dcc.Graph(figure=go.Figure(data=[scene], layout={"scene": controls["scene"]}))
+    ├── if controls["graph_id"] is not None
+    │   └── impls display.id = controls["graph_id"]  # the pattern-matching id the roll-lock callback holds this graph by
     └── return display  # the mesh display element
 ```
 
