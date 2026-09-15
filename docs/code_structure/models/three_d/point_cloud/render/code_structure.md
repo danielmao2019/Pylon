@@ -196,8 +196,17 @@ render_normal.py
 ├── from models.three_d.point_cloud.render.common.apply_point_size_postprocessing import apply_point_size_postprocessing
 ├── from models.three_d.point_cloud.render.common.prepare_points_for_rendering import prepare_points_for_rendering
 ├── from models.three_d.point_cloud.render.common.validate_rendering_inputs import validate_rendering_inputs
-├── from models.three_d.point_cloud.render.render_depth import render_depth_from_rendering_points
+├── from models.three_d.point_cloud.render.render_depth import render_depth_from_point_cloud, render_depth_from_rendering_points
 ├── from models.three_d.point_cloud.render.render_mask import render_mask_from_rendering_points
+├── from utils.conversions.depth_to_normals import depth_to_normals
+├── def render_normal_from_point_cloud_2d(pc: PointCloud, camera: Camera, resolution: Tuple[int, int], ignore_value: float = 0.0, return_mask: bool = False, point_size: float = 1.0) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]
+│   ├── # Renders a normal map from the point cloud's geometry: rasterizes its depth through the camera rescaled to resolution, then derives opencv camera-frame normals from that depth map with a K of the camera's native-resolution fx, fy, cx, cy.
+│   ├── assert pc is a PointCloud  # f"{type(pc)=}"
+│   ├── calls render_depth_from_point_cloud(pc=pc, camera=camera, resolution=resolution, ignore_value=float('inf'), return_mask=False, point_size=point_size)  # -> depth_map
+│   ├── impls intrinsics = the camera's intrinsics
+│   ├── impls intrinsics_matrix = the float32 [[fx, 0, cx], [0, fy, cy], [0, 0, 1]] tensor of intrinsics' fx, fy, cx, cy on intrinsics.device
+│   ├── calls depth_to_normals(depth_map=depth_map, camera_intrinsics=intrinsics_matrix, depth_ignore_value=float('inf'), normal_ignore_value=ignore_value, return_mask=return_mask)
+│   └── return the depth_to_normals result
 ├── def render_normal_from_point_cloud_3d(pc: PointCloud, camera: Camera, resolution: Tuple[int, int], ignore_value: float = 0.0, return_mask: bool = False, point_size: float = 1.0) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]
 │   ├── # Renders the normals a point cloud already carries through the camera to a normal map, chaining validation, projection, rasterization, and point-size dilation.
 │   ├── assert isinstance(pc, PointCloud)  # f"{type(pc)=}"
