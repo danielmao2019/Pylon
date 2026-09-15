@@ -339,11 +339,12 @@ core_points_display.py
 │   │   └── impls effective_color = DEFAULT_POINT_COLOR
 │   ├── impls trace = the points' x, y and z as markers, sized effective_size and colored effective_color  # impls-node-one-step:skip — one trace's arguments
 │   └── return trace
-├── def create_dash_points_component(scene: go.Scatter3d, controls: Any) -> dcc.Graph
-│   ├── # Wraps the point-cloud scene into a Dash graph over a one-trace figure.
-│   ├── assert scene is a go.Scatter3d  # reporting its type
-│   ├── impls component = the dcc.Graph over the figure holding that scene
-│   └── return component
+├── def create_dash_points_component(scene: go.Scatter3d, controls: Dict[str, Any]) -> dcc.Graph  # controls: the Plotly gl3d controls create_dash_trackball_camera_controls built
+│   ├── # Assembles the Dash component that hosts the point-cloud scene under its trackball camera controls.
+│   ├── impls display = dcc.Graph(figure=go.Figure(data=[scene], layout={"scene": controls["scene"]}))
+│   ├── if controls["graph_id"] is not None
+│   │   └── impls display.id = controls["graph_id"]  # the pattern-matching id the roll-lock callback holds this graph by
+│   └── return display  # the point-cloud display element
 └── def get_point_cloud_display_stats(point_cloud: PointCloud, change_map: Optional[torch.Tensor] = None, class_names: Optional[Dict[int, str]] = None) -> Dict[str, Any]
     ├── # Reports one point cloud's display statistics, with its change classes' distribution when a change map is given.
     ├── assert point_cloud is a PointCloud  # reporting its type

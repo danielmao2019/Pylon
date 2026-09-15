@@ -291,11 +291,12 @@ core_mesh_display.py
 │   ├── impls texture_base64 = that buffer, base64-encoded as ascii
 │   ├── impls texture_data_url = that base64 under the PNG data-url prefix
 │   └── return texture_data_url
-└── def create_dash_mesh_component(scene: go.Mesh3d, controls: Any) -> dcc.Graph
-    ├── # Wraps the mesh scene into a Dash graph over a one-trace figure.
-    ├── assert scene is a go.Mesh3d  # reporting its type
-    ├── impls component = the dcc.Graph over the figure holding that scene
-    └── return component
+└── def create_dash_mesh_component(scene: go.Mesh3d, controls: Dict[str, Any]) -> dcc.Graph  # controls: the Plotly gl3d controls create_dash_trackball_camera_controls built
+    ├── # Assembles the Dash component that hosts the Mesh3d scene under its trackball camera controls.
+    ├── impls display = dcc.Graph(figure=go.Figure(data=[scene], layout={"scene": controls["scene"]}))
+    ├── if controls["graph_id"] is not None
+    │   └── impls display.id = controls["graph_id"]  # the pattern-matching id the roll-lock callback holds this graph by
+    └── return display  # the mesh display element
 ```
 
 
