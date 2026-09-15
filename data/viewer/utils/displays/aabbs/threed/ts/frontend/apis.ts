@@ -39,11 +39,11 @@ const AABB_3D_LABEL_ASPECT = 4;
 export function renderAabb3dDisplay({
   displayResponse,
   initialCameraState = null,
-  lockRoll = null,
+  lockRoll = null
 }: {
   displayResponse: Aabb3dDisplayResponse;
   initialCameraState?: CameraState | null;
-  lockRoll?: THREE.Vector3 | null;
+  lockRoll?: THREE.Vector3 | null
 }): LeafVNode {
   const leaf: LeafVNode = {
     kind: "leaf",

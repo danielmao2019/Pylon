@@ -29,11 +29,11 @@ import { createTrackballCameraControls } from "data/viewer/utils/controls/camera
 export function renderLayeredDisplay({
   layeredDisplayResponse,
   initialCameraState,
-  lockRoll = null,
+  lockRoll = null
 }: {
   layeredDisplayResponse: LayeredDisplayResponse;
   initialCameraState: CameraState | null;
-  lockRoll?: THREE.Vector3 | null;
+  lockRoll?: THREE.Vector3 | null
 }): LeafVNode {
   if (layeredDisplayResponse.layer_class === "spatial") {
     return renderLayeredSpatialDisplay({ layeredDisplayResponse, initialCameraState, lockRoll });
@@ -58,11 +58,11 @@ export function renderLayeredDisplay({
 function renderLayeredSpatialDisplay({
   layeredDisplayResponse,
   initialCameraState,
-  lockRoll = null,
+  lockRoll = null
 }: {
   layeredDisplayResponse: LayeredDisplayResponse;
   initialCameraState: CameraState | null;
-  lockRoll?: THREE.Vector3 | null;
+  lockRoll?: THREE.Vector3 | null
 }): LeafVNode {
   const leaf: LeafVNode = {
     kind: "leaf",

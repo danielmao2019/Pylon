@@ -26,7 +26,7 @@ from data.structures.three_d.point_cloud.random_select import RandomSelect
 from data.transforms.vision_3d.pclod import create_lod_function
 from data.viewer.dataset.context import get_viewer_context
 from data.viewer.utils.controls.camera.camera_controls.dash.trackball_camera_controls import (
-    create_dash_plotly_trackball_camera_controls,
+    create_dash_trackball_camera_controls,
 )
 from data.viewer.utils.segmentation import get_color
 
@@ -873,7 +873,7 @@ def create_dash_points_display(
         point_cloud: PointCloud to render; `xyz` holds the point positions and an optional `rgb` field holds per-point colors.
         point_size: Optional uniform marker size override; when None the bounding-sphere heuristic computes the size.
         point_color: Optional uniform marker color override (CSS color string); when None per-point colors or the lib default color is used.
-        lock_roll: Optional axis to hold camera roll about through every drag, as a non-zero `(x, y, z)` world-space direction of any length in the point cloud's own world frame, handed unchanged to `create_dash_plotly_trackball_camera_controls`; None leaves roll free.
+        lock_roll: Optional axis to hold camera roll about through every drag, as a non-zero `(x, y, z)` world-space direction of any length in the point cloud's own world frame, handed unchanged to `create_dash_trackball_camera_controls`; None leaves roll free.
 
     Returns:
         Dash `dcc.Graph` wrapping the point-cloud scene under its trackball camera controls, carrying the roll-locked pattern-matching component id when `lock_roll` is supplied and no id otherwise.
@@ -899,7 +899,7 @@ def create_dash_points_display(
         point_size=point_size,
         point_color=point_color,
     )
-    controls = create_dash_plotly_trackball_camera_controls(lock_roll=lock_roll)
+    controls = create_dash_trackball_camera_controls(lock_roll=lock_roll)
     return create_dash_points_component(
         scene=scene,
         controls=controls,
@@ -971,7 +971,7 @@ def create_dash_points_component(
 
     Args:
         scene: Plotly `go.Scatter3d` marker trace for the point cloud.
-        controls: The Plotly gl3d controls `create_dash_plotly_trackball_camera_controls` built, a dict of exactly `"scene"` (the `layout.scene` configuration dict) and `"graph_id"` (None, or the roll-locked pattern-matching component id dict).
+        controls: The Plotly gl3d controls `create_dash_trackball_camera_controls` built, a dict of exactly `"scene"` (the `layout.scene` configuration dict) and `"graph_id"` (None, or the roll-locked pattern-matching component id dict).
 
     Returns:
         Dash `dcc.Graph` rendering the point-cloud scene under `controls["scene"]`, carrying `controls["graph_id"]` as its component id when that id is not None.
