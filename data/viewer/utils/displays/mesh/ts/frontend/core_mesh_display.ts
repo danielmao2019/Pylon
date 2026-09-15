@@ -80,14 +80,14 @@ export function renderMeshDisplay({
   meshColor,
   meshOpacity,
   meshSide,
-  lockRoll = null,
+  lockRoll = null
 }: {
   displayResponse: MeshDisplayResponse;
   initialCameraState?: CameraState | null;
   meshColor?: string;
   meshOpacity?: number;
   meshSide?: THREE.Side;
-  lockRoll?: THREE.Vector3 | null;
+  lockRoll?: THREE.Vector3 | null
 }): LeafVNode {
   const leaf: LeafVNode = {
     kind: "leaf",

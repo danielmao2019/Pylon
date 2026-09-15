@@ -76,13 +76,13 @@ export function renderPointsDisplay({
   initialCameraState = null,
   pointSize,
   pointColor,
-  lockRoll = null,
+  lockRoll = null
 }: {
   displayResponse: PointDisplayResponse;
   initialCameraState?: CameraState | null;
   pointSize?: number;
   pointColor?: string;
-  lockRoll?: THREE.Vector3 | null;
+  lockRoll?: THREE.Vector3 | null
 }): LeafVNode {
   const leaf: LeafVNode = {
     kind: "leaf",

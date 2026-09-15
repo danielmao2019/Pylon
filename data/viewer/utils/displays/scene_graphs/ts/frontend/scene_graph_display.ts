@@ -58,7 +58,7 @@ export function renderSceneGraphDisplay({
   edgeWidth,
   labelFontSize,
   labelColor,
-  lockRoll = null,
+  lockRoll = null
 }: {
   displayResponse: SceneGraphDisplayResponse;
   initialCameraState?: CameraState | null;
@@ -67,7 +67,7 @@ export function renderSceneGraphDisplay({
   edgeWidth?: number;
   labelFontSize?: number;
   labelColor?: string;
-  lockRoll?: THREE.Vector3 | null;
+  lockRoll?: THREE.Vector3 | null
 }): LeafVNode {
   const leaf: LeafVNode = {
     kind: "leaf",

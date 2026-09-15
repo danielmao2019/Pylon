@@ -4,8 +4,8 @@
 //
 // Every pose reaches the renderer as a keyframe one of the view's camera controllers - orbital, turntable, matrix - writes through its own `lookAt` into a time-indexed spline the renderer samples a frame or two behind. The view's `lookAt` hands a pose to every controller, and the rotation-mode setter the modebar's "Turntable rotation" button runs writes straight into the newly active controller, so the module wraps each controller's `lookAt` rather than the view's: a drag step, a `Plotly.relayout`, a reset-camera button, a replot and a rotation-mode switch all go into the keyframes already roll-locked, each orbital quaternion in the hemisphere of the keyframe before it, and the renderer never holds an unlocked keyframe to draw. A drag arrives one pointer move at a time through the view's rotation, which the module replaces with the roll-locked turn, written as sub-step keyframes a bounded turn apart so that the frames the renderer interpolates between them stay on the lock too. The locked pose keeps the eye a camera was written with, banded off the poles, and re-derives the up vector from its view direction and the axis whatever up was written, so a camera written upside down is turned upright about its own view direction rather than moved. The layout keeps its own record of the camera, which a relayout, a reset button, a switch to turntable or a Dash figure update writes as it was handed, so the graph's `plotly_relayout` and `plotly_afterplot` events rewrite that record to the roll-locked pose the renderer already draws. A projection switch, on its own or inside a figure update, also builds the scene a new view controller from that record, which the scene's render loop draws before the replot reports itself, so the lock goes onto each view controller where the scene builds it, before it draws a frame, and each replot re-holds the lock on whichever view controller the scene has. A figure update that drops the 3D trace and adds it back builds a new scene altogether, and a mutation observer on the graph div holds the lock on that scene before its first animation frame. Rotation is the whole of what the replaced turn has to cover: the controller's pan carries the eye and the center together and its wheel zoom moves the eye along the view direction, so both leave the camera frame - and the lock - exactly as they found it.
 //
-// The module is a single expression: the named function `holdRollLockedGraphs`, the one Dash clientside callback `trackball_camera_controls.py` registers, on the relayoutData of every graph whose pattern-matching component id has type `dash-roll-locked-graph`. Each time any of those graphs reports a relayout - its first render, and a graph a Dash callback adds after the page loaded, included - it walks every matched input in `callback_context.inputs_list[0]`: it resolves the DOM id dash-renderer renders that graph's dict id onto, reads the unit-length world-frame axis the id's `lock_roll` carries, and runs the per-graph lock `createRollLockCallback` builds from the two on that graph's relayoutData. The per-graph lock keeps its state on the graph div, its scene and its view controllers, so building it afresh on every run re-holds the lock rather than installing it twice.
-(function holdRollLockedGraphs(relayoutDataList) {
+// The module is the named function `holdRollLockedGraphs`, which Dash's inline clientside template assigns as the one clientside callback `trackball_camera_controls.py` registers, on the relayoutData of every graph whose pattern-matching component id has type `dash-roll-locked-graph`. Each time any of those graphs reports a relayout - its first render, and a graph a Dash callback adds after the page loaded, included - it walks every matched input in `callback_context.inputs_list[0]`: it resolves the DOM id dash-renderer renders that graph's dict id onto, decodes the unit-length world-frame axis the id's `lock_roll` carries as base64-encoded JSON, and runs the per-graph lock `createRollLockCallback` builds from the two on that graph's relayoutData. The per-graph lock keeps its state on the graph div, its scene and its view controllers, so building it afresh on every run re-holds the lock rather than installing it twice.
+function holdRollLockedGraphs(relayoutDataList) {
     // Resolves the DOM id Dash renders a pattern-matching component id onto, the way dash-renderer stringifies one: its keys sorted, each written as its JSON key and its JSON value around a colon, comma-joined inside braces.
     function resolveGraphElementId(graphId) {
         const graphElementId = "{" + Object.keys(graphId).sort().map(function (key) {
@@ -32,9 +32,7 @@
         function rollLockCallback(relayoutData) {
             const mounted = resolveMountedScene();
             if (mounted === null) {
-                window.requestAnimationFrame(function () {
-                    rollLockCallback(relayoutData);
-                });
+                window.requestAnimationFrame(rollLockCallback.bind(null, relayoutData));
                 return window.dash_clientside.no_update;
             }
             holdSceneRollLock(mounted.scene);
@@ -46,7 +44,7 @@
         // Resolves graphElementId's Plotly graph div and its gl3d scene, or null while the scene has not mounted. `dcc.Graph` renders its component id onto a wrapper div, so the Plotly graph div is the `.js-plotly-plot` inside it; Dash fires the callback on initial render, before the WebGL scene exists.
         function resolveMountedScene() {
             const wrapper = document.getElementById(graphElementId);
-            const graphDiv = wrapper === null ? null : wrapper.querySelector(".js-plotly-plot");
+            const graphDiv = wrapper && wrapper.querySelector(".js-plotly-plot");
             if (
                 graphDiv === null
                 || graphDiv._fullLayout === undefined
@@ -56,7 +54,8 @@
             ) {
                 return null;
             }
-            return { graphDiv: graphDiv, scene: graphDiv._fullLayout.scene._scene };
+            const mountedScene = { graphDiv: graphDiv, scene: graphDiv._fullLayout.scene._scene };
+            return mountedScene;
         }
 
         // Holds the lock on one gl3d scene: on the view controller it turns now, and on each one it builds later from the camera the layout stores, before that controller draws a frame. A projection switch - on its own or inside a Dash figure update - disposes the scene's plot and builds it again, and the rebuilt plot's render loop draws the new view controller from its next animation frame, well before the replot reports itself through `plotly_afterplot`; so the lock goes onto that controller where the scene builds it, in `initializeGLCamera`, which gl3d's `initializeGLPlot` calls on the scene itself, so the scene's own property takes precedence over the method its prototype carries.
@@ -67,15 +66,17 @@
                 return;
             }
             scene.rollLockHeld = true;
-            const sceneInitializeGLCamera = scene.initializeGLCamera.bind(scene);
+            const sceneInitializeGLCamera = scene.initializeGLCamera;
 
             // Builds the scene's camera through its own initializeGLCamera, as a projection switch does, then holds the lock on the new view controller in the same call.
             function rollLockedInitializeGLCamera() {
-                sceneInitializeGLCamera();
+                sceneInitializeGLCamera.call(scene);
                 holdRollLock(scene.camera.view);
+                return;
             }
 
             scene.initializeGLCamera = rollLockedInitializeGLCamera;
+            return;
         }
 
         // Resolves the lock axis in the scene's normalized space, where Plotly draws each world axis scaled by its aspect ratio over its range, so worldAxis stays upright on screen under any aspect: the camera turns in that space, and the scale is the same on all three axes under aspectmode "data" but not under "cube" or "manual". Crossing the axis with the world basis vector it leans on least keeps the fallback meridian's cross product itself clear of the degeneracy it stands in for.
@@ -99,6 +100,7 @@
                             : [0, 0, 1],
                 ),
             );
+            return;
         }
 
         // Holds the lock on one gl3d scene's view controller, once per view controller, since a replotted graph arrives with a view controller of its own: wraps every camera controller's lookAt, and replaces the view's rotation with the roll-locked turn. The view's own rotation is never run: it turns the eye about the screen axes of a trackball, and on a pure-horizontal drag that alone moves the eye's polar angle to the lock axis, so keeping its eye and correcting only the up vector would fly the free trackball's path with a level horizon.
@@ -133,14 +135,16 @@
                     );
                     view.lookAt(subStepTime, turnedPose.eye, center, turnedPose.up);
                 }
+                return;
             }
 
             view.rotate = rollLockedRotate;
+            return;
         }
 
         // Wraps one camera controller's lookAt so every pose written into its keyframes goes in roll-locked - a drag step, a relayout, a reset-camera button, a replot, and a rotation-mode switch writing into the newly active controller directly.
         function holdControllerRollLock(controller) {
-            const controllerLookAt = controller.lookAt.bind(controller);
+            const controllerLookAt = controller.lookAt;
 
             // Writes one pose into the controller's keyframes on the lock, taking the same optional eye and center the controller's own lookAt does and filling a missing one from the controller's pose at that time; the written up is the one thing the lock never keeps, since it re-derives the up from the view direction and the axis. Only the orbital controller keeps its rotation as quaternion keyframes; the turntable controller keeps angles and the matrix controller whole matrices, which have no second hemisphere to land in.
             function rollLockedLookAt(time, eye, center, up) {
@@ -149,31 +153,36 @@
                 const writtenCenter = (center || controller.computedCenter).slice();
                 const rollLockedPose = resolveRollLockedPose(writtenEye, writtenCenter);
                 const rotation = controller.rotation;
-                const keyframeCount = rotation === undefined ? 0 : rotation._time.length;
-                controllerLookAt(time, rollLockedPose.eye, writtenCenter, rollLockedPose.up);
+                const keyframeCount = rotation && rotation._time.length;
+                controllerLookAt.call(controller, time, rollLockedPose.eye, writtenCenter, rollLockedPose.up);
                 if (rotation !== undefined && rotation._time.length > keyframeCount) {
                     alignRotationKeyframeHemisphere(rotation);
                 }
+                return;
             }
 
             controller.lookAt = rollLockedLookAt;
+            return;
         }
 
         // Negates the newest rotation keyframe's quaternion when it sits in the opposite hemisphere from the keyframe before it. `q` and `-q` name one rotation and the controller's lookAt stores whichever its matrix-to-quaternion step lands on, but the renderer interpolates the keyframes component by component, so between `q` and `-q` the frames it draws swing through unrelated orientations. The vector stores each keyframe's four components contiguously, so the newest keyframe is the last four entries of its state and the one before it the four ahead of those.
         function alignRotationKeyframeHemisphere(rotation) {
-            const state = rotation._state;
-            const newest = state.length - 4;
-            const previous = newest - 4;
-            let dot = 0;
-            for (let index = 0; index < 4; index += 1) {
-                dot += state[previous + index] * state[newest + index];
-            }
-            if (dot >= 0) {
+            if (
+                rotation._state[rotation._state.length - 8] * rotation._state[rotation._state.length - 4]
+                + rotation._state[rotation._state.length - 7] * rotation._state[rotation._state.length - 3]
+                + rotation._state[rotation._state.length - 6] * rotation._state[rotation._state.length - 2]
+                + rotation._state[rotation._state.length - 5] * rotation._state[rotation._state.length - 1]
+                >= 0
+            ) {
                 return;
             }
-            for (let index = 0; index < 4; index += 1) {
-                state[newest + index] = -state[newest + index];
-            }
+            const state = rotation._state;
+            const newest = state.length - 4;
+            state[newest] = -state[newest];
+            state[newest + 1] = -state[newest + 1];
+            state[newest + 2] = -state[newest + 2];
+            state[newest + 3] = -state[newest + 3];
+            return;
         }
 
         // Subscribes the lock once to graphDiv's plotly_relayout and plotly_afterplot events and to the scenes Plotly mounts inside it, so the camera the layout stores - which a relayout, a reset-camera button, a switch to turntable or a Dash figure update writes as it was handed - is rewritten to the roll-locked pose the renderer already draws. A relayout event hands the lock the camera it wrote rather than the scene's, since the wrapped controllers have already locked the one the scene reports.
@@ -190,6 +199,7 @@
                     return;
                 }
                 applyRollLock(graphDiv, writtenCamera);
+                return;
             }
 
             graphDiv.on("plotly_relayout", rewriteWrittenCamera);
@@ -202,6 +212,7 @@
                 }
                 holdSceneRollLock(mounted.scene);
                 applyRollLock(graphDiv, graphDiv._fullLayout.scene.camera);
+                return;
             }
 
             graphDiv.on("plotly_afterplot", rewriteReplottedCamera);
@@ -213,9 +224,12 @@
                     return;
                 }
                 holdSceneRollLock(mounted.scene);
+                return;
             }
 
+            // Runs as Plotly.react's synchronous part ends, before the rebuilt scene's first animation frame, where plotly_afterplot runs later.
             new MutationObserver(holdRebuiltScene).observe(graphDiv, { childList: true, subtree: true });
+            return;
         }
 
         // Resolves the camera one relayout event wrote into graphDiv's layout, or null when it wrote none. A drag, pan or zoom ends by saving its camera into the layout input and into a full layout object the graph has since replaced, and reports that camera whole in the event. A `Plotly.relayout` that writes the camera by key path - a reset-camera button, this module's own correction - rebuilds the full layout, and so does a rotation-mode switch, whose switch to turntable also re-seats the stored camera's up on world +Z without reporting it; both are read from the full layout. An event that writes neither - the empty relayout a wheel zoom opens with - leaves the stored camera as it was, and the full layout, which such an event need not rebuild, can still hold one a drag has since replaced.
@@ -251,6 +265,7 @@
             }).then(function () {
                 graphDiv.__rollLock.writing = false;
             });
+            return;
         }
 
         // Turns a roll-locked pose by one drag step's yaw about axis and pitch about the camera right axis, the pitch stopping at the polar band, so a horizontal drag holds the elevation and a vertical one holds the azimuth - the motion a roll lock is, rather than the free trackball's motion with its roll taken out afterwards.
@@ -267,7 +282,8 @@
             );
             const turnedOffset = vectorRotateAboutAxis(yawedOffset, right, pitchAngle);
             const turnedUp = vectorNormalize(vectorCross(right, vectorScale(turnedOffset, -1)));
-            return { eye: vectorAdd(center, turnedOffset), up: turnedUp };
+            const turnedPose = { eye: vectorAdd(center, turnedOffset), up: turnedUp };
+            return turnedPose;
         }
 
         // Resolves the pose the lock holds a camera at: its eye where it was written, banded off the poles, and the up vector the view direction from that eye and axis determine, whatever up was written. A camera written with its up on the far side of the axis therefore keeps its eye and is turned upright about its own view direction.
@@ -276,7 +292,8 @@
             const rollLockedEye = vectorAdd(center, bandedOffset);
             const forward = vectorNormalize(vectorSubtract(center, rollLockedEye));
             const right = vectorNormalize(vectorCross(forward, axis));
-            return { eye: rollLockedEye, up: vectorNormalize(vectorCross(right, forward)) };
+            const rollLockedPose = { eye: rollLockedEye, up: vectorNormalize(vectorCross(right, forward)) };
+            return rollLockedPose;
         }
 
         // Bands an eye offset's polar angle off axis into [ROLL_LOCK_POLAR_ANGLE_EPSILON, pi - ROLL_LOCK_POLAR_ANGLE_EPSILON], rebuilding it at the banded angle on its own meridian. Every camera right axis this module derives comes from an offset this has already banded, so the degeneracy that derivation would hit on an eye sitting exactly on the axis is unreachable rather than guarded against afterwards.
@@ -291,10 +308,11 @@
                 Math.max(polarAngle, ROLL_LOCK_POLAR_ANGLE_EPSILON),
                 Math.PI - ROLL_LOCK_POLAR_ANGLE_EPSILON,
             );
-            return vectorAdd(
+            const bandedOffset = vectorAdd(
                 vectorScale(axis, radius * Math.cos(bandedPolarAngle)),
                 vectorScale(meridian, radius * Math.sin(bandedPolarAngle)),
             );
+            return bandedOffset;
         }
 
         // Resolves the meridian an eye offset stands on, as a unit vector perpendicular to axis; an offset on axis stands on every meridian at once.
@@ -303,46 +321,53 @@
             if (vectorDot(meridian, meridian) === 0) {
                 return ROLL_LOCK_FALLBACK_MERIDIAN;
             }
-            return vectorNormalize(meridian);
+            const unitMeridian = vectorNormalize(meridian);
+            return unitMeridian;
         }
 
         // Rotates a vector about a unit axis by an angle in radians, right-handed (Rodrigues' rotation), the way a drag's yaw and pitch turn the eye offset.
         function vectorRotateAboutAxis(vector, unitAxis, angle) {
             const cosine = Math.cos(angle);
             const sine = Math.sin(angle);
-            return vectorAdd(
+            const rotated = vectorAdd(
                 vectorAdd(vectorScale(vector, cosine), vectorScale(vectorCross(unitAxis, vector), sine)),
                 vectorScale(unitAxis, vectorDot(unitAxis, vector) * (1 - cosine)),
             );
+            return rotated;
         }
 
         // Adds two [x, y, z] arrays.
         function vectorAdd(left, right) {
-            return [left[0] + right[0], left[1] + right[1], left[2] + right[2]];
+            const sum = [left[0] + right[0], left[1] + right[1], left[2] + right[2]];
+            return sum;
         }
 
         // Subtracts one [x, y, z] array from another.
         function vectorSubtract(left, right) {
-            return [left[0] - right[0], left[1] - right[1], left[2] - right[2]];
+            const difference = [left[0] - right[0], left[1] - right[1], left[2] - right[2]];
+            return difference;
         }
 
         // Scales an [x, y, z] array by a scalar, negation included.
         function vectorScale(vector, scalar) {
-            return [vector[0] * scalar, vector[1] * scalar, vector[2] * scalar];
+            const scaled = [vector[0] * scalar, vector[1] * scalar, vector[2] * scalar];
+            return scaled;
         }
 
         // Resolves the dot product of two [x, y, z] arrays, a squared length when both are one vector.
         function vectorDot(left, right) {
-            return left[0] * right[0] + left[1] * right[1] + left[2] * right[2];
+            const dot = left[0] * right[0] + left[1] * right[1] + left[2] * right[2];
+            return dot;
         }
 
         // Resolves the right-handed cross product of two [x, y, z] arrays.
         function vectorCross(left, right) {
-            return [
+            const cross = [
                 left[1] * right[2] - left[2] * right[1],
                 left[2] * right[0] - left[0] * right[2],
                 left[0] * right[1] - left[1] * right[0],
             ];
+            return cross;
         }
 
         // Scales an [x, y, z] array to unit length. A zero-length input is a camera the polar band does not cover, so it aborts here rather than handing the panel a NaN pose it would then turn from forever.
@@ -353,17 +378,20 @@
                     "cannot normalize a zero-length vector: vector=" + JSON.stringify(vector) + " length=" + length,
                 );
             }
-            return [vector[0] / length, vector[1] / length, vector[2] / length];
+            const unit = [vector[0] / length, vector[1] / length, vector[2] / length];
+            return unit;
         }
 
         // Converts a Plotly {x, y, z} camera record to an [x, y, z] array.
         function recordToVector(record) {
-            return [record.x, record.y, record.z];
+            const vector = [record.x, record.y, record.z];
+            return vector;
         }
 
         // Converts an [x, y, z] array to a Plotly {x, y, z} camera record.
         function vectorToRecord(vector) {
-            return { x: vector[0], y: vector[1], z: vector[2] };
+            const record = { x: vector[0], y: vector[1], z: vector[2] };
+            return record;
         }
 
         return rollLockCallback;
@@ -372,8 +400,10 @@
     // Holds every graph the roll-locked pattern matches, one { id, property, value } input per graph, about the world-frame axis its own component id carries.
     for (const input of window.dash_clientside.callback_context.inputs_list[0]) {
         const graphElementId = resolveGraphElementId(input.id);
-        const worldAxis = JSON.parse(input.id.lock_roll);
-        createRollLockCallback(graphElementId, worldAxis)(input.value);
+        // The unit-length axis create_dash_trackball_camera_controls normalized and base64-encoded, so no id value holds a "." Dash escapes in output ids.
+        const worldAxis = JSON.parse(atob(input.id.lock_roll));
+        const rollLockCallback = createRollLockCallback(graphElementId, worldAxis);
+        rollLockCallback(input.value);
     }
     return window.dash_clientside.no_update;
-})
+}

@@ -1,5 +1,6 @@
 """Dash trackball camera controls, their guards, and the one clientside roll-lock callback."""
 
+import base64
 import json
 import math
 from pathlib import Path
@@ -33,6 +34,8 @@ ROLL_LOCK_UP_SIDE_PATTERN: Final[str] = "polarAngle"
 PLOTLY_POSE_CLAMPING_DRAGMODE: Final[str] = "turntable"
 # Plotly gl3d dragmode whose left-drag carries camera.up with the drag, leaving roll free.
 PLOTLY_FREE_ROLL_DRAGMODE: Final[str] = "orbit"
+# Plotly gl3d aspectmode that draws every axis at its data's own proportions, so a world direction keeps its angles in the scene's normalized space.
+PLOTLY_DATA_PROPORTION_ASPECTMODE: Final[str] = "data"
 # Type of the pattern-matching component id a roll-locked Plotly gl3d display's dcc.Graph carries, the key the roll-lock callback matches it on.
 ROLL_LOCKED_GRAPH_ID_TYPE: Final[str] = "dash-roll-locked-graph"
 # Text of roll_lock.js beside this module, the clientside roll-lock source this module registers: one expression evaluating to the callback over every roll-locked graph's relayoutData.
@@ -41,16 +44,18 @@ ROLL_LOCK_CALLBACK_SCRIPT: Final[str] = (
 ).read_text(encoding="utf-8")
 
 
-def create_dash_plotly_trackball_camera_controls(
+def create_dash_trackball_camera_controls(
+    renderer_controls: Optional[str] = None,
     lock_roll: Optional[Tuple[float, float, float]] = None,
-) -> Dict[str, Any]:
-    """Build and validate the trackball controls a Dash Plotly gl3d display renders under.
+) -> Union[str, Dict[str, Any]]:
+    """Build and validate the Dash trackball controls that every 3D Dash spatial display must use.
 
     Args:
+        renderer_controls: A renderer's own camera-control JavaScript source, or None for a Plotly gl3d display, whose trackball is Plotly's own.
         lock_roll: Optional axis to hold camera roll about through every drag, as a non-zero `(x, y, z)` world-space direction of any length in the display's own world frame; None leaves roll free.
 
     Returns:
-        The Plotly gl3d controls, a dict of exactly `"scene"`, the `layout.scene` configuration the display's figure carries (the orbit dragmode, plus the unit-length lock axis as `camera.up` when `lock_roll` is supplied), and `"graph_id"`, the component id the display's `dcc.Graph` carries: None for the free trackball, or the pattern-matching id `{"type": ROLL_LOCKED_GRAPH_ID_TYPE, "index": <hex str unique per construction>, "lock_roll": <JSON list of the unit-length axis>}` the roll-lock callback matches.
+        The validated controls: `renderer_controls` exactly as it arrived when one is handed over, otherwise the Plotly gl3d controls, a dict of exactly `"scene"`, the `layout.scene` configuration the display's figure carries (the orbit dragmode, plus the data aspectmode and the unit-length lock axis as `camera.up` when `lock_roll` is supplied), and `"graph_id"`, the component id the display's `dcc.Graph` carries: None for the free trackball, or the pattern-matching id `{"type": ROLL_LOCKED_GRAPH_ID_TYPE, "index": <hex str unique per construction>, "lock_roll": <base64 of the JSON list of the unit-length axis>}` the roll-lock callback matches.
     """
 
     def _validate_inputs() -> None:
@@ -66,82 +71,61 @@ def create_dash_plotly_trackball_camera_controls(
 
     _validate_inputs()
 
-    plotly_controls: Dict[str, Any] = {
-        "scene": {"dragmode": PLOTLY_FREE_ROLL_DRAGMODE},
-        "graph_id": None,
-    }
-    if lock_roll is not None:
-        length = math.sqrt(sum(component * component for component in lock_roll))
-        axis = [component / length for component in lock_roll]
-        plotly_controls["scene"]["camera"] = {
-            "up": {"x": axis[0], "y": axis[1], "z": axis[2]},
-        }
-        # The index keeps two roll-locked graphs on one page apart; lock_roll hands the roll-lock callback this graph's axis.
-        plotly_controls["graph_id"] = {
-            "type": ROLL_LOCKED_GRAPH_ID_TYPE,
-            "index": uuid4().hex,
-            "lock_roll": json.dumps(axis),
-        }
-    controls = create_dash_trackball_camera_controls(
-        renderer_controls=plotly_controls,
-        lock_roll=lock_roll,
-    )
-    return controls
-
-
-def create_dash_trackball_camera_controls(
-    renderer_controls: Union[str, Dict[str, Any]],
-    lock_roll: Optional[Tuple[float, float, float]] = None,
-) -> Union[str, Dict[str, Any]]:
-    """Create Dash renderer trackball camera controls.
-
-    Args:
-        renderer_controls: A renderer's own camera-control JavaScript source, or the Plotly gl3d controls `create_dash_plotly_trackball_camera_controls` builds, a dict of exactly `"scene"` (the `layout.scene` configuration dict) and `"graph_id"` (None, or the roll-locked pattern-matching component id dict).
-        lock_roll: Optional axis the controls hold camera roll about, as a non-zero `(x, y, z)` world-space direction of any length; None validates the free trackball.
-
-    Returns:
-        The validated controls, exactly as `renderer_controls` arrived.
-    """
     controls = create_dash_renderer_trackball_camera_controls(
         renderer_controls=renderer_controls,
+        lock_roll=lock_roll,
     )
     assert_dash_trackball_camera_controls(controls=controls, lock_roll=lock_roll)
     return controls
 
 
 def create_dash_renderer_trackball_camera_controls(
-    renderer_controls: Union[str, Dict[str, Any]],
+    renderer_controls: Optional[str],
+    lock_roll: Optional[Tuple[float, float, float]],
 ) -> Union[str, Dict[str, Any]]:
-    """Create renderer-specific Dash trackball camera controls.
+    """Construct the Dash renderer-specific trackball controls wiring left-drag rotate, right-drag pan, wheel zoom, and context-menu suppression.
 
     Args:
-        renderer_controls: A renderer's own camera-control JavaScript source, or the Plotly gl3d controls, a dict of exactly `"scene"` (the `layout.scene` configuration dict) and `"graph_id"` (None, or the roll-locked pattern-matching component id dict), whose left-drag rotate, right-drag pan, wheel zoom, and context-menu suppression the renderer itself wires.
+        renderer_controls: A renderer's own camera-control JavaScript source, which wires the mouse mapping and context-menu suppression itself, or None for a Plotly gl3d display, whose Plotly wires them.
+        lock_roll: Optional axis to hold camera roll about, as a non-zero `(x, y, z)` world-space direction of any length; None leaves roll free.
 
     Returns:
-        The renderer controls exactly as they arrived, so a display handing over its own source renders what it rendered before.
+        `renderer_controls` exactly as it arrived when one is handed over; otherwise the Plotly gl3d controls, a dict of exactly `"scene"` (the `layout.scene` configuration dict) and `"graph_id"` (None, or the roll-locked pattern-matching component id dict).
     """
 
     def _validate_inputs() -> None:
-        assert isinstance(renderer_controls, (str, dict)), (
-            "Renderer controls must be JavaScript source or Plotly gl3d controls. "
+        assert renderer_controls is None or (
+            isinstance(renderer_controls, str) and renderer_controls.strip() != ""
+        ), (
+            "Renderer controls must be None or non-empty JavaScript source. "
             "renderer_controls=%r" % (renderer_controls,)
         )
-        if isinstance(renderer_controls, str):
-            assert renderer_controls.strip() != "", (
-                "Renderer controls source must be non-empty. "
-                "renderer_controls=%r" % (renderer_controls,)
-            )
-        else:
-            assert set(renderer_controls) == {"scene", "graph_id"} and isinstance(
-                renderer_controls["scene"], dict
-            ), (
-                "Plotly gl3d controls must carry exactly a scene configuration dict "
-                "and a graph id. renderer_controls=%r" % (renderer_controls,)
-            )
 
     _validate_inputs()
 
-    return renderer_controls
+    if renderer_controls is not None:
+        # Exactly as they arrived, so a display handing over its own source renders what it rendered before lock_roll existed.
+        return renderer_controls
+    # The layout.scene configuration a Plotly gl3d display's figure carries and the component id its dcc.Graph carries, Plotly itself wiring left-button rotation, right-button panning, mouse-wheel zoom, and the suppressed canvas context menu.
+    plotly_controls: Dict[str, Any] = {
+        "scene": {"dragmode": PLOTLY_FREE_ROLL_DRAGMODE},
+        "graph_id": None,
+    }
+    if lock_roll is not None:
+        length = math.hypot(*lock_roll)
+        axis = [lock_roll[0] / length, lock_roll[1] / length, lock_roll[2] / length]
+        # The scene keeps world directions, so the camera.up below sits on the lock from the first frame and a data-extent change leaves the lock axis in place.
+        plotly_controls["scene"]["aspectmode"] = PLOTLY_DATA_PROPORTION_ASPECTMODE
+        plotly_controls["scene"]["camera"] = {
+            "up": {"x": axis[0], "y": axis[1], "z": axis[2]},
+        }
+        # The index keeps two roll-locked graphs on one page apart; lock_roll hands the callback this graph's axis, base64 so no id value holds a "." Dash escapes in output ids.
+        plotly_controls["graph_id"] = {
+            "type": ROLL_LOCKED_GRAPH_ID_TYPE,
+            "index": uuid4().hex,
+            "lock_roll": base64.b64encode(json.dumps(axis).encode()).decode(),
+        }
+    return plotly_controls
 
 
 def assert_dash_trackball_camera_controls(
@@ -161,6 +145,7 @@ def assert_dash_trackball_camera_controls(
     assert_dash_no_orbit_camera_controls(controls=controls)
     assert_dash_no_camera_pose_clamps(controls=controls, lock_roll=lock_roll)
     assert_dash_roll_lock(controls=controls, lock_roll=lock_roll)
+    return
 
 
 def assert_dash_trackball_mouse_mapping(controls: Union[str, Dict[str, Any]]) -> None:
@@ -172,14 +157,20 @@ def assert_dash_trackball_mouse_mapping(controls: Union[str, Dict[str, Any]]) ->
     Returns:
         None.
     """
-    assert isinstance(controls, str) or (
-        isinstance(controls, dict)
-        and set(controls) == {"scene", "graph_id"}
-        and isinstance(controls["scene"], dict)
-    ), (
-        "Controls must be renderer source text or Plotly gl3d controls carrying "
-        "exactly a scene configuration dict and a graph id. controls=%r" % (controls,)
-    )
+
+    def _validate_inputs() -> None:
+        assert isinstance(controls, str) or (
+            isinstance(controls, dict)
+            and set(controls) == {"scene", "graph_id"}
+            and isinstance(controls["scene"], dict)
+        ), (
+            "Controls must be renderer source text or Plotly gl3d controls carrying "
+            "exactly a scene configuration dict and a graph id. controls=%r"
+            % (controls,)
+        )
+
+    _validate_inputs()
+
     if isinstance(controls, dict):
         if "dragmode" in controls["scene"]:
             # Plotly wires the three-button mapping and suppresses the context menu natively only under a rotation dragmode.
@@ -212,6 +203,7 @@ def assert_dash_trackball_mouse_mapping(controls: Union[str, Dict[str, Any]]) ->
     ), "context menu blocks trackball panning. missing_patterns=%r" % (
         missing_context_menu_patterns,
     )
+    return
 
 
 def assert_dash_no_orbit_camera_controls(controls: Union[str, Dict[str, Any]]) -> None:
@@ -223,14 +215,20 @@ def assert_dash_no_orbit_camera_controls(controls: Union[str, Dict[str, Any]]) -
     Returns:
         None.
     """
-    assert isinstance(controls, str) or (
-        isinstance(controls, dict)
-        and set(controls) == {"scene", "graph_id"}
-        and isinstance(controls["scene"], dict)
-    ), (
-        "Controls must be renderer source text or Plotly gl3d controls carrying "
-        "exactly a scene configuration dict and a graph id. controls=%r" % (controls,)
-    )
+
+    def _validate_inputs() -> None:
+        assert isinstance(controls, str) or (
+            isinstance(controls, dict)
+            and set(controls) == {"scene", "graph_id"}
+            and isinstance(controls["scene"], dict)
+        ), (
+            "Controls must be renderer source text or Plotly gl3d controls carrying "
+            "exactly a scene configuration dict and a graph id. controls=%r"
+            % (controls,)
+        )
+
+    _validate_inputs()
+
     if isinstance(controls, dict):
         assert not (
             "camera" in controls["scene"] and "center" in controls["scene"]["camera"]
@@ -240,6 +238,7 @@ def assert_dash_no_orbit_camera_controls(controls: Union[str, Dict[str, Any]]) -
         )
         return
     assert "OrbitControls" not in controls, "orbit-style camera controls are forbidden"
+    return
 
 
 def assert_dash_no_camera_pose_clamps(
@@ -255,23 +254,29 @@ def assert_dash_no_camera_pose_clamps(
     Returns:
         None.
     """
-    assert isinstance(controls, str) or (
-        isinstance(controls, dict)
-        and set(controls) == {"scene", "graph_id"}
-        and isinstance(controls["scene"], dict)
-    ), (
-        "Controls must be renderer source text or Plotly gl3d controls carrying "
-        "exactly a scene configuration dict and a graph id. controls=%r" % (controls,)
-    )
-    assert lock_roll is None or (
-        isinstance(lock_roll, tuple)
-        and len(lock_roll) == 3
-        and all(isinstance(component, float) for component in lock_roll)
-        and any(component != 0.0 for component in lock_roll)
-    ), (
-        "Roll lock axis must be None or a non-zero 3-tuple of floats. "
-        "lock_roll=%r" % (lock_roll,)
-    )
+
+    def _validate_inputs() -> None:
+        assert isinstance(controls, str) or (
+            isinstance(controls, dict)
+            and set(controls) == {"scene", "graph_id"}
+            and isinstance(controls["scene"], dict)
+        ), (
+            "Controls must be renderer source text or Plotly gl3d controls carrying "
+            "exactly a scene configuration dict and a graph id. controls=%r"
+            % (controls,)
+        )
+        assert lock_roll is None or (
+            isinstance(lock_roll, tuple)
+            and len(lock_roll) == 3
+            and all(isinstance(component, float) for component in lock_roll)
+            and any(component != 0.0 for component in lock_roll)
+        ), (
+            "Roll lock axis must be None or a non-zero 3-tuple of floats. "
+            "lock_roll=%r" % (lock_roll,)
+        )
+
+    _validate_inputs()
+
     if isinstance(controls, dict):
         assert (
             "dragmode" in controls["scene"]
@@ -309,11 +314,12 @@ def assert_dash_no_camera_pose_clamps(
         ), "restricted camera pose controls are forbidden. restricted_patterns=%r" % (
             polar_angle_patterns + rotation_patterns,
         )
-    else:
+    if lock_roll is not None:
         assert not rotation_patterns, (
             "roll lock must cost only the roll axis and the polar extremes. "
             "lock_roll=%r restricted_patterns=%r" % (lock_roll, rotation_patterns)
         )
+    return
 
 
 def assert_dash_roll_lock(
@@ -329,23 +335,29 @@ def assert_dash_roll_lock(
     Returns:
         None.
     """
-    assert isinstance(controls, str) or (
-        isinstance(controls, dict)
-        and set(controls) == {"scene", "graph_id"}
-        and isinstance(controls["scene"], dict)
-    ), (
-        "Controls must be renderer source text or Plotly gl3d controls carrying "
-        "exactly a scene configuration dict and a graph id. controls=%r" % (controls,)
-    )
-    assert lock_roll is None or (
-        isinstance(lock_roll, tuple)
-        and len(lock_roll) == 3
-        and all(isinstance(component, float) for component in lock_roll)
-        and any(component != 0.0 for component in lock_roll)
-    ), (
-        "Roll lock axis must be None or a non-zero 3-tuple of floats. "
-        "lock_roll=%r" % (lock_roll,)
-    )
+
+    def _validate_inputs() -> None:
+        assert isinstance(controls, str) or (
+            isinstance(controls, dict)
+            and set(controls) == {"scene", "graph_id"}
+            and isinstance(controls["scene"], dict)
+        ), (
+            "Controls must be renderer source text or Plotly gl3d controls carrying "
+            "exactly a scene configuration dict and a graph id. controls=%r"
+            % (controls,)
+        )
+        assert lock_roll is None or (
+            isinstance(lock_roll, tuple)
+            and len(lock_roll) == 3
+            and all(isinstance(component, float) for component in lock_roll)
+            and any(component != 0.0 for component in lock_roll)
+        ), (
+            "Roll lock axis must be None or a non-zero 3-tuple of floats. "
+            "lock_roll=%r" % (lock_roll,)
+        )
+
+    _validate_inputs()
+
     if lock_roll is not None:
         if isinstance(controls, dict):
             assert (
@@ -359,8 +371,8 @@ def assert_dash_roll_lock(
                 "perpendicular to the supplied axis. lock_roll=%r controls=%r"
                 % (lock_roll, controls)
             )
-            length = math.sqrt(sum(component * component for component in lock_roll))
-            axis = [component / length for component in lock_roll]
+            length = math.hypot(*lock_roll)
+            axis = [lock_roll[0] / length, lock_roll[1] / length, lock_roll[2] / length]
             up = [controls["scene"]["camera"]["up"][key] for key in ("x", "y", "z")]
             up_across_axis = [
                 up[1] * axis[2] - up[2] * axis[1],
@@ -384,6 +396,14 @@ def assert_dash_roll_lock(
                 "supplied axis's side. lock_roll=%r up=%r up_along_axis=%r"
                 % (lock_roll, up, up_along_axis)
             )
+            # A stretched scene turns the world axis away from the direction the seeded camera.up names.
+            assert (
+                "aspectmode" in controls["scene"]
+                and controls["scene"]["aspectmode"] == PLOTLY_DATA_PROPORTION_ASPECTMODE
+            ), (
+                "roll-locked Plotly controls must draw the scene at its data's own "
+                "proportions. lock_roll=%r scene=%r" % (lock_roll, controls["scene"])
+            )
             # The roll-lock callback finds this graph, and the axis it holds the graph about, only through this id.
             assert (
                 isinstance(controls["graph_id"], dict)
@@ -396,7 +416,7 @@ def assert_dash_roll_lock(
                 "callback matches, with the supplied axis. lock_roll=%r graph_id=%r"
                 % (lock_roll, controls["graph_id"])
             )
-            graph_axis = json.loads(controls["graph_id"]["lock_roll"])
+            graph_axis = json.loads(base64.b64decode(controls["graph_id"]["lock_roll"]))
             assert (
                 isinstance(graph_axis, list)
                 and len(graph_axis) == 3
@@ -450,6 +470,7 @@ def assert_dash_roll_lock(
                 "free trackball camera controls must leave camera roll "
                 "unconstrained. present_patterns=%r" % (present_patterns,)
             )
+    return
 
 
 # Module-load registration of the one roll-lock callback, ahead of every Dash app's server setup, so a roll-locked graph a callback adds after the page loaded is matched like one built into the layout.

@@ -21,7 +21,6 @@ from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import (
     MeshTextureVertexColor,
 )
 from data.viewer.utils.controls.camera.camera_controls.dash.trackball_camera_controls import (
-    create_dash_plotly_trackball_camera_controls,
     create_dash_trackball_camera_controls,
 )
 from data.viewer.utils.controls.camera.camera_sync.threejs import (
@@ -1095,7 +1094,7 @@ def create_dash_mesh_display(
         mesh_color: Optional uniform color override (CSS color string); when None the mesh's texture/per-vertex colors or the lib default color is used.
         mesh_opacity: Optional opacity override in `[0, 1]`; when None `DEFAULT_MESH_OPACITY` is used.
         mesh_side: Optional side mode override; when None `DEFAULT_MESH_SIDE` is used.
-        lock_roll: Optional axis to hold camera roll about through every drag, as a non-zero `(x, y, z)` world-space direction of any length in the mesh's own world frame, handed unchanged to `create_dash_plotly_trackball_camera_controls`; None leaves roll free.
+        lock_roll: Optional axis to hold camera roll about through every drag, as a non-zero `(x, y, z)` world-space direction of any length in the mesh's own world frame, handed unchanged to `create_dash_trackball_camera_controls`; None leaves roll free.
 
     Returns:
         Dash `dcc.Graph` wrapping the mesh scene under its trackball camera controls, carrying the roll-locked pattern-matching component id when `lock_roll` is supplied and no id otherwise.
@@ -1124,7 +1123,7 @@ def create_dash_mesh_display(
         mesh_opacity=mesh_opacity,
         mesh_side=mesh_side,
     )
-    controls = create_dash_plotly_trackball_camera_controls(lock_roll=lock_roll)
+    controls = create_dash_trackball_camera_controls(lock_roll=lock_roll)
     return create_dash_mesh_component(
         scene=scene,
         controls=controls,
@@ -1350,7 +1349,7 @@ def create_dash_mesh_component(
 
     Args:
         scene: Plotly `go.Mesh3d` trace for the mesh.
-        controls: The Plotly gl3d controls `create_dash_plotly_trackball_camera_controls` built, a dict of exactly `"scene"` (the `layout.scene` configuration dict) and `"graph_id"` (None, or the roll-locked pattern-matching component id dict).
+        controls: The Plotly gl3d controls `create_dash_trackball_camera_controls` built, a dict of exactly `"scene"` (the `layout.scene` configuration dict) and `"graph_id"` (None, or the roll-locked pattern-matching component id dict).
 
     Returns:
         Dash `dcc.Graph` rendering the mesh scene under `controls["scene"]`, carrying `controls["graph_id"]` as its component id when that id is not None.
