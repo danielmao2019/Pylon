@@ -14,22 +14,22 @@ validation.py
 ├── def validate_cameras_attributes(intrinsics: "CameraIntrinsics", extrinsics: "CameraExtrinsics", names: Optional[List[Optional[str]]], ids: Optional[List[Optional[int]]], device: Optional[Union[str, torch.device]], dtype: Optional[torch.dtype]) -> None
 │   ├── # Single-entry validation for Cameras.__init__: validate the batched component pair, the metadata parallel to its batch axis, and the optional tensor placement request.
 │   ├── calls validate_camera_attributes(intrinsics=intrinsics, extrinsics=extrinsics, name=None, id=None, device=device, dtype=dtype)  # the component checks are shape-agnostic, so the batched pair takes the same ones a single camera does
-│   ├── impls asserts the extrinsics matrix carries exactly one leading batch axis, [B, 4, 4]  # the agreement below reads B off that axis, which an unbatched [4, 4] would also offer
-│   ├── impls asserts the two components agree on the extent of their leading batch axis
-│   ├── impls asserts names and ids are each None or hold one entry per camera in the batch
+│   ├── assert the extrinsics matrix carries exactly one leading batch axis, [B, 4, 4]  # the agreement below reads B off that axis, which an unbatched [4, 4] would also offer
+│   ├── assert the two components agree on the extent of their leading batch axis
+│   ├── assert names and ids are each None or hold one entry per camera in the batch
 │   └── return
 └── def validate_camera_attributes(intrinsics: "CameraIntrinsics", extrinsics: "CameraExtrinsics", name: Optional[str], id: Optional[int], device: Optional[Union[str, torch.device]], dtype: Optional[torch.dtype]) -> None
     ├── # Single-entry validation for Camera.__init__: validate component objects, metadata, and optional tensor placement request.
     ├── from data.structures.three_d.camera.intrinsics.camera_intrinsics import CameraIntrinsics  # inline runtime import; the top-level import is TYPE_CHECKING-only
     ├── from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics  # inline runtime import; the top-level import is TYPE_CHECKING-only
-    ├── impls asserts isinstance(intrinsics, CameraIntrinsics)
-    ├── impls asserts isinstance(extrinsics, CameraExtrinsics)
-    ├── impls asserts intrinsics.device == extrinsics.device  # one camera's two halves live on one device, whatever device it is then brought to
-    ├── impls asserts intrinsics.dtype == extrinsics.dtype  # one camera's two halves hold one dtype, whatever dtype it is then cast to
-    ├── impls asserts name is None or a str
-    ├── impls asserts id is None or an int
-    ├── impls asserts device is None or a valid torch device spec
-    ├── impls asserts dtype is None or a floating torch dtype
+    ├── assert isinstance(intrinsics, CameraIntrinsics)
+    ├── assert isinstance(extrinsics, CameraExtrinsics)
+    ├── assert intrinsics.device == extrinsics.device  # one camera's two halves live on one device, whatever device it is then brought to
+    ├── assert intrinsics.dtype == extrinsics.dtype  # one camera's two halves hold one dtype, whatever dtype it is then cast to
+    ├── assert name is None or a str
+    ├── assert id is None or an int
+    ├── assert device is None or a valid torch device spec
+    ├── assert dtype is None or a floating torch dtype
     └── return
 ```
 
@@ -331,8 +331,8 @@ io.py
 │   ├── from data.structures.three_d.camera.camera import Camera    # inline runtime import; camera.py imports io.py, so this would cycle at module top
 │   ├── from data.structures.three_d.camera.cameras import Cameras  # inline runtime import; cameras.py imports io.py, so this would cycle at module top
 │   ├── def _validate_inputs [local]
-│   │   ├── impls assert cameras is a Camera or a Cameras
-│   │   └── impls assert format is in _CAMERA_SERIALIZATION_FORMATS  # drawn because this is format's only owner on this path
+│   │   ├── assert cameras is a Camera or a Cameras
+│   │   └── assert format is in _CAMERA_SERIALIZATION_FORMATS  # drawn because this is format's only owner on this path
 │   ├── calls _validate_inputs
 │   ├── def _normalize_inputs [local]
 │   │   ├── impls was_single = isinstance(cameras, Camera)
@@ -400,15 +400,15 @@ io.py
 │   ├── # Map the plural json per-camera dicts to a Cameras.
 │   ├── from data.structures.three_d.camera.cameras import Cameras  # inline runtime import; cameras.py imports io.py, so this would cycle at module top
 │   ├── def _validate_inputs [local]
-│   │   ├── impls assert per_camera_dicts is a non-empty list
+│   │   ├── assert per_camera_dicts is a non-empty list
 │   │   ├── for each per-camera dict
-│   │   │   ├── impls assert it is a dict whose keys are exactly _CAMERA_JSON_KEYS
-│   │   │   ├── impls assert its params is a dict
-│   │   │   ├── impls assert its dtype is a str spelling a torch dtype
-│   │   │   ├── impls assert its name is None or a str
-│   │   │   └── impls assert its id is None or an int
-│   │   ├── impls assert the dicts agree on model, intr_convention and extr_convention  # the batch shares one projection expression
-│   │   └── impls assert the dicts agree on dtype  # a batch holds one dtype
+│   │   │   ├── assert it is a dict whose keys are exactly _CAMERA_JSON_KEYS
+│   │   │   ├── assert its params is a dict
+│   │   │   ├── assert its dtype is a str spelling a torch dtype
+│   │   │   ├── assert its name is None or a str
+│   │   │   └── assert its id is None or an int
+│   │   ├── assert the dicts agree on model, intr_convention and extr_convention  # the batch shares one projection expression
+│   │   └── assert the dicts agree on dtype  # a batch holds one dtype
 │   ├── calls _validate_inputs
 │   ├── impls model, intr_convention, extr_convention = the one value each of those entries holds across the dicts
 │   ├── impls dtype = the torch dtype the dicts' one dtype entry spells
@@ -432,13 +432,13 @@ io.py
 │   ├── # Map the plural batched-array npz payload to a Cameras.
 │   ├── from data.structures.three_d.camera.cameras import Cameras  # inline runtime import; cameras.py imports io.py, so this would cycle at module top
 │   ├── def _validate_inputs [local]
-│   │   ├── impls assert payload's keys are exactly _CAMERA_NPZ_KEYS
-│   │   ├── impls assert payload["extrinsics"] is an ndarray carrying a leading batch axis  # batch_size is read off it
+│   │   ├── assert payload's keys are exactly _CAMERA_NPZ_KEYS
+│   │   ├── assert payload["extrinsics"] is an ndarray carrying a leading batch axis  # batch_size is read off it
 │   │   ├── for each of the nine per-camera keys
-│   │   │   └── impls assert its array is an ndarray of shape (batch_size,)
-│   │   ├── impls assert payload["model"], payload["intr_convention"] and payload["extr_convention"] are each constant over the batch  # one model and one frame pair is what lets the batch share a single projection expression
-│   │   ├── impls assert every entry of payload["dtype"] spells a torch dtype
-│   │   └── impls assert payload["dtype"] is constant over the batch  # a batch holds one dtype
+│   │   │   └── assert its array is an ndarray of shape (batch_size,)
+│   │   ├── assert payload["model"], payload["intr_convention"] and payload["extr_convention"] are each constant over the batch  # one model and one frame pair is what lets the batch share a single projection expression
+│   │   ├── assert every entry of payload["dtype"] spells a torch dtype
+│   │   └── assert payload["dtype"] is constant over the batch  # a batch holds one dtype
 │   ├── calls _validate_inputs
 │   ├── impls extrinsics = payload["extrinsics"], the batched [N, 4, 4] cam2world array
 │   ├── impls batch_size = extrinsics.shape[0]

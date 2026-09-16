@@ -15,8 +15,8 @@ validation.py
 │   ├── # Single-entry validation for CameraExtrinsics.__init__: validate the cam2world input, pose frame, device target, and dtype target.
 │   ├── calls validate_camera_extrinsics
 │   ├── calls validate_extr_convention
-│   ├── impls asserts device is None or a str or torch.device
-│   ├── impls asserts dtype is None or a floating torch dtype
+│   ├── assert device is None or a str or torch.device
+│   ├── assert dtype is None or a floating torch dtype
 │   └── return
 ├── def validate_camera_extrinsics(obj: Any) -> Union[np.ndarray, torch.Tensor, List[List[Union[int, float]]]]
 │   ├── # Dispatch camera-extrinsics validation on the input representation.
@@ -208,21 +208,21 @@ camera_extrinsics.py
 │       ├── # Return this CameraExtrinsics under array-like scale, rotation, and translation inputs of its cam2world pose.
 │       ├── def _validate_inputs [local]
 │       │   ├── calls validate_rotation_matrix(rotation)
-│       │   └── impls assert translation is a length-3 numeric array-like or a torch Tensor with shape (3,)
+│       │   └── assert translation is a length-3 numeric array-like or a torch Tensor with shape (3,)
 │       ├── calls _validate_inputs
 │       ├── def _normalize_inputs [local]
 │       │   ├── impls scale = the given scale as a tensor on this extrinsics' device and dtype
-│       │   ├── impls asserts scale.shape == ()
-│       │   ├── impls asserts scale.device == self._device
-│       │   ├── impls asserts scale.dtype == self._dtype
+│       │   ├── assert scale.shape == ()
+│       │   ├── assert scale.device == self._device
+│       │   ├── assert scale.dtype == self._dtype
 │       │   ├── impls rotation = the given rotation as a tensor on this extrinsics' device and dtype
-│       │   ├── impls asserts rotation.shape == (3, 3)
-│       │   ├── impls asserts rotation.device == self._device
-│       │   ├── impls asserts rotation.dtype == self._dtype
+│       │   ├── assert rotation.shape == (3, 3)
+│       │   ├── assert rotation.device == self._device
+│       │   ├── assert rotation.dtype == self._dtype
 │       │   ├── impls translation = the given translation as a tensor on this extrinsics' device and dtype
-│       │   ├── impls asserts translation.shape == (3,)
-│       │   ├── impls asserts translation.device == self._device
-│       │   ├── impls asserts translation.dtype == self._dtype
+│       │   ├── assert translation.shape == (3,)
+│       │   ├── assert translation.device == self._device
+│       │   ├── assert translation.dtype == self._dtype
 │       │   └── return scale, rotation, translation
 │       ├── calls _normalize_inputs
 │       ├── impls scale, rotation, translation = the returned values from _normalize_inputs
@@ -232,10 +232,10 @@ camera_extrinsics.py
 │       └── return extrinsics
 └── def _stabilize_rotation_matrix(rotation: torch.Tensor) -> torch.Tensor
     ├── # Project a near-orthogonal [..., 3, 3] rotation onto the nearest proper rotation, in the dtype it received.
-    ├── impls asserts rotation.dtype is torch.float32 or torch.float64
+    ├── assert rotation.dtype is torch.float32 or torch.float64
     ├── impls computes the RR^T-vs-I residual in rotation.dtype
     ├── impls computes the |det(R) - 1| residual in rotation.dtype
-    ├── impls asserts max(orthogonality residual, determinant residual) <= _ORTHOGONALITY_REPAIR_ATOL
+    ├── assert max(orthogonality residual, determinant residual) <= _ORTHOGONALITY_REPAIR_ATOL
     ├── impls u, _, v_h = svd(rotation) in rotation.dtype
     ├── impls rotation_fixed = u @ v_h
     ├── impls signs = a [..., 3] of ones whose last entry is the sign of det(rotation_fixed)
