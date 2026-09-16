@@ -1,6 +1,6 @@
 import inspect
 from itertools import product
-from typing import Dict, List, Union
+from typing import Dict, List, Tuple, Union
 
 import numpy as np
 import pytest
@@ -67,7 +67,10 @@ def test_extr_convention_module_has_one_main_api_and_eight_helpers() -> None:
         if function.__module__ == conventions.__name__
     }
     public_names = {name for name in defined_names if not name.startswith("_")}
-    assert public_names == {"transform_extr_convention"}, f"{public_names=}"
+    assert public_names == {"transform_extr_convention"}, (
+        "Expected transform_extr_convention to be the conventions module's only public function. "
+        f"{public_names=}"
+    )
     expected_helpers = {
         "_opengl_to_standard",
         "_standard_to_opengl",
@@ -78,7 +81,10 @@ def test_extr_convention_module_has_one_main_api_and_eight_helpers() -> None:
         "_arkit_to_standard",
         "_standard_to_arkit",
     }
-    assert defined_names - public_names == expected_helpers, f"{defined_names=}"
+    assert defined_names - public_names == expected_helpers, (
+        "Expected the private helpers to be exactly the to-standard and from-standard converters for opengl, opencv, pytorch3d and arkit. "
+        f"{defined_names=}"
+    )
 
 
 @pytest.mark.parametrize("source_extr_convention", EXTR_CONVENTIONS)
@@ -185,9 +191,9 @@ def test_extrinsics_w2c_is_inverse_of_extrinsics(extr_convention: str) -> None:
     extrinsics = _build_extrinsics(extr_convention=extr_convention)
     product_matrix = extrinsics.w2c @ extrinsics.extrinsics
     identity = torch.eye(4, dtype=extrinsics.extrinsics.dtype)
-    assert torch.allclose(
-        product_matrix, identity, atol=1.0e-05, rtol=0.0
-    ), f"{product_matrix=}"
+    assert torch.allclose(product_matrix, identity, atol=1.0e-05, rtol=0.0), (
+        "Expected w2c @ extrinsics to equal the 4x4 identity. " f"{product_matrix=}"
+    )
 
 
 def test_transform_extrinsics_applies_the_similarity_and_restabilizes() -> None:
@@ -223,10 +229,14 @@ def test_transform_extrinsics_applies_the_similarity_and_restabilizes() -> None:
     )
     assert torch.allclose(
         transformed.extrinsics[:3, :3], expected_rotation, atol=1e-6
-    ), f"{transformed.extrinsics=}"
-    assert torch.allclose(
-        transformed.extrinsics[:3, 3], expected_center, atol=1e-6
-    ), f"{transformed.extrinsics=}"
+    ), (
+        "Expected the returned rotation block to equal the known rotation composed onto the source's. "
+        f"{transformed.extrinsics=}"
+    )
+    assert torch.allclose(transformed.extrinsics[:3, 3], expected_center, atol=1e-6), (
+        "Expected the returned centre to equal the source centre scaled, rotated and translated. "
+        f"{transformed.extrinsics=}"
+    )
     validate_camera_extrinsics(transformed.extrinsics)
 
     intrinsics = build_camera_intrinsics(
@@ -243,7 +253,10 @@ def test_transform_extrinsics_applies_the_similarity_and_restabilizes() -> None:
     )
     assert torch.allclose(
         transformed_camera.extrinsics.extrinsics, transformed.extrinsics, atol=1e-6
-    ), f"{transformed_camera.extrinsics.extrinsics=}"
+    ), (
+        "Expected the camera's transformed extrinsics to equal the standalone CameraExtrinsics result. "
+        f"{transformed_camera.extrinsics.extrinsics=}"
+    )
 
     cameras = Cameras(intrinsics=intrinsics[None], extrinsics=extrinsics[None])
     transformed_cameras = cameras.transform_extrinsics(
@@ -254,7 +267,10 @@ def test_transform_extrinsics_applies_the_similarity_and_restabilizes() -> None:
     for one_camera in transformed_cameras:
         assert torch.allclose(
             one_camera.extrinsics.extrinsics, transformed.extrinsics, atol=1e-6
-        ), f"{one_camera.extrinsics.extrinsics=}"
+        ), (
+            "Expected every camera in the batch to carry the standalone CameraExtrinsics result. "
+            f"{one_camera.extrinsics.extrinsics=}"
+        )
 
 
 def test_extrinsics_constructor_and_to_apply_dtype_and_copy() -> None:
@@ -272,8 +288,14 @@ def test_extrinsics_constructor_and_to_apply_dtype_and_copy() -> None:
         device="cpu",
         dtype=torch.float64,
     )
-    assert extrinsics.dtype == torch.float64, f"{extrinsics.dtype=}"
-    assert extrinsics.extrinsics.dtype == torch.float64, f"{extrinsics.extrinsics=}"
+    assert extrinsics.dtype == torch.float64, (
+        "Expected an extrinsics built with float64 to report float64. "
+        f"{extrinsics.dtype=}"
+    )
+    assert extrinsics.extrinsics.dtype == torch.float64, (
+        "Expected an extrinsics built with float64 to hold its matrix in float64. "
+        f"{extrinsics.extrinsics=}"
+    )
 
     copied = extrinsics.to(device="cpu", dtype=torch.float64, copy=True)
     assert copied.extrinsics.data_ptr() != extrinsics.extrinsics.data_ptr(), (
@@ -281,8 +303,13 @@ def test_extrinsics_constructor_and_to_apply_dtype_and_copy() -> None:
         f"{copied.extrinsics.data_ptr()=} {extrinsics.extrinsics.data_ptr()=}"
     )
     moved = extrinsics.to(dtype=torch.float32)
-    assert moved.dtype == torch.float32, f"{moved.dtype=}"
-    assert moved.extrinsics.dtype == torch.float32, f"{moved.extrinsics.dtype=}"
+    assert moved.dtype == torch.float32, (
+        "Expected an extrinsics moved to float32 to report float32. " f"{moved.dtype=}"
+    )
+    assert moved.extrinsics.dtype == torch.float32, (
+        "Expected an extrinsics moved to float32 to hold its matrix in float32. "
+        f"{moved.extrinsics.dtype=}"
+    )
 
 
 def test_transform_extrinsics_accepts_array_like_inputs_and_keeps_gradients() -> None:
@@ -314,18 +341,32 @@ def test_transform_extrinsics_accepts_array_like_inputs_and_keeps_gradients() ->
     loss = transformed.center.sum()
     loss.backward()
 
-    assert transformed.dtype == torch.float64, f"{transformed.dtype=}"
-    assert matrix.grad is not None, f"{matrix.grad=}"
-    assert scale.grad is not None, f"{scale.grad=}"
-    assert rotation.grad is not None, f"{rotation.grad=}"
-    assert translation.grad is not None, f"{translation.grad=}"
+    assert transformed.dtype == torch.float64, (
+        "Expected a float64 similarity to return a float64 extrinsics. "
+        f"{transformed.dtype=}"
+    )
+    assert matrix.grad is not None, (
+        "Expected the source cam2world matrix to receive a gradient. " f"{matrix.grad=}"
+    )
+    assert scale.grad is not None, (
+        "Expected the tensor scale to receive a gradient. " f"{scale.grad=}"
+    )
+    assert rotation.grad is not None, (
+        "Expected the tensor rotation to receive a gradient. " f"{rotation.grad=}"
+    )
+    assert translation.grad is not None, (
+        "Expected the tensor translation to receive a gradient. " f"{translation.grad=}"
+    )
 
     list_transformed = extrinsics.transform_extrinsics(
         scale=np.array(2.0, dtype=np.float64),
         rotation=[[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
         translation=(1.0, 2.0, 3.0),
     )
-    assert list_transformed.dtype == torch.float64, f"{list_transformed.dtype=}"
+    assert list_transformed.dtype == torch.float64, (
+        "Expected an array-like similarity to return a float64 extrinsics. "
+        f"{list_transformed.dtype=}"
+    )
 
 
 def test_camera_and_cameras_to_keep_tensor_state_on_the_autograd_path() -> None:
@@ -362,8 +403,16 @@ def test_camera_and_cameras_to_keep_tensor_state_on_the_autograd_path() -> None:
     moved_camera = camera.to(dtype=torch.float64, extr_convention="pytorch3d")
     camera_loss = moved_camera.intrinsics.fx + moved_camera.extrinsics.center.sum()
     camera_loss.backward(retain_graph=True)
-    assert params["fx"].grad is not None, f"{params['fx'].grad=}"
-    assert matrix.grad is not None, f"{matrix.grad=}"
+    assert params["fx"].grad is not None, (
+        "Expected the source fx param to receive a gradient through the moved camera. "
+        f"{params['fx'].grad=}"
+    )
+    assert matrix.grad is not None, (
+        "Expected the source cam2world matrix to receive a gradient through the moved camera. "
+        f"{matrix.grad=}"
+    )
+    params["fx"].grad = None
+    matrix.grad = None
 
     cameras = Cameras(
         intrinsics=intrinsics[None], extrinsics=extrinsics[None], device="cpu"
@@ -373,8 +422,14 @@ def test_camera_and_cameras_to_keep_tensor_state_on_the_autograd_path() -> None:
         moved_cameras.intrinsics[0].fx + moved_cameras.extrinsics[0].center.sum()
     )
     cameras_loss.backward()
-    assert params["fx"].grad is not None, f"{params['fx'].grad=}"
-    assert matrix.grad is not None, f"{matrix.grad=}"
+    assert params["fx"].grad is not None, (
+        "Expected the source fx param to receive a gradient through the moved collection. "
+        f"{params['fx'].grad=}"
+    )
+    assert matrix.grad is not None, (
+        "Expected the source cam2world matrix to receive a gradient through the moved collection. "
+        f"{matrix.grad=}"
+    )
 
 
 def test_cameras_device_and_dtype_follow_the_given_placement() -> None:
@@ -478,12 +533,7 @@ def test_transform_extrinsics_normalizes_rotation_input() -> None:
     expected = extrinsics.transform_extrinsics(
         scale=scale, rotation=rotation_torch, translation=translation
     )
-    rotations: List[Union[np.ndarray, torch.Tensor, List[List[float]]]] = [
-        rotation_torch.numpy(),
-        rotation_torch,
-        rotation_torch.tolist(),
-    ]
-    for rotation in rotations:
+    for rotation in [rotation_torch.numpy(), rotation_torch, rotation_torch.tolist()]:
         transformed = extrinsics.transform_extrinsics(
             scale=scale, rotation=rotation, translation=translation
         )
@@ -517,13 +567,12 @@ def test_transform_extrinsics_normalizes_translation_input() -> None:
     expected = extrinsics.transform_extrinsics(
         scale=scale, rotation=rotation, translation=translation_torch
     )
-    translations = [
+    for translation in [
         translation_torch.numpy(),
         translation_torch,
         tuple(translation_torch.tolist()),
         translation_torch.tolist(),
-    ]
-    for translation in translations:
+    ]:
         transformed = extrinsics.transform_extrinsics(
             scale=scale, rotation=rotation, translation=translation
         )
@@ -533,38 +582,45 @@ def test_transform_extrinsics_normalizes_translation_input() -> None:
         )
 
 
-@pytest.mark.parametrize(
-    "source_extr_convention,target_extr_convention",
-    list(product(EXTR_CONVENTIONS, EXTR_CONVENTIONS)),
-)
+@pytest.mark.parametrize("source_extr_convention", EXTR_CONVENTIONS)
 def test_cameras_conversion_preserves_physical_axes_and_center(
     source_extr_convention: str,
-    target_extr_convention: str,
 ) -> None:
     """Converting a Cameras collection preserves each camera's axes and center.
 
     Args:
         source_extr_convention: Source pose-frame convention.
-        target_extr_convention: Target pose-frame convention.
 
     Returns:
         None.
     """
     cameras = _build_cameras(extr_convention=source_extr_convention)
-    converted = cameras.to(extr_convention=target_extr_convention)
-    assert converted.center.shape == (len(cameras), 3), f"{converted.center.shape=}"
-    assert torch.allclose(
-        converted.center, cameras.center, atol=1.0e-06, rtol=0.0
-    ), f"{converted.center=} {cameras.center=}"
-    assert torch.allclose(
-        converted.right, cameras.right, atol=1.0e-06, rtol=0.0
-    ), f"{converted.right=} {cameras.right=}"
-    assert torch.allclose(
-        converted.forward, cameras.forward, atol=1.0e-06, rtol=0.0
-    ), f"{converted.forward=} {cameras.forward=}"
-    assert torch.allclose(
-        converted.up, cameras.up, atol=1.0e-06, rtol=0.0
-    ), f"{converted.up=} {cameras.up=}"
+    for target_extr_convention in EXTR_CONVENTIONS:
+        converted = cameras.to(extr_convention=target_extr_convention)
+        assert converted.center.shape == (len(cameras), 3), (
+            "Expected the converted center stack to be [N, 3]. "
+            f"{source_extr_convention=} {target_extr_convention=} {converted.center.shape=}"
+        )
+        assert torch.allclose(
+            converted.center, cameras.center, atol=1.0e-06, rtol=0.0
+        ), (
+            "Expected the converted [N, 3] center stack to equal the source one. "
+            f"{source_extr_convention=} {target_extr_convention=} {converted.center=} {cameras.center=}"
+        )
+        assert torch.allclose(converted.right, cameras.right, atol=1.0e-06, rtol=0.0), (
+            "Expected the converted [N, 3] right stack to equal the source one. "
+            f"{source_extr_convention=} {target_extr_convention=} {converted.right=} {cameras.right=}"
+        )
+        assert torch.allclose(
+            converted.forward, cameras.forward, atol=1.0e-06, rtol=0.0
+        ), (
+            "Expected the converted [N, 3] forward stack to equal the source one. "
+            f"{source_extr_convention=} {target_extr_convention=} {converted.forward=} {cameras.forward=}"
+        )
+        assert torch.allclose(converted.up, cameras.up, atol=1.0e-06, rtol=0.0), (
+            "Expected the converted [N, 3] up stack to equal the source one. "
+            f"{source_extr_convention=} {target_extr_convention=} {converted.up=} {cameras.up=}"
+        )
 
 
 def _build_cameras(extr_convention: str) -> Cameras:
@@ -685,15 +741,17 @@ def _build_extrinsics_matrix() -> torch.Tensor:
     Returns:
         A 4x4 float32 camera-to-world matrix whose 3x3 block is a proper rotation.
     """
-    return torch.tensor(
+    matrix = torch.tensor(
         [
-            [0.0, -1.0, 0.0, 0.3],
-            [1.0, 0.0, 0.0, -0.2],
-            [0.0, 0.0, 1.0, 1.1],
+            [0.0, -1.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0],
             [0.0, 0.0, 0.0, 1.0],
         ],
         dtype=torch.float32,
     )
+    matrix[:3, 3] = torch.tensor([0.3, -0.2, 1.1], dtype=torch.float32)
+    return matrix
 
 
 def test_validate_intr_convention_accepts_all_supported() -> None:
@@ -708,7 +766,10 @@ def test_validate_intr_convention_accepts_all_supported() -> None:
     for intr_convention in ("standard", "opengl", "pytorch3d", "vulkan"):
         assert (
             validate_intr_convention(intr_convention=intr_convention) == intr_convention
-        ), f"{intr_convention=}"
+        ), (
+            "Expected validate_intr_convention to return the convention it was given. "
+            f"{intr_convention=}"
+        )
     with pytest.raises(AssertionError):
         validate_intr_convention(intr_convention="ndc")
 
@@ -728,7 +789,10 @@ def test_intr_convention_module_has_one_main_api_and_six_spoke_helpers() -> None
         if obj.__module__ == intr_conventions.__name__
     ]
     public = [name for name in functions if not name.startswith("_")]
-    assert public == ["transform_intr_convention"], f"{public=}"
+    assert public == ["transform_intr_convention"], (
+        "Expected transform_intr_convention to be the conventions module's only public function. "
+        f"{public=}"
+    )
     assert "_rescale_intr_params" in functions, (
         "Expected the per-axis rescale each spoke ends in to be the conventions "
         f"module's own private helper. {functions=}"
@@ -744,9 +808,14 @@ def test_intr_convention_module_has_one_main_api_and_six_spoke_helpers() -> None
             "vulkan_to_standard",
         )
     }
-    assert spokes.issubset(set(functions)), f"{functions=}"
+    assert spokes.issubset(set(functions)), (
+        "Expected a to-standard and a from-standard helper for opengl, pytorch3d and vulkan. "
+        f"{functions=}"
+    )
     obliques = [name for name in functions if "_to_" in name and "standard" not in name]
-    assert obliques == [], f"{obliques=}"
+    assert obliques == [], (
+        "Expected no helper between two non-standard frames. " f"{obliques=}"
+    )
 
 
 def test_a_frame_change_comes_down_to_the_same_per_axis_rescale() -> None:
@@ -765,12 +834,24 @@ def test_a_frame_change_comes_down_to_the_same_per_axis_rescale() -> None:
         unit_x=2.0,
         unit_y=0.5,
     )
-    assert rescaled["fx"] == pytest.approx(800.0), f"{rescaled=}"
-    assert rescaled["cx"] == pytest.approx(300.0), f"{rescaled=}"
-    assert rescaled["fy"] == pytest.approx(205.0), f"{rescaled=}"
-    assert rescaled["cy"] == pytest.approx(55.0), f"{rescaled=}"
-    assert rescaled["h"] == params["h"], f"{rescaled=}"
-    assert rescaled["w"] == params["w"], f"{rescaled=}"
+    assert rescaled["fx"] == pytest.approx(800.0), (
+        "Expected fx to be scaled by unit_x. " f"{rescaled=}"
+    )
+    assert rescaled["cx"] == pytest.approx(300.0), (
+        "Expected cx to be scaled by unit_x. " f"{rescaled=}"
+    )
+    assert rescaled["fy"] == pytest.approx(205.0), (
+        "Expected fy to be scaled by unit_y. " f"{rescaled=}"
+    )
+    assert rescaled["cy"] == pytest.approx(55.0), (
+        "Expected cy to be scaled by unit_y. " f"{rescaled=}"
+    )
+    assert rescaled["h"] == params["h"], (
+        "Expected h to come back untouched. " f"{rescaled=}"
+    )
+    assert rescaled["w"] == params["w"], (
+        "Expected w to come back untouched. " f"{rescaled=}"
+    )
 
     simple_params: Dict[str, Union[int, float]] = {
         "f": 400.0,
@@ -814,8 +895,14 @@ def test_three_separations_stand_between_standard_and_a_device_frame() -> None:
             source_intr_convention="standard",
             target_intr_convention=frame,
         )
-        assert converted["cx"] == pytest.approx(0.0), f"{frame=} {converted=}"
-        assert converted["cy"] == pytest.approx(0.0), f"{frame=} {converted=}"
+        assert converted["cx"] == pytest.approx(0.0), (
+            "Expected a principal point at half the width to land on the device origin. "
+            f"{frame=} {converted=}"
+        )
+        assert converted["cy"] == pytest.approx(0.0), (
+            "Expected a principal point at half the height to land on the device origin. "
+            f"{frame=} {converted=}"
+        )
 
     below_centre = dict(centred)
     below_centre["cy"] = 121.0
@@ -827,7 +914,10 @@ def test_three_separations_stand_between_standard_and_a_device_frame() -> None:
             target_intr_convention="vulkan",
         )["cy"]
         > 0.0
-    ), f"{below_centre=}"
+    ), (
+        "Expected a point one pixel below centre to come back positive under vulkan. "
+        f"{below_centre=}"
+    )
     assert (
         transform_intr_convention(
             params=below_centre,
@@ -836,7 +926,10 @@ def test_three_separations_stand_between_standard_and_a_device_frame() -> None:
             target_intr_convention="opengl",
         )["cy"]
         < 0.0
-    ), f"{below_centre=}"
+    ), (
+        "Expected a point one pixel below centre to come back negative under opengl. "
+        f"{below_centre=}"
+    )
 
     right_of_centre = dict(centred)
     right_of_centre["cx"] = 161.0
@@ -848,7 +941,10 @@ def test_three_separations_stand_between_standard_and_a_device_frame() -> None:
             target_intr_convention="pytorch3d",
         )["cx"]
         < 0.0
-    ), f"{right_of_centre=}"
+    ), (
+        "Expected a point one pixel right of centre to come back negative under pytorch3d. "
+        f"{right_of_centre=}"
+    )
     assert (
         transform_intr_convention(
             params=right_of_centre,
@@ -857,7 +953,10 @@ def test_three_separations_stand_between_standard_and_a_device_frame() -> None:
             target_intr_convention="opengl",
         )["cx"]
         > 0.0
-    ), f"{right_of_centre=}"
+    ), (
+        "Expected a point one pixel right of centre to come back positive under opengl. "
+        f"{right_of_centre=}"
+    )
 
 
 def test_each_frame_normalizes_by_the_side_its_own_definition_names() -> None:
@@ -877,12 +976,12 @@ def test_each_frame_normalizes_by_the_side_its_own_definition_names() -> None:
         target_intr_convention="pytorch3d",
     )
     shorter_unit = 2.0 / float(min(params["h"], params["w"]))
-    assert pytorch3d["fx"] == pytest.approx(
-        params["fx"] * shorter_unit
-    ), f"{pytorch3d=}"
-    assert pytorch3d["fy"] == pytest.approx(
-        params["fy"] * shorter_unit
-    ), f"{pytorch3d=}"
+    assert pytorch3d["fx"] == pytest.approx(params["fx"] * shorter_unit), (
+        "Expected pytorch3d to scale fx by two over the shorter side. " f"{pytorch3d=}"
+    )
+    assert pytorch3d["fy"] == pytest.approx(params["fy"] * shorter_unit), (
+        "Expected pytorch3d to scale fy by two over the shorter side. " f"{pytorch3d=}"
+    )
     for frame in ("opengl", "vulkan"):
         converted = transform_intr_convention(
             params=params,
@@ -892,10 +991,10 @@ def test_each_frame_normalizes_by_the_side_its_own_definition_names() -> None:
         )
         assert converted["fx"] == pytest.approx(
             params["fx"] * 2.0 / float(params["w"])
-        ), f"{frame=} {converted=}"
+        ), ("Expected fx to be scaled by two over w. " f"{frame=} {converted=}")
         assert converted["fy"] == pytest.approx(
             params["fy"] * 2.0 / float(params["h"])
-        ), f"{frame=} {converted=}"
+        ), ("Expected fy to be scaled by two over h. " f"{frame=} {converted=}")
 
 
 def test_only_the_unit_reaches_the_focal_params() -> None:
@@ -923,12 +1022,14 @@ def test_only_the_unit_reaches_the_focal_params() -> None:
             source_intr_convention="standard",
             target_intr_convention=frame,
         )
-        assert converted["fx"] == pytest.approx(
-            params["fx"] * unit_x
-        ), f"{frame=} {converted=}"
-        assert converted["fy"] == pytest.approx(
-            params["fy"] * unit_y
-        ), f"{frame=} {converted=}"
+        assert converted["fx"] == pytest.approx(params["fx"] * unit_x), (
+            "Expected fx to be scaled by the x unit with its sign unchanged. "
+            f"{frame=} {converted=}"
+        )
+        assert converted["fy"] == pytest.approx(params["fy"] * unit_y), (
+            "Expected fy to be scaled by the y unit with its sign unchanged. "
+            f"{frame=} {converted=}"
+        )
 
 
 def test_the_perspective_and_weak_perspective_models_take_the_same_focal_rule() -> None:
@@ -954,7 +1055,10 @@ def test_the_perspective_and_weak_perspective_models_take_the_same_focal_rule() 
             source_intr_convention="standard",
             target_intr_convention=frame,
         )
-        assert pinhole == ortho, f"{frame=} {pinhole=} {ortho=}"
+        assert pinhole == ortho, (
+            "Expected a pinhole and an ortho with equal params to convert identically. "
+            f"{frame=} {pinhole=} {ortho=}"
+        )
 
 
 def test_one_shared_focal_cannot_carry_two_different_axis_scales() -> None:
@@ -981,7 +1085,10 @@ def test_one_shared_focal_cannot_carry_two_different_axis_scales() -> None:
     )
     assert converted["f"] == pytest.approx(
         params["f"] * 2.0 / float(min(params["h"], params["w"]))
-    ), f"{converted=}"
+    ), (
+        "Expected pytorch3d to scale the shared f by two over the shorter side. "
+        f"{converted=}"
+    )
     for frame in ("opengl", "vulkan"):
         with pytest.raises(AssertionError):
             transform_intr_convention(
@@ -1040,9 +1147,10 @@ def test_a_direct_conversion_matches_the_one_through_standard() -> None:
             target_intr_convention=target,
         )
         for key in direct:
-            assert direct[key] == pytest.approx(
-                via_standard[key]
-            ), f"{source=} {target=} {key=} {direct=} {via_standard=}"
+            assert direct[key] == pytest.approx(via_standard[key]), (
+                "Expected the direct conversion to match the one through standard. "
+                f"{source=} {target=} {key=} {direct=} {via_standard=}"
+            )
 
 
 def test_an_intr_convention_round_trip_returns_the_original_params() -> None:
@@ -1066,9 +1174,10 @@ def test_an_intr_convention_round_trip_returns_the_original_params() -> None:
             intr_convention="standard"
         )
         for key, value in params.items():
-            assert round_tripped.params[key] == pytest.approx(
-                value
-            ), f"{frame=} {key=} {round_tripped.params=}"
+            assert round_tripped.params[key] == pytest.approx(value), (
+                "Expected the round-tripped param to equal the original. "
+                f"{frame=} {key=} {round_tripped.params=}"
+            )
 
 
 def test_a_converted_intrinsics_still_satisfies_its_own_invariants() -> None:
@@ -1080,13 +1189,12 @@ def test_a_converted_intrinsics_still_satisfies_its_own_invariants() -> None:
     Returns:
         None.
     """
-    frames = ("standard", "opengl", "pytorch3d", "vulkan")
     for model in ("pinhole", "ortho"):
         params = {
             key: torch.tensor(value, dtype=torch.float32)
             for key, value in _build_pinhole_params().items()
         }
-        for target_intr_convention in frames:
+        for target_intr_convention in ("standard", "opengl", "pytorch3d", "vulkan"):
             transformed_params = transform_intr_convention(
                 params=params,
                 model=model,
@@ -1124,11 +1232,18 @@ def test_a_frame_change_is_measured_against_the_intrinsics_own_resolution() -> N
         intr_convention="standard",
         device="cpu",
     ).to(intr_convention="opengl")
-    assert narrow.params["cx"] != pytest.approx(
-        wide.params["cx"]
-    ), f"{narrow.params=} {wide.params=}"
-    assert narrow.params["h"] == 240 and narrow.params["w"] == 320, f"{narrow.params=}"
-    assert wide.params["h"] == 240 and wide.params["w"] == 640, f"{wide.params=}"
+    assert narrow.params["cx"] != pytest.approx(wide.params["cx"]), (
+        "Expected two intrinsics whose h and w differ to convert to different results. "
+        f"{narrow.params=} {wide.params=}"
+    )
+    assert narrow.params["h"] == 240 and narrow.params["w"] == 320, (
+        "Expected the converted intrinsics to carry the h and w it was built with. "
+        f"{narrow.params=}"
+    )
+    assert wide.params["h"] == 240 and wide.params["w"] == 640, (
+        "Expected the converted intrinsics to carry the h and w it was built with. "
+        f"{wide.params=}"
+    )
 
 
 def _build_pinhole_params(
@@ -1144,7 +1259,7 @@ def _build_pinhole_params(
     Returns:
         A pinhole params dict carrying fx / fy / cx / cy plus h / w.
     """
-    return {
+    params: Dict[str, Union[int, float]] = {
         "fx": 400.0,
         "fy": 410.0,
         "cx": 150.0,
@@ -1152,6 +1267,7 @@ def _build_pinhole_params(
         "h": height,
         "w": width,
     }
+    return params
 
 
 def test_an_intrinsics_without_a_resolution_is_refused() -> None:
@@ -1163,12 +1279,18 @@ def test_an_intrinsics_without_a_resolution_is_refused() -> None:
     Returns:
         None.
     """
-    projection_only: Dict[str, Dict[str, Union[int, float]]] = {
-        "simple_pinhole": {"f": 400.0, "cx": 150.0, "cy": 110.0},
-        "pinhole": {"fx": 400.0, "fy": 410.0, "cx": 150.0, "cy": 110.0},
-        "ortho": {"fx": 400.0, "fy": 410.0, "cx": 150.0, "cy": 110.0},
-    }
-    for model, params in projection_only.items():
+    projection_only: List[Tuple[str, Dict[str, Union[int, float]]]] = [
+        ("simple_pinhole", {"f": 400.0, "cx": 150.0, "cy": 110.0}),
+        ("simple_pinhole", {"f": 400.0, "cx": 150.0, "cy": 110.0, "w": 320}),
+        ("simple_pinhole", {"f": 400.0, "cx": 150.0, "cy": 110.0, "h": 240}),
+        ("pinhole", {"fx": 400.0, "fy": 410.0, "cx": 150.0, "cy": 110.0}),
+        ("pinhole", {"fx": 400.0, "fy": 410.0, "cx": 150.0, "cy": 110.0, "w": 320}),
+        ("pinhole", {"fx": 400.0, "fy": 410.0, "cx": 150.0, "cy": 110.0, "h": 240}),
+        ("ortho", {"fx": 400.0, "fy": 410.0, "cx": 150.0, "cy": 110.0}),
+        ("ortho", {"fx": 400.0, "fy": 410.0, "cx": 150.0, "cy": 110.0, "w": 320}),
+        ("ortho", {"fx": 400.0, "fy": 410.0, "cx": 150.0, "cy": 110.0, "h": 240}),
+    ]
+    for model, params in projection_only:
         with pytest.raises(AssertionError):
             build_camera_intrinsics(
                 model=model,
@@ -1202,22 +1324,34 @@ def test_a_camera_names_the_frame_of_each_half_separately() -> None:
         device="cpu",
     )
     both = camera.to(intr_convention="opengl", extr_convention="opencv")
-    assert both.extrinsics.extr_convention == "opencv", f"{both.extrinsics=}"
-    assert both.intrinsics.intr_convention == "opengl", f"{both.intrinsics=}"
+    assert both.extrinsics.extr_convention == "opencv", (
+        "Expected the returned camera's extr_convention to be the camera-space frame that was named. "
+        f"{both.extrinsics=}"
+    )
+    assert both.intrinsics.intr_convention == "opengl", (
+        "Expected the returned camera's intr_convention to be the image-plane frame that was named. "
+        f"{both.intrinsics=}"
+    )
 
     pose_only = camera.to(extr_convention="opencv")
-    assert pose_only.extrinsics.extr_convention == "opencv", f"{pose_only.extrinsics=}"
-    assert (
-        pose_only.intrinsics.intr_convention == "standard"
-    ), f"{pose_only.intrinsics=}"
+    assert pose_only.extrinsics.extr_convention == "opencv", (
+        "Expected naming only the camera-space frame to set the extr_convention. "
+        f"{pose_only.extrinsics=}"
+    )
+    assert pose_only.intrinsics.intr_convention == "standard", (
+        "Expected naming only the camera-space frame to leave the intr_convention unchanged. "
+        f"{pose_only.intrinsics=}"
+    )
 
     plane_only = camera.to(intr_convention="opengl")
-    assert (
-        plane_only.extrinsics.extr_convention == "standard"
-    ), f"{plane_only.extrinsics=}"
-    assert (
-        plane_only.intrinsics.intr_convention == "opengl"
-    ), f"{plane_only.intrinsics=}"
+    assert plane_only.extrinsics.extr_convention == "standard", (
+        "Expected naming only the image-plane frame to leave the extr_convention unchanged. "
+        f"{plane_only.extrinsics=}"
+    )
+    assert plane_only.intrinsics.intr_convention == "opengl", (
+        "Expected naming only the image-plane frame to set the intr_convention. "
+        f"{plane_only.intrinsics=}"
+    )
 
 
 def test_extrinsics_tensor_matrix_stays_differentiable_through_pose_accessors() -> None:
@@ -1353,10 +1487,10 @@ def test_camera_and_cameras_to_preserve_tensor_parameter_graphs() -> None:
     )
     extrinsics = CameraExtrinsics(extrinsics=matrix, extr_convention="standard")
     camera = Camera(intrinsics=intrinsics, extrinsics=extrinsics)
-    cameras = Cameras(intrinsics=intrinsics[None], extrinsics=extrinsics[None])
     moved_camera = camera.to(
         device=intrinsics.device, dtype=torch.float64, extr_convention="pytorch3d"
     )
+    cameras = Cameras(intrinsics=intrinsics[None], extrinsics=extrinsics[None])
     moved_cameras = cameras.to(
         device=intrinsics.device, dtype=torch.float64, extr_convention="pytorch3d"
     )
