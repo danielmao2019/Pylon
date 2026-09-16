@@ -22,10 +22,12 @@ apply_transform.py
 │   │       └── assert transform carries no leading axes  # they yield one copy of the points per entry, leaving no single buffer to write back into
 │   ├── calls _validate_inputs()
 │   ├── def _normalize_inputs [local]
-│   │   ├── calls _normalize_points(points=points)
-│   │   ├── impls points, was_batched = the returned values from _normalize_points  # an unbatched [N, 3], a view of the caller's array when a batch axis was squeezed
-│   │   ├── calls _normalize_transform(transform=transform, target_type=type(points), target_dtype=points.dtype, target_device=the points' device when a torch.Tensor, else None)
-│   │   ├── impls transform = the [..., 4, 4] transform it returned, in the points' own type, dtype and device
+│   │   ├── calls _normalize_points(points=points)  # -> points, was_batched: an unbatched [N, 3], a view of the caller's array when a batch axis was squeezed
+│   │   ├── if points is a torch.Tensor
+│   │   │   └── impls target_device = the points' device
+│   │   ├── else
+│   │   │   └── impls target_device = None
+│   │   ├── calls _normalize_transform(transform=transform, target_type=type(points), target_dtype=points.dtype, target_device=target_device)  # -> transform: the [..., 4, 4] transform in the points' own type, dtype and device
 │   │   ├── assert transform.dtype == points.dtype  # the output check: the normalized points and transform share one dtype
 │   │   └── return points, was_batched, transform
 │   ├── calls _normalize_inputs(points=points, transform=transform)
