@@ -176,19 +176,29 @@ roll_lock.js
     │   │   ├── if scene already holds the lock
     │   │   │   └── return
     │   │   ├── impls marks scene as holding the lock
+    │   │   ├── impls sceneInitializeGLCamera = the scene's own initializeGLCamera, kept for rollLockedInitializeGLCamera to build through
     │   │   ├── function rollLockedInitializeGLCamera() [local]
     │   │   │   ├── # Builds the scene's camera through its own initializeGLCamera, as a projection switch does, then holds the lock on the new view controller in the same call.
-    │   │   │   ├── impls the scene's own initializeGLCamera()
+    │   │   │   ├── impls sceneInitializeGLCamera called on scene
     │   │   │   ├── calls holdRollLock(scene.camera.view)
     │   │   │   └── return
-    │   │   ├── impls scene.initializeGLCamera = rollLockedInitializeGLCamera, the scene's own initializeGLCamera kept for rollLockedInitializeGLCamera to build through
+    │   │   ├── impls scene.initializeGLCamera = rollLockedInitializeGLCamera
+    │   │   ├── impls scenePlot = the scene's own plot, kept for rollLockedPlot to plot through
+    │   │   ├── function rollLockedPlot(...plotArgs) [local]  # plotArgs: the arguments a figure update or relayout hands the scene's own plot
+    │   │   │   ├── # Re-plots the scene through its own plot, which applies a new aspect ratio and new axis ranges, then holds the lock about the axis that aspect leaves before the scene draws its next frame.
+    │   │   │   ├── impls scenePlot called on scene with plotArgs
+    │   │   │   ├── calls resolveSceneAxis(scene)
+    │   │   │   ├── calls rewriteHeldPose(scene.camera.view)
+    │   │   │   └── return
+    │   │   ├── impls scene.plot = rollLockedPlot
     │   │   └── return
     │   ├── function resolveSceneAxis(scene) [local]
     │   │   ├── # Resolves the lock axis in the scene's normalized space, where Plotly draws each world axis scaled by its aspect ratio over its range, so worldAxis stays upright on screen under any aspect.
     │   │   ├── impls sceneScale = for each of x, y and z, that axis's scene.fullSceneLayout.aspectratio over the span of that axis's range, the per-axis scale the scene draws world coordinates at
     │   │   ├── calls vectorNormalize(worldAxis scaled componentwise by sceneScale)   → axis
+    │   │   ├── impls leastBasis = the world basis vector axis leans on least, set by the branches below
     │   │   ├── if Math.abs(axis[0]) <= Math.abs(axis[1]) && Math.abs(axis[0]) <= Math.abs(axis[2])
-    │   │   │   └── impls leastBasis = [1, 0, 0]  # the world basis vector axis leans on least
+    │   │   │   └── impls leastBasis = [1, 0, 0]
     │   │   ├── else if Math.abs(axis[1]) <= Math.abs(axis[2])
     │   │   │   └── impls leastBasis = [0, 1, 0]
     │   │   ├── else
@@ -203,37 +213,47 @@ roll_lock.js
     │   │   ├── impls marks view as holding the lock
     │   │   ├── for each camera controller in view's controller list  # orbital, turntable and matrix; view's own lookAt writes into every one of them
     │   │   │   └── calls holdControllerRollLock(controller)
-    │   │   ├── impls view.lookAt(view.lastT(), the pose view holds now), so a view controller a replot built from a rolled stored camera draws on the lock from its next frame
+    │   │   ├── calls rewriteHeldPose(view)  # a view controller a replot built from a rolled stored camera draws on the lock from its next frame
     │   │   ├── function rollLockedRotate(time, yaw, pitch, roll) [local]  # roll: the pure roll a horizontal wheel scroll hands the rotation, which the lock drops
     │   │   │   ├── # Turns the camera by one drag step, as yaw about axis plus pitch about the camera right axis, written as roll-locked sub-step keyframes.
     │   │   │   ├── impls subStepCount = the fewest sub-steps that keep each one's turn within ROLL_LOCK_SUB_STEP_RADIANS
     │   │   │   ├── impls startTime = view.lastT(), the time of view's newest keyframe  # read once, since each sub-step's view.lookAt advances it
     │   │   │   ├── for each sub-step, at evenly spaced times from view's newest keyframe to time  # the renderer then only interpolates between locked poses a bounded turn apart
-    │   │   │   │   ├── impls view recalculated at the sub-step's time, and the eye and center it holds there
-    │   │   │   │   ├── calls resolveTurnedPose(that eye, that center, yaw / subStepCount, pitch / subStepCount)
-    │   │   │   │   └── impls view.lookAt(the sub-step's time, the turned eye, the center, the turned up)
+    │   │   │   │   ├── impls subStepTime = the sub-step's time, evenly spaced from startTime to time
+    │   │   │   │   ├── impls view recalculated at subStepTime
+    │   │   │   │   ├── impls eye, center = the eye view holds there, the center view holds there
+    │   │   │   │   ├── calls resolveTurnedPose(eye, center, yaw / subStepCount, pitch / subStepCount)
+    │   │   │   │   └── impls view.lookAt(subStepTime, the turned eye, center, the turned up)
     │   │   │   └── return
     │   │   ├── impls view.rotate = rollLockedRotate
     │   │   └── return
     │   ├── function holdControllerRollLock(controller) [local]
     │   │   ├── # Wraps one camera controller's lookAt so every pose written into its keyframes goes in roll-locked — a drag step, a relayout, a reset-camera button, a replot, and a rotation-mode switch writing into the newly active controller directly.
+    │   │   ├── impls controllerLookAt = the controller's own lookAt, kept for rollLockedLookAt to write through
     │   │   ├── function rollLockedLookAt(time, eye, center, up) [local]  # up: the written up, which the lock re-derives from the view direction and axis
     │   │   │   ├── # Writes one pose into the controller's keyframes on the lock.
+    │   │   │   ├── impls controller recalculated at time
     │   │   │   ├── impls fills each of eye and center the caller left null from the controller's own pose at time
     │   │   │   ├── calls resolveHeldEye(eye, center, controller, time)   → heldEye
     │   │   │   ├── calls resolveRollLockedPose(heldEye, center)
     │   │   │   ├── impls keyframeCount = the number of keyframes controller.rotation holds before the write  # a controller without a quaternion rotation holds none
-    │   │   │   ├── impls the controller's own lookAt(time, the roll-locked eye, center, the roll-locked up)
+    │   │   │   ├── impls controllerLookAt called on the controller with (time, the roll-locked eye, center, the roll-locked up)
     │   │   │   ├── if that write appended a keyframe to the controller's quaternion rotation  # the orbital controller's; the turntable controller keeps angles, which have no second hemisphere
     │   │   │   │   └── calls alignRotationKeyframeHemisphere(controller.rotation)
     │   │   │   └── return
-    │   │   ├── impls controller.lookAt = rollLockedLookAt, the controller's own lookAt kept for rollLockedLookAt to write through
+    │   │   ├── impls controller.lookAt = rollLockedLookAt
     │   │   └── return
     │   ├── function alignRotationKeyframeHemisphere(rotation) [local]
     │   │   ├── # Negates the newest rotation keyframe's quaternion when it sits in the opposite hemisphere from the keyframe before it, so the renderer's componentwise interpolation between the two takes the short way round.
     │   │   ├── if the newest and the previous keyframe quaternions have a non-negative dot product
     │   │   │   └── return
     │   │   ├── impls negates the newest keyframe's four components in rotation's state
+    │   │   └── return
+    │   ├── function rewriteHeldPose(view) [local]
+    │   │   ├── # Writes the pose a view holds back onto the lock about the current axis and discards every keyframe before it, so the renderer draws that pose from its next frame.
+    │   │   ├── impls view recalculated at view.lastT(), the time of its newest keyframe
+    │   │   ├── impls view.lookAt(view.lastT(), the eye, the center, the up view holds there), written through the controllers' rollLockedLookAt
+    │   │   ├── impls view.flush(view.lastT()), discarding every keyframe before the pose just written
     │   │   └── return
     │   ├── function subscribeRollLock(graphDiv) [local]
     │   │   ├── # Subscribes the lock once to graphDiv's plotly_relayout and plotly_afterplot events and to the scenes Plotly mounts inside it, so the camera the layout stores is rewritten to the roll-locked pose the renderer already draws.
@@ -291,8 +311,9 @@ roll_lock.js
     │   │   ├── impls graphDiv.__rollLock.writing = true, the in-flight flag held until the relayout below resolves
     │   │   ├── calls vectorToRecord(the roll-locked eye)
     │   │   ├── calls vectorToRecord(the roll-locked up)
-    │   │   ├── impls Plotly.relayout(graphDiv, the roll-locked eye and up records), graphDiv's in-flight flag held until it resolves
-    │   │   ├── if graphDiv.__rollLock.pending once that relayout resolves
+    │   │   ├── impls await Plotly.relayout(graphDiv, the roll-locked eye record, the roll-locked up record)
+    │   │   ├── impls graphDiv.__rollLock.writing = false, releasing the in-flight flag once that relayout resolves
+    │   │   ├── if graphDiv.__rollLock.pending
     │   │   │   ├── impls graphDiv.__rollLock.pending = false
     │   │   │   └── calls applyRollLock(graphDiv, graphDiv._fullLayout.scene.camera)  # the camera the writes that arrived in flight left behind
     │   │   └── return
