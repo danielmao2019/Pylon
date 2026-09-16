@@ -15,6 +15,7 @@ i.e., the mental model is:
 1. the dtype and device of the stored intrinsics params and extrinsics matrix are consequences of the given dtype and device, rather than the other way around.
 2. the stored dtype and device are also consequences of the given dtype and device, rather than the other way around.
 3. the only exception is when dtype or device is given None, in which case you resolve it to the one the two given components share, neither component taking precedence over the other.
+4. intrinsics and extrinsics of the same camera/cameras are two parts of the same object, so must always be on same device.
 
 `transform_intrinsics` must NOT call any helper that serves convention conversion.
 
