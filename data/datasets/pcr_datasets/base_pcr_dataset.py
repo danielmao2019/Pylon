@@ -92,8 +92,9 @@ class BasePCRDataset(BaseDataset):
         tgt_colors[:, 2] = 1.0  # Blue for target
         union_colors = torch.cat([src_colors, tgt_colors], dim=0)
 
+        union_pc = PointCloud(xyz=union_points, data={'rgb': union_colors})
         return create_point_cloud_display(
-            pc=PointCloud(xyz=union_points, data={'rgb': union_colors}),
+            pc=union_pc,
             color_key=None,
             highlight_indices=None,
             title=title,
@@ -162,8 +163,9 @@ class BasePCRDataset(BaseDataset):
             tgt_colors[:, 2] = 1.0  # Blue for target
             sym_diff_colors = torch.cat([src_colors, tgt_colors], dim=0)
 
+            sym_diff_pc = PointCloud(xyz=sym_diff_points, data={'rgb': sym_diff_colors})
             return create_point_cloud_display(
-                pc=PointCloud(xyz=sym_diff_points, data={'rgb': sym_diff_colors}),
+                pc=sym_diff_pc,
                 color_key=None,
                 highlight_indices=None,
                 title=title,
@@ -177,10 +179,11 @@ class BasePCRDataset(BaseDataset):
             )
         else:
             # If no symmetric difference, show empty point cloud
+            empty_pc = PointCloud(
+                xyz=torch.zeros((1, 3), device=src_points_normalized.device)
+            )
             return create_point_cloud_display(
-                pc=PointCloud(
-                    xyz=torch.zeros((1, 3), device=src_points_normalized.device)
-                ),
+                pc=empty_pc,
                 color_key=None,
                 highlight_indices=None,
                 title=f"{title} (Empty)",
@@ -236,60 +239,53 @@ class BasePCRDataset(BaseDataset):
     @staticmethod
     def _create_transform_info_section(transform_info: Dict[str, Any]) -> html.Div:
         """Create transform information section."""
-        return html.Div(
-            [
-                html.H4("Transform Information:"),
-                html.Pre(transform_info['transform_str']),
-                html.P(
-                    f"Rotation Angle: {transform_info['rotation_angle']:.2f} degrees"
-                ),
-                html.P(
-                    f"Translation Magnitude: {transform_info['translation_magnitude']:.4f}"
-                ),
-            ],
-            style={'margin-top': '20px'},
-        )
+        section_children = [
+            html.H4("Transform Information:"),
+            html.Pre(transform_info['transform_str']),
+            html.P(f"Rotation Angle: {transform_info['rotation_angle']:.2f} degrees"),
+            html.P(
+                f"Translation Magnitude: {transform_info['translation_magnitude']:.4f}"
+            ),
+        ]
+        section = html.Div(section_children, style={'margin-top': '20px'})
+        return section
 
     @staticmethod
     def _create_statistics_section(
         src_stats_children: Any, tgt_stats_children: Any
     ) -> html.Div:
         """Create point cloud statistics section."""
-        return html.Div(
+        src_column = html.Div(
             [
-                html.Div(
-                    [
-                        html.H4("Source Point Cloud Statistics:"),
-                        html.Div(src_stats_children),
-                    ],
-                    style=DisplayStyles.GRID_ITEM_48_MARGIN,
-                ),
-                html.Div(
-                    [
-                        html.H4("Target Point Cloud Statistics:"),
-                        html.Div(tgt_stats_children),
-                    ],
-                    style=DisplayStyles.GRID_ITEM_48_NO_MARGIN,
-                ),
+                html.H4("Source Point Cloud Statistics:"),
+                html.Div(src_stats_children),
             ],
-            style={'margin-top': '20px'},
+            style=DisplayStyles.GRID_ITEM_48_MARGIN,
         )
+        tgt_column = html.Div(
+            [
+                html.H4("Target Point Cloud Statistics:"),
+                html.Div(tgt_stats_children),
+            ],
+            style=DisplayStyles.GRID_ITEM_48_NO_MARGIN,
+        )
+        section = html.Div([src_column, tgt_column], style={'margin-top': '20px'})
+        return section
 
     @staticmethod
     def _create_correspondence_stats_section(correspondences: torch.Tensor) -> html.Div:
         """Create correspondence statistics section."""
         num_correspondences = correspondences.shape[0]
 
-        return html.Div(
-            [
-                html.H4("Correspondence Statistics:"),
-                html.Ul(
-                    [html.Li(f"Number of correspondences: {num_correspondences}")],
-                    style={'margin-left': '20px', 'margin-top': '5px'},
-                ),
-            ],
+        stats_list = html.Ul(
+            [html.Li(f"Number of correspondences: {num_correspondences}")],
+            style={'margin-left': '20px', 'margin-top': '5px'},
+        )
+        section = html.Div(
+            [html.H4("Correspondence Statistics:"), stats_list],
             style={'margin-top': '20px'},
         )
+        return section
 
     @staticmethod
     def _format_value(key: str, value: Any) -> str:
@@ -301,13 +297,17 @@ class BasePCRDataset(BaseDataset):
         ):
             # Handle 3D vectors with context-specific formatting
             if 'angle' in key.lower():
-                return f"[{value[0]:.2f}°, {value[1]:.2f}°, {value[2]:.2f}°]"
+                formatted = f"[{value[0]:.2f}°, {value[1]:.2f}°, {value[2]:.2f}°]"
+                return formatted
             else:
-                return f"[{value[0]:.4f}, {value[1]:.4f}, {value[2]:.4f}]"
+                formatted = f"[{value[0]:.4f}, {value[1]:.4f}, {value[2]:.4f}]"
+                return formatted
         elif isinstance(value, float):
-            return f"{value:.4f}"
+            formatted = f"{value:.4f}"
+            return formatted
         else:
-            return str(value)
+            formatted = str(value)
+            return formatted
 
     @staticmethod
     def _dict_to_html_list(data: Dict[str, Any], key_name: str = None) -> html.Div:
@@ -352,22 +352,22 @@ class BasePCRDataset(BaseDataset):
     def _create_meta_info_section(meta_info: Dict[str, Any]) -> html.Div:
         """Create meta information section displaying dataset metadata."""
         if not meta_info:
-            return html.Div(
+            empty_section = html.Div(
                 [
                     html.H4("Datapoint Meta Information:"),
                     html.P("No meta information available"),
                 ],
                 style={'margin-top': '20px'},
             )
+            return empty_section
 
         # Convert the entire meta_info dict to HTML lists
-        return html.Div(
-            [
-                html.H4("Datapoint Meta Information:"),
-                BasePCRDataset._dict_to_html_list(meta_info),
-            ],
+        meta_children = BasePCRDataset._dict_to_html_list(meta_info)
+        section = html.Div(
+            [html.H4("Datapoint Meta Information:"), meta_children],
             style={'margin-top': '20px'},
         )
+        return section
 
     @staticmethod
     def create_correspondence_visualization(

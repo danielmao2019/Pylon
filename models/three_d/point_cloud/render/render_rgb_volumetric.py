@@ -206,7 +206,8 @@ def render_rgb_from_point_cloud_volumetric(
         "[volumetric] Pipeline finished in %.2fs",
         time.time() - total_start,
     )
-    return rendered_image.to(device=target_device)
+    rendered_image = rendered_image.to(device=target_device)
+    return rendered_image
 
 
 def gen_auxiliary_cameras(
@@ -480,7 +481,8 @@ def _run_ns_train_splatfacto(
         reverse=True,
     )
     assert config_paths, f"ns-train did not create any configs under {output_dir}"
-    return config_paths[0].parent
+    model_dir = config_paths[0].parent
+    return model_dir
 
 
 def _assert_checkpoint_exists(model_dir: Path) -> Path:
