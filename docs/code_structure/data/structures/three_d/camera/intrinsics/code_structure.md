@@ -239,10 +239,18 @@ camera_intrinsics.py
 │   │   ├── calls _validate_inputs
 │   │   ├── def _normalize_inputs [local]
 │   │   │   ├── if device is None
-│   │   │   │   └── impls device = the device of the first torch.Tensor param, else cpu  # the one exception: an unset device resolves to the given params', so a component __getitem__ rebuilds stays where its batch is
-│   │   │   ├── impls device = the given device as a torch device, its index filled in when the spelling leaves one out  # one physical device has one spelling here, so a cuda and a cuda:0 naming it never compare unequal
+│   │   │   │   ├── if any param is a torch.Tensor
+│   │   │   │   │   └── impls device = the device of the first torch.Tensor param  # the one exception: an unset device resolves to the given params', so a component __getitem__ rebuilds stays where its batch is
+│   │   │   │   └── else
+│   │   │   │       └── impls device = the cpu device
+│   │   │   ├── impls device = device as a torch.device
+│   │   │   ├── if device.type == "cuda" and device.index is None  # one physical device has one spelling here, so a cuda and a cuda:0 naming it never compare unequal
+│   │   │   │   └── impls device = the cuda device at the index of torch's current cuda device  # where a tensor sent to a bare cuda lands, and so the device it reports
 │   │   │   ├── if dtype is None
-│   │   │   │   └── impls dtype = the dtype of the first floating torch.Tensor or np.ndarray param, else torch.float32  # the one exception: an unset dtype resolves to the given params', so a component __getitem__ rebuilds keeps the dtype its batch holds
+│   │   │   │   ├── if any param is a floating torch.Tensor or np.ndarray
+│   │   │   │   │   └── impls dtype = the torch dtype of the first floating torch.Tensor or np.ndarray param  # the one exception: an unset dtype resolves to the given params', so a component __getitem__ rebuilds keeps the dtype its batch holds
+│   │   │   │   └── else
+│   │   │   │       └── impls dtype = torch.float32
 │   │   │   ├── impls params = each value materialized as a torch.Tensor on device and in dtype  # every param follows the resolved device and dtype, never the other way around
 │   │   │   └── return params, device, dtype
 │   │   ├── calls _normalize_inputs(params=params, device=device, dtype=dtype)
