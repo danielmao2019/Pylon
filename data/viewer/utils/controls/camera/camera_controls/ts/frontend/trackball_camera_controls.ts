@@ -134,6 +134,24 @@ function createRendererTrackballCameraControls({
       listener(cameraState);
     }
   });
+
+  // Subscribes a listener to every camera state the controls report on change.
+  //
+  // Args:
+  //   listener: the callback handed each camera state (camera-to-world extrinsics + intrinsics) the controls report.
+  //
+  // Returns:
+  //   The unsubscribe function that removes listener.
+  function subscribeCameraStateChange(listener: (cameraState: CameraState) => void): () => void {
+    if (typeof listener !== "function") {
+      throw new Error("camera state listener must be a function");
+    }
+    listeners.add(listener);
+    return () => {
+      listeners.delete(listener);
+    };
+  }
+
   const controls: ThreeTrackballCameraControls = Object.assign(threeControls, {
     rollLockAxis: null,
     rollLockPolarAngleEpsilon: null,
@@ -149,15 +167,7 @@ function createRendererTrackballCameraControls({
         cameraState,
       });
     },
-    subscribeCameraStateChange: (listener: (cameraState: CameraState) => void) => {
-      if (typeof listener !== "function") {
-        throw new Error("camera state listener must be a function");
-      }
-      listeners.add(listener);
-      return () => {
-        listeners.delete(listener);
-      };
-    },
+    subscribeCameraStateChange,
   });
 
   if (lockRoll !== null) {
