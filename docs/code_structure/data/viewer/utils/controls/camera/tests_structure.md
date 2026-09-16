@@ -79,10 +79,10 @@ test_trackball_camera_controls.py
 │   ├── impls callback = probe["callbacks"][0]
 │   ├── impls expected_input = Input({"type": ROLL_LOCKED_GRAPH_ID_TYPE, "index": ALL, "lock_roll": ALL}, "relayoutData").to_dict()
 │   ├── assert callback["inputs"] == [expected_input], "..."
-│   ├── impls registering_scripts = [script for script in probe["inline_scripts"] if callback["clientside_function"]["function_name"] in script]
-│   │   └── for script in probe["inline_scripts"]
-│   │       └── if callback["clientside_function"]["function_name"] in script
-│   │           └── impls script
+│   ├── impls registering_scripts = an empty list of the inline scripts that name the callback's clientside function
+│   ├── for script in probe["inline_scripts"]
+│   │   └── if callback["clientside_function"]["function_name"] in script
+│   │       └── impls registering_scripts.append(script)
 │   ├── assert exactly one registering script, holding ROLL_LOCK_CALLBACK_SCRIPT, "..."
 │   └── return
 ├── def test_a_zero_axis_is_rejected
