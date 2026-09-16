@@ -86,12 +86,10 @@ def test_stabilize_rejects_a_reflection() -> None:
         None.
     """
     batch_size = 4
-    rotations = torch.stack(
-        [
-            _random_rotation(dtype=torch.float64, seed=index)
-            for index in range(batch_size)
-        ]
-    )
+    rotation_list = []
+    for index in range(batch_size):
+        rotation_list.append(_random_rotation(dtype=torch.float64, seed=index))
+    rotations = torch.stack(rotation_list)
     rotations[1::2, :, 0] = -rotations[1::2, :, 0]
 
     with pytest.raises(AssertionError):
@@ -107,20 +105,7 @@ def test_validator_threshold_is_dtype_aware() -> None:
     Returns:
         None.
     """
-    eps_float64 = torch.finfo(torch.float64).eps
-    eps_float32 = torch.finfo(torch.float32).eps
-    a = 5e-7
-    assert a > 32 * eps_float64, (
-        "Expected the deviation to sit above the float64 tolerance. "
-        f"{a=} {32 * eps_float64=}"
-    )
-    assert a < 32 * eps_float32, (
-        "Expected the deviation to sit below the float32 tolerance. "
-        f"{a=} {32 * eps_float32=}"
-    )
-
-    m = torch.eye(3, dtype=torch.float64)
-    m[0, 0] = 1.0 + a
+    m = torch.diag(torch.tensor([1.0 + 5e-7, 1.0, 1.0], dtype=torch.float64))
 
     validate_rotation_matrix(obj=m.to(torch.float32))
 
@@ -140,19 +125,16 @@ def test_validator_requires_determinant_plus_one() -> None:
     rotation = _random_rotation(dtype=torch.float64, seed=7)
     validate_rotation_matrix(obj=rotation)
 
-    reflection = rotation.clone()
-    reflection[:, 0] = -reflection[:, 0]
-    assert float(torch.linalg.det(reflection)) < 0.0, (
-        "Expected negating one column of a proper rotation to give an "
-        f"orthonormal matrix of determinant -1. {float(torch.linalg.det(reflection))=}"
-    )
+    reflection = rotation * torch.tensor([-1.0, 1.0, 1.0], dtype=torch.float64)
     with pytest.raises(AssertionError):
         validate_rotation_matrix(obj=reflection)
 
-    extrinsics = torch.eye(4, dtype=torch.float64)
-    extrinsics[:3, :3] = reflection
     with pytest.raises(AssertionError):
-        validate_camera_extrinsics(obj=torch.stack([extrinsics, extrinsics]))
+        validate_camera_extrinsics(
+            obj=torch.block_diag(reflection, torch.ones(1, 1, dtype=torch.float64))[
+                None
+            ]
+        )
 
 
 def _random_rotation(dtype: torch.dtype, seed: int) -> torch.Tensor:
@@ -165,8 +147,9 @@ def _random_rotation(dtype: torch.dtype, seed: int) -> torch.Tensor:
     Returns:
         A ``(3, 3)`` proper rotation torch.Tensor of determinant +1, in ``dtype``.
     """
-    g = torch.Generator().manual_seed(seed)
-    a = torch.randn(3, 3, generator=g, dtype=torch.float64)
+    a = torch.randn(
+        3, 3, generator=torch.Generator().manual_seed(seed), dtype=torch.float64
+    )
     q, r = torch.linalg.qr(a)
     q = q @ torch.diag(torch.sign(torch.diagonal(r)))
     if float(torch.linalg.det(q)) < 0:

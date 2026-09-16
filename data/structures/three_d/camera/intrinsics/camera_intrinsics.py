@@ -90,23 +90,31 @@ class CameraIntrinsics(ABC):
             dtype: Optional[torch.dtype],
         ) -> Tuple[Dict[str, torch.Tensor], torch.device, torch.dtype]:
             if device is None:
-                # The one exception: an unset device resolves to the given params', so a component __getitem__ rebuilds stays where its batch is.
-                device = next(
-                    (
+                if any(isinstance(value, torch.Tensor) for value in params.values()):
+                    # The one exception: an unset device resolves to the given params', so a component __getitem__ rebuilds stays where its batch is.
+                    device = next(
                         value.device
                         for value in params.values()
                         if isinstance(value, torch.Tensor)
-                    ),
-                    torch.device("cpu"),
-                )
-            # One physical device has one spelling here, so a cuda and a cuda:0 naming it never compare unequal.
+                    )
+                else:
+                    device = torch.device("cpu")
             device = torch.device(device)
+            # One physical device has one spelling here, so a cuda and a cuda:0 naming it never compare unequal.
             if device.type == "cuda" and device.index is None:
+                # Where a tensor sent to a bare cuda lands, and so the device it reports.
                 device = torch.device("cuda", torch.cuda.current_device())
             if dtype is None:
-                # The one exception: an unset dtype resolves to the given params', so a component __getitem__ rebuilds keeps the dtype its batch holds.
-                dtype = next(
-                    (
+                if any(
+                    (isinstance(value, torch.Tensor) and value.is_floating_point())
+                    or (
+                        isinstance(value, np.ndarray)
+                        and np.issubdtype(value.dtype, np.floating)
+                    )
+                    for value in params.values()
+                ):
+                    # The one exception: an unset dtype resolves to the given params', so a component __getitem__ rebuilds keeps the dtype its batch holds.
+                    dtype = next(
                         torch.as_tensor(value).dtype
                         for value in params.values()
                         if (
@@ -117,9 +125,9 @@ class CameraIntrinsics(ABC):
                             isinstance(value, np.ndarray)
                             and np.issubdtype(value.dtype, np.floating)
                         )
-                    ),
-                    torch.float32,
-                )
+                    )
+                else:
+                    dtype = torch.float32
             # Every param follows the resolved device and dtype, never the other way around.
             params = {
                 key: torch.as_tensor(value, device=device, dtype=dtype)
@@ -218,8 +226,10 @@ class CameraIntrinsics(ABC):
         Returns:
             A CameraIntrinsics of the same model whose params carry the indexed leading axis.
         """
-        # a pass over the model's few param names, never over the cameras
-        params = {key: value[index] for key, value in self._params.items()}
+        params = {}
+        # A pass over the model's few param names, never over the cameras.
+        for key, value in self._params.items():
+            params[key] = value[index]
         return build_camera_intrinsics(
             model=type(self).MODEL,
             params=params,
@@ -311,34 +321,31 @@ class CameraIntrinsics(ABC):
                         sx, sy = scale[0], scale[1]
             else:
                 # The size the params are already stated against is two of those params, the one place every model states it.
-                sx = (
-                    torch.as_tensor(
-                        resolution[1], dtype=self._dtype, device=self._device
-                    )
-                    / self._params["w"]
-                )
-                sy = (
-                    torch.as_tensor(
-                        resolution[0], dtype=self._dtype, device=self._device
-                    )
-                    / self._params["h"]
+                sx, sy = (
+                    resolution[1] / self._params["w"],
+                    resolution[0] / self._params["h"],
                 )
             return resolution, sx, sy
 
         resolution, sx, sy = _normalize_inputs(resolution=resolution, scale=scale)
 
         # A rounded raster and a raw factor are not exactly consistent when the product is not whole; the gradient is what this trade keeps.
-        zero = torch.zeros_like(sx)
-        one = torch.ones_like(sx)
+        # A resize scales both axes about the pixel frame's own origin, its top-left corner, which is what makes it diagonal.
         transform = torch.stack(
             [
-                torch.stack([sx, zero, zero], dim=-1),
-                torch.stack([zero, sy, zero], dim=-1),
-                torch.stack([zero, zero, one], dim=-1),
+                torch.stack([sx, torch.zeros_like(sx), torch.zeros_like(sx)], dim=-1),
+                torch.stack([torch.zeros_like(sx), sy, torch.zeros_like(sx)], dim=-1),
+                torch.stack(
+                    [torch.zeros_like(sx), torch.zeros_like(sx), torch.ones_like(sx)],
+                    dim=-1,
+                ),
             ],
             dim=-2,
         )
-        return self.transform_intrinsics(transform=transform, resolution=resolution)
+        intrinsics = self.transform_intrinsics(
+            transform=transform, resolution=resolution
+        )
+        return intrinsics
 
     def transform_intrinsics(
         self,
@@ -422,9 +429,9 @@ class CameraIntrinsics(ABC):
             resolution: Tuple[Union[int, torch.Tensor], Union[int, torch.Tensor]],
         ) -> Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
             transform = transform.to(device=self._device, dtype=self._dtype)
-            resolution = tuple(
-                torch.as_tensor(value, device=self._device, dtype=self._dtype)
-                for value in resolution
+            resolution = (
+                torch.as_tensor(resolution[0], device=self._device, dtype=self._dtype),
+                torch.as_tensor(resolution[1], device=self._device, dtype=self._dtype),
             )
             return transform, resolution
 
@@ -435,22 +442,33 @@ class CameraIntrinsics(ABC):
 
         # An affine between two rasters composes only with a K stated in them, so the camera is read in pixels.
         standard = self.to(intr_convention="standard")
-        zero = torch.zeros_like(standard.fx)
-        one = torch.ones_like(standard.fx)
+        # The subclass accessors, so every model hands over its focals through the one API.
         K = transform @ torch.stack(
             [
-                torch.stack([standard.fx, zero, standard.cx], dim=-1),
-                torch.stack([zero, standard.fy, standard.cy], dim=-1),
-                torch.stack([zero, zero, one], dim=-1),
+                torch.stack(
+                    [standard.fx, torch.zeros_like(standard.fx), standard.cx], dim=-1
+                ),
+                torch.stack(
+                    [torch.zeros_like(standard.fx), standard.fy, standard.cy], dim=-1
+                ),
+                torch.stack(
+                    [
+                        torch.zeros_like(standard.fx),
+                        torch.zeros_like(standard.fx),
+                        torch.ones_like(standard.fx),
+                    ],
+                    dim=-1,
+                ),
             ],
             dim=-2,
         )
         params = self._focal_params(fx=K[..., 0, 0], fy=K[..., 1, 1])
-        params["cx"] = K[..., 0, 2]
-        params["cy"] = K[..., 1, 2]
+        params["cx"], params["cy"] = K[..., 0, 2], K[..., 1, 2]
         # A single raster names the same sides for every camera of a batch.
-        params["h"] = torch.broadcast_to(resolution[0], K.shape[:-2])
-        params["w"] = torch.broadcast_to(resolution[1], K.shape[:-2])
+        params["h"], params["w"] = (
+            torch.broadcast_to(resolution[0], K.shape[:-2]),
+            torch.broadcast_to(resolution[1], K.shape[:-2]),
+        )
         transformed = type(self)(params=params, intr_convention="standard")
         intrinsics = transformed.to(intr_convention=self._intr_convention)
         return intrinsics
@@ -918,17 +936,29 @@ def _resolve_target_resolution(
                     )
                 )
                 and len(resolution) == 2
-                and all(
-                    isinstance(side, (int, float, np.number, torch.Tensor))
-                    and float(side) > 0
-                    and float(side).is_integer()
-                    for side in resolution
-                )
             ), (
-                "Expected resolution to be a positive int or a length-2 array-like of "
-                "positive integer-valued entries. "
+                "Expected resolution to be a positive int or a length-2 array-like. "
                 f"{resolution=}"
             )
+            if (
+                isinstance(resolution, (tuple, list))
+                or (
+                    isinstance(resolution, (np.ndarray, torch.Tensor))
+                    and resolution.ndim == 1
+                )
+            ) and len(resolution) == 2:
+                assert (
+                    isinstance(resolution[0], (int, float, np.number, torch.Tensor))
+                    and isinstance(resolution[1], (int, float, np.number, torch.Tensor))
+                    and float(resolution[0]) > 0
+                    and float(resolution[0]).is_integer()
+                    and float(resolution[1]) > 0
+                    and float(resolution[1]).is_integer()
+                ), (
+                    "Expected both resolution entries to be positive integer-valued "
+                    "numbers. "
+                    f"{resolution=}"
+                )
         if scale is not None:
             assert (
                 (
@@ -945,16 +975,20 @@ def _resolve_target_resolution(
                     )
                 )
                 and len(scale) == 2
-                and all(
-                    isinstance(factor, (int, float, np.number, torch.Tensor))
-                    and float(factor) > 0
-                    for factor in scale
-                )
             ), (
-                "Expected scale to be a positive number or a length-2 array-like pair "
-                "of positive numbers. "
+                "Expected scale to be a positive number or a length-2 array-like. "
                 f"{scale=}"
             )
+            if (
+                isinstance(scale, (tuple, list))
+                or (isinstance(scale, (np.ndarray, torch.Tensor)) and scale.ndim == 1)
+            ) and len(scale) == 2:
+                assert (
+                    isinstance(scale[0], (int, float, np.number, torch.Tensor))
+                    and isinstance(scale[1], (int, float, np.number, torch.Tensor))
+                    and float(scale[0]) > 0
+                    and float(scale[1]) > 0
+                ), ("Expected both scale entries to be positive numbers. " f"{scale=}")
 
     _validate_inputs()
 
@@ -1035,24 +1069,27 @@ def build_camera_intrinsics(
         The CameraIntrinsics subclass instance for the model.
     """
     if model == "simple_pinhole":
-        return CameraIntrinsicsSimplePinhole(
+        intrinsics = CameraIntrinsicsSimplePinhole(
             params=params,
             intr_convention=intr_convention,
             device=device,
             dtype=dtype,
         )
+        return intrinsics
     if model == "pinhole":
-        return CameraIntrinsicsPinhole(
+        intrinsics = CameraIntrinsicsPinhole(
             params=params,
             intr_convention=intr_convention,
             device=device,
             dtype=dtype,
         )
+        return intrinsics
     if model == "ortho":
-        return CameraIntrinsicsOrtho(
+        intrinsics = CameraIntrinsicsOrtho(
             params=params,
             intr_convention=intr_convention,
             device=device,
             dtype=dtype,
         )
+        return intrinsics
     assert 0, "Should not reach here. " f"{model=}"

@@ -49,23 +49,22 @@ class CameraExtrinsics:
             dtype: Optional[torch.dtype],
         ) -> Tuple[torch.Tensor, torch.device, torch.dtype]:
             if device is None:
-                # The one exception: an unset device resolves to the given matrix's, so a component __getitem__ rebuilds stays where its batch is.
-                device = (
-                    extrinsics.device
-                    if isinstance(extrinsics, torch.Tensor)
-                    else torch.device("cpu")
-                )
-            # One physical device has one spelling here, so a cuda and a cuda:0 naming it never compare unequal.
+                if isinstance(extrinsics, torch.Tensor):
+                    # The one exception: an unset device resolves to the given matrix's, so a component __getitem__ rebuilds stays where its batch is.
+                    device = extrinsics.device
+                else:
+                    device = torch.device("cpu")
             device = torch.device(device)
+            # One physical device has one spelling here, so a cuda and a cuda:0 naming it never compare unequal.
             if device.type == "cuda" and device.index is None:
+                # Where a tensor sent to a bare cuda lands, and so the device it reports.
                 device = torch.device("cuda", torch.cuda.current_device())
             if dtype is None:
-                # The one exception: an unset dtype resolves to the given matrix's, so a component __getitem__ rebuilds keeps the dtype its batch holds.
-                dtype = (
-                    torch.as_tensor(extrinsics).dtype
-                    if isinstance(extrinsics, (torch.Tensor, np.ndarray))
-                    else torch.float32
-                )
+                if isinstance(extrinsics, (torch.Tensor, np.ndarray)):
+                    # The one exception: an unset dtype resolves to the given matrix's, so a component __getitem__ rebuilds keeps the dtype its batch holds.
+                    dtype = torch.as_tensor(extrinsics).dtype
+                else:
+                    dtype = torch.float32
             # The matrix follows the resolved device and dtype, never the other way around.
             extrinsics = torch.as_tensor(extrinsics, device=device, dtype=dtype)
             return extrinsics, device, dtype
@@ -473,24 +472,21 @@ class CameraExtrinsics:
             translation=translation,
         )
 
-        rotation_c2w = self._extrinsics[..., :3, :3]
-        translation_c2w = self._extrinsics[..., :3, 3]
-        rotation_c2w_new = rotation @ rotation_c2w
-        translation_c2w_new = (
-            scale * (rotation @ translation_c2w.unsqueeze(-1)).squeeze(-1) + translation
+        # The new cam2world rotation is rotation @ R and its translation scale * (rotation @ t) + translation, over the [0, 0, 0, 1] last row the matrix already carries.
+        extrinsics_new = torch.cat(
+            [
+                torch.cat(
+                    [
+                        rotation @ self._extrinsics[..., :3, :3],
+                        scale * (rotation @ self._extrinsics[..., :3, 3:4])
+                        + translation.unsqueeze(-1),
+                    ],
+                    dim=-1,
+                ),
+                self._extrinsics[..., 3:4, :],
+            ],
+            dim=-2,
         )
-
-        extrinsics_new = (
-            torch.eye(
-                4,
-                dtype=self._dtype,
-                device=self._device,
-            )
-            .expand(self._extrinsics.shape)
-            .clone()
-        )
-        extrinsics_new[..., :3, :3] = rotation_c2w_new
-        extrinsics_new[..., :3, 3] = translation_c2w_new
         extrinsics_new[..., :3, :3] = _stabilize_rotation_matrix(
             extrinsics_new[..., :3, :3]
         )
@@ -516,9 +512,14 @@ def _stabilize_rotation_matrix(rotation: torch.Tensor) -> torch.Tensor:
         "Expected rotation matrix dtype to be float32 or float64. " f"{rotation.dtype=}"
     )
 
-    identity = torch.eye(3, dtype=rotation.dtype, device=rotation.device)
-    should_be_identity = rotation @ rotation.transpose(-1, -2)
-    orthogonality_residual = float(torch.max(torch.abs(should_be_identity - identity)))
+    orthogonality_residual = float(
+        torch.max(
+            torch.abs(
+                rotation @ rotation.transpose(-1, -2)
+                - torch.eye(3, dtype=rotation.dtype, device=rotation.device)
+            )
+        )
+    )
     determinant_residual = float(torch.max(torch.abs(torch.linalg.det(rotation) - 1.0)))
     assert (
         max(orthogonality_residual, determinant_residual) <= _ORTHOGONALITY_REPAIR_ATOL
@@ -529,11 +530,16 @@ def _stabilize_rotation_matrix(rotation: torch.Tensor) -> torch.Tensor:
 
     u, _, v_h = torch.linalg.svd(rotation)
     rotation_fixed = u @ v_h
-    signs = torch.ones_like(u[..., 0, :])
-    signs[..., -1] = torch.where(
-        torch.linalg.det(rotation_fixed) < 0.0,
-        -signs[..., -1],
-        signs[..., -1],
+    signs = torch.cat(
+        [
+            torch.ones_like(u[..., 0, :2]),
+            torch.where(
+                torch.linalg.det(rotation_fixed) < 0.0,
+                -torch.ones_like(u[..., 0, 2]),
+                torch.ones_like(u[..., 0, 2]),
+            ).unsqueeze(-1),
+        ],
+        dim=-1,
     )
     u = u * signs.unsqueeze(-2)
     rotation_fixed = u @ v_h

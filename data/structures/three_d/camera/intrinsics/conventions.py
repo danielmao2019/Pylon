@@ -39,11 +39,14 @@ def transform_intr_convention(
         if source_intr_convention == "standard":
             return params
         if source_intr_convention == "opengl":
-            return _opengl_to_standard(params=params, model=model)
+            params = _opengl_to_standard(params=params, model=model)
+            return params
         if source_intr_convention == "pytorch3d":
-            return _pytorch3d_to_standard(params=params, model=model)
+            params = _pytorch3d_to_standard(params=params, model=model)
+            return params
         if source_intr_convention == "vulkan":
-            return _vulkan_to_standard(params=params, model=model)
+            params = _vulkan_to_standard(params=params, model=model)
+            return params
         assert 0, "Should not reach here. " f"{source_intr_convention=}"
 
     params = _to_standard(params=params)
@@ -62,11 +65,14 @@ def transform_intr_convention(
         if target_intr_convention == "standard":
             return params
         if target_intr_convention == "opengl":
-            return _standard_to_opengl(params=params, model=model)
+            params = _standard_to_opengl(params=params, model=model)
+            return params
         if target_intr_convention == "pytorch3d":
-            return _standard_to_pytorch3d(params=params, model=model)
+            params = _standard_to_pytorch3d(params=params, model=model)
+            return params
         if target_intr_convention == "vulkan":
-            return _standard_to_vulkan(params=params, model=model)
+            params = _standard_to_vulkan(params=params, model=model)
+            return params
         assert 0, "Should not reach here. " f"{target_intr_convention=}"
 
     params = _from_standard(params=params)
@@ -88,8 +94,7 @@ def _opengl_to_standard(
     Returns:
         The params on the standard frame.
     """
-    unit_x = params["w"] / 2.0
-    unit_y = params["h"] / 2.0
+    unit_x, unit_y = params["w"] / 2.0, params["h"] / 2.0
     params = _rescale_intr_params(
         params=params,
         model=model,
@@ -145,8 +150,7 @@ def _vulkan_to_standard(
     Returns:
         The params on the standard frame.
     """
-    unit_x = params["w"] / 2.0
-    unit_y = params["h"] / 2.0
+    unit_x, unit_y = params["w"] / 2.0, params["h"] / 2.0
     params = _rescale_intr_params(
         params=params,
         model=model,
@@ -172,8 +176,7 @@ def _standard_to_opengl(
     Returns:
         The params on the opengl frame.
     """
-    unit_x = 2.0 / params["w"]
-    unit_y = 2.0 / params["h"]
+    unit_x, unit_y = 2.0 / params["w"], 2.0 / params["h"]
     params = _centre_principal_point(params=params)
     params = _reverse_axes(params=params, axes=("y",))
     params = _rescale_intr_params(
@@ -233,8 +236,7 @@ def _standard_to_vulkan(
     Returns:
         The params on the vulkan frame.
     """
-    unit_x = 2.0 / params["w"]
-    unit_y = 2.0 / params["h"]
+    unit_x, unit_y = 2.0 / params["w"], 2.0 / params["h"]
     params = _centre_principal_point(params=params)
     params = _rescale_intr_params(
         params=params,
@@ -256,9 +258,12 @@ def _centre_principal_point(
     Returns:
         The params on a centred origin.
     """
-    params = dict(params)
-    params["cx"] = params["cx"] - params["w"] / 2.0
-    params["cy"] = params["cy"] - params["h"] / 2.0
+    # Every model states its principal point and its size as the same four params.
+    params = {
+        **params,
+        "cx": params["cx"] - params["w"] / 2.0,
+        "cy": params["cy"] - params["h"] / 2.0,
+    }
     return params
 
 
@@ -302,9 +307,11 @@ def _uncentre_principal_point(
     Returns:
         The params on a corner origin.
     """
-    params = dict(params)
-    params["cx"] = params["cx"] + params["w"] / 2.0
-    params["cy"] = params["cy"] + params["h"] / 2.0
+    params = {
+        **params,
+        "cx": params["cx"] + params["w"] / 2.0,
+        "cy": params["cy"] + params["h"] / 2.0,
+    }
     return params
 
 
@@ -343,23 +350,19 @@ def _rescale_intr_params(
             The params dict with its focal params restated in the target unit.
         """
         if model == "simple_pinhole":
-            if isinstance(unit_x, torch.Tensor) or isinstance(unit_y, torch.Tensor):
-                assert torch.equal(torch.as_tensor(unit_x), torch.as_tensor(unit_y)), (
-                    "Expected one shared axis factor for simple_pinhole, whose single "
-                    "f cannot carry two different axis scales. "
-                    f"{unit_x=} {unit_y=}"
-                )
-            else:
-                assert unit_x == unit_y, (
-                    "Expected one shared axis factor for simple_pinhole, whose single "
-                    "f cannot carry two different axis scales. "
-                    f"{unit_x=} {unit_y=}"
-                )
+            # One shared f cannot carry two different axis scales, and a pair that disagrees is a pinhole rather than this model.
+            assert bool(
+                torch.all(torch.as_tensor(unit_x) == torch.as_tensor(unit_y))
+            ), (
+                "Expected one shared axis factor for simple_pinhole, whose single "
+                "f cannot carry two different axis scales. "
+                f"{unit_x=} {unit_y=}"
+            )
             params["f"] = unit_x * params["f"]
             return params
         if model in {"pinhole", "ortho"}:
-            params["fx"] = unit_x * params["fx"]
-            params["fy"] = unit_y * params["fy"]
+            # The two models carry the same focal params and take the same rule, a focal being a pixels-per-camera-unit ratio either way.
+            params["fx"], params["fy"] = unit_x * params["fx"], unit_y * params["fy"]
             return params
         raise NotImplementedError(
             "No focal rescale rule for this camera model. " f"{model=}"

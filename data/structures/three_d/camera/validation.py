@@ -63,6 +63,7 @@ def validate_cameras_attributes(
         "Expected the per-camera ids to be None or parallel to the batch axis. "
         f"{ids=} {batch_size=}"
     )
+    return
 
 
 def validate_camera_attributes(
@@ -101,11 +102,12 @@ def validate_camera_attributes(
     assert isinstance(extrinsics, CameraExtrinsics), (
         "Expected Camera extrinsics to be a CameraExtrinsics. " f"{type(extrinsics)=}"
     )
-    # The device / dtype accessors read one component and describe both, so a disagreement makes them lie.
+    # One camera's two halves live on one device, whatever device it is then brought to.
     assert intrinsics.device == extrinsics.device, (
         "Expected Camera components to share device. "
         f"{intrinsics.device=} {extrinsics.device=}"
     )
+    # One camera's two halves hold one dtype, whatever dtype it is then cast to.
     assert intrinsics.dtype == extrinsics.dtype, (
         "Expected Camera components to share dtype. "
         f"{intrinsics.dtype=} {extrinsics.dtype=}"
@@ -127,3 +129,4 @@ def validate_camera_attributes(
         assert torch.empty((), dtype=dtype).is_floating_point(), (
             "Expected Camera dtype to be floating. " f"{dtype=}"
         )
+    return
