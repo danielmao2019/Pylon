@@ -81,7 +81,13 @@ prepare_points_for_rendering.py
 │   │   └── calls _prepare_points_for_rendering(points=points[i:j], render_intrinsics=render_intrinsics, extrinsics=extrinsics, resolution=resolution, cull_func=cull_func)
 │   ├── if no point of any camera survived
 │   │   └── raise AssertionError  # no points remained after culling in all chunks
-│   ├── impls concatenate the per-chunk points along the point axis, with a batch's validity or a single camera's original_data_indices offset by each chunk's start  # impls-node-one-step:skip
+│   ├── impls points_2d = the per-chunk points concatenated along the point axis
+│   ├── if the chunks carry validity  # a batch, whose chunks mark each camera's survivors
+│   │   ├── impls valid = the per-chunk validity concatenated along the point axis
+│   │   └── impls original_data_indices = None
+│   ├── else  # a single camera, whose chunks carry only their survivors
+│   │   ├── impls valid = None
+│   │   └── impls original_data_indices = the per-chunk indices, each offset by its chunk's start, concatenated
 │   └── return  # (points_2d, valid, original_data_indices): [..., N, 3], [..., N] and None for a batch; [M, 3], None and [M] for a single camera
 ├── def _prepare_points_for_rendering(points: torch.Tensor, render_intrinsics: CameraIntrinsics, extrinsics: torch.Tensor, resolution: Tuple[int, int], cull_func: Callable[[torch.Tensor, torch.Tensor, int, int], None] = _frustum_cull) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[torch.Tensor]]
 │   ├── # Preprocesses one chunk of world-space points: world-to-camera transform, positive-depth filter, camera-to-image projection, then image-bounds cull, a batch marking each camera's survivors and a single camera dropping its culled points.
