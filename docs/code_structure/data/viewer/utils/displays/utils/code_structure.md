@@ -138,9 +138,12 @@ layered_display_container.ts
 ├── function renderLayeredDisplay({ layeredDisplayResponse, initialCameraState, lockRoll = null }: { layeredDisplayResponse: LayeredDisplayResponse; initialCameraState: CameraState | null; lockRoll?: THREE.Vector3 | null }): LeafVNode
 │   ├── # Composes one layered display response into a shared spatial WebGL scene or a stacked raster DOM container per cell, routing on the backend-stamped layer_class.
 │   ├── if layeredDisplayResponse.layer_class == "spatial"
-│   │   └── return renderLayeredSpatialDisplay({ layeredDisplayResponse, initialCameraState, lockRoll })
-│   └── if layeredDisplayResponse.layer_class == "raster"
-│       └── return renderLayeredRasterDisplay({ layeredDisplayResponse })
+│   │   ├── calls renderLayeredSpatialDisplay({ layeredDisplayResponse, initialCameraState, lockRoll })   → display
+│   │   └── return display
+│   ├── if layeredDisplayResponse.layer_class == "raster"
+│   │   ├── calls renderLayeredRasterDisplay({ layeredDisplayResponse })   → display
+│   │   └── return display
+│   └── throw layered display response has an unknown layer class
 ├── function renderLayeredSpatialDisplay({ layeredDisplayResponse, initialCameraState, lockRoll = null }: { layeredDisplayResponse: LayeredDisplayResponse; initialCameraState: CameraState | null; lockRoll?: THREE.Vector3 | null }): LeafVNode
 │   ├── # Renders the base + aux spatial layers into one shared scene/camera as a slot_id-keyed LeafVNode, the shared camera owning the framing and the additive pick seam.
 │   ├── calls createSpatialDisplayScene({ initialCameraState })                                     → { container, scene, camera, renderer }
