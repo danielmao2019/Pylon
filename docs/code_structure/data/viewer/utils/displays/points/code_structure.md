@@ -27,7 +27,7 @@ apis.py
 
 ```text
 core_points_display.py
-├── from typing import Optional, Tuple
+├── from typing import Any, Dict, Optional, Tuple
 ├── import plotly.graph_objects as go
 ├── from dash import dcc
 ├── from data.structures.three_d.point_cloud.point_cloud import PointCloud
@@ -39,8 +39,8 @@ core_points_display.py
 │   ├── # Renders a Dash point-cloud display element; point_size and point_color overrides are opt-in. point_color when supplied replaces per-point colors with a uniform color so the consumer can override the rendered look without rebuilding the data.
 │   ├── calls create_dash_points_scene(point_cloud=point_cloud, point_size=point_size, point_color=point_color)
 │   ├── calls create_dash_trackball_camera_controls(lock_roll=lock_roll)
-│   ├── calls create_dash_points_component(scene=scene, controls=controls)
-│   └── return
+│   ├── calls create_dash_points_component(scene=scene, controls=controls)   → display
+│   └── return display  # the display element, carrying the roll-locked graph id when lock_roll is supplied
 ├── def create_dash_points_scene(point_cloud: PointCloud, point_size: Optional[float] = None, point_color: Optional[str] = None) -> go.Scatter3d
 │   ├── # Sync-builds the Plotly Scatter3d trace from the point cloud.
 │   ├── impls bounding_radius = point_cloud bounding-sphere radius
