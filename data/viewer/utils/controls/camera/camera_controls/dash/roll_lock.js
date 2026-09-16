@@ -6,11 +6,9 @@
 //
 // The module is the named function `holdRollLockedGraphs`, which Dash's inline clientside template assigns as the one clientside callback `trackball_camera_controls.py` registers, on the relayoutData of every graph whose pattern-matching component id has type `dash-roll-locked-graph`. Each time any of those graphs reports a relayout - its first render, and a graph a Dash callback adds after the page loaded, included - it walks every matched input in `callback_context.inputs_list[0]`: it resolves the DOM id dash-renderer renders that graph's dict id onto, decodes the unit-length world-frame axis the id's `lock_roll` carries as base64-encoded JSON, and runs the per-graph lock `createRollLockCallback` builds from the two on that graph's relayoutData. The per-graph lock keeps its state on the graph div, its scene and its view controllers, so building it afresh on every run re-holds the lock rather than installing it twice.
 function holdRollLockedGraphs(relayoutDataList) {
-    // Resolves the DOM id Dash renders a pattern-matching component id onto, the way dash-renderer stringifies one: its keys sorted, each written as its JSON key and its JSON value around a colon, comma-joined inside braces.
+    // Resolves the DOM id Dash renders a pattern-matching component id onto, the way dash-renderer stringifies one: its keys sorted, each written as its JSON key and its JSON value around a colon, comma-joined inside braces. JSON.stringify writes an object's properties in the order of the key list it is handed, with no whitespace, which is that string for an id whose values are all strings.
     function resolveGraphElementId(graphId) {
-        const graphElementId = "{" + Object.keys(graphId).sort().map(function (key) {
-            return JSON.stringify(key) + ":" + JSON.stringify(graphId[key]);
-        }).join(",") + "}";
+        const graphElementId = JSON.stringify(graphId, Object.keys(graphId).sort());
         return graphElementId;
     }
 
@@ -81,10 +79,11 @@ function holdRollLockedGraphs(relayoutDataList) {
 
         // Resolves the lock axis in the scene's normalized space, where Plotly draws each world axis scaled by its aspect ratio over its range, so worldAxis stays upright on screen under any aspect: the camera turns in that space, and the scale is the same on all three axes under aspectmode "data" but not under "cube" or "manual". Crossing the axis with the world basis vector it leans on least keeps the fallback meridian's cross product itself clear of the degeneracy it stands in for.
         function resolveSceneAxis(scene) {
-            const sceneScale = ["x", "y", "z"].map(function (axisName) {
-                const range = scene.fullSceneLayout[axisName + "axis"].range;
-                return scene.fullSceneLayout.aspectratio[axisName] / (range[1] - range[0]);
-            });
+            const sceneScale = [
+                scene.fullSceneLayout.aspectratio.x / (scene.fullSceneLayout.xaxis.range[1] - scene.fullSceneLayout.xaxis.range[0]),
+                scene.fullSceneLayout.aspectratio.y / (scene.fullSceneLayout.yaxis.range[1] - scene.fullSceneLayout.yaxis.range[0]),
+                scene.fullSceneLayout.aspectratio.z / (scene.fullSceneLayout.zaxis.range[1] - scene.fullSceneLayout.zaxis.range[0]),
+            ];
             axis = vectorNormalize([
                 worldAxis[0] * sceneScale[0],
                 worldAxis[1] * sceneScale[1],
@@ -247,12 +246,16 @@ function holdRollLockedGraphs(relayoutDataList) {
         }
 
         // Writes the roll-locked pose back to the graph when the camera it reports sits off the lock. The reported up matching the roll-locked one is the whole of the question: both halves of the lock - the right axis perpendicular to the caller's axis, the up vector on that axis's own side - are exactly what the roll-locked up is built from. A camera reported with its eye on its center has no view direction to sit on the lock with: the wrapped controllers already hold the scene's view at its last eye offset about that center, so its record is rewritten to that pose whatever up it reports.
-        function applyRollLock(graphDiv, camera) {
+        async function applyRollLock(graphDiv, camera) {
             const eye = recordToVector(camera.eye);
             const center = recordToVector(camera.center);
             const up = recordToVector(camera.up);
-            const view = graphDiv._fullLayout.scene._scene.camera.view;
-            const heldEye = resolveHeldEye(eye, center, view, view.lastT());
+            const heldEye = resolveHeldEye(
+                eye,
+                center,
+                graphDiv._fullLayout.scene._scene.camera.view,
+                graphDiv._fullLayout.scene._scene.camera.view.lastT(),
+            );
             const rollLockedPose = resolveRollLockedPose(heldEye, center);
             const upDistance = vectorSubtract(up, rollLockedPose.up);
             if (heldEye === eye && vectorDot(upDistance, upDistance) <= ROLL_LOCK_VIOLATION_EPSILON) {
@@ -264,19 +267,27 @@ function holdRollLockedGraphs(relayoutDataList) {
                 return;
             }
             graphDiv.__rollLock.writing = true;
-            Plotly.relayout(graphDiv, {
+            await Plotly.relayout(graphDiv, {
                 "scene.camera.eye": vectorToRecord(rollLockedPose.eye),
                 "scene.camera.up": vectorToRecord(rollLockedPose.up),
-            }).then(function () {
-                graphDiv.__rollLock.writing = false;
-                if (graphDiv.__rollLock.pending !== true) {
-                    return;
-                }
+            });
+            graphDiv.__rollLock.writing = false;
+            if (graphDiv.__rollLock.pending === true) {
                 graphDiv.__rollLock.pending = false;
                 applyRollLock(graphDiv, graphDiv._fullLayout.scene.camera);
-                return;
-            });
+            }
             return;
+        }
+
+        // Resolves the eye the lock holds a written camera from: the eye it was written with, or - when that eye coincides with its center, so the camera carries no view direction to lock - the written center moved by the eye offset heldPose holds at time, heldPose being the camera controller the camera is written into or the scene's view. The lock thereby keeps the view direction and the distance the scene last held and takes the written center alone.
+        function resolveHeldEye(eye, center, heldPose, time) {
+            const offset = vectorSubtract(eye, center);
+            if (vectorDot(offset, offset) !== 0) {
+                return eye;
+            }
+            heldPose.recalcMatrix(time);
+            const heldEye = vectorAdd(center, vectorSubtract(heldPose.computedEye, heldPose.computedCenter));
+            return heldEye;
         }
 
         // Turns a roll-locked pose by one drag step's yaw about axis and pitch about the camera right axis, the pitch stopping at the polar band, so a horizontal drag holds the elevation and a vertical one holds the azimuth - the motion a roll lock is, rather than the free trackball's motion with its roll taken out afterwards.
@@ -295,17 +306,6 @@ function holdRollLockedGraphs(relayoutDataList) {
             const turnedUp = vectorNormalize(vectorCross(right, vectorScale(turnedOffset, -1)));
             const turnedPose = { eye: vectorAdd(center, turnedOffset), up: turnedUp };
             return turnedPose;
-        }
-
-        // Resolves the eye the lock holds a written camera from: the eye it was written with, or - when that eye coincides with its center, so the camera carries no view direction to lock - the written center moved by the eye offset heldPose holds at time, heldPose being the camera controller the camera is written into or the scene's view. The lock thereby keeps the view direction and the distance the scene last held and takes the written center alone.
-        function resolveHeldEye(eye, center, heldPose, time) {
-            const offset = vectorSubtract(eye, center);
-            if (vectorDot(offset, offset) !== 0) {
-                return eye;
-            }
-            heldPose.recalcMatrix(time);
-            const heldEye = vectorAdd(center, vectorSubtract(heldPose.computedEye, heldPose.computedCenter));
-            return heldEye;
         }
 
         // Resolves the pose the lock holds a camera at: its eye where it was written, banded off the poles, and the up vector the view direction from that eye and axis determine, whatever up was written. A camera written with its up on the far side of the axis therefore keeps its eye and is turned upright about its own view direction.
