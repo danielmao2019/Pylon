@@ -36,8 +36,8 @@ validation.py
 │   └── return intr_convention
 ├── def validate_camera_intrinsics_params(model: str, intr_convention: str, params: Any) -> Dict[str, torch.Tensor]
 │   ├── # Validate the named tensor intrinsics params: the resolution keys every model carries, the projection keys that model's own dispatch owns, and the invariants holding only across those keys together.
-│   ├── impls assert params is a dict whose every value is a floating torch.Tensor of at most one axis  # checked first, since every check below reads a value's shape
-│   ├── impls assert params carries h and w, both positive and all params sharing one leading batch shape  # impls-node-one-step:skip; the resolution, named the way every resolution in this repo is ordered: h first, and a scalar param is the empty-batch case
+│   ├── assert params is a dict whose every value is a floating torch.Tensor of at most one axis  # checked first, since every check below reads a value's shape
+│   ├── assert params carries h and w, both positive and all params sharing one leading batch shape  # impls-node-one-step:skip; the resolution, named the way every resolution in this repo is ordered: h first, and a scalar param is the empty-batch case
 │   ├── def _validate_projection_params() -> Dict[str, torch.Tensor] [local]
 │   │   ├── # Dispatches the projection keys onto the model that owns them, every model being a structurally equivalent sibling here.
 │   │   ├── if model == "simple_pinhole"
@@ -55,18 +55,18 @@ validation.py
 │   └── return params
 ├── def _validate_camera_intrinsics_params_simple_pinhole(params: Any) -> Dict[str, torch.Tensor]
 │   ├── # Validate simple_pinhole params: a single shared focal length f plus the principal point cx / cy.
-│   ├── impls asserts params is a Dict[str, torch.Tensor] with exactly keys {f, cx, cy, h, w}
-│   ├── impls asserts f > 0 and cx and cy are finite  # impls-node-one-step:skip; where on the image the principal point may fall is the frame's to say
+│   ├── assert params is a Dict[str, torch.Tensor] with exactly keys {f, cx, cy, h, w}
+│   ├── assert f > 0 and cx and cy are finite  # impls-node-one-step:skip; where on the image the principal point may fall is the frame's to say
 │   └── return params
 ├── def _validate_camera_intrinsics_params_pinhole(params: Any) -> Dict[str, torch.Tensor]
 │   ├── # Validate pinhole params: independent focal lengths fx / fy plus the principal point cx / cy.
-│   ├── impls asserts params is a Dict[str, torch.Tensor] with exactly keys {fx, fy, cx, cy, h, w}
-│   ├── impls asserts fx > 0 and fy > 0 and cx and cy are finite  # impls-node-one-step:skip
+│   ├── assert params is a Dict[str, torch.Tensor] with exactly keys {fx, fy, cx, cy, h, w}
+│   ├── assert fx > 0 and fy > 0 and cx and cy are finite  # impls-node-one-step:skip
 │   └── return params
 ├── def _validate_camera_intrinsics_params_ortho(params: Any) -> Dict[str, torch.Tensor]
 │   ├── # Validate ortho (weak-perspective) params: focal scales fx / fy plus the principal-point offset cx / cy.
-│   ├── impls asserts params is a Dict[str, torch.Tensor] with exactly keys {fx, fy, cx, cy, h, w}
-│   ├── impls asserts fx > 0 and fy > 0 and cx and cy are finite  # impls-node-one-step:skip
+│   ├── assert params is a Dict[str, torch.Tensor] with exactly keys {fx, fy, cx, cy, h, w}
+│   ├── assert fx > 0 and fy > 0 and cx and cy are finite  # impls-node-one-step:skip
 │   └── return params
 ├── def validate_camera_intrinsics_invariants(model: str, intr_convention: str, params: Dict[str, torch.Tensor]) -> None
 │   ├── # Validate what the params state only together, the resolution having joined the dict the principal point and the focal already live in and formed a pair with each.
@@ -230,12 +230,12 @@ camera_intrinsics.py
 │   ├── def __init__(self, params: Dict[str, Union[int, float, np.ndarray, torch.Tensor]], intr_convention: str, device: Optional[Union[str, torch.device]] = None, dtype: Optional[torch.dtype] = None) -> None
 │   │   ├── # Construct a CameraIntrinsics from tensor-compatible named scalar params and the image-plane frame they are stated in.
 │   │   ├── def _validate_inputs [local]
-│   │   │   ├── impls asserts params is a dict of str to int, float, np.ndarray or torch.Tensor
-│   │   │   ├── impls asserts every np.ndarray param has a numeric dtype  # the normalization casts every param onto one floating dtype, which would turn a bool into 0 / 1 without a word
-│   │   │   ├── impls asserts every torch.Tensor param is real-valued  # that same cast would drop an imaginary part without a word
-│   │   │   ├── impls asserts intr_convention is a str
-│   │   │   ├── impls asserts device is None or a str or torch.device
-│   │   │   └── impls asserts dtype is None or a floating torch dtype
+│   │   │   ├── assert params is a dict of str to int, float, np.ndarray or torch.Tensor
+│   │   │   ├── assert every np.ndarray param has a numeric dtype  # the normalization casts every param onto one floating dtype, which would turn a bool into 0 / 1 without a word
+│   │   │   ├── assert every torch.Tensor param is real-valued  # that same cast would drop an imaginary part without a word
+│   │   │   ├── assert intr_convention is a str
+│   │   │   ├── assert device is None or a str or torch.device
+│   │   │   └── assert dtype is None or a floating torch dtype
 │   │   ├── calls _validate_inputs
 │   │   ├── def _normalize_inputs [local]
 │   │   │   ├── if device is None
@@ -286,7 +286,7 @@ camera_intrinsics.py
 │   ├── def scale_intrinsics(self, resolution: Optional[Union[int, Tuple[int, int], List[int], np.ndarray, torch.Tensor]] = None, scale: Optional[Union[int, float, Tuple[Union[int, float], Union[int, float]], List[Union[int, float]], np.ndarray, torch.Tensor]] = None) -> "CameraIntrinsics"
 │   │   ├── # Return this CameraIntrinsics restated against a different resolution — the diagonal case of an intrinsics transform, so this builds that transform and the one owner applies it.
 │   │   ├── def _validate_inputs [local]
-│   │   │   └── impls assert exactly one of resolution and scale is given  # impls-node-one-step:skip; a target resolution and a factor are two ways to name the same thing, and giving both leaves unstated which one wins
+│   │   │   └── assert exactly one of resolution and scale is given  # impls-node-one-step:skip; a target resolution and a factor are two ways to name the same thing, and giving both leaves unstated which one wins
 │   │   ├── calls _validate_inputs
 │   │   ├── def _normalize_inputs [local]
 │   │   │   ├── calls _resolve_target_resolution(params=self._params, resolution=resolution, scale=scale)  # -> resolution; the target the params are restated against, whichever of the two forms named it
@@ -304,9 +304,9 @@ camera_intrinsics.py
 │   ├── def transform_intrinsics(self, transform: torch.Tensor, resolution: Tuple[Union[int, torch.Tensor], Union[int, torch.Tensor]]) -> "CameraIntrinsics"
 │   │   ├── # Return this CameraIntrinsics restated onto another image by a pixel-frame affine, the raster that image is named alongside it because a 3x3 carries no size of its own.
 │   │   ├── def _validate_inputs [local]
-│   │   │   ├── impls assert transform is a [..., 3, 3] floating tensor whose last row is [0, 0, 1]
-│   │   │   ├── impls assert transform's off-diagonal entries [..., 0, 1] and [..., 1, 0] are zero  # an axis-aligned affine is the only kind that keeps a skew-free K skew-free
-│   │   │   └── impls assert resolution is an (h, w) pair of positive integer-valued scalars or [B] tensors  # a batch scales each camera's own raster, so the sides differ per camera
+│   │   │   ├── assert transform is a [..., 3, 3] floating tensor whose last row is [0, 0, 1]
+│   │   │   ├── assert transform's off-diagonal entries [..., 0, 1] and [..., 1, 0] are zero  # an axis-aligned affine is the only kind that keeps a skew-free K skew-free
+│   │   │   └── assert resolution is an (h, w) pair of positive integer-valued scalars or [B] tensors  # a batch scales each camera's own raster, so the sides differ per camera
 │   │   ├── calls _validate_inputs
 │   │   ├── def _normalize_inputs [local]
 │   │   │   ├── impls transform = transform moved to self._device and self._dtype

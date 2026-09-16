@@ -98,9 +98,9 @@ world_to_camera_transform.py
 └── def world_to_camera_transform(points: torch.Tensor, extrinsics: torch.Tensor, inplace: bool = False, max_divide: int = 0, num_divide: Optional[int] = None) -> torch.Tensor
     ├── # High-level API mapping world-frame points into the camera frame: inverts the camera-to-world extrinsics and applies them via apply_transform, any leading axes on the extrinsics flowing through onto the result.
     ├── def _validate_inputs [local]
-    │   ├── impls asserts points is a [N, 3] float torch.Tensor  # the point axis is the only one this entry takes; a leading axis on the points would compose with the extrinsics' own and leave the output's axis order unstated
-    │   ├── impls asserts extrinsics is a [..., 4, 4] float torch.Tensor on the points' device
-    │   └── impls asserts inplace is False whenever extrinsics carries a leading axis  # [N, 3] in and [..., N, 3] out is a shape expansion, so there is no buffer to write back into
+    │   ├── assert points is a [N, 3] float torch.Tensor  # the point axis is the only one this entry takes; a leading axis on the points would compose with the extrinsics' own and leave the output's axis order unstated
+    │   ├── assert extrinsics is a [..., 4, 4] float torch.Tensor on the points' device
+    │   └── assert inplace is False whenever extrinsics carries a leading axis  # [N, 3] in and [..., N, 3] out is a shape expansion, so there is no buffer to write back into
     ├── calls _validate_inputs()
     ├── impls world_to_camera = the inverse of the [..., 4, 4] camera-to-world extrinsics, inverted over the trailing two axes  # one op over the whole stack, a single pose and a batch of poses alike
     ├── calls apply_transform(points=points, transform=world_to_camera, inplace=inplace, max_divide=max_divide, num_divide=num_divide)
