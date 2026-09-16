@@ -51,9 +51,16 @@ def render_normal_from_point_cloud_2d(
         If return_mask is True:
             Tuple of (normal map [3, H, W], valid mask [H, W]).
     """
-    assert isinstance(pc, PointCloud), f"{type(pc)=}"
 
-    # Render depth map
+    def _validate_inputs() -> None:
+        # this entry renders one camera, a batch being the depth entry's
+        assert isinstance(camera, Camera), (
+            "Expected camera to be a Camera. " f"{type(camera)=}"
+        )
+
+    _validate_inputs()
+
+    # Render depth map; it asserts isinstance(pc, PointCloud) through validate_rendering_inputs
     depth_map = render_depth_from_point_cloud(
         pc=pc,
         camera=camera,
