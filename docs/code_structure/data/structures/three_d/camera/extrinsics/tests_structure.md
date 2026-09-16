@@ -39,9 +39,13 @@ test_rotation_stabilize_validate_compat.py
 │   └── return
 ├── def test_stabilize_rejects_a_reflection
 │   ├── # A batch mixing proper rotations with reflections is refused rather than sign-repaired, since a camera's rotation is proper by construction.
-│   ├── with pytest.raises(AssertionError)
-│   │   └── calls _stabilize_rotation_matrix(rotation=a [B, 3, 3] batch whose entries alternate a proper rotation and one column-negated into a reflection)
-│   └── return
+│   ├── impls batch_size = 4
+│   ├── impls rotations = torch.stack([_random_rotation(dtype=torch.float64, seed=index) for index in range(batch_size)])  # the per-entry proper rotations stacked into a [batch_size, 3, 3] float64 batch
+│   │   └── for index in range(batch_size)
+│   │       └── calls _random_rotation(dtype=torch.float64, seed=index)
+│   ├── impls rotations[1::2, :, 0] = -rotations[1::2, :, 0]  # every second entry column-negated into a reflection
+│   └── with pytest.raises(AssertionError)
+│       └── calls _stabilize_rotation_matrix(rotation=rotations)  # a [B, 3, 3] batch whose entries alternate a proper rotation and one column-negated into a reflection
 ├── def test_validator_threshold_is_dtype_aware
 │   ├── # A fixed near-orthogonality deviation between the float64 and float32 tolerances passes validate_rotation_matrix as float32 but is rejected as float64.
 │   ├── impls build a (3, 3) rotation whose orthogonality residual sits between the float64 and float32 tolerances  # impls-node-one-step:skip
