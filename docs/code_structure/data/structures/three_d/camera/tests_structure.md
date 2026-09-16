@@ -118,35 +118,34 @@ test_conventions.py
 ├── def test_cameras_device_and_dtype_follow_the_given_placement
 │   ├── # A Cameras takes its device and dtype from the ones it is handed, bringing both components to them, and falls back to its extrinsics' own only for one left unset.
 │   ├── calls _build_extrinsics_matrix  # -> matrix
-│   ├── calls build_camera_intrinsics(model="pinhole", params={key: torch.tensor([value], dtype=torch.float32) for key, value in _build_pinhole_params().items()}, intr_convention="standard", device="cpu")  # -> intrinsics; one float32 pinhole param set as [1] columns
-│   │   ├── calls _build_pinhole_params
-│   │   └── for key, value in _build_pinhole_params().items()
-│   │       └── impls key: torch.tensor([value], dtype=torch.float32)
+│   ├── calls _build_pinhole_params  # -> pinhole_params
+│   ├── impls params = an empty dict  # one float32 pinhole param set as [1] columns
+│   ├── for each key, value of pinhole_params
+│   │   └── impls params[key] = value as a float32 [1] tensor
+│   ├── calls build_camera_intrinsics(model="pinhole", params=params, intr_convention="standard", device="cpu")  # -> intrinsics
 │   ├── calls CameraExtrinsics(extrinsics=matrix[None], extr_convention="standard", device="cpu")  # -> extrinsics; matrix[None] is the matrix it built as a float32 [1, 4, 4] stack
 │   ├── calls Cameras(intrinsics=intrinsics, extrinsics=extrinsics)  # -> unset
 │   ├── assert unset.device == extrinsics.device == torch.device("cpu")  # f"Expected a Cameras handed no device to take its extrinsics' own. {unset.device=} {extrinsics.device=}"
 │   ├── assert unset.dtype == extrinsics.dtype == torch.float32  # f"Expected a Cameras handed no dtype to take its extrinsics' own. {unset.dtype=} {extrinsics.dtype=}"
 │   ├── calls Cameras(intrinsics=intrinsics, extrinsics=extrinsics, dtype=torch.float64)  # -> cast
-│   ├── impls param_dtypes = {key: value.dtype for key, value in cast.intrinsics.params.items()}  # the dtype of each of cast's intrinsics params, by key
-│   │   └── for key, value in cast.intrinsics.params.items()
-│   │       └── impls key: value.dtype
+│   ├── impls param_dtypes = an empty dict  # the dtype of each of cast's intrinsics params, by key
+│   ├── for each key, value of cast's intrinsics params
+│   │   └── impls param_dtypes[key] = value's dtype
 │   ├── assert cast.dtype == torch.float64  # f"Expected a Cameras handed a dtype to take it. {cast.dtype=}"
 │   ├── assert cast.extrinsics.extrinsics.dtype == torch.float64  # f"Expected the extrinsics matrix to be cast to the dtype the batch was handed. {cast.extrinsics.extrinsics.dtype=}"
-│   ├── assert all(dtype == torch.float64 for dtype in param_dtypes.values())  # f"Expected every intrinsics param to be cast to the dtype the batch was handed. {param_dtypes=}"
-│   │   └── for dtype in param_dtypes.values()
-│   │       └── impls dtype == torch.float64
+│   ├── for each dtype of param_dtypes' values
+│   │   └── assert dtype == torch.float64  # f"Expected every intrinsics param to be cast to the dtype the batch was handed. {param_dtypes=}"
 │   ├── assert cast.device == torch.device("cpu")  # f"Expected a Cameras handed only a dtype to keep its extrinsics' device. {cast.device=}"
 │   └── if torch.cuda.is_available()
 │       ├── calls Cameras(intrinsics=intrinsics, extrinsics=extrinsics, device="cuda")  # -> moved
 │       ├── impls cuda_zero = torch.device("cuda:0")
-│       ├── impls param_devices = {key: value.device for key, value in moved.intrinsics.params.items()}  # the device of each of moved's intrinsics params, by key
-│       │   └── for key, value in moved.intrinsics.params.items()
-│       │       └── impls key: value.device
+│       ├── impls param_devices = an empty dict  # the device of each of moved's intrinsics params, by key
+│       ├── for each key, value of moved's intrinsics params
+│       │   └── impls param_devices[key] = value's device
 │       ├── assert moved.device == cuda_zero  # f"Expected a Cameras handed cuda to spell the device with its index. {moved.device=}"
 │       ├── assert moved.extrinsics.extrinsics.device == cuda_zero  # f"Expected the extrinsics matrix to be brought to the batch's device. {moved.extrinsics.extrinsics.device=}"
-│       ├── assert all(device == cuda_zero for device in param_devices.values())  # f"Expected every intrinsics param to be brought to the batch's device. {param_devices=}"
-│       │   └── for device in param_devices.values()
-│       │       └── impls device == cuda_zero
+│       ├── for each device of param_devices' values
+│       │   └── assert device == cuda_zero  # f"Expected every intrinsics param to be brought to the batch's device. {param_devices=}"
 │       └── assert moved.dtype == torch.float32  # f"Expected a Cameras handed only a device to keep its extrinsics' dtype. {moved.dtype=}"
 ├── def test_transform_extrinsics_normalizes_rotation_input
 │   ├── # CameraExtrinsics.transform_extrinsics accepts each validated rotation representation and normalizes it to the pose tensor's placement.
@@ -429,12 +428,12 @@ test_io.py
 │           ├── impls cameras_path = tmp_path / f"{dtype}.{format}"  # a tmp_path file with that format's suffix
 │           ├── calls save_cameras(cameras=cameras, cameras_path=cameras_path)
 │           ├── calls load_cameras(cameras_path=cameras_path, device="cpu")  # -> loaded
-│           ├── impls param_dtypes = {key: value.dtype for key, value in loaded.intrinsics.params.items()}  # the dtype of each of loaded's intrinsics params, by key
-│           │   └── for key, value in loaded.intrinsics.params.items()
-│           │       └── impls key: value.dtype
-│           ├── assert loaded.dtype == dtype and loaded.extrinsics.dtype == dtype and loaded.extrinsics.extrinsics.dtype == dtype and loaded.intrinsics.dtype == dtype and all(param_dtype == dtype for param_dtype in param_dtypes.values())  # f"Expected the loaded batch and both its components to carry the dtype it was saved in. {format=} {dtype=} {loaded.dtype=} {loaded.extrinsics.extrinsics.dtype=} {param_dtypes=}"
-│           │   └── for param_dtype in param_dtypes.values()
-│           │       └── impls param_dtype == dtype
+│           ├── impls param_dtypes = an empty dict  # the dtype of each of loaded's intrinsics params, by key
+│           ├── for each key, value of loaded's intrinsics params
+│           │   └── impls param_dtypes[key] = value's dtype
+│           ├── assert loaded.dtype == dtype and loaded.extrinsics.dtype == dtype and loaded.extrinsics.extrinsics.dtype == dtype and loaded.intrinsics.dtype == dtype  # f"Expected the loaded batch and both its components to carry the dtype it was saved in. {format=} {dtype=} {loaded.dtype=} {loaded.extrinsics.extrinsics.dtype=} {param_dtypes=}"
+│           ├── for each param_dtype of param_dtypes' values
+│           │   └── assert param_dtype == dtype  # f"Expected every intrinsics param to carry the dtype it was saved in. {format=} {dtype=} {param_dtypes=}"
 │           ├── assert torch.equal(loaded.extrinsics.extrinsics, cameras.extrinsics.extrinsics)  # f"Expected the loaded extrinsics stack to equal the saved one exactly. {format=} {dtype=} {loaded.extrinsics.extrinsics=} {cameras.extrinsics.extrinsics=}"
 │           └── for key, value in cameras.intrinsics.params.items()
 │               └── assert torch.equal(loaded.intrinsics.params[key], value)  # f"Expected every loaded intrinsics param to equal the saved one exactly. {format=} {dtype=} {key=} {loaded.intrinsics.params[key]=} {value=}"

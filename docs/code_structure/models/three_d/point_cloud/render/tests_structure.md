@@ -107,9 +107,9 @@ test_render_depth.py
 │   ├── impls depths = 1.0 + 3.0 * num_points uniform [0, 1) draws with generator
 │   ├── calls PointCloud(xyz=the [num_points, 3] stack of (target_columns + 0.5 - render_cx) * depths / render_fx, -(target_rows + 0.5 - render_cy) * depths / render_fy and -depths)  # -> pc_data, each point aimed at the centre of its drawn pixel
 │   ├── calls _build_camera(focal=focal, principal_point=principal_point)  # -> camera
-│   ├── impls depth_maps = [render_depth_from_point_cloud(pc=pc_data, camera=camera, resolution=resolution) for _ in range(6)]
-│   │   └── for _ in range(6)
-│   │       └── calls render_depth_from_point_cloud(pc=pc_data, camera=camera, resolution=resolution)
+│   ├── impls depth_maps = an empty list
+│   ├── for each of six repetitions
+│   │   └── calls render_depth_from_point_cloud(pc=pc_data, camera=camera, resolution=resolution)  # -> depth_maps gains the map
 │   ├── for render_index, depth_map in enumerate(depth_maps)
 │   │   └── assert torch.equal(depth_map, depth_maps[0])  # "Repeated renders of one camera must give the same depth map.", reporting render_index and the max abs difference from the first render
 │   ├── impls point_depths = -pc_data.xyz[:, 2]  # the nearest depth per pixel is projected here rather than read back from the render
@@ -349,28 +349,28 @@ test_create_circular_kernel_offsets.py
 │   ├── # The kernel reaches equally on both sides of the origin, since a disc that reaches farther one way grows every rendered point off its own pixel.
 │   └── for point_size in (1.0, 1.5, 2.0, 3.0, 4.0, 5.0)
 │       ├── calls create_circular_kernel_offsets(point_size=point_size, device=torch.device('cpu'))  # -> kernel_offsets
-│       ├── impls offsets = {(int(offset[0]), int(offset[1])) for offset in kernel_offsets}
-│       │   └── for offset in kernel_offsets
-│       │       └── impls (int(offset[0]), int(offset[1]))
-│       ├── impls unmatched = {(y, x) for y, x in offsets if (-y, -x) not in offsets}  # the offsets whose negation is missing from the same set
-│       │   └── for y, x in offsets
-│       │       └── if (-y, -x) not in offsets
-│       │           └── impls (y, x)
+│       ├── impls offsets = an empty set
+│       ├── for each offset of kernel_offsets
+│       │   └── impls offsets gains offset's (y, x) as an integer pair
+│       ├── impls unmatched = an empty set  # the offsets whose negation is missing from the same set
+│       ├── for each (y, x) of offsets
+│       │   └── if (-y, -x) is not in offsets
+│       │       └── impls unmatched gains (y, x)
 │       └── assert not unmatched  # "Every kernel offset must have its negation in the kernel, otherwise the disc reaches farther on one side of the point than on the other.", reporting point_size and the sorted unmatched and offsets
 ├── def test_create_circular_kernel_offsets_membership_is_the_radius_rule() -> None
 │   ├── # The kernel is exactly the cells whose centre lies inside the disc, neither more nor fewer, checked against a radius rule the test derives itself.
 │   └── for point_size in (1.0, 1.5, 2.0, 3.0, 4.0, 5.0)
 │       ├── calls create_circular_kernel_offsets(point_size=point_size, device=torch.device('cpu'))  # -> kernel_offsets
-│       ├── impls offsets = {(int(offset[0]), int(offset[1])) for offset in kernel_offsets}
-│       │   └── for offset in kernel_offsets
-│       │       └── impls (int(offset[0]), int(offset[1]))
+│       ├── impls offsets = an empty set
+│       ├── for each offset of kernel_offsets
+│       │   └── impls offsets gains offset's (y, x) as an integer pair
 │       ├── impls kernel_radius = point_size / 2.0
 │       ├── impls search_reach = math.ceil(point_size) + 1  # a generous search box, one cell past the disc
-│       ├── impls expected = {(y, x) for y in range(-search_reach, search_reach + 1) for x in range(-search_reach, search_reach + 1) if math.hypot(y, x) <= kernel_radius}  # the integer cells of the search box whose distance from the origin is within kernel_radius
-│       │   └── for y in range(-search_reach, search_reach + 1)
-│       │       └── for x in range(-search_reach, search_reach + 1)
-│       │           └── if math.hypot(y, x) <= kernel_radius
-│       │               └── impls (y, x)
+│       ├── impls expected = an empty set  # the integer cells of the search box whose distance from the origin is within kernel_radius
+│       ├── for each y from -search_reach to search_reach
+│       │   └── for each x from -search_reach to search_reach
+│       │       └── if the distance of (y, x) from the origin is at most kernel_radius
+│       │           └── impls expected gains (y, x)
 │       └── assert offsets == expected and len(offsets) == kernel_offsets.shape[0]  # "The kernel must hold exactly the cells whose centre lies inside the disc, and must not repeat a cell, otherwise a disc pixel is dilated twice.", reporting point_size, kernel_radius, both set differences, len(offsets) and kernel_offsets.shape
 ├── def test_create_circular_kernel_offsets_dilates_a_point_into_a_centred_disc() -> None
 │   ├── # One rendered point grows into a disc centred on its own pixel, which is the kernel's symmetry seen through the renderer that uses it.
@@ -382,13 +382,13 @@ test_create_circular_kernel_offsets.py
 │   ├── impls center_pixel = math.floor(principal_point)  # the point sits on the optical axis, so it lands on the pixel holding the principal point, the same pixel index on both axes
 │   └── for point_size in (1.0, 1.5, 2.0, 3.0, 4.0, 5.0)
 │       ├── calls render_depth_from_point_cloud(pc=pc_data, camera=camera, resolution=resolution, return_mask=True, point_size=point_size)  # -> the depth map, discarded, and valid_mask
-│       ├── impls covered = {(int(pixel[0]) - center_pixel, int(pixel[1]) - center_pixel) for pixel in valid_mask.nonzero()}  # the covered pixels as offsets from the pixel the point itself landed on
-│       │   └── for pixel in valid_mask.nonzero()
-│       │       └── impls (int(pixel[0]) - center_pixel, int(pixel[1]) - center_pixel)
-│       ├── impls unmatched = {(y, x) for y, x in covered if (-y, -x) not in covered}
-│       │   └── for y, x in covered
-│       │       └── if (-y, -x) not in covered
-│       │           └── impls (y, x)
+│       ├── impls covered = an empty set  # the covered pixels as offsets from the pixel the point itself landed on
+│       ├── for each pixel valid_mask marks
+│       │   └── impls covered gains (the pixel's row - center_pixel, the pixel's column - center_pixel)
+│       ├── impls unmatched = an empty set
+│       ├── for each (y, x) of covered
+│       │   └── if (-y, -x) is not in covered
+│       │       └── impls unmatched gains (y, x)
 │       ├── assert not unmatched  # "The covered pixels must be symmetric about the point's own pixel.", reporting point_size, center_pixel and the sorted unmatched and covered
 │       └── assert len(covered) == expected_covered_counts[point_size]  # "A point must dilate into the disc of pixels its point size reaches.", reporting point_size, len(covered), the expected count and the sorted covered
 └── def _build_camera(focal: float, principal_point: float) -> Camera

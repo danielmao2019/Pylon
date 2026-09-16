@@ -59,11 +59,9 @@ test_chunked_matmul.py
 ├── def test_batched_small_broadcasts_onto_the_product
 │   ├── # a [B, K, K] small gives a [B, N, K] product whose every slice equals that slice's own small multiplied alone under the same split, bit for bit on cpu and within floating-point rounding on cuda.
 │   ├── impls B, K = 3, 4
-│   ├── impls devices = [torch.device('cpu')] + ([torch.device('cuda')] if torch.cuda.is_available() else [])  # cpu, and cuda when it is available
-│   │   ├── if torch.cuda.is_available()
-│   │   │   └── impls [torch.device('cuda')]
-│   │   └── else
-│   │       └── impls []
+│   ├── impls devices = a list holding the cpu device
+│   ├── if cuda is available
+│   │   └── impls devices gains the cuda device
 │   └── for device in devices
 │       └── for N in (1, 17, 25, 33, 100)  # the small row counts where CUDA's batched and unbatched products disagree in the last place
 │           ├── impls large = a float32 [N, K] standard-normal tensor on device
