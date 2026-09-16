@@ -325,7 +325,7 @@ camera_intrinsics.py
 │   │   └── # Abstract: the horizontal focal length / scale, whose params key differs per model.
 │   ├── def fy(self) -> torch.Tensor  # @property [abstract]
 │   │   └── # Abstract: the vertical focal length / scale, whose params key differs per model.
-│   ├── def _focal_params(cls, fx: torch.Tensor, fy: torch.Tensor) -> Dict[str, torch.Tensor]  # @classmethod [abstract]
+│   ├── @classmethod @abstractmethod def _focal_params(cls, fx: torch.Tensor, fy: torch.Tensor) -> Dict[str, torch.Tensor]  [abstract]
 │   │   └── # Abstract: the inverse of the fx / fy accessors, stating a horizontal and a vertical focal in this model's own focal params.
 │   ├── def project(self, points_camera: torch.Tensor, inplace: bool = False) -> torch.Tensor   [abstract]
 │   │   └── # Abstract: map camera-space 3D points [..., 3] to 2D image points [..., 2] under this model, each param unsqueezed against the point axis so a batch of cameras projects in one op.
