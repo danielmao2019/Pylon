@@ -16,13 +16,11 @@ from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import (
     MeshTextureUVTextureMap,
 )
 from data.structures.three_d.mesh.texture.texel_face_map import build_texel_face_map
-from models.three_d.meshes.texture.extract import (
-    compute_f_visibility_mask,
-    extract_texture_from_images,
-)
+from models.three_d.meshes.texture.extract.extract import extract_texture_from_images
 from models.three_d.meshes.texture.extract.visibility.texel_visibility import (
     _compute_visible_uv_texels_from_uv_polygon_regions,
     _map_visible_screen_space_polygon_regions_to_uv,
+    compute_f_visibility_mask,
 )
 from models.three_d.meshes.texture.extract.visibility.texel_visibility_geometry import (
     triangulate_convex_uv_polygons,
@@ -174,8 +172,17 @@ def test_compute_f_visibility_mask_uses_exact_camera_pixel_footprints() -> None:
         texel_face_map=texel_face_map,
     )
 
-    assert visibility_mask.shape == (1, 2, 2, 1), f"{visibility_mask.shape=}"
-    assert torch.any(visibility_mask > 0.0), f"{visibility_mask=}"
+    # The one pixel's square [-0.5, 0.5]^2 clips the face to screen [0, 0.5]^2, whose UV image [0, 0.5]^2 is exactly texel (row 0, col 0) of the 2x2 raster.
+    assert visibility_mask[0, 0, 0, 0] == 1.0, (
+        "Expected the texel covered by the one pixel's footprint to be marked "
+        "visible. "
+        f"{visibility_mask[0, :, :, 0]=}"
+    )
+    assert torch.all(visibility_mask[0, :, :, 0].flatten()[1:] == 0.0), (
+        "Expected no texel outside the one pixel's footprint to be marked visible, "
+        "including the face-covered texels the pixel does not reach. "
+        f"{visibility_mask[0, :, :, 0]=}"
+    )
 
 
 def test_map_visible_screen_space_polygon_regions_to_uv_preserves_identity_face() -> (
