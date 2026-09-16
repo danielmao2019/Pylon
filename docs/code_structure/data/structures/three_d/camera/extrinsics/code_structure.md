@@ -99,11 +99,38 @@ validation.py
 │   ├── impls asserts RR^T close to I at atol=threshold, rtol=0
 │   ├── impls asserts det(R) close to 1 at atol=threshold, rtol=0
 │   └── return obj
-└── def _validate_rotation_matrix_torch_against_threshold(obj: torch.Tensor, threshold: float) -> torch.Tensor
-    ├── # Core torch rotation check: orthogonality and determinant within the given atol.
-    ├── impls materialize_tensor(obj)
-    ├── impls asserts RR^T close to I at atol=threshold, rtol=0
-    ├── impls asserts det(R) close to 1 at atol=threshold, rtol=0
+├── def _validate_rotation_matrix_torch_against_threshold(obj: torch.Tensor, threshold: float) -> torch.Tensor
+│   ├── # Core torch rotation check: orthogonality and determinant within the given atol.
+│   ├── impls materialize_tensor(obj)
+│   ├── impls asserts RR^T close to I at atol=threshold, rtol=0
+│   ├── impls asserts det(R) close to 1 at atol=threshold, rtol=0
+│   └── return obj
+├── def validate_translation_vector(obj: Any) -> Union[np.ndarray, torch.Tensor, Tuple[Union[int, float], Union[int, float], Union[int, float]], List[Union[int, float]]]
+│   ├── # Dispatch translation-vector validation on the input representation.
+│   ├── if isinstance(obj, np.ndarray)
+│   │   ├── calls _validate_translation_vector_numpy(obj)  # -> obj
+│   │   └── return obj
+│   ├── if isinstance(obj, torch.Tensor)
+│   │   ├── calls _validate_translation_vector_torch(obj)  # -> obj
+│   │   └── return obj
+│   ├── if isinstance(obj, (tuple, list))
+│   │   ├── calls _validate_translation_vector_list(obj)  # -> obj
+│   │   └── return obj
+│   └── raise TypeError  # obj is neither a numpy array, torch tensor, nor numeric tuple or list
+├── def _validate_translation_vector_numpy(obj: np.ndarray) -> np.ndarray
+│   ├── # Validate a (3,) numpy translation vector.
+│   ├── assert obj.shape == (3,)
+│   ├── assert obj.dtype is numeric
+│   └── return obj
+├── def _validate_translation_vector_torch(obj: torch.Tensor) -> torch.Tensor
+│   ├── # Validate a (3,) torch translation vector.
+│   ├── assert obj.shape == (3,)
+│   └── return obj
+└── def _validate_translation_vector_list(obj: Union[Tuple[Union[int, float], Union[int, float], Union[int, float]], List[Union[int, float]]]) -> Union[Tuple[Union[int, float], Union[int, float], Union[int, float]], List[Union[int, float]]]
+    ├── # Validate a length-3 numeric tuple or list translation vector.
+    ├── assert len(obj) == 3
+    ├── for each value of obj
+    │   └── assert value is an int or a float
     └── return obj
 ```
 
