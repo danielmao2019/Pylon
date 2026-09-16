@@ -187,15 +187,13 @@ roll_lock.js
     │   │   ├── # Resolves the lock axis in the scene's normalized space, where Plotly draws each world axis scaled by its aspect ratio over its range, so worldAxis stays upright on screen under any aspect.
     │   │   ├── impls sceneScale = for each of x, y and z, that axis's scene.fullSceneLayout.aspectratio over the span of that axis's range, the per-axis scale the scene draws world coordinates at
     │   │   ├── calls vectorNormalize(worldAxis scaled componentwise by sceneScale)   → axis
-    │   │   ├── calls vectorCross(axis, Math.abs(axis[0]) <= Math.abs(axis[1]) && Math.abs(axis[0]) <= Math.abs(axis[2]) ? [1, 0, 0] : Math.abs(axis[1]) <= Math.abs(axis[2]) ? [0, 1, 0] : [0, 0, 1])  # the world basis vector axis leans on least
-    │   │   │   ├── if Math.abs(axis[0]) <= Math.abs(axis[1]) && Math.abs(axis[0]) <= Math.abs(axis[2])
-    │   │   │   │   └── impls [1, 0, 0]
-    │   │   │   └── else
-    │   │   │       └── impls Math.abs(axis[1]) <= Math.abs(axis[2]) ? [0, 1, 0] : [0, 0, 1]
-    │   │   │           ├── if Math.abs(axis[1]) <= Math.abs(axis[2])
-    │   │   │           │   └── impls [0, 1, 0]
-    │   │   │           └── else
-    │   │   │               └── impls [0, 0, 1]
+    │   │   ├── if Math.abs(axis[0]) <= Math.abs(axis[1]) && Math.abs(axis[0]) <= Math.abs(axis[2])
+    │   │   │   └── impls leastBasis = [1, 0, 0]  # the world basis vector axis leans on least
+    │   │   ├── else if Math.abs(axis[1]) <= Math.abs(axis[2])
+    │   │   │   └── impls leastBasis = [0, 1, 0]
+    │   │   ├── else
+    │   │   │   └── impls leastBasis = [0, 0, 1]
+    │   │   ├── calls vectorCross(axis, leastBasis)
     │   │   ├── calls vectorNormalize(that cross product)   → ROLL_LOCK_FALLBACK_MERIDIAN
     │   │   └── return
     │   ├── function holdRollLock(view) [local]
@@ -463,15 +461,38 @@ trackball_camera_controls.ts
 │   │   ├── impls threeControls.noRotate = true, so the roll-locked left-drag below replaces three's free rotation while its right-drag pan and wheel zoom stay
 │   │   ├── impls heldEyeOffset = a zero vector, the eye offset each hold below leaves behind for the next
 │   │   ├── calls holdRollLockedCameraPose({ camera, target: threeControls.target, rollLockAxis, heldEyeOffset })  # the framing the controls are constructed on
-│   │   ├── for each left-drag pointer move
+│   │   ├── impls leftDrag = no left drag active, the drag state the handlers below share
+│   │   ├── function startRollLockedLeftDrag(event) [local]  # event: a pointer press on renderer.domElement
+│   │   │   ├── # Starts a roll-locked left drag at the pointer a left-button press lands on.
+│   │   │   ├── if event is not a left-button press
+│   │   │   │   └── return
+│   │   │   └── impls leftDrag = active, from the event's pointer position
+│   │   ├── impls renderer.domElement.addEventListener("pointerdown", startRollLockedLeftDrag)
+│   │   ├── function endRollLockedLeftDrag() [local]
+│   │   │   ├── # Ends the roll-locked left drag wherever the pointer is released.
+│   │   │   └── impls leftDrag = no left drag active
+│   │   ├── impls window.addEventListener("pointerup", endRollLockedLeftDrag)
+│   │   ├── function turnRollLockedLeftDrag(event) [local]  # event: a pointer move anywhere on the page
+│   │   │   ├── # Turns the camera by one left-drag pointer move, as yaw about rollLockAxis plus pitch about the camera right axis.
+│   │   │   ├── if no left drag is active
+│   │   │   │   └── return
 │   │   │   ├── impls radiansPerPixel = threeControls.rotateSpeed / (0.5 × renderer.domElement.clientWidth), the free trackball's own rotation per pixel
 │   │   │   ├── calls resolveRollLockBandedOffset({ offset: camera.position minus threeControls.target, rollLockAxis })
 │   │   │   ├── impls yaws the banded offset about rollLockAxis by the horizontal pointer delta times radiansPerPixel
 │   │   │   ├── impls pitches it about the camera right axis by the vertical pointer delta times radiansPerPixel, clamped to the polar band short of both poles, so a drag stops at a pole instead of carrying the view through it
 │   │   │   ├── calls holdRollLockedCameraPose({ camera, target: threeControls.target, rollLockAxis, heldEyeOffset })
 │   │   │   └── impls threeControls.dispatchEvent({ type: "change" })
-│   │   ├── impls controls.applyCameraState re-holds the roll-locked pose through holdRollLockedCameraPose, with heldEyeOffset, after applying each state it is handed
-│   │   ├── impls threeControls.update runs holdRollLockedCameraPose, with heldEyeOffset, before three's own update, so a target or position a caller writes directly is held from the next update on
+│   │   ├── impls window.addEventListener("pointermove", turnRollLockedLeftDrag), so it runs for each left-drag pointer move
+│   │   ├── function rollLockedApplyCameraState(cameraState) [local]
+│   │   │   ├── # Applies a camera state as the free trackball does, then re-holds the roll-locked pose it leaves.
+│   │   │   ├── impls cameraState applied the way the free trackball applies it
+│   │   │   └── calls holdRollLockedCameraPose({ camera, target: threeControls.target, rollLockAxis, heldEyeOffset })
+│   │   ├── impls controls.applyCameraState = rollLockedApplyCameraState, so each state it is handed is re-held on the lock
+│   │   ├── function rollLockedUpdate() [local]
+│   │   │   ├── # Holds the roll-locked pose before three's own update, so a target or position a caller writes directly is held from the next update on.
+│   │   │   ├── calls holdRollLockedCameraPose({ camera, target: threeControls.target, rollLockAxis, heldEyeOffset })
+│   │   │   └── impls three's own trackball update of threeControls
+│   │   ├── impls threeControls.update = rollLockedUpdate
 │   │   └── return
 │   └── return  # the controls exactly as they arrived, so a caller naming no axis renders what it rendered before this argument existed
 ├── function holdRollLockedCameraPose({ camera, target, rollLockAxis, heldEyeOffset })  # heldEyeOffset: the banded eye offset the previous hold left behind
