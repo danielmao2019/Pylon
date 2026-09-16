@@ -27,10 +27,10 @@ from data.viewer.utils.displays.points.dash.core_points_display import (
 # Deliberately non-axis-aligned, so nothing passes by coinciding with a world axis.
 NON_AXIS_ALIGNED_LOCK_ROLL = (0.3, 0.9, -0.2)
 # The unit-length direction of NON_AXIS_ALIGNED_LOCK_ROLL, the axis a display's controls normalize it to.
-NORMALIZED_LOCK_ROLL = [
+NORMALIZED_LOCK_ROLL = tuple(
     component / math.sqrt(sum(value * value for value in NON_AXIS_ALIGNED_LOCK_ROLL))
     for component in NON_AXIS_ALIGNED_LOCK_ROLL
-]
+)
 
 
 @pytest.mark.parametrize("display_kind", ["points", "mesh"])

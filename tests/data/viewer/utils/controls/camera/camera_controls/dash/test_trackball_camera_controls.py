@@ -29,10 +29,10 @@ NON_AXIS_ALIGNED_LOCK_ROLL = (0.3, 0.9, -0.2)
 # The same direction at ten times the length, so an axis forwarded unnormalized cannot pass.
 NON_UNIT_LOCK_ROLL = (3.0, 9.0, -2.0)
 # The unit-length direction both axes above name.
-NORMALIZED_LOCK_ROLL = [
+NORMALIZED_LOCK_ROLL = tuple(
     component / math.sqrt(sum(value * value for value in NON_AXIS_ALIGNED_LOCK_ROLL))
     for component in NON_AXIS_ALIGNED_LOCK_ROLL
-]
+)
 # Renderer source wiring the trackball mouse mapping, whose left-drag turns camera.up together with the eye, so roll moves freely with the drag.
 FREE_TRACKBALL_RENDERER_SOURCE = """
 canvas.addEventListener("contextmenu", (event) => {
