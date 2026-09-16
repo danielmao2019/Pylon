@@ -270,7 +270,9 @@ camera_intrinsics.py
 │   │   └── return self._dtype
 │   ├── def __getitem__(self, index: Union[int, slice, List[int], None]) -> "CameraIntrinsics"
 │   │   ├── # Index the leading batch axis the params carry, the way the tensors they are index their own, so None adds an axis of one and an int drops it.
-│   │   ├── impls params = every param indexed by index along its leading axis  # a pass over the model's few param names, never over the cameras
+│   │   ├── impls params = an empty dict
+│   │   ├── for each key, value of the params  # a pass over the model's few param names, never over the cameras
+│   │   │   └── impls params[key] = value[index]
 │   │   ├── calls build_camera_intrinsics(model=type(self).MODEL, params=params, intr_convention=self._intr_convention)
 │   │   └── return  # that CameraIntrinsics
 │   ├── def scale_intrinsics(self, resolution: Optional[Union[int, Tuple[int, int], List[int], np.ndarray, torch.Tensor]] = None, scale: Optional[Union[int, float, Tuple[Union[int, float], Union[int, float]], List[Union[int, float]], np.ndarray, torch.Tensor]] = None) -> "CameraIntrinsics"
@@ -429,14 +431,14 @@ camera_intrinsics.py
 │   │   │   └── if scale is a length-2 array-like pair
 │   │   │       └── impls scale = (scale[0], scale[1])
 │   │   └── return resolution, scale
-│   ├── calls _normalize_inputs
-│   ├── impls resolution, scale = the returned values from _normalize_inputs
+│   ├── calls _normalize_inputs(resolution=resolution, scale=scale)  # -> resolution, scale
 │   ├── if resolution is not None
 │   │   └── return resolution
 │   ├── if scale is not None
-│   │   ├── impls h, w = round(the params' own h * scale[1]), round(the params' own w * scale[0])
-│   │   ├── impls assert both sides came out positive  # a factor small enough to round a side to zero names no image
-│   │   └── return h, w
+│   │   ├── impls height = the params' own h * scale[1], rounded to an integer
+│   │   ├── impls width = the params' own w * scale[0], rounded to an integer
+│   │   ├── assert both height and width are positive at every entry  # a factor small enough to round a side to zero names no image
+│   │   └── return height, width
 │   └── assert 0, "Should not reach here."
 └── def build_camera_intrinsics(model: str, params: Dict[str, Union[int, float, np.ndarray, torch.Tensor]], intr_convention: str, device: Optional[Union[str, torch.device]] = None, dtype: Optional[torch.dtype] = None) -> CameraIntrinsics
     ├── # Build the CameraIntrinsics subclass for a camera-model string (the serialization-boundary factory) by dispatching on the model.
