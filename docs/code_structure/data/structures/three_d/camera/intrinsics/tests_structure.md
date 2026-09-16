@@ -123,18 +123,17 @@ test_intrinsics.py
 ├── def test_intrinsics_constructor_normalizes_scalar_compatible_params_to_tensors
 │   ├── # build_camera_intrinsics turns Python, numpy 0-d and tensor scalar params into 0-d tensors of the requested dtype, the intrinsics landing on the requested device and a tensor param keeping its autograd path through project.
 │   ├── impls fx = a float64 scalar tensor of 400.0 requiring grad
-│   ├── calls build_camera_intrinsics(model="pinhole", params={"fx": fx, "fy": np.array(410.0, dtype=np.float64), "cx": 160.0, "cy": np.array(120.0, dtype=np.float64), "h": 240, "w": 320}, intr_convention="standard", device="cpu", dtype=torch.float64)
-│   ├── impls intrinsics = the CameraIntrinsics it built
-│   ├── impls assert intrinsics.dtype == torch.float64
-│   ├── impls assert intrinsics.device == torch.device("cpu")
+│   ├── calls build_camera_intrinsics(model="pinhole", params={"fx": fx, "fy": a float64 0-d np.ndarray of 410.0, "cx": 160.0, "cy": a float64 0-d np.ndarray of 120.0, "h": 240, "w": 320}, intr_convention="standard", device="cpu", dtype=torch.float64)  # -> intrinsics
+│   ├── assert intrinsics.dtype == torch.float64  # "Expected the intrinsics to carry the requested dtype.", reporting intrinsics.dtype
+│   ├── assert intrinsics.device == torch.device("cpu")  # "Expected the intrinsics to land on the requested device.", reporting intrinsics.device
 │   ├── for key, value in intrinsics.params.items()
-│   │   ├── impls assert value is a torch.Tensor
-│   │   ├── impls assert value.shape == ()
-│   │   └── impls assert value.dtype == torch.float64
+│   │   ├── assert isinstance(value, torch.Tensor)  # "Expected every scalar-compatible param to become a torch.Tensor.", reporting key and the type of value
+│   │   ├── assert value.shape == ()  # "Expected every scalar param to become a 0-d tensor.", reporting key and value.shape
+│   │   └── assert value.dtype == torch.float64  # "Expected every param to carry the requested dtype.", reporting key and value.dtype
 │   ├── calls intrinsics.project(points_camera=a float64 [[1.0, 2.0, 4.0]] tensor)
 │   ├── impls loss = the sum of the image points it returned
-│   ├── calls loss.backward
-│   ├── impls assert fx.grad is not None
+│   ├── impls backpropagate loss
+│   ├── assert fx.grad is not None  # "Expected the source tensor param to receive grad.", reporting fx.grad
 │   └── return
 ├── def test_build_camera_intrinsics_dispatches_to_model_subclass
 │   ├── # build_camera_intrinsics returns the CameraIntrinsicsSimplePinhole / CameraIntrinsicsPinhole / CameraIntrinsicsOrtho instance for its model string.
@@ -365,13 +364,19 @@ test_intrinsics.py
 │   └── return
 └── def _tensor_params(params: Dict[str, Union[int, float, List[Union[int, float]]]], requires_grad: bool = False, batch_size: Optional[int] = None) -> Dict[str, torch.Tensor]
     ├── # A test states its params as plain numbers, and this is what makes them the tensor state a camera actually carries.
+    ├── impls tensor_params = an empty dict
     ├── if batch_size is not None
-    │   ├── for each key and value of params
+    │   ├── for key, value in params.items()
+    │   │   ├── impls values = an empty list  # one float per camera of the batch
     │   │   ├── if value is a list
-    │   │   │   └── impls build a [batch_size] float32 tensor of float(each of its per-camera numbers), requiring grad when requires_grad
-    │   │   └── else
-    │   │       └── impls build a [batch_size] float32 tensor of float(value) repeated batch_size times, requiring grad when requires_grad
-    │   └── return  # the dict mapping each key of params to its [batch_size] tensor
-    ├── impls build the dict mapping each key of params to a scalar float32 tensor of float(its value), requiring grad when requires_grad
-    └── return  # the dict it built
+    │   │   │   └── for item in value
+    │   │   │       └── impls values gains float(item)
+    │   │   ├── else
+    │   │   │   └── for each camera index below batch_size
+    │   │   │       └── impls values gains float(value)
+    │   │   └── impls tensor_params[key] = a [batch_size] float32 tensor of values, requiring grad when requires_grad
+    │   └── return tensor_params
+    ├── for key, value in params.items()
+    │   └── impls tensor_params[key] = a scalar float32 tensor of float(value), requiring grad when requires_grad
+    └── return tensor_params
 ```
