@@ -6,7 +6,10 @@
 
 ```text
 test_conventions.py
-├── from typing import Tuple
+├── import inspect
+├── from itertools import product
+├── from typing import Dict, List, Tuple, Union
+├── import numpy as np
 ├── import pytest
 ├── import torch
 ├── from data.structures.three_d.camera.camera import Camera
@@ -14,6 +17,7 @@ test_conventions.py
 ├── from data.structures.three_d.camera.extrinsics import conventions
 ├── from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
 ├── from data.structures.three_d.camera.extrinsics.validation import validate_camera_extrinsics, validate_extr_convention
+├── from data.structures.three_d.camera.intrinsics import conventions as intr_conventions
 ├── from data.structures.three_d.camera.intrinsics.camera_intrinsics import build_camera_intrinsics
 ├── from data.structures.three_d.camera.intrinsics.conventions import _rescale_intr_params, transform_intr_convention
 ├── from data.structures.three_d.camera.intrinsics.validation import validate_camera_intrinsics_invariants, validate_intr_convention
@@ -77,44 +81,44 @@ test_conventions.py
 ├── def test_extrinsics_constructor_and_to_apply_dtype_and_copy
 │   ├── # A CameraExtrinsics built with a dtype holds its matrix in that dtype, and its to() honours both a copy request and a dtype change.
 │   ├── calls _build_extrinsics_matrix
-│   ├── calls CameraExtrinsics(extrinsics=the matrix it built, extr_convention="standard", device="cpu", dtype=torch.float64)
-│   ├── impls assert the extrinsics and its matrix are float64
-│   ├── calls extrinsics.to(device="cpu", dtype=torch.float64, copy=True)
-│   ├── impls assert the copy's matrix lives in storage distinct from the source's
-│   ├── calls extrinsics.to(dtype=torch.float32)
-│   ├── impls assert the moved extrinsics and its matrix are float32
-│   └── return
+│   ├── calls CameraExtrinsics(extrinsics=the matrix it built, extr_convention="standard", device="cpu", dtype=torch.float64)  # -> extrinsics
+│   ├── assert extrinsics.dtype == torch.float64 and extrinsics.extrinsics.dtype == torch.float64  # "Expected an extrinsics built with float64 to report float64 and hold its matrix in float64.", reporting extrinsics.dtype and extrinsics.extrinsics.dtype
+│   ├── calls extrinsics.to(device="cpu", dtype=torch.float64, copy=True)  # -> copied
+│   ├── assert the data pointer of copied.extrinsics differs from the data pointer of extrinsics.extrinsics  # "Expected copy=True to allocate distinct extrinsics storage.", reporting both data pointers
+│   ├── calls extrinsics.to(dtype=torch.float32)  # -> moved
+│   └── assert moved.dtype == torch.float32 and moved.extrinsics.dtype == torch.float32  # "Expected an extrinsics moved to float32 to report float32 and hold its matrix in float32.", reporting moved.dtype and moved.extrinsics.dtype
 ├── def test_transform_extrinsics_accepts_array_like_inputs_and_keeps_gradients
 │   ├── # transform_extrinsics takes its scale, rotation and translation as tensors or as array-likes, and a tensor similarity stays on the autograd path back to every input.
 │   ├── calls _build_extrinsics_matrix
 │   ├── impls matrix = the matrix it built as float64, marked requires_grad in place
-│   ├── impls scale, rotation, translation = a float64 scalar of two, a float64 (3, 3) identity and a float64 (3,) offset, each requiring grad
-│   ├── calls CameraExtrinsics(extrinsics=matrix, extr_convention="standard", device="cpu", dtype=torch.float64)
-│   ├── calls extrinsics.transform_extrinsics(scale=scale, rotation=rotation, translation=translation)
-│   ├── impls backpropagate the sum of the returned centre
-│   ├── impls assert the result is float64 and matrix, scale, rotation and translation each received a gradient
-│   ├── calls extrinsics.transform_extrinsics(scale=a numpy float64 scalar, rotation=a nested-list (3, 3) identity, translation=a (3,) tuple)
-│   ├── impls assert that result is float64
-│   └── return
+│   ├── impls scale, rotation, translation = a float64 scalar of two, a float64 (3, 3) identity and a float64 (3,) offset [1, 2, 3], each requiring grad
+│   ├── calls CameraExtrinsics(extrinsics=matrix, extr_convention="standard", device="cpu", dtype=torch.float64)  # -> extrinsics
+│   ├── calls extrinsics.transform_extrinsics(scale=scale, rotation=rotation, translation=translation)  # -> transformed
+│   ├── impls backpropagate the sum of transformed.center, the returned centre
+│   ├── assert transformed.dtype == torch.float64 and matrix.grad is not None and scale.grad is not None and rotation.grad is not None and translation.grad is not None  # "Expected a float64 similarity to return a float64 extrinsics and every tensor input to receive a gradient.", reporting transformed.dtype and the grads of matrix, scale, rotation and translation
+│   ├── calls extrinsics.transform_extrinsics(scale=a numpy float64 scalar of two, rotation=a nested-list (3, 3) identity, translation=the (3,) tuple (1.0, 2.0, 3.0))  # -> list_transformed
+│   └── assert list_transformed.dtype == torch.float64  # "Expected an array-like similarity to return a float64 extrinsics.", reporting list_transformed.dtype
 ├── def test_camera_and_cameras_to_keep_tensor_state_on_the_autograd_path
 │   ├── # Camera.to and Cameras.to each keep the tensor state handed to them on the autograd path, the moved camera and the moved collection backpropagating separately to the same source params and cam2world.
 │   ├── calls _build_extrinsics_matrix
 │   ├── impls matrix = the cam2world matrix it built, marked requires_grad in place
-│   ├── calls build_camera_intrinsics(model="pinhole", params=tensor scalar params whose four projection entries require grad, intr_convention="standard", device="cpu")
-│   ├── calls CameraExtrinsics(extrinsics=matrix, extr_convention="standard", device="cpu")
-│   ├── calls Camera(intrinsics=intrinsics, extrinsics=extrinsics, device="cpu")
-│   ├── calls camera.to(dtype=a floating torch dtype, extr_convention="pytorch3d")
-│   ├── impls camera_loss = moved_camera.intrinsics.fx + moved_camera.extrinsics.center.sum()
-│   ├── calls camera_loss.backward(retain_graph=True)
-│   ├── impls assert the source fx param receives a gradient
-│   ├── impls assert the source cam2world tensor receives a gradient
-│   ├── calls Cameras(intrinsics=intrinsics[None], extrinsics=extrinsics[None], device="cpu")
-│   ├── calls cameras.to(dtype=a floating torch dtype, extr_convention="pytorch3d")
-│   ├── impls cameras_loss = moved_cameras.intrinsics[0].fx + moved_cameras.extrinsics[0].center.sum()
-│   ├── calls cameras_loss.backward
-│   ├── impls assert the source fx param receives a gradient
-│   ├── impls assert the source cam2world tensor receives a gradient
-│   └── return
+│   ├── impls params = the pinhole params as float32 scalar tensors, the four projection entries fx 400, fy 410, cx 160 and cy 120 each requiring grad, h 240 and w 320 without grad
+│   ├── calls build_camera_intrinsics(model="pinhole", params=params, intr_convention="standard", device="cpu")  # -> intrinsics
+│   ├── calls CameraExtrinsics(extrinsics=matrix, extr_convention="standard", device="cpu")  # -> extrinsics
+│   ├── calls Camera(intrinsics=intrinsics, extrinsics=extrinsics, device="cpu")  # -> camera
+│   ├── calls camera.to(dtype=torch.float64, extr_convention="pytorch3d")  # -> moved_camera; float64 is the floating dtype it moves to
+│   ├── impls camera_loss = moved_camera.intrinsics.fx + the sum of moved_camera.extrinsics.center
+│   ├── impls backpropagate camera_loss, retaining its graph
+│   ├── assert params["fx"].grad is not None  # "Expected the source fx param to receive a gradient through the moved camera.", reporting params["fx"].grad
+│   ├── assert matrix.grad is not None  # "Expected the source cam2world matrix to receive a gradient through the moved camera.", reporting matrix.grad
+│   ├── impls params["fx"].grad = None
+│   ├── impls matrix.grad = None
+│   ├── calls Cameras(intrinsics=intrinsics[None], extrinsics=extrinsics[None], device="cpu")  # -> cameras
+│   ├── calls cameras.to(dtype=torch.float64, extr_convention="pytorch3d")  # -> moved_cameras; float64 is the floating dtype it moves to
+│   ├── impls cameras_loss = moved_cameras.intrinsics[0].fx + the sum of moved_cameras.extrinsics[0].center
+│   ├── impls backpropagate cameras_loss
+│   ├── assert params["fx"].grad is not None  # "Expected the source fx param to receive a gradient through the moved collection.", reporting params["fx"].grad
+│   └── assert matrix.grad is not None  # "Expected the source cam2world matrix to receive a gradient through the moved collection.", reporting matrix.grad
 ├── def test_cameras_device_and_dtype_follow_the_given_placement
 │   ├── # A Cameras refuses two components that disagree on device or dtype, brings both to the device and dtype it is handed, and resolves one left unset to the single value both components hold.
 │   ├── calls _build_extrinsics_matrix  # -> matrix
@@ -174,12 +178,9 @@ test_conventions.py
 │   └── return
 ├── def _build_cameras
 │   ├── # Builds the three-camera Cameras fixture the collection conversions run on, its poses distinct so a per-camera axis or centre error cannot hide behind one shared pose.
-│   ├── calls _build_extrinsics_matrices
-│   ├── impls pose_matrices = the three distinct cam2world matrices it built
-│   ├── calls build_camera_intrinsics(model="pinhole", params=one fixed pinhole param set broadcast to a [3] column per key, intr_convention="standard", device="cpu")
-│   ├── impls intrinsics = that one batched pinhole, its params carrying the pose count
-│   ├── calls CameraExtrinsics(extrinsics=the [3, 4, 4] stack of pose_matrices, extr_convention=the pose frame asked for, device="cpu")
-│   ├── impls extrinsics = the one batched extrinsics it built
+│   ├── calls _build_extrinsics_matrices  # -> pose_matrices, the three distinct cam2world matrices it built
+│   ├── calls build_camera_intrinsics(model="pinhole", params=the one fixed pinhole param set fx 400, fy 410, cx 160, cy 120, h 240 and w 320, each broadcast to a [len(pose_matrices)] column, intr_convention="standard", device="cpu")  # -> intrinsics, that one batched pinhole, its params carrying the pose count
+│   ├── calls CameraExtrinsics(extrinsics=the [3, 4, 4] stack of pose_matrices, extr_convention=the pose frame asked for, device="cpu")  # -> extrinsics, the one batched extrinsics it built
 │   ├── calls Cameras(intrinsics=intrinsics, extrinsics=extrinsics, device="cpu")
 │   └── return  # that three-camera collection
 ├── def test_every_supported_extr_convention_is_right_handed
@@ -216,18 +217,31 @@ test_conventions.py
 │   └── return
 ├── def test_intr_convention_module_has_one_main_api_and_six_spoke_helpers
 │   ├── # Each frame brings its own inbound and outbound helper against the standard one rather than a helper against every other frame, so the oblique conversions are compositions and a frame added later edits none of them.
-│   ├── impls assert the module exposes transform_intr_convention as its one public entry, owning the per-axis step each spoke ends in as a private helper of its own
-│   ├── impls assert it defines a to-standard and a from-standard helper for opengl, pytorch3d and vulkan, and none between two non-standard frames  # impls-node-one-step:skip
-│   └── return
+│   ├── impls functions = an empty list  # the names of the functions the intrinsics conventions module itself defines
+│   ├── for each name, obj of the functions inspect lists among intr_conventions' members
+│   │   └── if obj.__module__ == intr_conventions.__name__
+│   │       └── impls functions gains name
+│   ├── impls public = an empty list
+│   ├── for each name of functions
+│   │   └── if name does not start with "_"
+│   │       └── impls public gains name
+│   ├── assert public == ["transform_intr_convention"] and "_rescale_intr_params" in functions  # "Expected transform_intr_convention to be the conventions module's one public entry and the per-axis step each spoke ends in to be a private helper of its own.", reporting public and functions
+│   ├── impls spokes = the set of the six names _standard_to_opengl, _opengl_to_standard, _standard_to_pytorch3d, _pytorch3d_to_standard, _standard_to_vulkan, _vulkan_to_standard
+│   ├── impls obliques = an empty list
+│   ├── for each name of functions
+│   │   └── if "_to_" in name and "standard" not in name
+│   │       └── impls obliques gains name
+│   └── assert every name of spokes is in functions and obliques == []  # "Expected a to-standard and a from-standard helper for opengl, pytorch3d and vulkan, and none between two non-standard frames.", reporting functions and obliques
 ├── def test_a_frame_change_comes_down_to_the_same_per_axis_rescale
 │   ├── # A frame change's only length step is the per-axis rescale the conventions module owns, which is why a shared focal is refused identically whether a caller goes through the frame change or reaches that rescale directly.
-│   ├── calls _rescale_intr_params(params=a pinhole's key set, model="pinhole", unit_x=a factor, unit_y=a different factor)
-│   ├── impls assert the focal and cx / cy params come back scaled per axis and h and w come back untouched  # impls-node-one-step:skip
+│   ├── calls _build_pinhole_params  # -> params, a pinhole's key set
+│   ├── calls _rescale_intr_params(params=params, model="pinhole", unit_x=2.0, unit_y=0.5)  # -> rescaled; unit_x and unit_y a factor and a different factor
+│   ├── assert rescaled["fx"], rescaled["cx"], rescaled["fy"] and rescaled["cy"] equal 800.0, 300.0, 205.0 and 55.0 within pytest's default approx tolerance, and rescaled["h"] == params["h"] and rescaled["w"] == params["w"]  # "Expected fx and cx to be scaled by unit_x, fy and cy by unit_y, and h and w to come back untouched.", reporting rescaled and params
+│   ├── impls simple_params = the simple_pinhole params f 400.0, cx 150.0, cy 110.0, h 240 and w 320, a simple_pinhole's key set at a non-square size
 │   ├── with pytest.raises(AssertionError)
-│   │   └── calls transform_intr_convention(params=a simple_pinhole's key set at a non-square size, model="simple_pinhole", source_intr_convention="standard", target_intr_convention="opengl")
-│   ├── with pytest.raises(AssertionError)
-│   │   └── calls _rescale_intr_params(params=that same simple_pinhole key set, model="simple_pinhole", unit_x=a factor, unit_y=a different factor)
-│   └── return
+│   │   └── calls transform_intr_convention(params=simple_params, model="simple_pinhole", source_intr_convention="standard", target_intr_convention="opengl")
+│   └── with pytest.raises(AssertionError)
+│       └── calls _rescale_intr_params(params=simple_params, model="simple_pinhole", unit_x=2.0, unit_y=0.5)
 ├── def test_three_separations_stand_between_standard_and_a_device_frame
 │   ├── # Where the origin sits, which way each axis runs and what one unit is worth are independent, so a principal point at the image's own centre lands on the device origin, which no axis reversal alone could put it at.
 │   ├── calls transform_intr_convention
@@ -331,30 +345,39 @@ test_conventions.py
 │   └── return
 └── def test_camera_and_cameras_to_preserve_tensor_parameter_graphs
     ├── # Camera.to and Cameras.to keep tensor-valued intrinsics and extrinsics on their autograd paths.
-    ├── calls build_camera_intrinsics(model="ortho", params=tensor scalar params with requires_grad, intr_convention="standard")
-    ├── calls CameraExtrinsics(extrinsics=a valid cam2world tensor with tensor-valued translation, extr_convention="standard")
-    ├── calls Camera
-    ├── calls camera.to(device=the current device, dtype=a floating torch dtype, extr_convention="pytorch3d")
-    ├── calls Cameras(intrinsics=intrinsics[None], extrinsics=extrinsics[None])
-    ├── calls cameras.to(device=the current device, dtype=a floating torch dtype, extr_convention="pytorch3d")
-    ├── impls loss = moved_camera.intrinsics.project(points).sum() + moved_cameras.center.sum()
-    ├── calls loss.backward
-    ├── impls assert source intrinsics params receive gradients
-    ├── impls assert source extrinsics receive gradients
-    └── return
+    ├── impls params = the ortho params as float32 scalar tensors fx 400, fy 410, cx 160, cy 120, h 240 and w 320, each requiring grad
+    ├── impls translation = the float32 (3,) centre [0.3, -0.2, 1.1], requiring grad
+    ├── impls matrix = the 4x4 float32 cam2world with an identity rotation block, translation as its translation column and [0, 0, 0, 1] as its last row  # a valid cam2world tensor with tensor-valued translation
+    ├── calls build_camera_intrinsics(model="ortho", params=params, intr_convention="standard")  # -> intrinsics
+    ├── calls CameraExtrinsics(extrinsics=matrix, extr_convention="standard")  # -> extrinsics
+    ├── calls Camera(intrinsics=intrinsics, extrinsics=extrinsics)  # -> camera
+    ├── calls camera.to(device=intrinsics.device, dtype=torch.float64, extr_convention="pytorch3d")  # -> moved_camera; the current device, and float64 the floating dtype it moves to
+    ├── calls Cameras(intrinsics=intrinsics[None], extrinsics=extrinsics[None])  # -> cameras
+    ├── calls cameras.to(device=intrinsics.device, dtype=torch.float64, extr_convention="pytorch3d")  # -> moved_cameras
+    ├── impls points_camera = the float64 [1, 3] camera-frame point [1, 2, 4]
+    ├── calls moved_camera.intrinsics.project(points_camera=points_camera)  # summed into the loss below
+    ├── impls loss = the sum of that projection + the sum of moved_cameras.center
+    ├── impls backpropagate loss
+    ├── assert params["fx"].grad is not None and params["fy"].grad is not None and params["cx"].grad is not None and params["cy"].grad is not None  # "Expected the source fx, fy, cx and cy intrinsics params to receive gradients.", reporting the grads of params fx, fy, cx and cy
+    └── assert translation.grad is not None  # "Expected the source extrinsics tensor to receive a gradient.", reporting translation.grad
 ```
 
 `tests/data/structures/three_d/camera/test_io.py`
 
 ```text
 test_io.py
+├── import json
 ├── from pathlib import Path
+├── from typing import List
+├── import numpy as np
 ├── import torch
 ├── from data.structures.three_d.camera.camera import Camera
 ├── from data.structures.three_d.camera.cameras import Cameras
 ├── from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
 ├── from data.structures.three_d.camera.intrinsics.camera_intrinsics import build_camera_intrinsics
 ├── from data.structures.three_d.camera.io import deserialize_cameras, load_cameras, save_cameras, serialize_cameras
+├── _JSON_KEYS = {"model", "params", "intr_convention", "extrinsics", "extr_convention", "dtype", "name", "id"}  # set of str; the json key set the payload asserts compare against
+├── _NPZ_KEYS = {"model", "params", "extrinsics", "intr_convention", "extr_convention", "dtype", "name", "has_name", "id", "has_id"}  # set of str; the npz key set the payload asserts compare against
 ├── def test_single_camera_json_round_trip
 │   ├── # A single Camera survives a save then load round trip through the json format.
 │   ├── calls _make_single_camera
@@ -444,13 +467,12 @@ test_io.py
 │               └── assert torch.equal(loaded.intrinsics.params[key], value)  # f"Expected every loaded intrinsics param to equal the saved one exactly. {format=} {dtype=} {key=} {loaded.intrinsics.params[key]=} {value=}"
 ├── def _make_multi_cameras
 │   ├── # Builds the three-camera Cameras fixture both collection round trips run on, its cameras differing in param values, centre, name and id so the payload spans every per-camera path the format has to carry.
-│   ├── calls build_camera_intrinsics(model="pinhole", params=that model's param set with a distinct [3] column per key, intr_convention="standard", device="cpu")
-│   ├── impls intrinsics = that one batched pinhole  # a batch names one model and one image-plane frame, so those two are what the fixture holds fixed
-│   ├── impls matrices = three 4x4 float32 identities whose translation columns are three distinct camera centres
-│   ├── calls CameraExtrinsics(extrinsics=the [3, 4, 4] stack of matrices, extr_convention="opengl", device="cpu")
-│   ├── impls extrinsics = that one batched extrinsics  # a batch names one pose frame, so the frame is what the fixture holds fixed
-│   ├── impls names = a label for every camera but the second
-│   ├── impls ids = an id for every camera but the third
+│   ├── calls build_camera_intrinsics(model="pinhole", params=that model's param set as a dict whose fx, fy, cx, cy, h and w are the distinct float32 [3] columns [400.0, 405.0, 402.0], [410.0, 415.0, 412.0], [160.0, 161.0, 162.0], [120.0, 121.0, 122.0], [240.0, 242.0, 244.0] and [320.0, 322.0, 324.0], intr_convention="standard", device="cpu")  # -> intrinsics, that one batched pinhole; a batch names one model and one image-plane frame, so those two are what the fixture holds fixed
+│   ├── impls matrices = three float32 4x4 identities, a [3, 4, 4] stack
+│   ├── impls matrices[:, :3, 3] = the float32 camera centres [[0.3, -0.2, 1.1], [1.3, 0.8, 2.1], [2.3, 1.8, 3.1]]  # three distinct camera centres, one per translation column
+│   ├── calls CameraExtrinsics(extrinsics=matrices, extr_convention="opengl", device="cpu")  # -> extrinsics, that one batched extrinsics; a batch names one pose frame, so the frame is what the fixture holds fixed
+│   ├── impls names = ["frame_0", None, "frame_2"]  # a label for every camera but the second
+│   ├── impls ids = [7, 8, None]  # an id for every camera but the third
 │   ├── calls Cameras(intrinsics=intrinsics, extrinsics=extrinsics, names=names, ids=ids, device="cpu")
 │   └── return  # that three-camera collection
 ├── def test_the_intr_convention_and_resolution_survive_round_trip

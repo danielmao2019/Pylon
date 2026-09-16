@@ -109,7 +109,8 @@ test_render_depth.py
 │   ├── calls _build_camera(focal=focal, principal_point=principal_point)  # -> camera
 │   ├── impls depth_maps = an empty list
 │   ├── for each of six repetitions
-│   │   └── calls render_depth_from_point_cloud(pc=pc_data, camera=camera, resolution=resolution)  # -> depth_maps gains the map
+│   │   ├── calls render_depth_from_point_cloud(pc=pc_data, camera=camera, resolution=resolution)  # -> depth_map
+│   │   └── impls depth_maps gains depth_map
 │   ├── for render_index, depth_map in enumerate(depth_maps)
 │   │   └── assert torch.equal(depth_map, depth_maps[0])  # "Repeated renders of one camera must give the same depth map.", reporting render_index and the max abs difference from the first render
 │   ├── impls point_depths = -pc_data.xyz[:, 2]  # the nearest depth per pixel is projected here rather than read back from the render

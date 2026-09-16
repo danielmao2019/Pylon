@@ -24,25 +24,27 @@ test_rotation_stabilize_validate_compat.py
 │   └── return
 ├── def test_stabilized_batch_passes_validator
 │   ├── # A [B, 3, 3] batch stabilized in one call matches stabilizing each rotation alone, and the cam2world batch it builds passes validate_camera_extrinsics for both float32 and float64.
-│   ├── for each dtype in {torch.float32, torch.float64}
-│   │   ├── for each entry of the batch
-│   │   │   ├── calls _random_rotation(dtype=that dtype, seed=a per-entry seed)
-│   │   │   ├── calls _random_rotation(dtype=that dtype, seed=a second per-entry seed)
-│   │   │   └── impls multiply the two rotations into one near-orthogonal (3, 3) rotation
-│   │   ├── impls stack those rotations into a [B, 3, 3] batch in that dtype
-│   │   ├── calls _stabilize_rotation_matrix(rotation=that [B, 3, 3] batch of near-orthogonal rotations)
-│   │   ├── for each rotation of that batch
-│   │   │   ├── calls _stabilize_rotation_matrix(rotation=that one (3, 3) rotation alone)
-│   │   │   └── impls assert the batched result's matching slice equals it
-│   │   ├── impls stack the stabilized rotations into a (B, 4, 4) cam2world batch in that dtype
-│   │   └── calls validate_camera_extrinsics(obj=the (B, 4, 4) cam2world batch)
-│   └── return
+│   ├── impls batch_size = 32
+│   └── for dtype in (torch.float32, torch.float64)
+│       ├── for each index below batch_size
+│       │   ├── calls _random_rotation(dtype=dtype, seed=index)
+│       │   ├── calls _random_rotation(dtype=dtype, seed=index + 5000)
+│       │   └── impls multiply the two rotations into one near-orthogonal (3, 3) rotation
+│       ├── impls rotations = those rotations stacked into a [batch_size, 3, 3] batch in dtype
+│       ├── calls _stabilize_rotation_matrix(rotation=rotations)  # -> stabilized
+│       ├── for each index, rotation of rotations
+│       │   ├── calls _stabilize_rotation_matrix(rotation=rotation)  # -> stabilized_alone
+│       │   └── assert stabilized[index] equals stabilized_alone exactly  # "Expected stabilizing a batch in one call to match stabilizing each rotation of that batch alone.", reporting dtype, index, stabilized[index], stabilized_alone
+│       ├── impls extrinsics = batch_size 4x4 identities in dtype, a [batch_size, 4, 4] stack
+│       ├── impls extrinsics[:, :3, :3] = stabilized  # the (batch_size, 4, 4) cam2world batch
+│       └── calls validate_camera_extrinsics(obj=extrinsics)
 ├── def test_stabilize_rejects_a_reflection
 │   ├── # A batch mixing proper rotations with reflections is refused rather than sign-repaired, since a camera's rotation is proper by construction.
 │   ├── impls batch_size = 4
 │   ├── impls rotation_list = an empty list
 │   ├── for each index below batch_size
-│   │   └── calls _random_rotation(dtype=torch.float64, seed=index)  # -> rotation_list gains the proper rotation
+│   │   ├── calls _random_rotation(dtype=torch.float64, seed=index)  # -> the proper rotation at that seed
+│   │   └── impls rotation_list gains that proper rotation
 │   ├── impls rotations = rotation_list stacked into a [batch_size, 3, 3] float64 batch  # the per-entry proper rotations
 │   ├── impls rotations[1::2, :, 0] = -rotations[1::2, :, 0]  # every second entry column-negated into a reflection
 │   └── with pytest.raises(AssertionError)
@@ -71,5 +73,5 @@ test_rotation_stabilize_validate_compat.py
     ├── if that orthonormal factor has a negative determinant
     │   └── impls negate its first column
     ├── impls cast the orthonormal factor to the requested dtype
-    └── return
+    └── return  # the orthonormal factor, a (3, 3) proper rotation in the requested dtype
 ```

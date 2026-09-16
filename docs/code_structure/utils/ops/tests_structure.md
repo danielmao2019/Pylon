@@ -82,14 +82,16 @@ test_chunked_matmul.py
 │       └── calls chunked_matmul(large=large, small=small, inplace=True)
 ├── def test_rejects_non_square_small
 │   ├── # a non-square small raises an assertion (small must be square in its trailing two axes).
-│   ├── with pytest.raises(AssertionError)
-│   │   └── calls chunked_matmul(large=large, small=a small whose trailing two axes differ)
-│   └── return
+│   ├── impls large = a float64 [5, 4] standard-normal tensor
+│   ├── impls small = a float64 [3, 4, 3] standard-normal tensor  # its trailing two axes differ
+│   └── with pytest.raises(AssertionError)
+│       └── calls chunked_matmul(large=large, small=small)
 ├── def test_rejects_mismatched_inner_dim
 │   ├── # large.shape[1] != small.shape[-2] raises an assertion (inner dimensions must match).
-│   ├── with pytest.raises(AssertionError)
-│   │   └── calls chunked_matmul(large=large, small=a square small whose side differs from large's inner dim)
-│   └── return
+│   ├── impls large = a float64 [5, 4] standard-normal tensor
+│   ├── impls small = a float64 [4, 3, 3] standard-normal tensor  # a square small whose side of 3 differs from large's inner dim of 4
+│   └── with pytest.raises(AssertionError)
+│       └── calls chunked_matmul(large=large, small=small)
 ├── def test_rejects_mismatched_dtype
 │   ├── # large and small of different dtypes raise an assertion (operands must share dtype).
 │   ├── with pytest.raises(AssertionError)
