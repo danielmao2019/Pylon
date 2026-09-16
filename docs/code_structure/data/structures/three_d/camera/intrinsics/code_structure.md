@@ -352,9 +352,9 @@ camera_intrinsics.py
 │   ├── def fy(self) -> torch.Tensor  # @property [override]
 │   │   ├── # The shared focal length params["f"].
 │   │   └── return self._params["f"]
-│   ├── def _focal_params(cls, fx: torch.Tensor, fy: torch.Tensor) -> Dict[str, torch.Tensor]  # @classmethod [override]
+│   ├── @classmethod def _focal_params(cls, fx: torch.Tensor, fy: torch.Tensor) -> Dict[str, torch.Tensor]  [override]
 │   │   ├── # States the pair as the one shared focal f, since this model states its two focals as one f.
-│   │   ├── assert fx and fy agree at every entry, up to floating-point rounding  # one shared f holds one ratio, so an affine scaling the axes apart leaves this model nothing to state the second in
+│   │   ├── assert fx and fy agree at every entry, within torch.isclose's default tolerance  # one shared f holds one ratio, so an affine scaling the axes apart leaves this model nothing to state the second in
 │   │   └── return  # {"f": fx}
 │   ├── def project(self, points_camera: torch.Tensor, inplace: bool = False) -> torch.Tensor   [override]
 │   │   ├── # Perspective projection with a single shared focal length.
