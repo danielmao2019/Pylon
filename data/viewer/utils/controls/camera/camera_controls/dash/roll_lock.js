@@ -23,8 +23,7 @@ function holdRollLockedGraphs(relayoutDataList) {
         // Largest turn, in radians, one roll-locked drag keyframe takes from the keyframe before it. The renderer interpolates two keyframes component by component, and a frame drawn between two roll-locked poses a turn `theta` apart rolls off the lock by about `theta^2 / 8`, so a fast pointer move written as one keyframe draws frames a degree off the lock; at this bound the in-between frames stay within about 3e-4 of it.
         const ROLL_LOCK_SUB_STEP_RADIANS = 0.05;
         // The lock axis in the mounted scene's normalized space, as a unit [x, y, z] array, and the meridian an eye sitting on it is banded onto, as a unit vector perpendicular to it: such an eye stands on every meridian at once. resolveSceneAxis sets both each time the lock is held on a scene.
-        let axis;
-        let ROLL_LOCK_FALLBACK_MERIDIAN;
+        let axis, ROLL_LOCK_FALLBACK_MERIDIAN;
 
         // Re-holds the lock on graphElementId's gl3d scene each time the roll-lock callback runs, its first render included, waiting out the frames before the WebGL scene mounts. A panel that re-renders arrives with a view controller of its own, so the lock goes onto whichever one the panel is turning now rather than once and for all.
         function rollLockCallback(relayoutData) {
@@ -41,8 +40,7 @@ function holdRollLockedGraphs(relayoutDataList) {
 
         // Resolves graphElementId's Plotly graph div and its gl3d scene, or null while the scene has not mounted. `dcc.Graph` renders its component id onto a wrapper div, so the Plotly graph div is the `.js-plotly-plot` inside it; Dash fires the callback on initial render, before the WebGL scene exists.
         function resolveMountedScene() {
-            const wrapper = document.getElementById(graphElementId);
-            const graphDiv = wrapper && wrapper.querySelector(".js-plotly-plot");
+            const graphDiv = document.getElementById(graphElementId)?.querySelector(".js-plotly-plot") ?? null;
             if (
                 graphDiv === null
                 || graphDiv._fullLayout === undefined
@@ -89,16 +87,15 @@ function holdRollLockedGraphs(relayoutDataList) {
                 worldAxis[1] * sceneScale[1],
                 worldAxis[2] * sceneScale[2],
             ]);
-            ROLL_LOCK_FALLBACK_MERIDIAN = vectorNormalize(
-                vectorCross(
-                    axis,
-                    Math.abs(axis[0]) <= Math.abs(axis[1]) && Math.abs(axis[0]) <= Math.abs(axis[2])
-                        ? [1, 0, 0]
-                        : Math.abs(axis[1]) <= Math.abs(axis[2])
-                            ? [0, 1, 0]
-                            : [0, 0, 1],
-                ),
-            );
+            let leastBasis;
+            if (Math.abs(axis[0]) <= Math.abs(axis[1]) && Math.abs(axis[0]) <= Math.abs(axis[2])) {
+                leastBasis = [1, 0, 0];
+            } else if (Math.abs(axis[1]) <= Math.abs(axis[2])) {
+                leastBasis = [0, 1, 0];
+            } else {
+                leastBasis = [0, 0, 1];
+            }
+            ROLL_LOCK_FALLBACK_MERIDIAN = vectorNormalize(vectorCross(axis, leastBasis));
             return;
         }
 
@@ -125,13 +122,8 @@ function holdRollLockedGraphs(relayoutDataList) {
                 for (let subStep = 1; subStep <= subStepCount; subStep += 1) {
                     const subStepTime = startTime + (time - startTime) * subStep / subStepCount;
                     view.recalcMatrix(subStepTime);
-                    const center = view.computedCenter.slice();
-                    const turnedPose = resolveTurnedPose(
-                        view.computedEye.slice(),
-                        center,
-                        yaw / subStepCount,
-                        pitch / subStepCount,
-                    );
+                    const [eye, center] = [view.computedEye.slice(), view.computedCenter.slice()];
+                    const turnedPose = resolveTurnedPose(eye, center, yaw / subStepCount, pitch / subStepCount);
                     view.lookAt(subStepTime, turnedPose.eye, center, turnedPose.up);
                 }
                 return;
@@ -148,8 +140,7 @@ function holdRollLockedGraphs(relayoutDataList) {
             // Writes one pose into the controller's keyframes on the lock, taking the same optional eye and center the controller's own lookAt does, filling a missing one from the controller's pose at that time, and an eye written onto its center from the eye offset that pose holds; the written up is the one thing the lock never keeps, since it re-derives the up from the view direction and the axis. Only the orbital controller keeps its rotation as quaternion keyframes; the turntable controller keeps angles and the matrix controller whole matrices, which have no second hemisphere to land in.
             function rollLockedLookAt(time, eye, center, up) {
                 controller.recalcMatrix(time);
-                center = (center || controller.computedCenter).slice();
-                eye = (eye || controller.computedEye).slice();
+                [eye, center] = [(eye || controller.computedEye).slice(), (center || controller.computedCenter).slice()];
                 const heldEye = resolveHeldEye(eye, center, controller, time);
                 const rollLockedPose = resolveRollLockedPose(heldEye, center);
                 const keyframeCount = controller.rotation && controller.rotation._time.length;
@@ -175,12 +166,17 @@ function holdRollLockedGraphs(relayoutDataList) {
             ) {
                 return;
             }
-            const state = rotation._state;
-            const newest = state.length - 4;
-            state[newest] = -state[newest];
-            state[newest + 1] = -state[newest + 1];
-            state[newest + 2] = -state[newest + 2];
-            state[newest + 3] = -state[newest + 3];
+            [
+                rotation._state[rotation._state.length - 4],
+                rotation._state[rotation._state.length - 3],
+                rotation._state[rotation._state.length - 2],
+                rotation._state[rotation._state.length - 1],
+            ] = [
+                -rotation._state[rotation._state.length - 4],
+                -rotation._state[rotation._state.length - 3],
+                -rotation._state[rotation._state.length - 2],
+                -rotation._state[rotation._state.length - 1],
+            ];
             return;
         }
 
@@ -349,8 +345,7 @@ function holdRollLockedGraphs(relayoutDataList) {
 
         // Rotates a vector about a unit axis by an angle in radians, right-handed (Rodrigues' rotation), the way a drag's yaw and pitch turn the eye offset.
         function vectorRotateAboutAxis(vector, unitAxis, angle) {
-            const cosine = Math.cos(angle);
-            const sine = Math.sin(angle);
+            const [cosine, sine] = [Math.cos(angle), Math.sin(angle)];
             const rotated = vectorAdd(
                 vectorAdd(vectorScale(vector, cosine), vectorScale(vectorCross(unitAxis, vector), sine)),
                 vectorScale(unitAxis, vectorDot(unitAxis, vector) * (1 - cosine)),
