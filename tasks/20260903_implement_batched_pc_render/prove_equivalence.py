@@ -119,7 +119,7 @@ def main() -> None:
             check=True,
         ).stdout.strip(),
         "branch_worktree_clean": branch_worktree_clean,
-        "devices": [str(device) for device in DEVICES],
+        "devices": list(map(str, DEVICES)),
         # main's scatter is racy on cuda otherwise, so its reference is the deterministic one render_on_main.py switches on before it renders.
         "main_deterministic_algorithms": True,
         **comparisons,
@@ -157,11 +157,10 @@ def load_or_build_scenes(output_dir: Path, force: bool) -> List[Dict[str, Any]]:
     Returns:
         The scene dicts build_scenes returns.
     """
-    scenes_path = output_dir / "scenes.pt"
-    if scenes_path.exists() and not force:
-        return torch.load(scenes_path)
+    if (output_dir / "scenes.pt").exists() and not force:
+        return torch.load(output_dir / "scenes.pt")
     scenes = build_scenes()
-    torch.save(scenes, scenes_path)
+    torch.save(scenes, output_dir / "scenes.pt")
     return scenes
 
 
@@ -342,9 +341,8 @@ def load_or_render_on_main(
         f"{main_repo=} {main_commit=} {main_branch_commit=}"
     )
 
-    renders_path = output_dir / "main_renders.pt"
-    if renders_path.exists() and not force:
-        cached = torch.load(renders_path)
+    if (output_dir / "main_renders.pt").exists() and not force:
+        cached = torch.load(output_dir / "main_renders.pt")
         if (
             cached["main_commit"] == main_commit
             and cached["scenes_digest"] == scenes_digest
@@ -357,7 +355,7 @@ def load_or_render_on_main(
             "--scenes_path",
             str(output_dir / "scenes.pt"),
             "--output_path",
-            str(renders_path),
+            str(output_dir / "main_renders.pt"),
         ],
         cwd=main_repo,
         env={
@@ -367,10 +365,10 @@ def load_or_render_on_main(
         },
         check=True,
     )
-    main_renders = torch.load(renders_path)
+    main_renders = torch.load(output_dir / "main_renders.pt")
     main_renders["main_commit"] = main_commit
     main_renders["scenes_digest"] = scenes_digest
-    torch.save(main_renders, renders_path)
+    torch.save(main_renders, output_dir / "main_renders.pt")
     return main_renders
 
 
@@ -712,22 +710,11 @@ def summarize_point_size_changes(main_renders: Dict[str, Any]) -> Dict[str, Any]
         kernel_offsets = create_circular_kernel_offsets(
             point_size=point_size, device=torch.device("cpu")
         )
-        summary[f"kernel offsets at point_size {point_size} same as main's"] = {
-            tuple(offset) for offset in kernel_offsets.tolist()
-        } == {tuple(offset) for offset in main_renders["kernels"][point_size].tolist()}
+        summary[f"kernel offsets at point_size {point_size} same as main's"] = set(
+            map(tuple, kernel_offsets.tolist())
+        ) == set(map(tuple, main_renders["kernels"][point_size].tolist()))
 
     # --- Whether each of main's depth-based renders at every point size equals its render at point size one
-    depth_based_renderers = ("depth", "normal_2d")
-    summary.update(
-        {
-            f"main {renderer} at point_size {point_size} equal to its point_size 1.0 render": {
-                "total": 0,
-                "equal": 0,
-            }
-            for renderer in depth_based_renderers
-            for point_size in POINT_SIZES
-        }
-    )
     for (
         device_name,
         scene_name,
@@ -736,7 +723,7 @@ def summarize_point_size_changes(main_renders: Dict[str, Any]) -> Dict[str, Any]
         point_size,
         return_mask,
     ), render in main_renders["renders"].items():
-        if renderer not in depth_based_renderers:
+        if renderer not in ("depth", "normal_2d"):
             continue
         comparison = compare_exactly(
             output=render,
@@ -744,23 +731,14 @@ def summarize_point_size_changes(main_renders: Dict[str, Any]) -> Dict[str, Any]
                 (device_name, scene_name, camera_index, renderer, 1.0, return_mask)
             ],
         )
-        tally = summary[
-            f"main {renderer} at point_size {point_size} equal to its point_size 1.0 render"
-        ]
+        tally = summary.setdefault(
+            f"main {renderer} at point_size {point_size} equal to its point_size 1.0 render",
+            {"total": 0, "equal": 0},
+        )
         tally["total"] += 1
         tally["equal"] += comparison["equal"]
 
     # --- Whether this branch's dilation of main's depth map equals main's dilation of it
-    summary.update(
-        {
-            f"branch dilation of main's depth at point_size {point_size} equal to main's dilation": {
-                "total": 0,
-                "equal": 0,
-            }
-            for point_size in POINT_SIZES
-            if point_size > 1.0
-        }
-    )
     for (
         device_name,
         scene_name,
@@ -780,9 +758,10 @@ def summarize_point_size_changes(main_renders: Dict[str, Any]) -> Dict[str, Any]
         )
         comparison = compare_exactly(output=dilation, reference=main_dilation)
         # main keeps the last nearer neighbour in kernel order, this branch the nearest.
-        tally = summary[
-            f"branch dilation of main's depth at point_size {point_size} equal to main's dilation"
-        ]
+        tally = summary.setdefault(
+            f"branch dilation of main's depth at point_size {point_size} equal to main's dilation",
+            {"total": 0, "equal": 0},
+        )
         tally["total"] += 1
         tally["equal"] += comparison["equal"]
     return summary
@@ -847,9 +826,9 @@ def compare_preparations(
 
     _validate_inputs()
 
-    points, valid = (member.cpu() for member in output)
+    points, valid = output[0].cpu(), output[1].cpu()
     # The single camera's survivors and the points they are.
-    reference_points, reference_indices = (member.cpu() for member in reference)
+    reference_points, reference_indices = reference[0].cpu(), reference[1].cpu()
     reference_valid = torch.zeros_like(valid)
     reference_valid[reference_indices] = True
     reference_rows = torch.zeros_like(points)
