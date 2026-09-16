@@ -22,7 +22,7 @@ function holdRollLockedGraphs(relayoutDataList) {
         const ROLL_LOCK_RADIANS_PER_DRAG_UNIT = 2;
         // Largest turn, in radians, one roll-locked drag keyframe takes from the keyframe before it. The renderer interpolates two keyframes component by component, and a frame drawn between two roll-locked poses a turn `theta` apart rolls off the lock by about `theta^2 / 8`, so a fast pointer move written as one keyframe draws frames a degree off the lock; at this bound the in-between frames stay within about 3e-4 of it.
         const ROLL_LOCK_SUB_STEP_RADIANS = 0.05;
-        // The lock axis in the mounted scene's normalized space, as a unit [x, y, z] array, and the meridian an eye sitting on it is banded onto, as a unit vector perpendicular to it: such an eye stands on every meridian at once. resolveSceneAxis sets both each time the lock is held on a scene.
+        // The lock axis in the mounted scene's normalized space, as a unit [x, y, z] array, and the meridian an eye sitting on it is banded onto, as a unit vector perpendicular to it: such an eye stands on every meridian at once. resolveSceneAxis sets both each time the lock is held on a scene and each time the scene re-plots.
         let axis, ROLL_LOCK_FALLBACK_MERIDIAN;
 
         // Re-holds the lock on graphElementId's gl3d scene each time the roll-lock callback runs, its first render included, waiting out the frames before the WebGL scene mounts. A panel that re-renders arrives with a view controller of its own, so the lock goes onto whichever one the panel is turning now rather than once and for all.

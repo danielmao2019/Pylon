@@ -33,7 +33,7 @@ export interface ThreeTrackballCameraControls {
 //   camera: the perspective camera the controls drive.
 //   renderer: the WebGL renderer whose canvas receives the pointer events.
 //   initialCameraState: initial framing (camera-to-world extrinsics + intrinsics); null uses the camera's default framing.
-//   lockRoll: a non-zero world-space axis of any length to lock camera roll about, in the scene's own world frame; null leaves the controls exactly as three constructed them. This module owns no axis of its own, so the axis is always the caller's.
+//   lockRoll: a non-zero world-space axis of any length to lock camera roll about, in the scene's own world frame; null leaves the controls as the free trackball, with no roll-locked rotation installed. This module owns no axis of its own, so the axis is always the caller's.
 //
 // Returns:
 //   The validated trackball controls.
@@ -103,7 +103,7 @@ export function createTrackballCameraControls({
 // Args:
 //   camera: the perspective camera the controls drive.
 //   renderer: the WebGL renderer whose canvas receives the pointer events.
-//   lockRoll: the world-space axis to lock camera roll about; null returns the controls exactly as three constructed them, so a caller naming no axis renders what it rendered before this argument existed.
+//   lockRoll: the world-space axis to lock camera roll about; null returns the free trackball controls, with no roll-locked rotation installed, so a caller naming no axis renders what it rendered before this argument existed.
 //
 // Returns:
 //   The renderer-specific trackball controls.
@@ -243,7 +243,7 @@ function createRendererTrackballCameraControls({
       );
       bandedOffset.applyAxisAngle(cameraRightAxis, pitchAngle);
       leftDrag = { clientX: event.clientX, clientY: event.clientY };
-      camera.position.copy(threeControls.target).add(bandedOffset);
+      camera.position.addVectors(threeControls.target, bandedOffset);
       holdRollLockedCameraPose({
         camera,
         target: threeControls.target,
