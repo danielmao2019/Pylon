@@ -424,12 +424,15 @@ camera_intrinsics.py
 │   │   ├── assert exactly one of resolution and scale is given  # a target resolution and a factor are two ways to name the same thing, and giving both leaves unstated which one wins
 │   │   ├── if resolution is not None
 │   │   │   ├── assert resolution is a positive int or a length-2 array-like
-│   │   │   └── if resolution is a length-2 array-like
-│   │   │       └── assert resolution[0] and resolution[1] are positive integer-valued numbers
-│   │   └── if scale is not None
-│   │       ├── assert scale is a positive number or a length-2 array-like
-│   │       └── if scale is a length-2 array-like
-│   │           └── assert scale[0] and scale[1] are positive numbers
+│   │   │   ├── if resolution is a length-2 array-like
+│   │   │   │   └── assert resolution[0] and resolution[1] are positive integer-valued numbers
+│   │   │   └── return
+│   │   ├── if scale is not None
+│   │   │   ├── assert scale is a positive number or a length-2 array-like
+│   │   │   ├── if scale is a length-2 array-like
+│   │   │   │   └── assert scale[0] and scale[1] are positive numbers
+│   │   │   └── return
+│   │   └── assert 0, "Should not reach here."
 │   ├── calls _validate_inputs
 │   ├── def _normalize_inputs [local]
 │   │   ├── if resolution is not None
