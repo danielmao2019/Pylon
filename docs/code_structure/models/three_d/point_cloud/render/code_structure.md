@@ -232,7 +232,7 @@ render_normal.py
 │   ├── def _validate_inputs [local]
 │   │   ├── calls validate_rendering_inputs(pc=pc, camera=camera, resolution=resolution, ignore_value=ignore_value, return_mask=return_mask, point_size=point_size)
 │   │   ├── assert hasattr(pc, "normals")      # "PointCloud must contain normals field"
-│   │   └── assert isinstance(camera, Camera)  # f"{type(camera)=}"; this entry renders one camera, a batch being the depth entry's
+│   │   └── assert isinstance(camera, Camera)  # "Expected camera to be a Camera. " f"{type(camera)=}"; this entry renders one camera, a batch being the depth entry's
 │   ├── calls _validate_inputs()
 │   ├── calls prepare_points_for_rendering(pc=pc, camera=camera, resolution=resolution)
 │   ├── impls rendering_points, original_data_indices = the first and third of the three it returned  # a single camera's validity is None, its culled points already dropped
