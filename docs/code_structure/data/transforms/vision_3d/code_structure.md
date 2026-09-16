@@ -14,7 +14,21 @@ random_rigid_transform.py
 ├── from data.transforms.base_transform import BaseTransform
 ├── from models.three_d.point_cloud.ops import apply_transform
 └── class RandomRigidTransform(BaseTransform)
-    ├── # Poses the source cloud of a registration pair by a sampled rigid transform, so the ground truth the pair carries is exercised rather than memorized.
+    ├── # Poses the source cloud of a registration pair by a sampled rigid transform, so the ground truth the pair carries is exercised.
+    ├── def __init__(self, rot_mag: float = 45.0, trans_mag: float = 0.5, method: str = 'Rodrigues', num_axis: Optional[int] = None) -> None
+    │   ├── # Holds the sampling bounds and the rotation method every later call samples its transform under.
+    │   ├── impls run the base transform's __init__ through super(RandomRigidTransform, self)
+    │   ├── assert rot_mag is an int or a float      # f"{type(rot_mag)=}"
+    │   ├── assert trans_mag is an int or a float    # f"{type(trans_mag)=}"
+    │   ├── assert rot_mag >= 0                      # f"{rot_mag=}"
+    │   ├── assert trans_mag >= 0                    # f"{trans_mag=}"
+    │   ├── assert method in ['Rodrigues', 'Euler']  # f"{method=}"
+    │   ├── if method == 'Euler'
+    │   │   └── assert num_axis in [0, 1, 3]  # f"{num_axis=}"; only the Euler path reads num_axis, so only it constrains one
+    │   ├── impls self.rot_mag = rot_mag
+    │   ├── impls self.trans_mag = trans_mag
+    │   ├── impls self.method = method
+    │   └── impls self.num_axis = num_axis
     ├── def __call__(self, src_pc: PointCloud, tgt_pc: PointCloud, transform: torch.Tensor, seed: Optional[Any] = None) -> Tuple[PointCloud, PointCloud, torch.Tensor]
     │   ├── # Poses the source cloud and hands back the pair with the ground truth adjusted for that pose.
     │   ├── calls self._get_generator(g_type='torch', seed=seed)

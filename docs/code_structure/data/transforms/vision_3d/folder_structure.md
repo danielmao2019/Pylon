@@ -16,7 +16,6 @@ data/transforms/vision_3d/
 ├── scale.py
 ├── shuffle.py
 ├── uniform_pos_noise.py
-├── lidar_simulation_crop/
 └── pclod/
 ```
 

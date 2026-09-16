@@ -15,10 +15,10 @@ from typing import Dict
 
 import torch
 
-import utils
 from agents.manager.training_job import TrainingJob
 from configs.examples.linear.config import config as base_config
 from runners.trainers.supervised_single_task_trainer import SupervisedSingleTaskTrainer
+from utils.determinism import set_seed
 from utils.ops import buffer_allclose
 
 def _prepare_workspace(base: Path) -> Dict[str, str]:
@@ -79,7 +79,7 @@ def train_until_epoch(config: dict, start_epoch: int, end_epoch: int) -> None:
     for idx in range(start_epoch, end_epoch):
         if stop_training.is_set():
             break
-        utils.determinism.set_seed(seed=trainer.train_seeds[idx])
+        set_seed(seed=trainer.train_seeds[idx])
         trainer._train_epoch_()
         trainer._val_epoch_()
         trainer.logger.page_break()

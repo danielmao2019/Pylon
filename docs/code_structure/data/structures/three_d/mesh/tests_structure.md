@@ -6,10 +6,15 @@
 
 ```text
 test_convert.py
+├── from pathlib import Path
+├── import numpy as np
+├── import torch
+├── from PIL import Image
+├── from data.structures.three_d.mesh import Mesh, MeshTextureUVTextureMap, MeshTextureVertexColor
 ├── from data.structures.three_d.mesh.convert import mesh_from_open3d, mesh_from_pytorch3d, mesh_from_trimesh, mesh_to_open3d, mesh_to_pytorch3d, mesh_to_trimesh
-├── from data.structures.three_d.mesh.mesh import Mesh
 ├── def test_mesh_from_trimesh_welds_seam_to_geometry_domain
 │   ├── # A seamed UV mesh that trimesh loads in per-corner-expanded form (V == U) must come through mesh_from_trimesh on the canonical geometry domain (V <= U, distinct positions), with the seam carried only by verts_uvs / faces_uvs.
+│   ├── calls _write_seamed_uv_obj(directory=tmp_path)
 │   ├── calls mesh_from_trimesh
 │   ├── impls assert len(mesh.verts) < len(mesh.texture.verts_uvs) for the per-corner-expanded seamed input
 │   ├── impls assert every verts row holds a distinct position
@@ -18,6 +23,7 @@ test_convert.py
 │   └── return
 ├── def test_vertex_count_is_loader_independent
 │   ├── # For one OBJ asset, len(mesh.verts) must be identical whether the mesh is loaded via Mesh.load (PyTorch3D) or via mesh_from_trimesh, since both land on the canonical geometry domain.
+│   ├── calls _write_seamed_uv_obj(directory=tmp_path)
 │   ├── calls Mesh.load
 │   ├── impls trimesh_source = the same OBJ asset loaded through trimesh
 │   ├── calls mesh_from_trimesh
@@ -25,6 +31,7 @@ test_convert.py
 │   └── return
 ├── def test_trimesh_uv_round_trip_preserves_geometry
 │   ├── # mesh_to_trimesh then mesh_from_trimesh must preserve geometry, UV, and texture (expand then weld is identity on the geometry domain).
+│   ├── calls _build_uv_textured_mesh
 │   ├── calls mesh_to_trimesh
 │   ├── calls mesh_from_trimesh
 │   ├── impls assert the round-tripped verts and faces equal the source mesh's             # impls-node-one-step:skip
@@ -39,13 +46,33 @@ test_convert.py
 │   │   ├── impls assert the round-tripped verts and faces equal that source mesh's  # impls-node-one-step:skip
 │   │   └── impls assert the round-tripped texture tensors equal that source texture's
 │   └── return
-└── def test_open3d_round_trip_preserves_vertex_color
-    ├── # mesh_to_open3d then mesh_from_open3d must preserve geometry and vertex colors (the Open3D path carries vertex-color texture only).
-    ├── calls mesh_to_open3d
-    ├── calls mesh_from_open3d
-    ├── impls assert the round-tripped verts and faces equal the source mesh's  # impls-node-one-step:skip
-    ├── impls assert the round-tripped vertex_color equals the source vertex color
-    └── return
+├── def test_open3d_round_trip_preserves_vertex_color
+│   ├── # mesh_to_open3d then mesh_from_open3d must preserve geometry and vertex colors (the Open3D path carries vertex-color texture only).
+│   ├── calls _build_vertex_color_mesh
+│   ├── calls mesh_to_open3d
+│   ├── calls mesh_from_open3d
+│   ├── impls assert the round-tripped verts and faces equal the source mesh's  # impls-node-one-step:skip
+│   ├── impls assert the round-tripped vertex_color equals the source vertex color
+│   └── return
+├── def _write_seamed_uv_obj(directory: Path) -> Path
+│   ├── # Writes the one seamed UV asset the loader tests read.
+│   ├── impls obj_path = the seam.obj path under directory
+│   ├── impls mtl_path = the seam.mtl path under directory
+│   ├── impls texture_path = the seam_texture.png path under directory
+│   ├── impls write obj_path as utf-8 text holding mtllib seam.mtl, usemtl material0, a unit square's four positions and six vt rows, and two faces indexing them  # impls-node-one-step:skip — one write; the shared diagonal's split vt is the seam
+│   ├── impls write mtl_path as utf-8 text holding material0 with seam_texture.png as its map_Kd
+│   ├── impls save an image of a [4, 4, 3] uint8 array of a single grey value to texture_path
+│   └── return obj_path
+├── def _build_vertex_color_mesh() -> Mesh
+│   ├── # Builds the one vertex-colored mesh the Open3D and PyTorch3D round-trip tests carry.
+│   ├── calls MeshTextureVertexColor(vertex_color=a [3, 3] float32 colour per corner)
+│   ├── calls Mesh(verts=the three float32 triangle corners, faces=that one int64 triangle, texture=the texture it built)
+│   └── return  # that mesh
+└── def _build_uv_textured_mesh() -> Mesh
+    ├── # Builds the one UV-textured mesh the PyTorch3D and trimesh round-trip tests carry, already on the geometry domain.
+    ├── calls MeshTextureUVTextureMap(uv_texture_map=a [2, 2, 3] float32 map, verts_uvs=one UV per corner, faces_uvs=one int64 face over those UVs, uv_convention="obj")
+    ├── calls Mesh(verts=the three float32 triangle corners, faces=that one int64 triangle, texture=the texture it built)
+    └── return  # that mesh, its UV rows one per geometry vert, which is the canonical geometry domain
 ```
 
 `tests/data/structures/three_d/mesh/texture/test_conventions.py`
@@ -138,11 +165,13 @@ test_mesh_texture_uv_texture_map.py
 
 ```text
 test_texel_face_map.py
+├── import torch
 ├── from data.structures.three_d.mesh.mesh import Mesh
 ├── from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import MeshTextureUVTextureMap
 ├── from data.structures.three_d.mesh.texture.texel_face_map import build_texel_face_map
 ├── def test_build_texel_face_map_returns_texel_face_index_and_barycentric
 │   ├── # build_texel_face_map returns texel_face_index [T, T] int64 and texel_face_barycentric [T, T, 3] float32 with the expected shapes and -1 / NaN sentinels at unoccupied texels.
+│   ├── calls _build_identity_uv_mesh
 │   ├── calls build_texel_face_map
 │   ├── impls assert texel_face_index is [T, T] int64
 │   ├── impls assert texel_face_barycentric is [T, T, 3] float32
@@ -150,8 +179,7 @@ test_texel_face_map.py
 │   └── return
 ├── def test_build_texel_face_map_maps_identity_face_to_top_row
 │   ├── # On one identity-UV face with small-v corners, the returned texel_face_index assigns face 0 to the top texel rows (top_left v-convention is the rasterizer-buffer mapping).
-│   ├── calls MeshTextureUVTextureMap(verts_uvs=one identity-UV face's small-v corners, faces_uvs=that one face)
-│   ├── calls Mesh
+│   ├── calls _build_identity_uv_mesh
 │   ├── calls build_texel_face_map
 │   ├── impls assert the texels assigned to face 0 all lie in the top rows of texel_face_index
 │   └── return
@@ -161,12 +189,18 @@ test_texel_face_map.py
 │   ├── impls assert the u-near-1 texel columns are assigned to face 0
 │   ├── impls assert the u-near-0 texel columns are assigned to face 0
 │   └── return
-└── def test_build_texel_face_map_barycentric_recovers_face_vertex_attributes
-    ├── # barycentric-interpolating the owning face's three corner UVs recovers each occupied texel's own center UV within numerical tolerance, catching corner-permuted barycentric weights.
-    ├── calls build_texel_face_map
-    ├── impls interpolated_uv = the owning face's corner UVs weighted by texel_face_barycentric, summed over the corner axis
-    ├── impls assert interpolated_uv matches each occupied texel's own center UV within tolerance
-    └── return
+├── def test_build_texel_face_map_barycentric_recovers_face_vertex_attributes
+│   ├── # barycentric-interpolating the owning face's three corner UVs recovers each occupied texel's own center UV within numerical tolerance, catching corner-permuted barycentric weights.
+│   ├── calls _build_identity_uv_mesh
+│   ├── calls build_texel_face_map
+│   ├── impls interpolated_uv = the owning face's corner UVs weighted by texel_face_barycentric, summed over the corner axis
+│   ├── impls assert interpolated_uv matches each occupied texel's own center UV within tolerance
+│   └── return
+└── def _build_identity_uv_mesh() -> Mesh
+    ├── # Builds the one identity-UV single-face mesh three of these tests rasterize, its face wholly inside the unit UV square.
+    ├── calls MeshTextureUVTextureMap(uv_texture_map=a [1, 1, 3] float32 zero map on the cuda device this module rasterizes on, verts_uvs=the corners' own small-v UVs on it, faces_uvs=one int64 face over those UVs on it, uv_convention="obj")
+    ├── calls Mesh(verts=the three float32 triangle corners on that device, faces=that one int64 triangle on it, texture=the texture it built)
+    └── return  # that mesh, its one face small enough to leave texels unoccupied for the sentinel checks
 ```
 
 `tests/data/structures/three_d/mesh/test_load_save_roundtrip.py`

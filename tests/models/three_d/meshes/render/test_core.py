@@ -340,7 +340,9 @@ def test_what_the_mesh_occupies_is_what_the_render_covers() -> None:
 
 
 @_REQUIRES_CUDA
-def test_the_rgb_renders_mask_uses_rasterization_face_indices() -> None:
+def test_the_rgb_renders_mask_is_read_off_the_rasterization_rather_than_the_shaded_image() -> (
+    None
+):
     """The returned RGB mask is driven by face indices, not shaded color.
 
     Args:
@@ -376,7 +378,7 @@ def test_the_rgb_renders_mask_uses_rasterization_face_indices() -> None:
     )
 
 
-def test_both_camera_models_build_their_own_pytorch3d_camera(
+def test_both_camera_models_are_rendered_rather_than_one_falling_through(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Pinhole and orthographic repo cameras select distinct PyTorch3D cameras.
@@ -493,7 +495,7 @@ def test_the_camera_reaches_pytorch3d_in_pytorch3ds_own_frames() -> None:
 
 
 @_REQUIRES_CUDA
-def test_a_render_uses_the_cameras_own_resolution_by_default() -> None:
+def test_a_render_that_names_no_resolution_renders_the_cameras_own() -> None:
     """The camera's intrinsic resolution is used when no raster is named.
 
     Args:

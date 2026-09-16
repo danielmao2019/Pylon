@@ -7,25 +7,39 @@
 ```text
 test_apply_transform.py
 ├── import pytest
+├── import torch
 ├── from data.structures.three_d.mesh.mesh import Mesh
+├── from data.structures.three_d.mesh.texture.mesh_texture_vertex_color import MeshTextureVertexColor
 ├── from models.three_d.meshes.ops.apply_transform import apply_transform
 ├── def test_verts_match_reference_matmul
 │   ├── # transformed verts equal a direct homogeneous matmul of mesh.verts by the transform.
-│   ├── calls Mesh  # a hand-built mesh with known verts, faces and texture
+│   ├── calls _make_mesh
+│   ├── calls _make_transform
 │   ├── impls expected = mesh.verts made homogeneous, multiplied by the transform's transpose, with the homogeneous column dropped
-│   ├── calls apply_transform(mesh=mesh, transform=a [4, 4] matrix mixing rotation, scale and translation)
+│   ├── calls apply_transform(mesh=mesh, transform=transform)
 │   └── impls assert the returned mesh's verts equal expected
 ├── def test_faces_and_texture_preserved
 │   ├── # the returned Mesh keeps the original faces and texture unchanged.
-│   ├── calls Mesh
-│   ├── calls apply_transform(mesh=mesh, transform=a [4, 4] matrix mixing rotation, scale and translation)
+│   ├── calls _make_mesh
+│   ├── calls _make_transform
+│   ├── calls apply_transform(mesh=mesh, transform=transform)
 │   ├── impls assert the returned mesh's faces equal the input mesh's faces
 │   └── impls assert the returned mesh's texture is the input mesh's texture
-└── def test_rejects_non_4x4_transform
-    ├── # a transform that is not a [4, 4] matrix raises an assertion.
-    ├── calls Mesh
-    └── with pytest.raises(AssertionError)
-        └── calls apply_transform(mesh=mesh, transform=a [3, 3] matrix)
+├── def test_rejects_non_4x4_transform
+│   ├── # a transform that is not a [4, 4] matrix raises an assertion.
+│   ├── calls _make_mesh
+│   └── with pytest.raises(AssertionError)
+│       └── calls apply_transform(mesh=mesh, transform=a [3, 3] matrix)
+├── def _make_mesh() -> Mesh
+│   ├── # Builds the one small textured mesh every test in this module hands to apply_transform.
+│   ├── impls verts = the four float32 tetrahedron corners
+│   ├── impls faces = the two int64 triangles over those corners
+│   ├── calls MeshTextureVertexColor(vertex_color=a [4, 3] float32 colour per corner)  # -> texture
+│   ├── calls Mesh(verts=verts, faces=faces, texture=texture)
+│   └── return  # that mesh, coloured per vertex so a test can watch the texture come through untouched
+└── def _make_transform() -> torch.Tensor
+    ├── # Builds the one transform the matmul and preservation tests apply, so every component of the op is exercised.
+    └── return  # the float32 [4, 4] affine matrix carrying a rotation, a scale and a translation, with the homogeneous bottom row
 ```
 
 `tests/models/three_d/meshes/ops/test_normals.py`

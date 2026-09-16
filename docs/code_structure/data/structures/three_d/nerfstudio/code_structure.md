@@ -10,19 +10,55 @@ convert.py
 ├── from typing import Dict
 ├── import numpy as np
 ├── import torch
+├── from data.structures.three_d.camera.extrinsics.rotation.quaternion import rotmat2qvec
 ├── from data.structures.three_d.colmap.colmap_data import COLMAP_Data
-├── from data.structures.three_d.colmap.load import ColmapPoint3D
+├── from data.structures.three_d.colmap.load import ColmapCamera, ColmapImage, ColmapPoint3D
 ├── from data.structures.three_d.nerfstudio.nerfstudio_data import NerfStudio_Data
 ├── from data.structures.three_d.point_cloud.io.load_point_cloud import load_point_cloud
 ├── from data.structures.three_d.point_cloud.point_cloud import PointCloud
 ├── def convert_nerfstudio_to_colmap(transforms: NerfStudio_Data, point_cloud_path: str | Path) -> COLMAP_Data
 │   ├── # Rewrites one NerfStudio capture as the COLMAP record of the same scene.
-│   ├── impls colmap_cameras = the camera record the sibling builder makes
-│   ├── impls colmap_images = the image record the sibling builder makes from it
+│   ├── calls _build_colmap_cameras(transforms=transforms)                                # -> colmap_cameras
+│   ├── calls _build_colmap_images(transforms=transforms, colmap_cameras=colmap_cameras)  # -> colmap_images
 │   ├── calls _build_colmap_points(point_cloud_path=point_cloud_path)
 │   ├── impls points3d = the point record it built
 │   ├── calls COLMAP_Data(cameras=colmap_cameras, images=colmap_images, points3D=points3d)
 │   └── return  # the record it built
+├── def _build_colmap_cameras(transforms: NerfStudio_Data) -> Dict[int, ColmapCamera]
+│   ├── # Builds the single shared COLMAP camera the capture's one top-level intrinsic block names.
+│   ├── assert the class name of transforms is NerfStudio_Data                                        # f"{type(transforms)=}"
+│   ├── assert the class of transforms comes from data.structures.three_d.nerfstudio.nerfstudio_data  # f"{type(transforms)=}"
+│   ├── impls width = the second entry of transforms.resolution
+│   ├── impls height = the first entry of transforms.resolution  # transforms.resolution is ordered h first
+│   ├── impls focal_x = the fl_x of transforms.intrinsic_params
+│   ├── impls focal_y = the fl_y of transforms.intrinsic_params
+│   ├── impls center_x = the cx of transforms.intrinsic_params
+│   ├── impls center_y = the cy of transforms.intrinsic_params
+│   ├── impls camera_model = transforms.camera_model
+│   ├── assert width and height are both positive  # f"Camera dimensions must be positive, got width={width} height={height}"
+│   ├── assert camera_model == "OPENCV"            # f"Unsupported camera model for COLMAP export: {camera_model}"
+│   ├── impls params = the float32 array of focal_x, focal_y, center_x, center_y followed by four zeroed distortion terms
+│   ├── calls ColmapCamera(id=1, model="OPENCV", width=width, height=height, params=params)  # -> colmap_camera
+│   ├── impls key colmap_camera by its own id  # the whole capture shares the one camera
+│   └── return  # that one-entry mapping
+├── def _build_colmap_images(transforms: NerfStudio_Data, colmap_cameras: Dict[int, ColmapCamera]) -> Dict[int, ColmapImage]
+│   ├── # Builds one COLMAP image record per posed frame of the capture, against the single camera they all share.
+│   ├── assert the class name of transforms is NerfStudio_Data                                        # f"{type(transforms)=}"
+│   ├── assert the class of transforms comes from data.structures.three_d.nerfstudio.nerfstudio_data  # f"{type(transforms)=}"
+│   ├── assert colmap_cameras is a dict                 # f"{type(colmap_cameras)=}"
+│   ├── assert colmap_cameras holds exactly one camera  # f"Expected exactly one COLMAP camera, got {len(colmap_cameras)}"
+│   ├── impls colmap_camera = the one camera colmap_cameras holds
+│   ├── impls images = an empty Dict[int, ColmapImage]
+│   ├── for each image_id, filename, camera over transforms.filenames zipped strictly with transforms.cameras, numbered from one
+│   │   ├── assert camera.name is not None                                         # "Camera name required for COLMAP export"
+│   │   ├── assert camera.name == filename                                         # f"{camera.name=} {filename=}"
+│   │   ├── calls camera.to(device=torch.device("cpu"), extr_convention="opencv")  # -> camera_opencv
+│   │   ├── impls world_to_camera = the w2c matrix of camera_opencv as a numpy array
+│   │   ├── impls rotation = the top-left 3x3 block of world_to_camera
+│   │   ├── impls translation = the translation column of world_to_camera
+│   │   ├── calls rotmat2qvec(rotation)  # -> qvec
+│   │   └── calls ColmapImage(id=image_id, qvec=qvec, tvec=translation, camera_id=colmap_camera.id, name=f"{filename}.png", xys=an empty float32 [0, 2] array, point3D_ids=an empty int64 array)  # -> images[image_id]
+│   └── return images
 └── def _build_colmap_points(point_cloud_path: Path) -> Dict[int, ColmapPoint3D]
     ├── # Builds one COLMAP point per point of the cloud a NerfStudio capture ships beside its frames.
     ├── calls load_point_cloud(filepath=str(point_cloud_path), device='cpu', dtype=torch.float32)
