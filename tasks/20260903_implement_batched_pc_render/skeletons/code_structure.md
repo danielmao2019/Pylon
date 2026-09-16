@@ -16,7 +16,7 @@ scene_rendering.py
 ├── from models.three_d.point_cloud.render.render_normal import render_normal_from_point_cloud_2d, render_normal_from_point_cloud_3d
 ├── from models.three_d.point_cloud.render.render_rgb import render_rgb_from_point_cloud
 ├── from models.three_d.point_cloud.render.render_segmentation import render_segmentation_from_point_cloud
-├── RENDERERS  # Tuple[str, ...] = ("depth", "rgb", "segmentation", "normal_3d", "normal_2d"), every public point-cloud entry main and this branch both carry
+├── RENDERERS  # Tuple[str, ...] = ("depth", "rgb", "segmentation", "normal_3d", "normal_2d"), every point-cloud entry main and this branch both carry that takes return_mask and point_size
 ├── POINT_SIZES  # Tuple[float, ...] = (1.0, 2.0, 3.0, 5.0), odd and even so both kernel shapes are reached
 ├── RETURN_MASK_OPTIONS  # Tuple[bool, ...] = (False, True)
 ├── DEVICES  # Tuple[torch.device, ...] = cpu, followed by cuda:0 when cuda is available; the indexed spelling, since main's Camera compares a bare cuda unequal to its components' cuda:0
@@ -238,11 +238,12 @@ prove_equivalence.py
 │   ├── impls reference_points, reference_indices = reference as cpu tensors  # the single camera's survivors and the points they are
 │   ├── impls reference_valid = a mask over the slice's point axis, True at reference_indices
 │   ├── impls magnitude = the larger of the norm of camera's centre and the largest coordinate magnitude in pc  # the size of the numbers the world-to-camera transform rounds
-│   ├── impls tolerance = per point either side keeps, a few units in the last place of the points' dtype times magnitude, times camera's fx over its depth for x and fy over its depth for y  # the projection multiplies camera-frame rounding by focal length over depth
+│   ├── calls camera.scale_intrinsics(resolution=resolution)  # -> render_camera, whose focal lengths are the ones the preparation projects with at resolution
+│   ├── impls tolerance = per point either side keeps, a few units in the last place of the points' dtype times magnitude, times render_camera's fx over its depth for x and render_camera's fy over its depth for y  # the projection multiplies camera-frame rounding by focal length over depth
 │   ├── impls kept = valid & reference_valid
 │   ├── impls points_close = every kept point's (x, y, depth) agrees with the reference row of that same point within tolerance  # a point either side culls lands on no pixel, so its coordinates carry nothing to compare
 │   ├── impls flipped = the points where valid and reference_valid differ
-│   ├── impls flips_explained = every flipped point lies within tolerance of the cull boundary it crossed, a depth of zero or an image edge of resolution, read off whichever side kept it
+│   ├── impls flips_explained = every flipped point lies within tolerance of some cull boundary, a depth of zero or an image edge of resolution, read off whichever side kept it  # the side that culled it keeps no row, so which boundary it crossed is not on record
 │   ├── calls compare_exactly(output=the rows valid keeps with their point indices, reference=reference)  # -> exact, so the report shows how often rounding moved anything at all
 │   └── return  # {"equal": points_close and flips_explained, "exact": exact["equal"], "flipped_points": the count flipped marks, "max_abs_diff": exact["max_abs_diff"]}
 ├── def compare_exactly(output: Union[torch.Tensor, Tuple[torch.Tensor, ...]], reference: Union[torch.Tensor, Tuple[torch.Tensor, ...]]) -> Dict[str, Any]
