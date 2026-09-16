@@ -67,6 +67,9 @@ types.ts
 trackball_camera_controls.py
 ├── import base64
 ├── import json
+├── import math
+├── from pathlib import Path
+├── from typing import Any, Dict, Optional, Tuple, Union
 ├── from uuid import uuid4
 ├── from dash import ALL, Input, clientside_callback
 ├── PLOTLY_POSE_CLAMPING_DRAGMODE = "turntable"  # Plotly gl3d dragmode that pins camera.up onto world +Z, and the one a scene naming no dragmode runs
@@ -74,12 +77,12 @@ trackball_camera_controls.py
 ├── PLOTLY_DATA_PROPORTION_ASPECTMODE = "data"   # Plotly gl3d aspectmode that draws every axis at its data's own proportions, so a world direction keeps its angles in the scene's normalized space
 ├── ROLL_LOCKED_GRAPH_ID_TYPE = "dash-roll-locked-graph"  # type of the pattern-matching component id a roll-locked Plotly gl3d display's dcc.Graph carries, the key the roll-lock callback matches it on
 ├── ROLL_LOCK_CALLBACK_SCRIPT                    # text of roll_lock.js beside this module, the clientside roll-lock source this module registers
-├── def create_dash_trackball_camera_controls(renderer_controls=None, lock_roll=None)  # renderer_controls: a renderer's own camera-control JavaScript source, or None for a Plotly gl3d display, whose trackball is Plotly's own; lock_roll: a non-zero (x, y, z) world-space axis of any length, or None for the free trackball
+├── def create_dash_trackball_camera_controls(renderer_controls: Optional[str] = None, lock_roll: Optional[Tuple[float, float, float]] = None) -> Union[str, Dict[str, Any]]  # renderer_controls: a renderer's own camera-control JavaScript source, or None for a Plotly gl3d display, whose trackball is Plotly's own; lock_roll: a non-zero (x, y, z) world-space axis of any length, or None for the free trackball
 │   ├── # Builds and validates the Dash trackball controls that every 3D Dash spatial display must use.
 │   ├── calls create_dash_renderer_trackball_camera_controls(renderer_controls=renderer_controls, lock_roll=lock_roll)
 │   ├── calls assert_dash_trackball_camera_controls(controls=controls, lock_roll=lock_roll)
 │   └── return controls
-├── def create_dash_renderer_trackball_camera_controls(renderer_controls, lock_roll)
+├── def create_dash_renderer_trackball_camera_controls(renderer_controls: Optional[str], lock_roll: Optional[Tuple[float, float, float]]) -> Union[str, Dict[str, Any]]
 │   ├── # Constructs the Dash renderer-specific trackball controls wiring left-drag rotate, right-drag pan, wheel zoom, and context-menu suppression.
 │   ├── if renderer_controls is not None
 │   │   └── return renderer_controls  # exactly as they arrived, so a display handing over its own source renders what it rendered before lock_roll existed
@@ -90,55 +93,44 @@ trackball_camera_controls.py
 │   │   ├── impls plotly_controls["scene"]["camera"] = {"up": {"x": axis[0], "y": axis[1], "z": axis[2]}}
 │   │   └── impls plotly_controls["graph_id"] = {"type": ROLL_LOCKED_GRAPH_ID_TYPE, "index": uuid4().hex, "lock_roll": base64.b64encode(json.dumps(axis).encode()).decode()}  # index keeps two roll-locked graphs on one page apart; lock_roll hands the callback this graph's axis, base64 so no id value holds a "." Dash escapes in output ids
 │   └── return plotly_controls
-├── def assert_dash_trackball_camera_controls(controls, lock_roll=None)
+├── def assert_dash_trackball_camera_controls(controls: Union[str, Dict[str, Any]], lock_roll: Optional[Tuple[float, float, float]] = None) -> None
 │   ├── # Validates the constructed Dash controls satisfy every trackball contract by running the mouse-mapping, no-orbit, no-pose-clamp, and roll-lock assertions.
 │   ├── calls assert_dash_trackball_mouse_mapping(controls=controls)
 │   ├── calls assert_dash_no_orbit_camera_controls(controls=controls)
 │   ├── calls assert_dash_no_camera_pose_clamps(controls=controls, lock_roll=lock_roll)
 │   ├── calls assert_dash_roll_lock(controls=controls, lock_roll=lock_roll)
 │   └── return
-├── def assert_dash_trackball_mouse_mapping(controls)
+├── def assert_dash_trackball_mouse_mapping(controls: Union[str, Dict[str, Any]]) -> None
 │   ├── # Asserts the Dash controls map left-drag to rotate, right-drag to pan, and wheel to zoom, and that the canvas suppresses its context menu.
 │   ├── if controls are Plotly gl3d controls
-│   │   ├── if their scene configuration names a dragmode other than PLOTLY_FREE_ROLL_DRAGMODE or PLOTLY_POSE_CLAMPING_DRAGMODE
-│   │   │   └── raise invalid trackball camera controls  # Plotly wires the three-button mapping and suppresses the context menu natively only under a rotation dragmode
+│   │   ├── assert their scene configuration names no dragmode other than PLOTLY_FREE_ROLL_DRAGMODE or PLOTLY_POSE_CLAMPING_DRAGMODE, "invalid trackball camera controls ..."  # Plotly wires the three-button mapping and suppresses the context menu natively only under a rotation dragmode
 │   │   └── return
-│   ├── if controls do not map left-button drag to rotation, right-button drag to panning, and mouse-wheel scroll to zoom
-│   │   └── raise invalid trackball camera controls
-│   ├── if viewer canvas does not suppress the default browser context menu
-│   │   └── raise context menu blocks trackball panning
+│   ├── assert controls map left-button drag to rotation, right-button drag to panning, and mouse-wheel scroll to zoom, "invalid trackball camera controls ..."
+│   ├── assert viewer canvas suppresses the default browser context menu, "context menu blocks trackball panning ..."
 │   └── return
-├── def assert_dash_no_orbit_camera_controls(controls)
+├── def assert_dash_no_orbit_camera_controls(controls: Union[str, Dict[str, Any]]) -> None
 │   ├── # Asserts the Dash controls do not use forbidden orbit-style target-locked camera semantics.
-│   ├── if controls use orbit-style target-locked camera semantics  # three's OrbitControls in a renderer source, a pinned camera.center in a Plotly scene configuration
-│   │   └── raise orbit-style camera controls are forbidden
+│   ├── assert controls use no orbit-style target-locked camera semantics, "orbit-style camera controls are forbidden ..."  # three's OrbitControls in a renderer source, a pinned camera.center in a Plotly scene configuration
 │   └── return
-├── def assert_dash_no_camera_pose_clamps(controls, lock_roll=None)
+├── def assert_dash_no_camera_pose_clamps(controls: Union[str, Dict[str, Any]], lock_roll: Optional[Tuple[float, float, float]] = None) -> None
 │   ├── # Asserts the Dash controls impose no camera-pose restriction on polar angle, azimuth angle, target lock, distance, pan, translation, or rotation beyond the polar band a roll lock costs.
-│   ├── if controls are Plotly gl3d controls whose scene configuration runs PLOTLY_POSE_CLAMPING_DRAGMODE, by name or by naming no dragmode
-│   │   └── raise restricted camera pose controls
-│   ├── if controls restrict azimuth angle, target lock, distance bounds, pan, or translation
-│   │   └── raise restricted camera pose controls
-│   ├── if lock_roll is None and controls restrict polar angle or rotation
-│   │   └── raise restricted camera pose controls
-│   ├── if lock_roll is not None and controls restrict rotation
-│   │   └── raise roll lock must cost only the roll axis and the polar extremes
+│   ├── assert controls are not Plotly gl3d controls whose scene configuration runs PLOTLY_POSE_CLAMPING_DRAGMODE, by name or by naming no dragmode, "restricted camera pose controls ..."
+│   ├── assert controls are Plotly gl3d controls or a renderer source restricting no azimuth angle, target lock, distance bounds, pan, or translation, "restricted camera pose controls ..."
+│   ├── assert lock_roll is not None or controls are Plotly gl3d controls or a renderer source restricting neither polar angle nor rotation, "restricted camera pose controls ..."
+│   ├── assert lock_roll is None or controls are Plotly gl3d controls or a renderer source not restricting rotation, "roll lock must cost only the roll axis and the polar extremes ..."
 │   └── return
-├── def assert_dash_roll_lock(controls, lock_roll=None)
+├── def assert_dash_roll_lock(controls: Union[str, Dict[str, Any]], lock_roll: Optional[Tuple[float, float, float]] = None) -> None
 │   ├── # Asserts roll is held about lock_roll when one is supplied and left free when none is, this module owning no axis of its own.
-│   ├── if lock_roll is not None and controls let the camera right axis tilt away from perpendicular to lock_roll
-│   │   └── raise roll-locked camera controls must keep the camera right axis perpendicular to the supplied axis
-│   ├── if lock_roll is not None and controls let the camera up vector cross to the far side of lock_roll
-│   │   └── raise roll-locked camera controls must keep the camera up vector on the supplied axis's side
+│   ├── assert lock_roll is None or controls hold the camera right axis perpendicular to lock_roll, "roll-locked camera controls must keep the camera right axis perpendicular to the supplied axis ..."
+│   ├── assert lock_roll is None or controls hold the camera up vector on lock_roll's side, "roll-locked camera controls must keep the camera up vector on the supplied axis's side ..."
 │   ├── if lock_roll is not None and controls are Plotly gl3d controls
-│   │   ├── if their scene's aspectmode is not PLOTLY_DATA_PROPORTION_ASPECTMODE
-│   │   │   └── raise roll-locked Plotly controls must draw the scene at its data's own proportions
-│   │   ├── if their graph_id is not a ROLL_LOCKED_GRAPH_ID_TYPE id whose lock_roll, decoded base64 then JSON, is lock_roll normalized
-│   │   │   └── raise roll-locked Plotly controls must carry the graph id the roll-lock callback matches, with the supplied axis
+│   │   ├── assert their scene's aspectmode is PLOTLY_DATA_PROPORTION_ASPECTMODE, "roll-locked Plotly controls must draw the scene at its data's own proportions ..."
+│   │   ├── assert their graph_id is a ROLL_LOCKED_GRAPH_ID_TYPE id carrying exactly type, a str index and a str lock_roll, "roll-locked Plotly controls must carry the graph id the roll-lock callback matches, with the supplied axis ..."
+│   │   ├── impls graph_axis = their graph_id's lock_roll, decoded base64 then JSON
+│   │   ├── assert graph_axis is lock_roll normalized, three floats each within 1e-9, "roll-locked Plotly controls must carry the graph id the roll-lock callback matches, with the supplied axis ..."
 │   │   ├── calls assert_dash_roll_lock(controls=ROLL_LOCK_CALLBACK_SCRIPT, lock_roll=lock_roll)  # the callback that id is matched by holds the lock only as far as its own source does
 │   │   └── return
-│   ├── if lock_roll is None and controls constrain the camera right axis against any axis  # a pinned camera.up or a roll-locked graph_id in Plotly controls, the roll-lock vocabulary in a renderer source
-│   │   └── raise free trackball camera controls must leave camera roll unconstrained
+│   ├── assert lock_roll is not None or controls constrain the camera right axis against no axis, "free trackball camera controls must leave camera roll unconstrained ..."  # a pinned camera.up or a roll-locked graph_id in Plotly controls, the roll-lock vocabulary in a renderer source
 │   └── return
 └── impls clientside_callback(ROLL_LOCK_CALLBACK_SCRIPT, Input({"type": ROLL_LOCKED_GRAPH_ID_TYPE, "index": ALL, "lock_roll": ALL}, "relayoutData"))  # module-load registration of the one roll-lock callback, ahead of every Dash app's server setup, so a roll-locked graph a callback adds after the page loaded is matched like one built into the layout
 ```
@@ -194,8 +186,17 @@ roll_lock.js
     │   ├── function resolveSceneAxis(scene) [local]
     │   │   ├── # Resolves the lock axis in the scene's normalized space, where Plotly draws each world axis scaled by its aspect ratio over its range, so worldAxis stays upright on screen under any aspect.
     │   │   ├── impls sceneScale = for each of x, y and z, that axis's scene.fullSceneLayout.aspectratio over the span of that axis's range, the per-axis scale the scene draws world coordinates at
-    │   │   ├── impls axis = vectorNormalize(worldAxis scaled componentwise by sceneScale)
-    │   │   ├── impls ROLL_LOCK_FALLBACK_MERIDIAN = vectorNormalize(vectorCross(axis, the world basis vector axis leans on least))
+    │   │   ├── calls vectorNormalize(worldAxis scaled componentwise by sceneScale)   → axis
+    │   │   ├── calls vectorCross(axis, Math.abs(axis[0]) <= Math.abs(axis[1]) && Math.abs(axis[0]) <= Math.abs(axis[2]) ? [1, 0, 0] : Math.abs(axis[1]) <= Math.abs(axis[2]) ? [0, 1, 0] : [0, 0, 1])  # the world basis vector axis leans on least
+    │   │   │   ├── if Math.abs(axis[0]) <= Math.abs(axis[1]) && Math.abs(axis[0]) <= Math.abs(axis[2])
+    │   │   │   │   └── impls [1, 0, 0]
+    │   │   │   └── else
+    │   │   │       └── impls Math.abs(axis[1]) <= Math.abs(axis[2]) ? [0, 1, 0] : [0, 0, 1]
+    │   │   │           ├── if Math.abs(axis[1]) <= Math.abs(axis[2])
+    │   │   │           │   └── impls [0, 1, 0]
+    │   │   │           └── else
+    │   │   │               └── impls [0, 0, 1]
+    │   │   ├── calls vectorNormalize(that cross product)   → ROLL_LOCK_FALLBACK_MERIDIAN
     │   │   └── return
     │   ├── function holdRollLock(view) [local]
     │   │   ├── # Holds the lock on one gl3d scene's view controller, once per view controller, since a replotted graph arrives with a view controller of its own.
@@ -208,8 +209,10 @@ roll_lock.js
     │   │   ├── function rollLockedRotate(time, yaw, pitch, roll) [local]  # roll: the pure roll a horizontal wheel scroll hands the rotation, which the lock drops
     │   │   │   ├── # Turns the camera by one drag step, as yaw about axis plus pitch about the camera right axis, written as roll-locked sub-step keyframes.
     │   │   │   ├── impls subStepCount = the fewest sub-steps that keep each one's turn within ROLL_LOCK_SUB_STEP_RADIANS
+    │   │   │   ├── impls startTime = view.lastT(), the time of view's newest keyframe  # read once, since each sub-step's view.lookAt advances it
     │   │   │   ├── for each sub-step, at evenly spaced times from view's newest keyframe to time  # the renderer then only interpolates between locked poses a bounded turn apart
-    │   │   │   │   ├── calls resolveTurnedPose(the eye and center view holds at the sub-step's time, yaw / subStepCount, pitch / subStepCount)
+    │   │   │   │   ├── impls view recalculated at the sub-step's time, and the eye and center it holds there
+    │   │   │   │   ├── calls resolveTurnedPose(that eye, that center, yaw / subStepCount, pitch / subStepCount)
     │   │   │   │   └── impls view.lookAt(the sub-step's time, the turned eye, the center, the turned up)
     │   │   │   └── return
     │   │   ├── impls view.rotate = rollLockedRotate
@@ -221,6 +224,7 @@ roll_lock.js
     │   │   │   ├── impls fills each of eye and center the caller left null from the controller's own pose at time
     │   │   │   ├── calls resolveHeldEye(eye, center, controller, time)   → heldEye
     │   │   │   ├── calls resolveRollLockedPose(heldEye, center)
+    │   │   │   ├── impls keyframeCount = the number of keyframes controller.rotation holds before the write  # a controller without a quaternion rotation holds none
     │   │   │   ├── impls the controller's own lookAt(time, the roll-locked eye, center, the roll-locked up)
     │   │   │   ├── if that write appended a keyframe to the controller's quaternion rotation  # the orbital controller's; the turntable controller keeps angles, which have no second hemisphere
     │   │   │   │   └── calls alignRotationKeyframeHemisphere(controller.rotation)
@@ -268,22 +272,27 @@ roll_lock.js
     │   │   ├── # Resolves the camera one relayout event wrote into graphDiv's layout, or null when it wrote none.
     │   │   ├── if eventData carries scene.camera whole  # a drag, pan or zoom reports the camera it saved, which the full layout may no longer hold
     │   │   │   └── return eventData["scene.camera"]
-    │   │   ├── if eventData writes a scene.camera key path or scene.dragmode  # a key-path write rebuilds the full layout's camera, and a switch to turntable re-seats that camera's up on world +Z
-    │   │   │   └── return graphDiv._fullLayout.scene.camera
+    │   │   ├── for each key eventData writes
+    │   │   │   └── if key is a scene.camera key path or scene.dragmode  # a key-path write rebuilds the full layout's camera, and a switch to turntable re-seats that camera's up on world +Z
+    │   │   │       └── return graphDiv._fullLayout.scene.camera
     │   │   └── return null
-    │   ├── function applyRollLock(graphDiv, camera) [local]  # camera: a Plotly layout camera, its eye, center and up {x, y, z} records
+    │   ├── async function applyRollLock(graphDiv, camera) [local]  # camera: a Plotly layout camera, its eye, center and up {x, y, z} records
     │   │   ├── # Writes the roll-locked pose back to the graph when the camera it reports sits off the lock.
-    │   │   ├── for each of camera.eye, camera.center and camera.up
-    │   │   │   └── calls recordToVector(record)
+    │   │   ├── calls recordToVector(camera.eye)   → eye
+    │   │   ├── calls recordToVector(camera.center)   → center
+    │   │   ├── calls recordToVector(camera.up)   → up
     │   │   ├── calls resolveHeldEye(eye, center, the scene's view, the view's latest keyframe time)   → heldEye
     │   │   ├── calls resolveRollLockedPose(heldEye, center)
+    │   │   ├── calls vectorSubtract(up, the roll-locked up)   → upDistance
+    │   │   ├── calls vectorDot(upDistance, upDistance)
     │   │   ├── if heldEye is the written eye and up already lies within ROLL_LOCK_VIOLATION_EPSILON of the roll-locked up
     │   │   │   └── return
     │   │   ├── if graphDiv's own roll-lock relayout is still in flight
     │   │   │   ├── impls graphDiv.__rollLock.pending = true, so the camera this write leaves is read back once that relayout lands
     │   │   │   └── return
-    │   │   ├── for each of the roll-locked eye and up
-    │   │   │   └── calls vectorToRecord(vector)
+    │   │   ├── impls graphDiv.__rollLock.writing = true, the in-flight flag held until the relayout below resolves
+    │   │   ├── calls vectorToRecord(the roll-locked eye)
+    │   │   ├── calls vectorToRecord(the roll-locked up)
     │   │   ├── impls Plotly.relayout(graphDiv, the roll-locked eye and up records), graphDiv's in-flight flag held until it resolves
     │   │   ├── if graphDiv.__rollLock.pending once that relayout resolves
     │   │   │   ├── impls graphDiv.__rollLock.pending = false
@@ -291,47 +300,80 @@ roll_lock.js
     │   │   └── return
     │   ├── function resolveHeldEye(eye, center, heldPose, time) [local]  # heldPose: the camera controller a write goes into, or the scene's own view
     │   │   ├── # Resolves the eye the lock holds a written camera from, keeping the eye offset heldPose holds at time when the written eye sits on its center and so names no view direction.
+    │   │   ├── calls vectorSubtract(eye, center)   → offset
+    │   │   ├── calls vectorDot(offset, offset)
     │   │   ├── if eye and center do not coincide
     │   │   │   └── return eye
-    │   │   ├── impls heldEye = center plus the eye offset heldPose holds at time
+    │   │   ├── impls heldPose recalculated at time
+    │   │   ├── calls vectorSubtract(the eye heldPose holds, the center heldPose holds)
+    │   │   ├── calls vectorAdd(center, that eye offset)   → heldEye
     │   │   └── return heldEye
     │   ├── function resolveTurnedPose(eye, center, yaw, pitch) [local]
     │   │   ├── # Turns a roll-locked pose by one drag step's yaw about axis and pitch about the camera right axis.
-    │   │   ├── calls resolveBandedOffset(vectorSubtract(eye, center))
-    │   │   ├── calls vectorRotateAboutAxis(bandedOffset, axis, ROLL_LOCK_RADIANS_PER_DRAG_UNIT × yaw)
-    │   │   ├── impls right = vectorNormalize(vectorCross(vectorScale(yawedOffset, −1), axis))
+    │   │   ├── calls vectorSubtract(eye, center)
+    │   │   ├── calls resolveBandedOffset(that eye offset)   → bandedOffset
+    │   │   ├── calls vectorRotateAboutAxis(bandedOffset, axis, ROLL_LOCK_RADIANS_PER_DRAG_UNIT × yaw)   → yawedOffset
+    │   │   ├── calls vectorScale(yawedOffset, −1)
+    │   │   ├── calls vectorCross(that reversed offset, axis)
+    │   │   ├── calls vectorNormalize(that cross product)   → right
+    │   │   ├── calls vectorDot(yawedOffset, axis)
+    │   │   ├── calls vectorDot(yawedOffset, yawedOffset)
+    │   │   ├── impls polarAngle = the angle between yawedOffset and axis, from those two dot products
     │   │   ├── impls pitchAngle = −ROLL_LOCK_RADIANS_PER_DRAG_UNIT × pitch, clamped to the polar band ROLL_LOCK_POLAR_ANGLE_EPSILON short of both poles of axis, so a drag stops at a pole instead of carrying the view through it
-    │   │   ├── calls vectorRotateAboutAxis(yawedOffset, right, pitchAngle)
-    │   │   ├── impls turnedUp = vectorNormalize(vectorCross(right, vectorScale(turnedOffset, −1)))
-    │   │   ├── impls turnedPose = { eye: vectorAdd(center, turnedOffset), up: turnedUp }
+    │   │   ├── calls vectorRotateAboutAxis(yawedOffset, right, pitchAngle)   → turnedOffset
+    │   │   ├── calls vectorScale(turnedOffset, −1)
+    │   │   ├── calls vectorCross(right, that reversed offset)
+    │   │   ├── calls vectorNormalize(that cross product)   → turnedUp
+    │   │   ├── calls vectorAdd(center, turnedOffset)
+    │   │   ├── impls turnedPose = { eye: that sum, up: turnedUp }
     │   │   └── return turnedPose
     │   ├── function resolveRollLockedPose(eye, center) [local]  # eye, center: [x, y, z] arrays
     │   │   ├── # Resolves the pose the lock holds a camera at: its eye where it was written, banded off the poles, and the up vector the view direction from that eye and axis determine, whatever up was written.
-    │   │   ├── calls resolveBandedOffset(vectorSubtract(eye, center))
-    │   │   ├── impls rollLockedEye = vectorAdd(center, bandedOffset)
-    │   │   ├── impls forward = vectorNormalize(vectorSubtract(center, rollLockedEye))
-    │   │   ├── impls right = vectorNormalize(vectorCross(forward, axis)), held perpendicular to axis
-    │   │   ├── impls rollLockedPose = { eye: rollLockedEye, up: vectorNormalize(vectorCross(right, forward)) }
+    │   │   ├── calls vectorSubtract(eye, center)
+    │   │   ├── calls resolveBandedOffset(that eye offset)   → bandedOffset
+    │   │   ├── calls vectorAdd(center, bandedOffset)   → rollLockedEye
+    │   │   ├── calls vectorSubtract(center, rollLockedEye)
+    │   │   ├── calls vectorNormalize(that view offset)   → forward
+    │   │   ├── calls vectorCross(forward, axis)
+    │   │   ├── calls vectorNormalize(that cross product)   → right  # held perpendicular to axis
+    │   │   ├── calls vectorCross(right, forward)
+    │   │   ├── calls vectorNormalize(that cross product)
+    │   │   ├── impls rollLockedPose = { eye: rollLockedEye, up: that unit vector }
     │   │   └── return rollLockedPose
     │   ├── function resolveBandedOffset(offset) [local]
     │   │   ├── # Bands an eye offset's polar angle off axis into [ROLL_LOCK_POLAR_ANGLE_EPSILON, π − ROLL_LOCK_POLAR_ANGLE_EPSILON], rebuilding it at the banded angle on its own meridian.
-    │   │   ├── impls polarAngle = the angle between offset and axis, from vectorDot(offset, axis) over the length of offset
+    │   │   ├── calls vectorDot(offset, offset)
+    │   │   ├── impls radius = the length of offset, the square root of that squared length
+    │   │   ├── calls vectorDot(offset, axis)
+    │   │   ├── impls polarAngle = the angle between offset and axis, from that dot product over radius
     │   │   ├── if polarAngle already lies inside the band
     │   │   │   └── return offset
     │   │   ├── calls resolveMeridian(offset)
     │   │   ├── impls bandedPolarAngle = polarAngle clamped into the band
-    │   │   ├── impls bandedOffset = vectorAdd(vectorScale(axis, |offset|·cos(bandedPolarAngle)), vectorScale(meridian, |offset|·sin(bandedPolarAngle)))
+    │   │   ├── calls vectorScale(axis, radius·cos(bandedPolarAngle))
+    │   │   ├── calls vectorScale(meridian, radius·sin(bandedPolarAngle))
+    │   │   ├── calls vectorAdd(that axial part, that meridian part)   → bandedOffset
     │   │   └── return bandedOffset
     │   ├── function resolveMeridian(offset) [local]
     │   │   ├── # Resolves the meridian an eye offset stands on, as a unit vector perpendicular to axis.
-    │   │   ├── impls meridian = vectorSubtract(offset, vectorScale(axis, vectorDot(offset, axis)))
+    │   │   ├── calls vectorDot(offset, axis)
+    │   │   ├── calls vectorScale(axis, that dot product)
+    │   │   ├── calls vectorSubtract(offset, that axial part)   → meridian
+    │   │   ├── calls vectorDot(meridian, meridian)
     │   │   ├── if meridian has zero length  # an offset on axis stands on every meridian at once
     │   │   │   └── return ROLL_LOCK_FALLBACK_MERIDIAN
     │   │   ├── calls vectorNormalize(meridian)
     │   │   └── return unitMeridian
     │   ├── function vectorRotateAboutAxis(vector, unitAxis, angle) [local]
     │   │   ├── # Rotates a vector about a unit axis by an angle in radians, right-handed, the way a drag's yaw and pitch turn the eye offset.
-    │   │   ├── impls rotated = Rodrigues' rotation of vector about unitAxis by angle, composed from vectorScale, vectorCross, vectorDot and vectorAdd
+    │   │   ├── impls cosine and sine of angle
+    │   │   ├── calls vectorScale(vector, cosine)
+    │   │   ├── calls vectorCross(unitAxis, vector)
+    │   │   ├── calls vectorScale(that cross product, sine)
+    │   │   ├── calls vectorAdd(the scaled vector, the scaled cross product)
+    │   │   ├── calls vectorDot(unitAxis, vector)
+    │   │   ├── calls vectorScale(unitAxis, that dot product × (1 − cosine))
+    │   │   ├── calls vectorAdd(that sum, the scaled unitAxis)   → rotated  # Rodrigues' rotation of vector about unitAxis by angle
     │   │   └── return rotated
     │   ├── function vectorAdd(left, right) [local]
     │   │   ├── # Adds two [x, y, z] arrays.
@@ -355,7 +397,9 @@ roll_lock.js
     │   │   └── return cross
     │   ├── function vectorNormalize(vector) [local]
     │   │   ├── # Scales an [x, y, z] array to unit length.
-    │   │   ├── if vector has zero length  # a camera the polar band does not cover, surfaced rather than handed on as a NaN pose
+    │   │   ├── calls vectorDot(vector, vector)
+    │   │   ├── impls length = the square root of that squared length
+    │   │   ├── if vector's length is zero or NaN  # a camera the polar band does not cover, or a NaN component, surfaced rather than handed on as a NaN pose
     │   │   │   └── throw cannot normalize a zero-length vector
     │   │   ├── impls unit = vector scaled by one over its length
     │   │   └── return unit
