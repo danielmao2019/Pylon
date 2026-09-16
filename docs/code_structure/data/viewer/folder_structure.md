@@ -32,6 +32,19 @@ tests/data/viewer/
 ├── fixtures/         # shared mock-dataset fixtures
 ├── utils/            # viewer-utils tests + per-display-modality test packages mirroring the displays code modules above
 │   └── displays/
+│       ├── conftest.py
+│       ├── depth_display/
+│       ├── edge_display/
+│       ├── image_display/
+│       ├── instance_surrogate_display/
+│       ├── layered_display/
+│       ├── mesh_display/
+│       ├── normal_display/
+│       ├── point_cloud_display/
+│       │   ├── test_dash_points_style_args.py  # Dash point-cloud style-arg tests
+│       │   └── ...  # the other point-cloud display tests
+│       ├── segmentation_display/
+│       ├── test_module_imports.py
 │       └── test_dash_display_camera_controls.py  # Dash display-level roll-lock tests: the free trackball each Plotly display factory renders without lock_roll, and the roll-locked controls it renders when handed one
 └── test_debounce.py  # debounce helper test
 ```
