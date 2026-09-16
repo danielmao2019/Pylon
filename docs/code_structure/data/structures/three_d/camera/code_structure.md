@@ -188,13 +188,13 @@ cameras.py
     │   └── return cameras
     ├── def scale_intrinsics(self, resolution: Optional[Union[int, Tuple[int, int], List[int], np.ndarray, torch.Tensor]] = None, scale: Optional[Union[int, float, Tuple[Union[int, float], Union[int, float]], List[Union[int, float]], np.ndarray, torch.Tensor]] = None) -> "Cameras"
     │   ├── # Return this batch restated against a different resolution, the rescale being elementwise on the [B] params its intrinsics already holds.
-    │   ├── calls self._intrinsics.scale_intrinsics(resolution=resolution, scale=scale)
-    │   ├── impls cameras = Cameras(...)
+    │   ├── calls self._intrinsics.scale_intrinsics(resolution=resolution, scale=scale)  # -> intrinsics
+    │   ├── impls cameras = Cameras(intrinsics=intrinsics, extrinsics=self._extrinsics, names=self._names, ids=self._ids)  # a method constructing its own enclosing class, drawn as impls because no order puts this method above its class
     │   └── return cameras
     ├── def transform_intrinsics(self, transform: torch.Tensor, resolution: Tuple[int, int]) -> "Cameras"
     │   ├── # Return this batch with its intrinsics restated by a pixel-frame affine, broadcast over the batch axis.
-    │   ├── calls self._intrinsics.transform_intrinsics(transform=transform, resolution=resolution)
-    │   ├── impls cameras = Cameras(...)
+    │   ├── calls self._intrinsics.transform_intrinsics(transform=transform, resolution=resolution)  # -> intrinsics
+    │   ├── impls cameras = Cameras(intrinsics=intrinsics, extrinsics=self._extrinsics, names=self._names, ids=self._ids)  # a method constructing its own enclosing class, drawn as impls because no order puts this method above its class
     │   └── return cameras
     ├── def transform_extrinsics(self, scale: Union[int, float, np.ndarray, torch.Tensor], rotation: Union[np.ndarray, torch.Tensor, List[List[Union[int, float]]]], translation: Union[np.ndarray, torch.Tensor, Tuple[Union[int, float], Union[int, float], Union[int, float]], List[Union[int, float]]]) -> "Cameras"
     │   ├── # Return this batch under array-like scale, rotation and translation applied to every pose at once.
