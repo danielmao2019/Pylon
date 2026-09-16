@@ -116,7 +116,7 @@ test_conventions.py
 │   ├── impls assert the source cam2world tensor receives a gradient
 │   └── return
 ├── def test_cameras_device_and_dtype_follow_the_given_placement
-│   ├── # A Cameras takes its device and dtype from the ones it is handed, bringing both components to them, and resolves one left unset only from the single value both components hold.
+│   ├── # A Cameras refuses two components that disagree on device or dtype, brings both to the device and dtype it is handed, and resolves one left unset to the single value both components hold.
 │   ├── calls _build_extrinsics_matrix  # -> matrix
 │   ├── calls _build_pinhole_params  # -> pinhole_params
 │   ├── impls params = an empty dict  # one float32 pinhole param set as [1] columns
@@ -137,10 +137,10 @@ test_conventions.py
 │   │   └── assert dtype == torch.float64  # f"Expected every intrinsics param to be cast to the dtype the batch was handed. {param_dtypes=}"
 │   ├── assert cast.device == torch.device("cpu")  # f"Expected a Cameras handed only a dtype to keep the device both components share. {cast.device=}"
 │   ├── calls CameraExtrinsics(extrinsics=matrix[None], extr_convention="standard", device="cpu", dtype=torch.float64)  # -> float64_extrinsics, disagreeing with the float32 intrinsics
-│   ├── with pytest.raises(AssertionError)  # an unset dtype has no single dtype of both components to resolve to
+│   ├── with pytest.raises(AssertionError)  # one camera's two halves hold one dtype
 │   │   └── calls Cameras(intrinsics=intrinsics, extrinsics=float64_extrinsics)
-│   ├── calls Cameras(intrinsics=intrinsics, extrinsics=float64_extrinsics, dtype=torch.float32)  # -> reconciled
-│   ├── assert reconciled.extrinsics.extrinsics.dtype == reconciled.intrinsics.dtype == torch.float32  # f"Expected components disagreeing on dtype to both follow a given dtype. {reconciled.extrinsics.extrinsics.dtype=} {reconciled.intrinsics.dtype=}"
+│   ├── with pytest.raises(AssertionError)  # a given dtype does not excuse two halves that disagree
+│   │   └── calls Cameras(intrinsics=intrinsics, extrinsics=float64_extrinsics, dtype=torch.float32)
 │   └── if torch.cuda.is_available()
 │       ├── calls Cameras(intrinsics=intrinsics, extrinsics=extrinsics, device="cuda")  # -> moved
 │       ├── impls current_cuda = the cuda device at the index of torch's current cuda device
