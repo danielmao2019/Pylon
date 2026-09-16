@@ -162,7 +162,7 @@ camera_extrinsics.py
 │   │   ├── # The world-to-camera matrix (inverse of extrinsics).
 │   │   ├── impls w2c = the matrix inverse of self._extrinsics
 │   │   └── return w2c
-│   ├── def center(self) -> torch.Tensor  # @property
+│   ├── @property def center(self) -> torch.Tensor
 │   │   ├── # The camera center extrinsics[..., :3, 3], one per camera the matrix carries.
 │   │   └── return self._extrinsics[..., :3, 3]
 │   ├── def right(self) -> torch.Tensor  # @property
