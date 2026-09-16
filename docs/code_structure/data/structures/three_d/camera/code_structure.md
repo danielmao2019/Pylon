@@ -26,10 +26,12 @@ validation.py
     ├── assert isinstance(extrinsics, CameraExtrinsics)
     ├── assert intrinsics.device == extrinsics.device  # one camera's two halves live on one device, whatever device it is then brought to
     ├── assert intrinsics.dtype == extrinsics.dtype  # one camera's two halves hold one dtype, whatever dtype it is then cast to
-    ├── assert name is None or a str
-    ├── assert id is None or an int
-    ├── assert device is None or a valid torch device spec
-    ├── assert dtype is None or a floating torch dtype
+    ├── assert name is None or isinstance(name, str)
+    ├── assert id is None or isinstance(id, int)
+    ├── assert device is None or isinstance(device, (str, torch.device))
+    ├── assert dtype is None or isinstance(dtype, torch.dtype)
+    ├── if dtype is not None
+    │   └── assert dtype is a floating dtype
     └── return
 ```
 
