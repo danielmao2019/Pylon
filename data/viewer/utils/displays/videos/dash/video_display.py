@@ -1,9 +1,11 @@
 """Dash video display API."""
 
+from typing import Optional
+
 from dash import html
 
 
-def create_video_display(src: str | None, title: str) -> html.Div:
+def create_video_display(src: Optional[str], title: str) -> html.Div:
     """Create a Dash video display.
 
     Args:
@@ -18,7 +20,10 @@ def create_video_display(src: str | None, title: str) -> html.Div:
     )
     assert isinstance(title, str), "Title must be a string. title=%r" % title
     if src is None:
-        return html.Div(
+        placeholder = html.Div(
             "Placeholder for missing video.", className="placeholder-surface"
         )
-    return html.Div(html.Video(src=src, controls=True, title=title))
+        return placeholder
+    video = html.Video(src=src, controls=True, title=title)
+    display = html.Div(video)
+    return display
