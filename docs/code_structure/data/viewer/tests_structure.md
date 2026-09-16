@@ -22,11 +22,11 @@ test_dash_display_camera_controls.py
 ├── from data.viewer.utils.displays.mesh.dash.core_mesh_display import create_dash_mesh_display
 ├── from data.viewer.utils.displays.points.dash.core_points_display import create_dash_points_display
 ├── NON_AXIS_ALIGNED_LOCK_ROLL = (0.3, 0.9, -0.2)  # deliberately non-axis-aligned, so no world basis vector stands in for it
+├── for component in NON_AXIS_ALIGNED_LOCK_ROLL
+│   ├── for value in NON_AXIS_ALIGNED_LOCK_ROLL
+│   │   └── impls value * value
+│   └── impls component / math.sqrt(sum(value * value for value in NON_AXIS_ALIGNED_LOCK_ROLL))
 ├── NORMALIZED_LOCK_ROLL = tuple(component / math.sqrt(sum(value * value for value in NON_AXIS_ALIGNED_LOCK_ROLL)) for component in NON_AXIS_ALIGNED_LOCK_ROLL)
-│   └── for component in NON_AXIS_ALIGNED_LOCK_ROLL
-│       └── impls component / math.sqrt(sum(value * value for value in NON_AXIS_ALIGNED_LOCK_ROLL))
-│           └── for value in NON_AXIS_ALIGNED_LOCK_ROLL
-│               └── impls value * value
 ├── @pytest.mark.parametrize("display_kind", ["points", "mesh"]) def test_a_display_built_without_lock_roll_renders_the_free_trackball(display_kind: str) -> None
 │   ├── # A Plotly display built with no lock_roll renders under the free-roll orbit dragmode with no camera.up and no component id, the default trackball control.
 │   ├── calls _build_display(display_kind=display_kind, lock_roll=None)   → display

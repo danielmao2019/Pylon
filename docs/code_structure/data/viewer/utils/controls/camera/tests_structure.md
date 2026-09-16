@@ -22,11 +22,11 @@ test_trackball_camera_controls.py
 ├── REPO_ROOT = Path(__file__).resolve().parents[8]  # the working dir the registration probe imports the module from
 ├── NON_AXIS_ALIGNED_LOCK_ROLL = (0.3, 0.9, -0.2)  # deliberately non-axis-aligned, so no world basis vector stands in for it
 ├── NON_UNIT_LOCK_ROLL = (3.0, 9.0, -2.0)  # the same direction at ten times the length
+├── for component in NON_AXIS_ALIGNED_LOCK_ROLL
+│   ├── for value in NON_AXIS_ALIGNED_LOCK_ROLL
+│   │   └── impls value * value
+│   └── impls component / math.sqrt(sum(value * value for value in NON_AXIS_ALIGNED_LOCK_ROLL))
 ├── NORMALIZED_LOCK_ROLL = tuple(component / math.sqrt(sum(value * value for value in NON_AXIS_ALIGNED_LOCK_ROLL)) for component in NON_AXIS_ALIGNED_LOCK_ROLL)
-│   └── for component in NON_AXIS_ALIGNED_LOCK_ROLL
-│       └── impls component / math.sqrt(sum(value * value for value in NON_AXIS_ALIGNED_LOCK_ROLL))
-│           └── for value in NON_AXIS_ALIGNED_LOCK_ROLL
-│               └── impls value * value
 ├── FREE_TRACKBALL_RENDERER_SOURCE = renderer source wiring the trackball mouse mapping whose left-drag turns camera.up with the eye
 ├── REGISTRATION_PROBE_SCRIPT = script a fresh interpreter runs to print, as JSON, the global callbacks on the roll-locked graph pattern and the global inline scripts
 ├── def test_no_axis_builds_the_free_roll_controls
@@ -127,14 +127,16 @@ test_trackball_camera_controls.py
 │   └── return
 ├── def test_assert_dash_roll_lock_rejects_a_graph_id_the_callback_does_not_match
 │   ├── # Roll-locked Plotly controls whose graph id is missing, of another type, or carrying another axis are rejected, so the roll-lock callback can neither miss the graph nor hold it about the wrong axis.
-│   ├── impls build roll-locked Plotly controls, then variants whose graph_id is None, of a foreign type, and carrying a different lock_roll
+│   ├── impls controls = roll-locked Plotly controls built about NORMALIZED_LOCK_ROLL
+│   ├── impls variants = copies of controls, one per mismatched graph_id: None, a foreign type, a different lock_roll
 │   ├── for each variant
 │   │   └── with pytest.raises on the roll-locked-Plotly-controls-must-carry-the-graph-id-the-roll-lock-callback-matches message
 │   │       └── calls assert_dash_roll_lock
 │   └── return
 ├── def test_assert_dash_roll_lock_rejects_a_scene_not_at_data_proportions
 │   ├── # Roll-locked Plotly controls whose scene leaves the aspect to Plotly are rejected, since a stretched scene turns the world axis away from the direction the seeded camera.up names.
-│   ├── impls build roll-locked Plotly controls, then a variant whose scene carries no aspectmode and one whose scene carries aspectmode "cube"
+│   ├── impls controls = roll-locked Plotly controls built about NORMALIZED_LOCK_ROLL
+│   ├── impls variants = copies of controls, one per scene aspect other than data proportions: no aspectmode, aspectmode "cube"
 │   ├── for each variant
 │   │   └── with pytest.raises on the roll-locked-Plotly-controls-must-draw-the-scene-at-its-data's-own-proportions message
 │   │       └── calls assert_dash_roll_lock
@@ -180,6 +182,7 @@ frontend roll-lock expectations  # agent-conducted manual procedures, each condu
 ├── A roll-locked display renders no frame rolled off the lock through a long left-drag started inside its viewport, at any drag speed.
 ├── A roll-locked Dash display over data whose axis ranges differ by more than 4× holds a tilted lock axis upright on screen at every painted frame, from the first frame painted before the roll-lock callback first runs.
 ├── A Dash figure update that changes a roll-locked display's data extent paints no frame off the lock.
+├── An aspectmode written onto a roll-locked Dash display, through a Plotly.relayout or a Dash figure update, paints no frame off the lock and leaves the next left-drag holding it.
 ├── A Dash callback whose Output is a roll-locked display's own id updates that display and leaves the page running.
 ├── A roll-locked display's left-drag turns its camera as far per pixel as its free counterpart's.
 ├── A camera or rotation target written directly onto a roll-locked display — a Plotly.relayout, a Dash figure update with or without a projection switch in it, a Dash figure update that drops the 3D trace and adds it back, a modebar reset-camera, a rotation-mode switch in either direction, or a projection switch on Dash; a controls.target or camera.position write on TS — renders no frame off the lock, and on Dash leaves the camera the layout stores on the lock.
