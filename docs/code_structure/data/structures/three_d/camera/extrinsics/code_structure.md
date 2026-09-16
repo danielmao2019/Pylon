@@ -261,7 +261,7 @@ camera_extrinsics.py
 │       └── return extrinsics
 └── def _stabilize_rotation_matrix(rotation: torch.Tensor) -> torch.Tensor
     ├── # Project a near-orthogonal [..., 3, 3] rotation onto the nearest proper rotation, in the dtype it received.
-    ├── assert rotation.dtype is torch.float32 or torch.float64
+    ├── assert rotation.dtype in (torch.float32, torch.float64)
     ├── impls computes the RR^T-vs-I residual in rotation.dtype
     ├── impls computes the |det(R) - 1| residual in rotation.dtype
     ├── assert max(orthogonality residual, determinant residual) <= _ORTHOGONALITY_REPAIR_ATOL
