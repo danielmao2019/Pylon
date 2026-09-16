@@ -217,8 +217,22 @@ cameras.py
     │   ├── impls intrinsics = self._intrinsics[index]
     │   ├── impls extrinsics = self._extrinsics[index]
     │   ├── if isinstance(index, int)
-    │   │   └── return  # Camera(intrinsics=intrinsics, extrinsics=extrinsics, name=..., id=...)
-    │   └── return  # Cameras(intrinsics=intrinsics, extrinsics=extrinsics, ...)
+    │   │   ├── calls Camera(intrinsics=intrinsics, extrinsics=extrinsics, name=self._names[index], id=self._ids[index])  # -> camera
+    │   │   └── return camera
+    │   ├── if isinstance(index, slice)
+    │   │   ├── impls names = self._names[index]
+    │   │   ├── impls ids = self._ids[index]
+    │   │   ├── impls cameras = Cameras(intrinsics=intrinsics, extrinsics=extrinsics, names=names, ids=ids)  # a method constructing its own enclosing class, drawn as impls because no order puts this method above its class
+    │   │   └── return cameras
+    │   ├── if isinstance(index, list)
+    │   │   ├── impls names = an empty list
+    │   │   ├── impls ids = an empty list
+    │   │   ├── for each item of index
+    │   │   │   ├── impls names gains self._names[item]
+    │   │   │   └── impls ids gains self._ids[item]
+    │   │   ├── impls cameras = Cameras(intrinsics=intrinsics, extrinsics=extrinsics, names=names, ids=ids)  # a method constructing its own enclosing class, drawn as impls because no order puts this method above its class
+    │   │   └── return cameras
+    │   └── assert 0, "Should not reach here."
     ├── def __iter__(self) -> Iterator["Camera"]
     │   ├── # Iterate one Camera at a time, for callers that genuinely need a single camera rather than the batch.
     │   └── for each index in range(len(self))
