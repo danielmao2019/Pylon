@@ -142,7 +142,7 @@ camera_extrinsics.py
 ├── import numpy as np
 ├── import torch
 ├── from data.structures.three_d.camera.extrinsics.conventions import transform_extr_convention
-├── from data.structures.three_d.camera.extrinsics.validation import validate_camera_extrinsics_attributes, validate_extr_convention, validate_rotation_matrix
+├── from data.structures.three_d.camera.extrinsics.validation import validate_camera_extrinsics_attributes, validate_extr_convention, validate_rotation_matrix, validate_translation_vector
 ├── _ORTHOGONALITY_REPAIR_ATOL = 1.0e-05  # dtype-independent input-quality guard: max RR^T-vs-I / determinant residual a raw rotation may carry and still be trusted as SVD-repairable
 ├── class CameraExtrinsics
 │   ├── # A camera's pose: the 4x4 camera-to-world matrix together with the pose frame it is expressed in, so a pose is never read without its frame.
@@ -237,7 +237,7 @@ camera_extrinsics.py
 │       ├── # Return this CameraExtrinsics under array-like scale, rotation, and translation inputs of its cam2world pose.
 │       ├── def _validate_inputs [local]
 │       │   ├── calls validate_rotation_matrix(rotation)
-│       │   └── assert translation is a length-3 numeric array-like or a torch Tensor with shape (3,)
+│       │   └── calls validate_translation_vector(translation)
 │       ├── calls _validate_inputs
 │       ├── def _normalize_inputs [local]
 │       │   ├── impls scale = the given scale as a tensor on this extrinsics' device and dtype
