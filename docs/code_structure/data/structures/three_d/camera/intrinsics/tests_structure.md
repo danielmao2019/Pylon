@@ -56,9 +56,10 @@ test_intrinsics.py
 │   ├── calls intrinsics.project(points_camera=points_camera, inplace=False)  # -> image_points
 │   ├── assert image_points.shape == (3, 2, 2)  # f"Expected the image points to carry the batch axis ahead of the point axis. {image_points.shape=} {points_camera.shape=}"
 │   └── for index in range(3)
-│       ├── calls build_camera_intrinsics(model="pinhole", params={key: value[index] for key, value in batched_params.items()}, intr_convention="standard")  # -> one_camera; that index's params alone
-│       │   └── for key, value in batched_params.items()
-│       │       └── impls key: value[index]
+│       ├── impls one_params = an empty dict  # that index's params alone
+│       ├── for each key, value of batched_params
+│       │   └── impls one_params[key] = value[index]
+│       ├── calls build_camera_intrinsics(model="pinhole", params=one_params, intr_convention="standard")  # -> one_camera
 │       ├── calls one_camera.project(points_camera=points_camera[index], inplace=False)  # -> one_camera_image_points
 │       └── assert torch.equal(image_points[index], one_camera_image_points)  # f"Expected the batched image points slice to equal that camera's own projection. {index=} {image_points[index]=} {one_camera_image_points=}"
 ├── def test_scale_intrinsics_rescales_a_batch_against_each_cameras_own_resolution

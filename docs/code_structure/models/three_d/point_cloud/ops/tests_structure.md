@@ -11,11 +11,9 @@ test_world_to_camera_transform.py
 ├── from models.three_d.point_cloud.ops.world_to_camera_transform import world_to_camera_transform
 ├── def test_world_to_camera_transform_carries_the_camera_batch_axis() -> None
 │   ├── # A stack of extrinsics maps one cloud through every pose in one call, each slice equal to what that pose maps on its own, bit for bit on cpu and within floating-point rounding on cuda, which is the contract the batched renderer rests on.
-│   ├── impls devices = [torch.device('cpu')] + ([torch.device('cuda')] if torch.cuda.is_available() else [])  # cpu, and cuda when it is available
-│   │   ├── if torch.cuda.is_available()
-│   │   │   └── impls [torch.device('cuda')]
-│   │   └── else
-│   │       └── impls []
+│   ├── impls devices = a list holding the cpu device
+│   ├── if cuda is available
+│   │   └── impls devices gains the cuda device
 │   └── for device in devices
 │       ├── impls torch.manual_seed(0)
 │       ├── impls points = a [512, 3] float32 standard-normal world-space tensor on device

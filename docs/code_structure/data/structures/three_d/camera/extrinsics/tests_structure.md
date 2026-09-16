@@ -40,9 +40,10 @@ test_rotation_stabilize_validate_compat.py
 ├── def test_stabilize_rejects_a_reflection
 │   ├── # A batch mixing proper rotations with reflections is refused rather than sign-repaired, since a camera's rotation is proper by construction.
 │   ├── impls batch_size = 4
-│   ├── impls rotations = torch.stack([_random_rotation(dtype=torch.float64, seed=index) for index in range(batch_size)])  # the per-entry proper rotations stacked into a [batch_size, 3, 3] float64 batch
-│   │   └── for index in range(batch_size)
-│   │       └── calls _random_rotation(dtype=torch.float64, seed=index)
+│   ├── impls rotation_list = an empty list
+│   ├── for each index below batch_size
+│   │   └── calls _random_rotation(dtype=torch.float64, seed=index)  # -> rotation_list gains the proper rotation
+│   ├── impls rotations = rotation_list stacked into a [batch_size, 3, 3] float64 batch  # the per-entry proper rotations
 │   ├── impls rotations[1::2, :, 0] = -rotations[1::2, :, 0]  # every second entry column-negated into a reflection
 │   └── with pytest.raises(AssertionError)
 │       └── calls _stabilize_rotation_matrix(rotation=rotations)  # a [B, 3, 3] batch whose entries alternate a proper rotation and one column-negated into a reflection
