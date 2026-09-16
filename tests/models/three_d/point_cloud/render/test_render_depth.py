@@ -32,20 +32,22 @@ def test_render_depth_basic() -> None:
     )
 
     camera = _build_camera(focal=100.0, principal_point=50.0)
-    resolution = (100, 100)
 
     depth_map = render_depth_from_point_cloud(
         pc=pc_data,
         camera=camera,
-        resolution=resolution,
+        resolution=(100, 100),
         return_mask=False,
     )
 
-    assert depth_map.shape == (100, 100)
-    assert depth_map.dtype == torch.float32
-
-    valid_depths = depth_map[depth_map != -1.0]
-    assert (valid_depths > 0).all()
+    assert depth_map.shape == (100, 100) and depth_map.dtype == torch.float32, (
+        "The depth map must be [100, 100] and float32. "
+        f"{depth_map.shape=} {depth_map.dtype=}"
+    )
+    assert (depth_map[depth_map != -1.0] > 0).all(), (
+        "Every depth other than the -1.0 background must be positive. "
+        f"{depth_map[depth_map != -1.0].min()=}"
+    )
 
 
 def test_render_depth_with_mask() -> None:
@@ -62,22 +64,32 @@ def test_render_depth_with_mask() -> None:
     )
 
     camera = _build_camera(focal=100.0, principal_point=50.0)
-    resolution = (100, 100)
 
     depth_map, valid_mask = render_depth_from_point_cloud(
         pc=pc_data,
         camera=camera,
-        resolution=resolution,
+        resolution=(100, 100),
         return_mask=True,
     )
 
-    assert depth_map.shape == (100, 100)
-    assert valid_mask.shape == (100, 100)
-    assert valid_mask.dtype == torch.bool
-    assert valid_mask.sum() > 0
-    assert valid_mask.sum() < 100 * 100
-    assert (depth_map[valid_mask] > 0).all()
-    assert (depth_map[~valid_mask] == -1.0).all()
+    assert (
+        depth_map.shape == (100, 100)
+        and valid_mask.shape == (100, 100)
+        and valid_mask.dtype == torch.bool
+    ), (
+        "Both maps must be [100, 100] and the mask must be bool. "
+        f"{depth_map.shape=} {valid_mask.shape=} {valid_mask.dtype=}"
+    )
+    assert valid_mask.sum() > 0 and valid_mask.sum() < 100 * 100, (
+        "The mask must cover some pixels but not the whole image. "
+        f"{valid_mask.sum()=}"
+    )
+    assert (depth_map[valid_mask] > 0).all() and (
+        depth_map[~valid_mask] == -1.0
+    ).all(), (
+        "Depths must be positive under the mask and -1.0 outside it. "
+        f"{depth_map[valid_mask].min()=} {depth_map[~valid_mask].unique()=}"
+    )
 
 
 def test_render_depth_sorting() -> None:
@@ -93,12 +105,11 @@ def test_render_depth_sorting() -> None:
     )
 
     camera = _build_camera(focal=100.0, principal_point=50.0)
-    resolution = (100, 100)
 
     depth_map = render_depth_from_point_cloud(
         pc=pc_data,
         camera=camera,
-        resolution=resolution,
+        resolution=(100, 100),
     )
 
     valid_depths = depth_map[depth_map != -1.0]
@@ -111,17 +122,18 @@ def test_render_depth_custom_ignore_value() -> None:
     pc_data = PointCloud(xyz=torch.tensor([[0.0, 0.0, -1.0]], dtype=torch.float32))
 
     camera = _build_camera(focal=100.0, principal_point=50.0)
-    custom_ignore = -999.0
 
     depth_map = render_depth_from_point_cloud(
         pc=pc_data,
         camera=camera,
         resolution=(100, 100),
-        ignore_value=custom_ignore,
+        ignore_value=-999.0,
     )
 
-    background_pixels = depth_map == custom_ignore
-    assert background_pixels.sum() > 100 * 100 * 0.9
+    assert (depth_map == -999.0).sum() > 100 * 100 * 0.9, (
+        "Over nine tenths of the pixels must carry the -999.0 ignore value. "
+        f"{(depth_map == -999.0).sum()=}"
+    )
 
 
 def test_render_depth_points_behind_camera() -> None:
@@ -145,8 +157,10 @@ def test_render_depth_points_behind_camera() -> None:
         return_mask=True,
     )
 
-    assert valid_mask.sum() >= 1
-    assert (depth_map[valid_mask] > 0).all()
+    assert valid_mask.sum() >= 1 and (depth_map[valid_mask] > 0).all(), (
+        "The mask must cover at least one pixel and every depth under it must be positive. "
+        f"{valid_mask.sum()=} {depth_map[valid_mask].tolist()=}"
+    )
 
 
 def test_render_depth_multiple_points_per_pixel() -> None:
@@ -155,9 +169,9 @@ def test_render_depth_multiple_points_per_pixel() -> None:
         xyz=torch.tensor(
             [
                 [0.0, 0.0, -1.0],
-                [0.01, 0.0, -2.0],
-                [0.0, 0.01, -1.5],
-                [-0.01, 0.0, -3.0],
+                [0.001, 0.0, -2.0],
+                [0.0, -0.001, -1.5],
+                [0.001, -0.001, -3.0],
             ],
             dtype=torch.float32,
         )
@@ -203,10 +217,14 @@ def test_render_depth_intrinsics_scaling() -> None:
         resolution=(200, 200),
     )
 
-    assert depth_map_small.shape == (50, 50)
-    assert depth_map_large.shape == (200, 200)
-    assert (depth_map_small != -1.0).any()
-    assert (depth_map_large != -1.0).any()
+    assert depth_map_small.shape == (50, 50) and depth_map_large.shape == (200, 200), (
+        "Each map must have the resolution it was asked for. "
+        f"{depth_map_small.shape=} {depth_map_large.shape=}"
+    )
+    assert (depth_map_small != -1.0).any() and (depth_map_large != -1.0).any(), (
+        "Each map must carry at least one rendered pixel. "
+        f"{(depth_map_small != -1.0).sum()=} {(depth_map_large != -1.0).sum()=}"
+    )
 
 
 def test_render_depth_batched_matches_per_camera() -> None:
@@ -228,24 +246,29 @@ def test_render_depth_batched_matches_per_camera() -> None:
         principal_point=50.0,
         translations=[(0.0, 0.0, 0.0), (0.2, 0.0, 0.0), (0.0, 0.15, 0.0)],
     )
-    resolution = (64, 80)
 
     depth_maps = render_depth_from_point_cloud(
         pc=pc_data,
         camera=cameras,
-        resolution=resolution,
+        resolution=(64, 80),
     )
 
-    assert depth_maps.shape == (3, 64, 80)
-    assert depth_maps.dtype == torch.float32
+    assert depth_maps.shape == (3, 64, 80) and depth_maps.dtype == torch.float32, (
+        "The batched depth map must be [3, 64, 80] and float32. "
+        f"{depth_maps.shape=} {depth_maps.dtype=}"
+    )
 
     for index, camera in enumerate(cameras):
         depth_map = render_depth_from_point_cloud(
             pc=pc_data,
             camera=camera,
-            resolution=resolution,
+            resolution=(64, 80),
         )
-        assert torch.equal(depth_maps[index], depth_map)
+        assert torch.equal(depth_maps[index], depth_map), (
+            "Each batched slice must equal what its own camera renders alone. "
+            f"{index=} {(depth_maps[index] - depth_map).abs().max()=} "
+            f"{(depth_maps[index] != depth_map).sum()=}"
+        )
 
 
 def test_render_depth_batch_of_one_keeps_its_axis() -> None:
@@ -267,12 +290,11 @@ def test_render_depth_batch_of_one_keeps_its_axis() -> None:
         principal_point=50.0,
         translations=[(0.0, 0.0, 0.0)],
     )
-    resolution = (64, 80)
 
     depth_maps = render_depth_from_point_cloud(
         pc=pc_data,
         camera=cameras,
-        resolution=resolution,
+        resolution=(64, 80),
     )
 
     assert depth_maps.shape == (1, 64, 80)
@@ -280,11 +302,14 @@ def test_render_depth_batch_of_one_keeps_its_axis() -> None:
     depth_map = render_depth_from_point_cloud(
         pc=pc_data,
         camera=next(iter(cameras)),
-        resolution=resolution,
+        resolution=(64, 80),
     )
 
-    assert depth_map.shape == (64, 80)
-    assert torch.equal(depth_maps[0], depth_map)
+    assert depth_map.shape == (64, 80) and torch.equal(depth_maps[0], depth_map), (
+        "The one Camera's map must be [64, 80] and equal the batched map's only slice. "
+        f"{depth_map.shape=} {depth_maps.shape=} "
+        f"{(depth_map != -1.0).sum()=} {(depth_maps[0] != -1.0).sum()=}"
+    )
 
 
 def test_render_depth_batched_cull_is_per_camera() -> None:
@@ -304,20 +329,29 @@ def test_render_depth_batched_cull_is_per_camera() -> None:
         principal_point=50.0,
         translations=[(0.0, 0.0, 0.0), (2.0, 0.0, 0.0)],
     )
-    resolution = (64, 80)
 
     depth_maps, valid_masks = render_depth_from_point_cloud(
         pc=pc_data,
         camera=cameras,
-        resolution=resolution,
+        resolution=(64, 80),
         return_mask=True,
     )
 
-    assert depth_maps.shape == (2, 64, 80)
-    assert valid_masks.shape == (2, 64, 80)
-    assert valid_masks.dtype == torch.bool
-    assert (valid_masks[0] & ~valid_masks[1]).any()
-    assert (valid_masks[1] & ~valid_masks[0]).any()
+    assert (
+        depth_maps.shape == (2, 64, 80)
+        and valid_masks.shape == (2, 64, 80)
+        and valid_masks.dtype == torch.bool
+    ), (
+        "Both batched maps must be [2, 64, 80] and the mask must be bool. "
+        f"{depth_maps.shape=} {valid_masks.shape=} {valid_masks.dtype=}"
+    )
+    assert (valid_masks[0] & ~valid_masks[1]).any() and (
+        valid_masks[1] & ~valid_masks[0]
+    ).any(), (
+        "Each camera's mask must cover pixels the other camera's mask does not. "
+        f"{(valid_masks[0] & ~valid_masks[1]).sum()=} "
+        f"{(valid_masks[1] & ~valid_masks[0]).sum()=}"
+    )
 
 
 def test_render_depth_occlusion_holds_when_pixels_collide() -> None:
@@ -467,29 +501,28 @@ def test_render_depth_point_size_dilates_the_rendered_discs() -> None:
     pc_data = PointCloud(xyz=torch.tensor([[0.0, 0.0, -1.0]], dtype=torch.float32))
 
     camera = _build_camera(focal=100.0, principal_point=50.0)
-    resolution = (100, 100)
 
     _, valid_mask_narrow = render_depth_from_point_cloud(
         pc=pc_data,
         camera=camera,
-        resolution=resolution,
+        resolution=(100, 100),
         return_mask=True,
         point_size=1.0,
     )
     depth_map_wide, valid_mask_wide = render_depth_from_point_cloud(
         pc=pc_data,
         camera=camera,
-        resolution=resolution,
+        resolution=(100, 100),
         return_mask=True,
         point_size=5.0,
     )
 
-    assert valid_mask_wide.sum() > valid_mask_narrow.sum(), (
-        "A wider point size must cover strictly more pixels. "
-        f"{valid_mask_narrow.sum()=} {valid_mask_wide.sum()=}"
-    )
-    assert (depth_map_wide[valid_mask_wide] == 1.0).all(), (
-        "Every pixel the wider disc covers must carry that point's own depth. "
+    assert (
+        valid_mask_wide.sum() > valid_mask_narrow.sum()
+        and (depth_map_wide[valid_mask_wide] == 1.0).all()
+    ), (
+        "A wider point size must cover strictly more pixels, all at that point's own depth. "
+        f"{valid_mask_narrow.sum()=} {valid_mask_wide.sum()=} "
         f"{depth_map_wide[valid_mask_wide].unique()=}"
     )
 

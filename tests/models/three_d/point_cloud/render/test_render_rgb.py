@@ -128,12 +128,11 @@ def test_render_rgb_takes_the_nearest_point_where_two_share_a_pixel() -> None:
     )
 
     camera = _build_camera(focal=100.0, principal_point=50.0)
-    resolution = (100, 100)
 
     rgb_image = render_rgb_from_point_cloud(
         pc=pc_data,
         camera=camera,
-        resolution=resolution,
+        resolution=(100, 100),
     )
 
     assert torch.equal(rgb_image[:, 50, 50], pc_data.rgb[1]), (
