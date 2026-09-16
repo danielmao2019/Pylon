@@ -158,16 +158,18 @@ def create_ply_from_colmap(
 
     if len(colmap_points) == 0:
         with open(out_path, "w", encoding="utf-8") as f:
-            f.write("ply\n")
-            f.write("format ascii 1.0\n")
-            f.write("element vertex 0\n")
-            f.write("property float x\n")
-            f.write("property float y\n")
-            f.write("property float z\n")
-            f.write("property uint8 red\n")
-            f.write("property uint8 green\n")
-            f.write("property uint8 blue\n")
-            f.write("end_header\n")
+            f.write(
+                "ply\n"
+                "format ascii 1.0\n"
+                "element vertex 0\n"
+                "property float x\n"
+                "property float y\n"
+                "property float z\n"
+                "property uint8 red\n"
+                "property uint8 green\n"
+                "property uint8 blue\n"
+                "end_header\n"
+            )
         return out_path
 
     point_ids = sorted(colmap_points)
@@ -185,16 +187,18 @@ def create_ply_from_colmap(
     valid_indices = np.flatnonzero(valid_mask)
 
     with open(out_path, "w", encoding="utf-8") as f:
-        f.write("ply\n")
-        f.write("format ascii 1.0\n")
-        f.write(f"element vertex {num_valid_points}\n")
-        f.write("property float x\n")
-        f.write("property float y\n")
-        f.write("property float z\n")
-        f.write("property uint8 red\n")
-        f.write("property uint8 green\n")
-        f.write("property uint8 blue\n")
-        f.write("end_header\n")
+        f.write(
+            "ply\n"
+            "format ascii 1.0\n"
+            f"element vertex {num_valid_points}\n"
+            "property float x\n"
+            "property float y\n"
+            "property float z\n"
+            "property uint8 red\n"
+            "property uint8 green\n"
+            "property uint8 blue\n"
+            "end_header\n"
+        )
 
         def _format_point(idx: int) -> str:
             """Render one point as the ply vertex line that stands for it.
@@ -212,7 +216,7 @@ def create_ply_from_colmap(
             vertex_line = f"{x:.8f} {y:.8f} {z:.8f} {int(r)} {int(g)} {int(b)}\n"
             return vertex_line
 
-        max_workers = min(32, len(valid_indices)) if len(valid_indices) > 0 else 1
+        max_workers = max(1, min(32, len(valid_indices)))
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             lines: List[str] = list(executor.map(_format_point, valid_indices))
         f.writelines(lines)
@@ -261,33 +265,26 @@ def _extract_intrinsics_from_colmap(
         assert (
             len(params) == 3
         ), f"Expected 3 params for SIMPLE_PINHOLE, got {len(params)}"
-        fl_x = float(params[0])
-        fl_y = float(params[0])
-        cx = float(params[1])
-        cy = float(params[2])
+        fl_x, fl_y = float(params[0]), float(params[0])
+        cx, cy = float(params[1]), float(params[2])
     elif camera.model == "PINHOLE":
         assert len(params) == 4, f"Expected 4 params for PINHOLE, got {len(params)}"
-        fl_x = float(params[0])
-        fl_y = float(params[1])
-        cx = float(params[2])
-        cy = float(params[3])
+        fl_x, fl_y = float(params[0]), float(params[1])
+        cx, cy = float(params[2]), float(params[3])
     elif camera.model == "OPENCV":
         assert len(params) == 8, f"Expected 8 params for OPENCV, got {len(params)}"
         assert float(params[4]) == 0.0, f"k1 must be 0, got {params[4]}"
         assert float(params[5]) == 0.0, f"k2 must be 0, got {params[5]}"
         assert float(params[6]) == 0.0, f"p1 must be 0, got {params[6]}"
         assert float(params[7]) == 0.0, f"p2 must be 0, got {params[7]}"
-        fl_x = float(params[0])
-        fl_y = float(params[1])
-        cx = float(params[2])
-        cy = float(params[3])
+        fl_x, fl_y = float(params[0]), float(params[1])
+        cx, cy = float(params[2]), float(params[3])
     else:
         assert False, (
             "Expected COLMAP camera model SIMPLE_PINHOLE, PINHOLE, or OPENCV. "
             f"{camera.model=}"
         )
-    width = camera.width
-    height = camera.height
+    width, height = camera.width, camera.height
     intrinsic_params: Dict[str, Any] = {
         "w": int(width),
         "h": int(height),

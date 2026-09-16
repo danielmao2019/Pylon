@@ -20,7 +20,7 @@ _CAMERA_SERIALIZATION_FORMATS = {
     "json",
     "npz",
 }
-_CAMERA_JSON_KEYS = {
+_CAMERA_JSON_KEYS, _CAMERA_NPZ_KEYS = {
     "model",
     "params",
     "intr_convention",
@@ -29,8 +29,7 @@ _CAMERA_JSON_KEYS = {
     "dtype",
     "name",
     "id",
-}
-_CAMERA_NPZ_KEYS = {
+}, {
     "model",
     "params",
     "intr_convention",
@@ -77,7 +76,7 @@ def save_cameras(cameras: Union["Camera", "Cameras"], cameras_path: Path) -> Non
         np.savez(cameras_path, **payload)
         return
 
-    assert False, "Expected Cameras save format to be handled. " f"{format=}"
+    assert 0, "Should not reach here. " f"{format=}"
 
 
 def load_cameras(
@@ -130,7 +129,7 @@ def load_cameras(
             with np.load(cameras_path, allow_pickle=False) as payload_file:
                 payload = {key: payload_file[key] for key in payload_file.files}
             return payload
-        assert False, "Expected Cameras load format to be handled. " f"{format=}"
+        assert 0, "Should not reach here. " f"{format=}"
 
     payload = _read_payload()
 
@@ -198,9 +197,7 @@ def serialize_cameras(
             return _serialize_cameras_json(cameras=cameras)
         if format == "npz":
             return _serialize_cameras_npz(cameras=cameras)
-        assert False, (
-            "Expected Cameras serialization format to be handled. " f"{format=}"
-        )
+        assert 0, "Should not reach here. " f"{format=}"
 
     payload = _serialize()
 
@@ -289,9 +286,7 @@ def deserialize_cameras(
             )
         if format == "npz":
             return _deserialize_cameras_npz(payload=payload, device=target_device)
-        assert False, (
-            "Expected Cameras deserialization format to be handled. " f"{format=}"
-        )
+        assert 0, "Should not reach here. " f"{format=}"
 
     cameras = _deserialize()
 
@@ -415,9 +410,11 @@ def _deserialize_cameras_json(
 
     _validate_inputs()
 
-    model = per_camera_dicts[0]["model"]
-    intr_convention = per_camera_dicts[0]["intr_convention"]
-    extr_convention = per_camera_dicts[0]["extr_convention"]
+    model, intr_convention, extr_convention = (
+        per_camera_dicts[0]["model"],
+        per_camera_dicts[0]["intr_convention"],
+        per_camera_dicts[0]["extr_convention"],
+    )
     dtype = getattr(torch, per_camera_dicts[0]["dtype"])
 
     # json stores a row per camera where npz stores a column per field.
@@ -478,11 +475,12 @@ def _serialize_cameras_npz(cameras: "Cameras") -> Dict[str, Any]:
     params_array = np.array([json.dumps(params) for params in serialized_params])
 
     # The format keeps a column per camera where the batch keeps one value.
-    batch_size = len(cameras)
-    models = np.array([cameras.intrinsics.model] * batch_size)
-    intr_conventions = np.array([cameras.intrinsics.intr_convention] * batch_size)
-    extr_conventions = np.array([cameras.extrinsics.extr_convention] * batch_size)
-    dtypes = np.array([str(cameras.dtype).removeprefix("torch.")] * batch_size)
+    models, intr_conventions, extr_conventions, dtypes = (
+        np.array([cameras.intrinsics.model] * len(cameras)),
+        np.array([cameras.intrinsics.intr_convention] * len(cameras)),
+        np.array([cameras.extrinsics.extr_convention] * len(cameras)),
+        np.array([str(cameras.dtype).removeprefix("torch.")] * len(cameras)),
+    )
 
     # The archive carries the dtype, so the loader rebuilds the batch in it.
     extrinsics = cameras.extrinsics.extrinsics.detach().cpu().numpy()
@@ -581,19 +579,33 @@ def _deserialize_cameras_npz(
 
     extrinsics = payload["extrinsics"]
     batch_size = extrinsics.shape[0]
-    model_array = payload["model"]
-    params_array = payload["params"]
-    intr_convention_array = payload["intr_convention"]
-    extr_convention_array = payload["extr_convention"]
-    dtype_array = payload["dtype"]
-    name_array = payload["name"]
-    has_name_array = payload["has_name"]
-    id_array = payload["id"]
-    has_id_array = payload["has_id"]
+    (
+        model_array,
+        params_array,
+        intr_convention_array,
+        extr_convention_array,
+        dtype_array,
+        name_array,
+        has_name_array,
+        id_array,
+        has_id_array,
+    ) = (
+        payload["model"],
+        payload["params"],
+        payload["intr_convention"],
+        payload["extr_convention"],
+        payload["dtype"],
+        payload["name"],
+        payload["has_name"],
+        payload["id"],
+        payload["has_id"],
+    )
 
-    model = str(model_array[0].item())
-    intr_convention = str(intr_convention_array[0].item())
-    extr_convention = str(extr_convention_array[0].item())
+    model, intr_convention, extr_convention = (
+        str(model_array[0].item()),
+        str(intr_convention_array[0].item()),
+        str(extr_convention_array[0].item()),
+    )
     dtype = getattr(torch, str(dtype_array[0].item()))
 
     names: List[Optional[str]] = [
@@ -709,7 +721,7 @@ def _normalize_payload_to_plural(
             }
         return payload, was_single
 
-    assert False, "Expected Cameras deserialization format to be handled. " f"{format=}"
+    assert 0, "Should not reach here. " f"{format=}"
 
 
 def _normalize_payload_to_single(
@@ -732,7 +744,7 @@ def _normalize_payload_to_single(
         payload = {key: value[0] for key, value in payload.items()}
         return payload
 
-    assert False, "Expected Cameras serialization format to be handled. " f"{format=}"
+    assert 0, "Should not reach here. " f"{format=}"
 
 
 def _resolve_format_from_path(cameras_path: Path) -> str:

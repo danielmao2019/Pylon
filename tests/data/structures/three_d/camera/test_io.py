@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
 import numpy as np
 import torch
@@ -43,7 +43,7 @@ _NPZ_KEYS = {
 
 
 def test_single_camera_json_round_trip(tmp_path: Path) -> None:
-    """A single Camera survives a save then load round trip through json.
+    """A single Camera survives a save then load round trip through the json format.
 
     Args:
         tmp_path: Temporary output directory.
@@ -54,9 +54,18 @@ def test_single_camera_json_round_trip(tmp_path: Path) -> None:
     camera = _make_single_camera()
 
     serialized = serialize_cameras(cameras=camera, format="json")
-    assert isinstance(serialized, dict), f"{type(serialized)=}"
-    assert set(serialized.keys()) == _JSON_KEYS, f"{set(serialized.keys())=}"
-    assert serialized == camera.serialize(format="json"), f"{serialized=}"
+    assert isinstance(
+        serialized, dict
+    ), f"Expected a single Camera to serialize to one json dict. {type(serialized)=}"
+    assert set(serialized.keys()) == _JSON_KEYS, (
+        "Expected the json payload to carry exactly the json key set. "
+        f"{set(serialized.keys())=} {_JSON_KEYS=}"
+    )
+    method_serialized = camera.serialize(format="json")
+    assert serialized == method_serialized, (
+        "Expected serialize_cameras to produce the payload Camera.serialize produces. "
+        f"{serialized=} {method_serialized=}"
+    )
 
     deserialized = deserialize_cameras(payload=serialized, device="cpu", format="json")
     method_deserialized = Camera.deserialize(
@@ -68,17 +77,18 @@ def test_single_camera_json_round_trip(tmp_path: Path) -> None:
     json_path = tmp_path / "camera.json"
     camera.save(camera_path=json_path)
     on_disk = json.loads(json_path.read_text(encoding="utf-8"))
-    assert on_disk == serialized, f"{on_disk=} {serialized=}"
-    _assert_camera_fields_equal(
-        loaded=load_cameras(cameras_path=json_path, device="cpu"), original=camera
+    assert on_disk == serialized, (
+        "Expected the saved json file to parse back to the serialized payload. "
+        f"{on_disk=} {serialized=}"
     )
-    _assert_camera_fields_equal(
-        loaded=Camera.load(camera_path=json_path, device="cpu"), original=camera
-    )
+    loaded = load_cameras(cameras_path=json_path, device="cpu")
+    method_loaded = Camera.load(camera_path=json_path, device="cpu")
+    _assert_camera_fields_equal(loaded=loaded, original=camera)
+    _assert_camera_fields_equal(loaded=method_loaded, original=camera)
 
 
 def test_single_camera_npz_round_trip(tmp_path: Path) -> None:
-    """A single Camera survives a save then load round trip through npz.
+    """A single Camera survives a save then load round trip through the npz format.
 
     Args:
         tmp_path: Temporary output directory.
@@ -89,12 +99,17 @@ def test_single_camera_npz_round_trip(tmp_path: Path) -> None:
     camera = _make_single_camera()
 
     serialized = serialize_cameras(cameras=camera, format="npz")
-    assert isinstance(serialized, dict), f"{type(serialized)=}"
-    assert set(serialized.keys()) == _NPZ_KEYS, f"{set(serialized.keys())=}"
-    assert serialized["extrinsics"].shape == (
-        4,
-        4,
-    ), f"{serialized['extrinsics'].shape=}"
+    assert isinstance(
+        serialized, dict
+    ), f"Expected a single Camera to serialize to one npz dict. {type(serialized)=}"
+    assert set(serialized.keys()) == _NPZ_KEYS, (
+        "Expected the npz payload to carry exactly the npz key set. "
+        f"{set(serialized.keys())=} {_NPZ_KEYS=}"
+    )
+    assert serialized["extrinsics"].shape == (4, 4), (
+        "Expected a single Camera's npz extrinsics entry to be one 4x4 matrix. "
+        f"{serialized['extrinsics'].shape=}"
+    )
 
     deserialized = deserialize_cameras(payload=serialized, device="cpu", format="npz")
     _assert_camera_fields_equal(loaded=deserialized, original=camera)
@@ -102,17 +117,18 @@ def test_single_camera_npz_round_trip(tmp_path: Path) -> None:
     npz_path = tmp_path / "camera.npz"
     camera.save(camera_path=npz_path)
     with np.load(npz_path, allow_pickle=False) as on_disk:
-        assert set(on_disk.files) == _NPZ_KEYS, f"{set(on_disk.files)=}"
-    _assert_camera_fields_equal(
-        loaded=load_cameras(cameras_path=npz_path, device="cpu"), original=camera
-    )
-    _assert_camera_fields_equal(
-        loaded=Camera.load(camera_path=npz_path, device="cpu"), original=camera
-    )
+        assert set(on_disk.files) == _NPZ_KEYS, (
+            "Expected the saved npz archive to carry exactly the npz key set. "
+            f"{set(on_disk.files)=} {_NPZ_KEYS=}"
+        )
+    loaded = load_cameras(cameras_path=npz_path, device="cpu")
+    method_loaded = Camera.load(camera_path=npz_path, device="cpu")
+    _assert_camera_fields_equal(loaded=loaded, original=camera)
+    _assert_camera_fields_equal(loaded=method_loaded, original=camera)
 
 
 def _make_single_camera() -> Camera:
-    """Build a single Camera fixture.
+    """Builds the one-camera Camera fixture both single round trips run on, carrying a name and an id so the round trip has both to preserve.
 
     Args:
         None.
@@ -146,7 +162,7 @@ def _make_single_camera() -> Camera:
 
 
 def test_multi_cameras_json_round_trip(tmp_path: Path) -> None:
-    """A Cameras collection survives a save then load round trip through json.
+    """A Cameras collection survives a save then load round trip through the json format.
 
     Args:
         tmp_path: Temporary output directory.
@@ -157,27 +173,34 @@ def test_multi_cameras_json_round_trip(tmp_path: Path) -> None:
     cameras = _make_multi_cameras()
 
     serialized = serialize_cameras(cameras=cameras, format="json")
-    assert isinstance(serialized, list), f"{type(serialized)=}"
-    assert len(serialized) == len(cameras), f"{len(serialized)=} {len(cameras)=}"
+    assert isinstance(
+        serialized, list
+    ), f"Expected a Cameras collection to serialize to a json list. {type(serialized)=}"
+    assert len(serialized) == len(
+        cameras
+    ), f"Expected one json dict per camera. {len(serialized)=} {len(cameras)=}"
     for per_camera_dict in serialized:
-        assert set(per_camera_dict.keys()) == _JSON_KEYS, f"{per_camera_dict=}"
+        assert set(per_camera_dict.keys()) == _JSON_KEYS, (
+            "Expected every per-camera json dict to carry exactly the json key set. "
+            f"{set(per_camera_dict.keys())=} {_JSON_KEYS=}"
+        )
 
     deserialized = deserialize_cameras(payload=serialized, device="cpu", format="json")
     _assert_cameras_fields_equal(loaded=deserialized, original=cameras)
 
     json_path = tmp_path / "cameras.json"
     save_cameras(cameras=cameras, cameras_path=json_path)
-    assert json.loads(json_path.read_text(encoding="utf-8")) == serialized, (
-        "Expected the saved JSON file to hold the serialized cameras payload. "
-        f"{json_path=} {serialized=}"
+    on_disk = json.loads(json_path.read_text(encoding="utf-8"))
+    assert on_disk == serialized, (
+        "Expected the saved json file to parse back to the serialized payload. "
+        f"{on_disk=} {serialized=}"
     )
-    _assert_cameras_fields_equal(
-        loaded=load_cameras(cameras_path=json_path, device="cpu"), original=cameras
-    )
+    loaded = load_cameras(cameras_path=json_path, device="cpu")
+    _assert_cameras_fields_equal(loaded=loaded, original=cameras)
 
 
 def test_multi_cameras_npz_round_trip(tmp_path: Path) -> None:
-    """A Cameras collection survives a save then load round trip through npz.
+    """A Cameras collection survives a save then load round trip through the npz format.
 
     Args:
         tmp_path: Temporary output directory.
@@ -188,13 +211,17 @@ def test_multi_cameras_npz_round_trip(tmp_path: Path) -> None:
     cameras = _make_multi_cameras()
 
     serialized = serialize_cameras(cameras=cameras, format="npz")
-    assert isinstance(serialized, dict), f"{type(serialized)=}"
-    assert set(serialized.keys()) == _NPZ_KEYS, f"{set(serialized.keys())=}"
-    assert serialized["extrinsics"].shape == (
-        len(cameras),
-        4,
-        4,
-    ), f"{serialized['extrinsics'].shape=}"
+    assert isinstance(
+        serialized, dict
+    ), f"Expected a Cameras collection to serialize to one npz dict. {type(serialized)=}"
+    assert set(serialized.keys()) == _NPZ_KEYS, (
+        "Expected the npz payload to carry exactly the npz key set. "
+        f"{set(serialized.keys())=} {_NPZ_KEYS=}"
+    )
+    assert serialized["extrinsics"].shape == (len(cameras), 4, 4), (
+        "Expected the npz extrinsics entry to hold one 4x4 block per camera. "
+        f"{serialized['extrinsics'].shape=} {len(cameras)=}"
+    )
 
     deserialized = deserialize_cameras(payload=serialized, device="cpu", format="npz")
     _assert_cameras_fields_equal(loaded=deserialized, original=cameras)
@@ -202,10 +229,12 @@ def test_multi_cameras_npz_round_trip(tmp_path: Path) -> None:
     npz_path = tmp_path / "cameras.npz"
     save_cameras(cameras=cameras, cameras_path=npz_path)
     with np.load(npz_path, allow_pickle=False) as on_disk:
-        assert set(on_disk.files) == _NPZ_KEYS, f"{set(on_disk.files)=}"
-    _assert_cameras_fields_equal(
-        loaded=load_cameras(cameras_path=npz_path, device="cpu"), original=cameras
-    )
+        assert set(on_disk.files) == _NPZ_KEYS, (
+            "Expected the saved npz archive to carry exactly the npz key set. "
+            f"{set(on_disk.files)=} {_NPZ_KEYS=}"
+        )
+    loaded = load_cameras(cameras_path=npz_path, device="cpu")
+    _assert_cameras_fields_equal(loaded=loaded, original=cameras)
 
 
 def test_round_trip_keeps_the_batch_dtype(tmp_path: Path) -> None:
@@ -258,22 +287,26 @@ def test_round_trip_keeps_the_batch_dtype(tmp_path: Path) -> None:
             cameras_path = tmp_path / f"{dtype}.{format}"
             save_cameras(cameras=cameras, cameras_path=cameras_path)
             loaded = load_cameras(cameras_path=cameras_path, device="cpu")
-
-            param_dtypes = {
-                key: value.dtype for key, value in loaded.intrinsics.params.items()
-            }
+            param_dtypes = {}
+            for key, value in loaded.intrinsics.params.items():
+                param_dtypes[key] = value.dtype
             assert (
                 loaded.dtype == dtype
                 and loaded.extrinsics.dtype == dtype
                 and loaded.extrinsics.extrinsics.dtype == dtype
                 and loaded.intrinsics.dtype == dtype
-                and all(param_dtype == dtype for param_dtype in param_dtypes.values())
             ), (
                 "Expected the loaded batch and both its components to carry the dtype "
                 "it was saved in. "
                 f"{format=} {dtype=} {loaded.dtype=} "
                 f"{loaded.extrinsics.extrinsics.dtype=} {param_dtypes=}"
             )
+            for param_dtype in param_dtypes.values():
+                assert param_dtype == dtype, (
+                    "Expected every intrinsics param to carry the dtype it was saved "
+                    "in. "
+                    f"{format=} {dtype=} {param_dtypes=}"
+                )
             assert torch.equal(
                 loaded.extrinsics.extrinsics, cameras.extrinsics.extrinsics
             ), (
@@ -291,7 +324,7 @@ def test_round_trip_keeps_the_batch_dtype(tmp_path: Path) -> None:
 
 
 def _make_multi_cameras() -> Cameras:
-    """Build a multi-camera Cameras fixture whose per-camera params and poses all differ.
+    """Builds the three-camera Cameras fixture both collection round trips run on, its cameras differing in param values, centre, name and id so the payload spans every per-camera path the format has to carry.
 
     Args:
         None.
@@ -320,8 +353,8 @@ def _make_multi_cameras() -> Cameras:
     extrinsics = CameraExtrinsics(
         extrinsics=matrices, extr_convention="opengl", device="cpu"
     )
-    names: List[Optional[str]] = ["frame_0", None, "frame_2"]
-    ids: List[Optional[int]] = [7, 8, None]
+    names = ["frame_0", None, "frame_2"]
+    ids = [7, 8, None]
     return Cameras(
         intrinsics=intrinsics,
         extrinsics=extrinsics,
@@ -332,7 +365,7 @@ def _make_multi_cameras() -> Cameras:
 
 
 def test_the_intr_convention_and_resolution_survive_round_trip() -> None:
-    """The intrinsics' own frame and resolution ride through serialization with the params they name.
+    """An intrinsics' params name nothing without the frame they are stated in, so a payload that dropped it would deserialize into a different camera; the resolution needs no key of its own, riding inside those params.
 
     Args:
         None.
@@ -340,43 +373,50 @@ def test_the_intr_convention_and_resolution_survive_round_trip() -> None:
     Returns:
         None.
     """
-    intrinsics = build_camera_intrinsics(
+    standard_intrinsics = build_camera_intrinsics(
         model="pinhole",
         params={"fx": 400.0, "fy": 410.0, "cx": 150.0, "cy": 110.0, "h": 240, "w": 320},
         intr_convention="standard",
         device="cpu",
-    ).to(intr_convention="opengl")
+    )
+    intrinsics = standard_intrinsics.to(intr_convention="opengl")
+    extrinsics = _make_extrinsics(translation=[0.1, 0.2, 0.3], extr_convention="opencv")
     camera = Camera(
         intrinsics=intrinsics,
-        extrinsics=_make_extrinsics(
-            translation=[0.1, 0.2, 0.3], extr_convention="opencv"
-        ),
+        extrinsics=extrinsics,
         name="two-frames",
         id=7,
         device="cpu",
     )
     for format in ("json", "npz"):
         payload = serialize_cameras(cameras=camera, format=format)
-        loaded = deserialize_cameras(payload=payload, format=format, device="cpu")
-        assert (
-            loaded.intrinsics.intr_convention == intrinsics.intr_convention
-        ), f"{format=} {loaded.intrinsics.intr_convention=}"
-        assert (
-            loaded.intrinsics.params["h"] == intrinsics.params["h"]
-        ), f"{format=} {loaded.intrinsics.params=}"
-        assert (
-            loaded.intrinsics.params["w"] == intrinsics.params["w"]
-        ), f"{format=} {loaded.intrinsics.params=}"
-        assert (
-            loaded.extrinsics.extr_convention == "opencv"
-        ), f"{format=} {loaded.extrinsics.extr_convention=}"
-        assert (
-            loaded.intrinsics.intr_convention != loaded.extrinsics.extr_convention
-        ), f"{format=} {loaded.intrinsics.intr_convention=}"
+        loaded = deserialize_cameras(payload=payload, device="cpu", format=format)
+        assert loaded.intrinsics.intr_convention == intrinsics.intr_convention, (
+            "Expected the intr_convention to survive the round trip. "
+            f"{format=} {loaded.intrinsics.intr_convention=} {intrinsics.intr_convention=}"
+        )
+        assert loaded.intrinsics.params["h"] == intrinsics.params["h"], (
+            "Expected the h param to survive the round trip. "
+            f"{format=} {loaded.intrinsics.params=} {intrinsics.params=}"
+        )
+        assert loaded.intrinsics.params["w"] == intrinsics.params["w"], (
+            "Expected the w param to survive the round trip. "
+            f"{format=} {loaded.intrinsics.params=} {intrinsics.params=}"
+        )
+        assert loaded.extrinsics.extr_convention == "opencv", (
+            "Expected the extr_convention to survive the round trip. "
+            f"{format=} {loaded.extrinsics.extr_convention=}"
+        )
+        assert loaded.intrinsics.intr_convention != loaded.extrinsics.extr_convention, (
+            "Expected the intr_convention and the extr_convention to come back "
+            "independently. "
+            f"{format=} {loaded.intrinsics.intr_convention=} "
+            f"{loaded.extrinsics.extr_convention=}"
+        )
 
 
 def test_model_and_params_survive_round_trip(tmp_path: Path) -> None:
-    """A Camera's intrinsics model and params survive json and npz round trips.
+    """A Camera's intrinsics model and params survive a save then load round trip through both the json and npz formats.
 
     Args:
         tmp_path: Temporary output directory.
@@ -430,18 +470,20 @@ def test_model_and_params_survive_round_trip(tmp_path: Path) -> None:
             camera_path = tmp_path / f"camera_{model}.{format}"
             camera.save(camera_path=camera_path)
             loaded = Camera.load(camera_path=camera_path, device="cpu")
-            assert (
-                loaded.intrinsics.model == model
-            ), f"{format=} {loaded.intrinsics.model=} {model=}"
-            assert (
-                loaded.intrinsics.params == params
-            ), f"{format=} {loaded.intrinsics.params=} {params=}"
+            assert loaded.intrinsics.model == model, (
+                "Expected the intrinsics model to survive the round trip. "
+                f"{format=} {loaded.intrinsics.model=} {model=}"
+            )
+            assert loaded.intrinsics.params == params, (
+                "Expected the intrinsics params to survive the round trip. "
+                f"{format=} {loaded.intrinsics.params=} {params=}"
+            )
 
 
 def test_tensor_intrinsics_params_round_trip_as_serialized_values(
     tmp_path: Path,
 ) -> None:
-    """Tensor intrinsics params round-trip through camera I/O as numeric values.
+    """Tensor-valued intrinsics params round-trip through camera I/O as serialized numeric values.
 
     Args:
         tmp_path: Pytest-provided temporary directory for the round-trip file.
@@ -457,14 +499,12 @@ def test_tensor_intrinsics_params_round_trip_as_serialized_values(
         "h": 240,
         "w": 320,
     }
+    tensor_params = {}
+    for key, value in numeric_params.items():
+        tensor_params[key] = torch.tensor(float(value), dtype=torch.float32)
     for format in ("json", "npz"):
         intrinsics = build_camera_intrinsics(
-            model="ortho",
-            params={
-                key: torch.tensor(float(value), dtype=torch.float32)
-                for key, value in numeric_params.items()
-            },
-            intr_convention="standard",
+            model="ortho", params=tensor_params, intr_convention="standard"
         )
         extrinsics = _make_extrinsics(
             translation=[0.3, -0.2, 1.1], extr_convention="standard"
@@ -484,7 +524,7 @@ def test_tensor_intrinsics_params_round_trip_as_serialized_values(
 
 
 def test_extrinsics_and_extr_convention_survive_round_trip(tmp_path: Path) -> None:
-    """A Camera's extrinsics matrix and extr_convention survive json and npz round trips.
+    """A Camera's extrinsics matrix and extr_convention survive a save then load round trip through both the json and npz formats.
 
     Args:
         tmp_path: Temporary output directory.
@@ -492,9 +532,8 @@ def test_extrinsics_and_extr_convention_survive_round_trip(tmp_path: Path) -> No
     Returns:
         None.
     """
-    extr_conventions = ["standard", "opengl", "opencv", "pytorch3d", "arkit"]
     for format in ("json", "npz"):
-        for extr_convention in extr_conventions:
+        for extr_convention in ("standard", "opengl", "opencv", "pytorch3d", "arkit"):
             intrinsics = build_camera_intrinsics(
                 model="pinhole",
                 params={
@@ -523,16 +562,21 @@ def test_extrinsics_and_extr_convention_survive_round_trip(tmp_path: Path) -> No
             loaded = Camera.load(camera_path=camera_path, device="cpu")
             assert torch.equal(
                 loaded.extrinsics.extrinsics, camera.extrinsics.extrinsics
-            ), f"{format=} {extr_convention=} {loaded.extrinsics.extrinsics=}"
-            assert (
-                loaded.extrinsics.extr_convention == extr_convention
-            ), f"{format=} {loaded.extrinsics.extr_convention=}"
+            ), (
+                "Expected the extrinsics matrix to survive the round trip exactly. "
+                f"{format=} {extr_convention=} {loaded.extrinsics.extrinsics=} "
+                f"{camera.extrinsics.extrinsics=}"
+            )
+            assert loaded.extrinsics.extr_convention == extr_convention, (
+                "Expected the extr_convention to survive the round trip. "
+                f"{format=} {loaded.extrinsics.extr_convention=} {extr_convention=}"
+            )
 
 
 def _make_extrinsics(
     translation: List[float], extr_convention: str
 ) -> CameraExtrinsics:
-    """Build a CameraExtrinsics fixture with an identity rotation.
+    """Builds one CameraExtrinsics whose rotation is identity, so a round trip is measured on the centre and the pose frame alone.
 
     Args:
         translation: Length-3 camera-center translation as a list of floats.
@@ -549,7 +593,7 @@ def _make_extrinsics(
 
 
 def _assert_cameras_fields_equal(loaded: Cameras, original: Cameras) -> None:
-    """Assert two Cameras collections carry the same core serialized fields.
+    """Checks a loaded Cameras against the original by running the single-camera check at every index.
 
     Args:
         loaded: Cameras recovered from serialization.
@@ -558,14 +602,19 @@ def _assert_cameras_fields_equal(loaded: Cameras, original: Cameras) -> None:
     Returns:
         None.
     """
-    assert isinstance(loaded, Cameras), f"{type(loaded)=}"
-    assert len(loaded) == len(original), f"{len(loaded)=} {len(original)=}"
+    assert isinstance(
+        loaded, Cameras
+    ), f"Expected the loaded object to be a Cameras. {type(loaded)=}"
+    assert len(loaded) == len(original), (
+        "Expected the loaded Cameras to hold as many cameras as the original. "
+        f"{len(loaded)=} {len(original)=}"
+    )
     for index in range(len(original)):
         _assert_camera_fields_equal(loaded=loaded[index], original=original[index])
 
 
 def _assert_camera_fields_equal(loaded: Camera, original: Camera) -> None:
-    """Assert two Camera objects carry the same core serialized fields.
+    """Checks a loaded Camera against the original on the fields serialization has to carry.
 
     Args:
         loaded: Camera recovered from serialization.
@@ -574,18 +623,28 @@ def _assert_camera_fields_equal(loaded: Camera, original: Camera) -> None:
     Returns:
         None.
     """
-    assert isinstance(loaded, Camera), f"{type(loaded)=}"
+    assert isinstance(
+        loaded, Camera
+    ), f"Expected the loaded object to be a Camera. {type(loaded)=}"
+    assert loaded.intrinsics.model == original.intrinsics.model, (
+        "Expected the loaded intrinsics model to equal the original's. "
+        f"{loaded.intrinsics.model=} {original.intrinsics.model=}"
+    )
+    assert loaded.intrinsics.params == original.intrinsics.params, (
+        "Expected the loaded intrinsics params to equal the original's. "
+        f"{loaded.intrinsics.params=} {original.intrinsics.params=}"
+    )
+    assert torch.equal(loaded.extrinsics.extrinsics, original.extrinsics.extrinsics), (
+        "Expected the loaded extrinsics matrix to equal the original's exactly. "
+        f"{loaded.extrinsics.extrinsics=} {original.extrinsics.extrinsics=}"
+    )
+    assert loaded.extrinsics.extr_convention == original.extrinsics.extr_convention, (
+        "Expected the loaded extr_convention to equal the original's. "
+        f"{loaded.extrinsics.extr_convention=} {original.extrinsics.extr_convention=}"
+    )
     assert (
-        loaded.intrinsics.model == original.intrinsics.model
-    ), f"{loaded.intrinsics.model=} {original.intrinsics.model=}"
+        loaded.name == original.name
+    ), f"Expected the loaded name to equal the original's. {loaded.name=} {original.name=}"
     assert (
-        loaded.intrinsics.params == original.intrinsics.params
-    ), f"{loaded.intrinsics.params=} {original.intrinsics.params=}"
-    assert torch.equal(
-        loaded.extrinsics.extrinsics, original.extrinsics.extrinsics
-    ), f"{loaded.extrinsics.extrinsics=} {original.extrinsics.extrinsics=}"
-    assert (
-        loaded.extrinsics.extr_convention == original.extrinsics.extr_convention
-    ), f"{loaded.extrinsics.extr_convention=} {original.extrinsics.extr_convention=}"
-    assert loaded.name == original.name, f"{loaded.name=} {original.name=}"
-    assert loaded.id == original.id, f"{loaded.id=} {original.id=}"
+        loaded.id == original.id
+    ), f"Expected the loaded id to equal the original's. {loaded.id=} {original.id=}"

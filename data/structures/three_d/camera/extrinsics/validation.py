@@ -38,6 +38,7 @@ def validate_camera_extrinsics_attributes(
         assert torch.empty((), dtype=dtype).is_floating_point(), (
             "Expected CameraExtrinsics dtype to be floating. " f"{dtype=}"
         )
+    return
 
 
 def validate_extr_convention(extr_convention: Any) -> str:

@@ -33,8 +33,8 @@ class Cameras:
             extrinsics: Batched CameraExtrinsics whose camera-to-world matrix is a ``[B, 4, 4]`` torch.Tensor.
             names: Optional per-camera list of optional names, parallel to the batch axis.
             ids: Optional per-camera list of optional ids, parallel to the batch axis.
-            device: Optional target device for the batch's tensors; ``None`` resolves to the given extrinsics' own device.
-            dtype: Optional target floating dtype for the batch's tensors; ``None`` resolves to the given extrinsics' own dtype.
+            device: Optional target device for the batch's tensors, both components brought to it; ``None`` resolves to the device the given intrinsics and extrinsics share.
+            dtype: Optional target floating dtype for the batch's tensors, both components cast to it; ``None`` resolves to the dtype the given intrinsics and extrinsics share.
 
         Returns:
             None.
@@ -68,21 +68,29 @@ class Cameras:
             torch.dtype,
         ]:
             if device is None:
-                # The one exception: an unset device resolves to the given extrinsics'.
-                device = extrinsics.device
-            # One physical device has one spelling here, so a cuda and a cuda:0 naming it never compare unequal.
+                # A set of both, so neither component is the one read.
+                component_devices = {intrinsics.device, extrinsics.device}
+                # Single, since validate_camera_attributes asserts intrinsics.device == extrinsics.device.
+                (device,) = component_devices
             device = torch.device(device)
+            # One physical device has one spelling here, so a cuda and a cuda:0 naming it never compare unequal.
             if device.type == "cuda" and device.index is None:
+                # Where a tensor sent to a bare cuda lands, and so the device it reports.
                 device = torch.device("cuda", torch.cuda.current_device())
             if dtype is None:
-                # The one exception: an unset dtype resolves to the given extrinsics'.
-                dtype = extrinsics.dtype
+                # A set of both, so neither component is the one read.
+                component_dtypes = {intrinsics.dtype, extrinsics.dtype}
+                # Single, since validate_camera_attributes asserts intrinsics.dtype == extrinsics.dtype.
+                (dtype,) = component_dtypes
             # Both components are brought to the resolved device and dtype, never the other way around.
             intrinsics = intrinsics.to(device=device, dtype=dtype)
             extrinsics = extrinsics.to(device=device, dtype=dtype)
-            batch_size = len(extrinsics.extrinsics)
-            names = names if names is not None else [None] * batch_size
-            ids = ids if ids is not None else [None] * batch_size
+            # The batch named by omission.
+            if names is None:
+                names = [None] * extrinsics.extrinsics.shape[0]
+            # The batch identified by omission.
+            if ids is None:
+                ids = [None] * extrinsics.extrinsics.shape[0]
             return intrinsics, extrinsics, names, ids, device, dtype
 
         intrinsics, extrinsics, names, ids, device, dtype = _normalize_inputs(

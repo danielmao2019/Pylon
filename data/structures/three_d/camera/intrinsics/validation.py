@@ -43,6 +43,7 @@ def validate_camera_intrinsics_attributes(
         assert torch.empty((), dtype=dtype).is_floating_point(), (
             "Expected CameraIntrinsics dtype to be floating. " f"{dtype=}"
         )
+    return
 
 
 def validate_camera_model(model: Any) -> str:
@@ -273,6 +274,7 @@ def validate_camera_intrinsics_invariants(
         intr_convention=intr_convention,
         params=params,
     )
+    return
 
 
 def _validate_principal_point_within_image(
@@ -351,3 +353,4 @@ def _validate_model_is_representable_in_frame(
             "carrying only one unit. "
             f"{params['h']=} {params['w']=} {intr_convention=}"
         )
+    return
