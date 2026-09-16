@@ -19,7 +19,10 @@ scene_rendering.py
 ├── RENDERERS  # Tuple[str, ...] = ("depth", "rgb", "segmentation", "normal_3d", "normal_2d"), every point-cloud entry main and this branch both carry that takes return_mask and point_size
 ├── POINT_SIZES  # Tuple[float, ...] = (1.0, 2.0, 3.0, 5.0), odd and even so both kernel shapes are reached
 ├── RETURN_MASK_OPTIONS  # Tuple[bool, ...] = (False, True)
-├── DEVICES  # Tuple[torch.device, ...] = cpu, followed by cuda:0 when cuda is available; the indexed spelling, since main's Camera compares a bare cuda unequal to its components' cuda:0
+├── if torch's cuda is available
+│   └── impls DEVICES = the cpu device followed by the cuda:0 device  # Tuple[torch.device, ...]; the indexed spelling, since main's Camera compares a bare cuda unequal to its components' cuda:0
+├── else
+│   └── impls DEVICES = the cpu device alone  # Tuple[torch.device, ...]
 ├── def build_point_cloud(scene: Dict[str, Any], device: torch.device) -> PointCloud
 │   ├── # Rebuilds a scene's cloud from its stored tensors through the constructor both checkouts share, so main and this branch render the same points.
 │   ├── calls PointCloud(xyz=scene["xyz"] on device, data={"rgb": scene["rgb"], "labels": scene["labels"], "normals": scene["normals"]} each on device)
@@ -39,18 +42,19 @@ scene_rendering.py
     ├── if renderer == "depth"
     │   ├── calls render_depth_from_point_cloud(pc=pc, camera=camera, resolution=resolution, return_mask=return_mask, point_size=point_size)
     │   └── return  # its output
-    ├── elif renderer == "rgb"
+    ├── if renderer == "rgb"
     │   ├── calls render_rgb_from_point_cloud(pc=pc, camera=camera, resolution=resolution, return_mask=return_mask, point_size=point_size)
     │   └── return  # its output
-    ├── elif renderer == "segmentation"
+    ├── if renderer == "segmentation"
     │   ├── calls render_segmentation_from_point_cloud(pc=pc, key="labels", camera=camera, resolution=resolution, return_mask=return_mask, point_size=point_size)
     │   └── return  # its output
-    ├── elif renderer == "normal_3d"
+    ├── if renderer == "normal_3d"
     │   ├── calls render_normal_from_point_cloud_3d(pc=pc, camera=camera, resolution=resolution, return_mask=return_mask, point_size=point_size)
     │   └── return  # its output
-    └── else
-        ├── calls render_normal_from_point_cloud_2d(pc=pc, camera=camera, resolution=resolution, return_mask=return_mask, point_size=point_size)
-        └── return  # its output
+    ├── if renderer == "normal_2d"
+    │   ├── calls render_normal_from_point_cloud_2d(pc=pc, camera=camera, resolution=resolution, return_mask=return_mask, point_size=point_size)
+    │   └── return  # its output
+    └── assert 0, "Should not reach here."
 ```
 
 `tasks/20260903_implement_batched_pc_render/render_on_main.py`
@@ -64,7 +68,10 @@ render_on_main.py
 ├── from scene_rendering import DEVICES, POINT_SIZES, RENDERERS, RETURN_MASK_OPTIONS, build_camera, build_point_cloud, render_single_camera
 ├── def main() -> None
 │   ├── # Renders every scene with main's code in a child process launched inside the main checkout, so the branch has a fixed reference to compare against.
-│   ├── impls args = the parsed --scenes_path and --output_path
+│   ├── impls parser = an argparse parser described as rendering the saved scenes with the checkout this process imports from
+│   ├── impls parser gains a required str --scenes_path, the path of the saved scenes
+│   ├── impls parser gains a required str --output_path, the path the renders are saved to
+│   ├── impls args = the arguments parser parses
 │   ├── impls enable torch's deterministic algorithms  # main resolves a shared pixel by which write lands last, and deterministic mode makes that the last write in point order on cpu and cuda alike
 │   ├── impls scenes = the scenes deserialized from args.scenes_path
 │   ├── impls renders = an empty dict keyed by (device name, scene name, camera index, renderer, point size, return_mask)
@@ -91,8 +98,9 @@ render_on_main.py
 │   │           └── for each point_size of POINT_SIZES
 │   │               └── if point_size > 1.0
 │   │                   ├── impls depth_map = renders at (device name, scene name, camera_index, "depth", 1.0, False) with the depth entry's own background of -1.0 set to positive infinity
-│   │                   └── calls apply_point_size_postprocessing(rendered_image=depth_map, depth_map=depth_map, point_size=point_size, ignore_value=float("inf"))  # -> dilations[(device name, scene name, camera_index, point_size)]
-│   └── impls torch.save a dict of renders, kernels and dilations to args.output_path
+│   │                   ├── calls apply_point_size_postprocessing(rendered_image=depth_map, depth_map=depth_map, point_size=point_size, ignore_value=float("inf"))
+│   │                   └── impls dilations[(device name, scene name, camera_index, point_size)] = the dilation it returned
+│   └── impls save a dict of renders, kernels and dilations to args.output_path through torch's save
 └── if __name__ == "__main__"
     └── calls main()
 ```
@@ -125,7 +133,10 @@ prove_equivalence.py
 ├── from scene_rendering import DEVICES, POINT_SIZES, RENDERERS, RETURN_MASK_OPTIONS, build_camera, build_point_cloud, render_single_camera
 ├── def main() -> None
 │   ├── # Proves the two equivalences the task is done on: one camera handed over as a batch renders what main renders, and a batch renders what its cameras render one by one.
-│   ├── impls args = the parsed --main_repo (a checkout of this repo's main) and --force
+│   ├── impls parser = an argparse parser described as proving single-camera renders equal main's and batched renders equal one-by-one renders
+│   ├── impls parser gains a required Path --main_repo, a checkout of this repo's main branch
+│   ├── impls parser gains a store-true --force, rebuilding the cached scenes and main renders
+│   ├── impls args = the arguments parser parses
 │   ├── impls main_repo = the main_repo argument resolved to an absolute path  # it is the child's working directory and import root
 │   ├── impls output_dir = this task's outputs/ directory
 │   ├── impls set the CUBLAS_WORKSPACE_CONFIG environment variable to :4096:8, the workspace configuration deterministic cuBLAS requires
@@ -135,6 +146,7 @@ prove_equivalence.py
 │   ├── calls compare_single_camera_to_main(scenes=scenes, main_renders=main_renders)  # -> single_camera_records
 │   ├── calls compare_batch_to_one_by_one(scenes=scenes)  # -> batch_records
 │   ├── calls summarize_point_size_changes(main_renders=main_renders)  # -> point_size_summary
+│   ├── calls summarize_tie_changes(single_camera_records=single_camera_records)  # -> tie_summary
 │   ├── impls branch_worktree_clean = whether git status --porcelain run in REPO_ROOT prints nothing  # a report is evidence only for the commit it names
 │   ├── impls comparisons = an empty dict keyed by comparison name
 │   ├── for each name, records of ("dod_1", single_camera_records) and ("dod_2", batch_records)
@@ -146,12 +158,14 @@ prove_equivalence.py
 │   │   │       └── if the record is not equal
 │   │   │           └── impls failures gains record
 │   │   └── impls comparisons[name] = records with their required tally: the count of required_records, that count less the count of failures as the equal ones, and failures
-│   ├── impls report = the main commit main_renders carries, the branch HEAD read through git in REPO_ROOT, branch_worktree_clean, the device names, that main rendered under deterministic algorithms, every entry of comparisons, and point_size_summary  # main's scatter is racy on cuda otherwise, so its reference is the deterministic one
+│   ├── impls report = the main commit main_renders carries, the branch HEAD read through git in REPO_ROOT, branch_worktree_clean, the device names, that main rendered under deterministic algorithms, every entry of comparisons, point_size_summary, and tie_summary  # main's scatter is racy on cuda otherwise, so its reference is the deterministic one
 │   ├── impls write report as json indented by two to output_dir / "equivalence_report.json"
 │   ├── impls print the commits, whether the branch worktree was clean, the devices and main's deterministic algorithms on one line
 │   ├── for each name, comparison of comparisons
 │   │   └── impls print name with its required equal count out of its total and its failure count
 │   ├── for each label, entry of point_size_summary
+│   │   └── impls print label with entry
+│   ├── for each label, entry of tie_summary
 │   │   └── impls print label with entry
 │   ├── impls any_failed = False
 │   ├── for each comparison of comparisons
@@ -162,19 +176,20 @@ prove_equivalence.py
 ├── def load_or_build_scenes(output_dir: Path, force: bool) -> List[Dict[str, Any]]
 │   ├── # Returns the fixed seeded scenes both checkouts render, from output_dir / "scenes.pt" unless it is missing or force asks for a rebuild.
 │   ├── if the scenes file exists and not force
-│   │   └── return  # the scenes torch.load reads from it
+│   │   └── return  # the scenes torch's load reads from it
 │   ├── calls build_scenes()  # -> scenes
-│   ├── impls torch.save scenes to output_dir / "scenes.pt"
+│   ├── impls save scenes to output_dir / "scenes.pt" through torch's save
 │   └── return scenes
 ├── def build_scenes() -> List[Dict[str, Any]]
-│   ├── # Builds scenes that reach every regime the batching changes: many points per pixel, few enough points for CUDA's small-matrix kernels, points culled by some cameras only, rescaled intrinsics, and all three pose conventions.
-│   ├── impls generator = a torch.Generator seeded once with 0
+│   ├── # Builds scenes that reach every regime the batching changes: many points per pixel, few enough points for CUDA's small-matrix kernels, points culled by some cameras only, rescaled intrinsics, all three pose conventions, and points that tie in depth on one pixel.
+│   ├── impls generator = a torch random number generator seeded once with 0
 │   ├── impls collisions = the "collisions" scene: twenty thousand points in a side-two cube about the origin, float32 colours, four opengl pinhole cameras on a radius-four sphere with focal 60, rendered at the (48, 64) the standard intrinsics state
 │   ├── impls culling = the "culling" scene: two thousand points in a side-twelve cube about the origin, uint8 colours, three opencv pinhole cameras on a radius-four sphere with focal 150, standard intrinsics stated at (120, 160) but rendered at (60, 80)  # each camera sees a different subset
 │   ├── impls sparse = the "sparse" scene: three hundred points in a side-one cube about the origin, float32 colours, three standard-convention pinhole cameras on a radius-three sphere with focal 240, rendered at the (90, 120) the standard intrinsics state
 │   ├── impls few_points = the "few_points" scene: twelve points in a side-two cube about the origin, float32 colours, three opencv pinhole cameras on a radius-four sphere with focal 37.5, rendered at the (30, 40) the standard intrinsics state  # at most sixteen rows, the most CUDA's small-matrix kernel takes
+│   ├── impls ties = the "ties" scene: twelve points in six coincident pairs in a side-two cube about the origin, float32 colours, three opencv pinhole cameras on a radius-four sphere with focal 60, rendered at the (48, 64) the standard intrinsics state  # the two points of a pair share a depth and a pixel from every camera
 │   ├── impls axis_changes = per pose convention, the fixed rotation that right-multiplies an opencv camera-to-world rotation into the same pose in that convention  # opencv the identity, opengl diag(1, -1, -1), standard [[1, 0, 0], [0, 0, -1], [0, 1, 0]]
-│   ├── for each scene of collisions, culling, sparse and few_points
+│   ├── for each scene of collisions, culling, sparse, few_points and ties  # each point draws its own colour, label and normal, the two points of a tied pair included, so a render shows which point of a pair it kept
 │   │   ├── impls num_points, rgb_dtype = the scene's point count, and the colour dtype popped from it
 │   │   ├── if rgb_dtype is uint8
 │   │   │   └── impls scene["rgb"] = uint8 colours in [0, 255] drawn from generator
@@ -182,13 +197,20 @@ prove_equivalence.py
 │   │   │   └── impls scene["rgb"] = float32 colours in [0, 1) drawn from generator
 │   │   ├── impls scene["labels"], scene["normals"] = int64 labels below twenty and unit normals, both drawn from generator
 │   │   ├── impls num_cameras = the camera count popped from the scene
-│   │   ├── impls centre = [num_cameras, 3] camera centres on a sphere about the origin of the radius popped from the scene, azimuths evenly spaced from 0.3 rad and elevations alternating +0.35 and -0.35 rad
-│   │   ├── impls cam2world = [num_cameras, 4, 4] opencv look-at poses at centre aimed at the origin (+Z forward, +X along forward x world +Z, +Y along forward x +X), rotations restated in the scene's convention by axis_changes
+│   │   ├── impls azimuth = [num_cameras] azimuths evenly spaced over a full turn, starting from 0.3 rad
+│   │   ├── impls elevation = [num_cameras] elevations alternating +0.35 and -0.35 rad, starting at +0.35
+│   │   ├── impls centre = [num_cameras, 3] camera centres at azimuth and elevation on a sphere about the origin of the radius popped from the scene
+│   │   ├── impls forward = the unit vectors from centre towards the origin  # +Z of each opencv look-at pose at centre aimed at the origin
+│   │   ├── impls right = forward x world +Z, normalized to unit length  # +X
+│   │   ├── impls down = forward x right  # +Y
+│   │   ├── impls cam2world = [num_cameras, 4, 4] identity matrices
+│   │   ├── impls cam2world's rotation blocks = the columns (right, down, forward), right-multiplied by axis_changes of the scene's extr_convention  # the opencv rotations restated in the scene's convention
+│   │   ├── impls cam2world's translations = centre
 │   │   ├── impls focal, stated_height, stated_width = the base focal length and the resolution the intrinsics state, both popped from the scene
 │   │   ├── impls scene["cameras"] = an empty list
 │   │   └── for each camera_index below num_cameras
 │   │       └── impls scene["cameras"] gains {"params": 0-dim tensors fx = focal * (1 + 0.1 * camera_index), fy = focal * (1.05 + 0.1 * camera_index), cx = stated_width / 2 + camera_index, cy = stated_height / 2 - camera_index, h = stated_height, w = stated_width; "extrinsics": a copy of cam2world[camera_index]}
-│   └── return  # [collisions, culling, sparse, few_points], each now a dict of its name, model, conventions, resolution and cpu tensors
+│   └── return  # [collisions, culling, sparse, few_points, ties], each now a dict of its name, model, conventions, resolution and cpu tensors
 ├── def load_or_render_on_main(main_repo: Path, output_dir: Path, force: bool) -> Dict[str, Any]
 │   ├── # Returns main's renders of the scenes, from output_dir / "main_renders.pt" unless it is missing, was rendered at another main commit or from other scenes, or force asks for a rerender.
 │   ├── impls main_commit = the HEAD of main_repo, read through git
@@ -196,13 +218,13 @@ prove_equivalence.py
 │   ├── impls main_branch_commit = the commit this repo's main branch points at, read through git in REPO_ROOT
 │   ├── assert main_commit == main_branch_commit  # "Expected the main checkout to sit at the commit this repo's main branch points at. " f"{main_repo=} {main_commit=} {main_branch_commit=}"; the proof is against main as it stands, not an older checkout of it
 │   ├── if the renders file exists and not force
-│   │   ├── impls cached = the renders torch.load reads from it
+│   │   ├── impls cached = the renders torch's load reads from it
 │   │   └── if cached carries main_commit and scenes_digest
 │   │       └── return cached
 │   ├── impls run render_on_main.py by path under this interpreter with cwd main_repo and the current environment plus PYTHONPATH=main_repo and CUBLAS_WORKSPACE_CONFIG=:4096:8, handing it the scenes path and the renders path, checked
-│   ├── impls main_renders = the renders torch.load reads from the renders file
+│   ├── impls main_renders = the renders torch's load reads from the renders file
 │   ├── impls main_renders gains main_commit and scenes_digest
-│   ├── impls torch.save main_renders back to the renders file
+│   ├── impls save main_renders back to the renders file through torch's save
 │   └── return main_renders
 ├── def compare_single_camera_to_main(scenes: List[Dict[str, Any]], main_renders: Dict[str, Any]) -> List[Dict[str, Any]]
 │   ├── # Compares every render this branch makes of one camera, handed over alone and, where the entry takes a batch, as a batch of one, with the one main made of the same scene, camera, renderer, point size and mask option.
@@ -228,8 +250,8 @@ prove_equivalence.py
 │   │                           │   └── impls batch_slice = batch_output[0]
 │   │                           ├── calls compare_exactly(output=batch_slice, reference=main_output)  # -> comparison
 │   │                           └── impls records gain a "batch_of_one" record of the device name, scene name, camera_index, renderer, point_size and return_mask, merged with comparison
-│   ├── for each record of records  # above one pixel this branch's dilation grows a centred disc taking the nearest neighbour, and its depth entry applies it, where main did neither
-│   │   └── impls mark the record required when its point size is one
+│   ├── for each record of records  # above one pixel this branch's dilation grows a centred disc taking the nearest neighbour, and its depth entry applies it, where main did neither; at a tied depth this branch keeps the lowest point index, where main keeps the last point in order on cpu and the first on cuda
+│   │   └── impls mark the record required when its point size is one and its scene is not "ties"
 │   └── return records
 ├── def compare_batch_to_one_by_one(scenes: List[Dict[str, Any]]) -> List[Dict[str, Any]]
 │   ├── # Compares, on this branch alone, one call over a scene's whole batch of cameras with each camera on its own, stage by stage, so the rounding CUDA's batched kernels introduce is told apart from a batching error.
@@ -320,18 +342,29 @@ prove_equivalence.py
 │   │   ├── calls compare_exactly(output=dilation, reference=main_dilation)  # -> comparison
 │   │   └── impls summary tallies, under point_size, whether comparison came out equal  # main keeps the last nearer neighbour in kernel order, this branch the nearest
 │   └── return summary
+├── def summarize_tie_changes(single_camera_records: List[Dict[str, Any]]) -> Dict[str, Any]
+│   ├── # Records, per device and renderer, how many of the ties scene's point-size-one renders come out equal to main's, the one regime where main's choice between tied points depends on the device.
+│   ├── impls summary = an empty dict
+│   ├── for each record of single_camera_records
+│   │   └── if the record's scene name is "ties" and its point size is 1.0
+│   │       └── impls summary tallies, under the record's device name and renderer, whether the record came out equal
+│   └── return summary
 ├── def compare_preparations(output: Tuple[torch.Tensor, torch.Tensor], reference: Tuple[torch.Tensor, torch.Tensor], pc: PointCloud, camera: Camera, resolution: Tuple[int, int]) -> Dict[str, Any]
 │   ├── # Decides whether two preparations of one camera agree up to floating-point rounding, the test a cuda batch's preparation is held to.
 │   ├── impls points, valid = output as cpu tensors
 │   ├── impls reference_points, reference_indices = reference as cpu tensors  # the single camera's survivors and the points they are
 │   ├── impls reference_valid = a mask over the slice's point axis, True at reference_indices
+│   ├── impls reference_rows = an [N, 3] zero tensor like points holding reference_points at the rows reference_indices name  # each survivor at the row of the point it is
 │   ├── impls magnitude = the larger of the norm of camera's centre and the largest coordinate magnitude in pc  # the size of the numbers the world-to-camera transform rounds
 │   ├── calls camera.scale_intrinsics(resolution=resolution)  # -> render_camera, whose focal lengths are the ones the preparation projects with at resolution
-│   ├── impls tolerance = per point either side keeps, a few units in the last place of the points' dtype times magnitude, times render_camera's fx over its depth for x and render_camera's fy over its depth for y  # the projection multiplies camera-frame rounding by focal length over depth
+│   ├── impls camera_frame_tolerance = 4 times the machine epsilon of points' dtype times magnitude  # a few units in the last place of the points' dtype
+│   ├── impls depth = per point, its depth in points at the points valid keeps and its depth in reference_rows at the rest  # read off whichever side kept it
+│   ├── impls tolerance = [N, 3] per point: camera_frame_tolerance * render_camera's fx / depth for x, camera_frame_tolerance * render_camera's fy / depth for y, and camera_frame_tolerance for depth  # the projection multiplies camera-frame rounding by focal length over depth
 │   ├── impls kept = valid & reference_valid
-│   ├── impls points_close = every kept point's (x, y, depth) agrees with the reference row of that same point within tolerance  # a point either side culls lands on no pixel, so its coordinates carry nothing to compare
+│   ├── impls points_close = every kept point's (x, y, depth) row of points agrees with its row of reference_rows within its row of tolerance  # a point either side culls lands on no pixel, so its coordinates carry nothing to compare
 │   ├── impls flipped = the points where valid and reference_valid differ
-│   ├── impls flips_explained = every flipped point lies within tolerance of some cull boundary, a depth of zero or an image edge of resolution, read off whichever side kept it  # the side that culled it keeps no row, so which boundary it crossed is not on record
+│   ├── impls flipped_rows = per flipped point, its row of points where valid keeps it and its row of reference_rows where valid culls it  # the side that culled it keeps no row, so which boundary it crossed is not on record
+│   ├── impls flips_explained = every flipped row has |x| or |x - W| within its x tolerance, |y| or |y - H| within its y tolerance, or |depth| within its depth tolerance, (H, W) being resolution  # some cull boundary: a depth of zero or an image edge of resolution
 │   ├── calls compare_exactly(output=the rows valid keeps with their point indices, reference=reference)  # -> exact, so the report shows how often rounding moved anything at all
 │   └── return  # {"equal": points_close and flips_explained, "exact": exact["equal"], "flipped_points": the count flipped marks, "max_abs_diff": exact["max_abs_diff"]}
 ├── def compare_exactly(output: Union[torch.Tensor, Tuple[torch.Tensor, ...]], reference: Union[torch.Tensor, Tuple[torch.Tensor, ...]]) -> Dict[str, Any]
