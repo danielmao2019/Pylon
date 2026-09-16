@@ -88,7 +88,8 @@ trackball_camera_controls.py
 │   │   └── return renderer_controls  # exactly as they arrived, so a display handing over its own source renders what it rendered before lock_roll existed
 │   ├── impls plotly_controls = {"scene": {"dragmode": PLOTLY_FREE_ROLL_DRAGMODE}, "graph_id": None}  # the layout.scene configuration a Plotly gl3d display's figure carries and the component id its dcc.Graph carries, Plotly itself wiring left-button rotation, right-button panning, mouse-wheel zoom, and the suppressed canvas context menu
 │   ├── if lock_roll is not None
-│   │   ├── impls axis = lock_roll normalized to unit length
+│   │   ├── impls length = the Euclidean length of lock_roll
+│   │   ├── impls axis = lock_roll divided by length, normalized to unit length
 │   │   ├── impls plotly_controls["scene"]["aspectmode"] = PLOTLY_DATA_PROPORTION_ASPECTMODE  # the scene keeps world directions, so the camera.up below sits on the lock from the first frame and a data-extent change leaves the lock axis in place
 │   │   ├── impls plotly_controls["scene"]["camera"] = {"up": {"x": axis[0], "y": axis[1], "z": axis[2]}}
 │   │   └── impls plotly_controls["graph_id"] = {"type": ROLL_LOCKED_GRAPH_ID_TYPE, "index": uuid4().hex, "lock_roll": base64.b64encode(json.dumps(axis).encode()).decode()}  # index keeps two roll-locked graphs on one page apart; lock_roll hands the callback this graph's axis, base64 so no id value holds a "." Dash escapes in output ids
@@ -448,7 +449,7 @@ trackball_camera_controls.ts
 ├── import type { CameraState } from "data/viewer/utils/controls/camera/camera_state/ts/frontend/types";
 ├── export const DEFAULT_TRACKBALL_PERSPECTIVE_CAMERA_FOV: number = 45
 │   └── # Shared vertical-FOV (degrees) every TS spatial display must construct its THREE.PerspectiveCamera with — 45° is the standard 50mm-equivalent lens FOV, trading perspective realism against off-center foreshortening for the orbit-around-near-scene-content use case this lib targets.
-├── ROLL_LOCKED_POLAR_ANGLE_EPSILON   # radians the roll-locked camera stops short of either pole of the lock axis
+├── const ROLL_LOCKED_POLAR_ANGLE_EPSILON = 1e-6  # radians the roll-locked camera stops short of either pole of the lock axis
 ├── interface ThreeTrackballCameraControls
 │   ├── getCameraState
 │   │   └── # serializes the entire camera state (every CameraState field — both intrinsics and extrinsics) into a CameraState
@@ -479,6 +480,8 @@ trackball_camera_controls.ts
 │   ├── impls renderer-specific trackball camera controls with left-button rotation, right-button panning, mouse-wheel zoom, and suppressed canvas context menu  # impls-node-one-step:skip
 │   ├── if lockRoll is not null
 │   │   ├── impls rollLockAxis = lockRoll normalized to unit length
+│   │   ├── impls controls.rollLockAxis = rollLockAxis
+│   │   ├── impls controls.rollLockPolarAngleEpsilon = ROLL_LOCKED_POLAR_ANGLE_EPSILON
 │   │   ├── impls threeControls.noRotate = true, so the roll-locked left-drag below replaces three's free rotation while its right-drag pan and wheel zoom stay
 │   │   ├── impls heldEyeOffset = a zero vector, the eye offset each hold below leaves behind for the next
 │   │   ├── calls holdRollLockedCameraPose({ camera, target: threeControls.target, rollLockAxis, heldEyeOffset })  # the framing the controls are constructed on
@@ -498,15 +501,22 @@ trackball_camera_controls.ts
 │   │   │   ├── if no left drag is active
 │   │   │   │   └── return
 │   │   │   ├── impls radiansPerPixel = threeControls.rotateSpeed / (0.5 × renderer.domElement.clientWidth), the free trackball's own rotation per pixel
-│   │   │   ├── calls resolveRollLockBandedOffset({ offset: camera.position minus threeControls.target, rollLockAxis })
-│   │   │   ├── impls yaws the banded offset about rollLockAxis by the horizontal pointer delta times radiansPerPixel
-│   │   │   ├── impls pitches it about the camera right axis by the vertical pointer delta times radiansPerPixel, clamped to the polar band short of both poles, so a drag stops at a pole instead of carrying the view through it
+│   │   │   ├── calls resolveRollLockBandedOffset({ offset: camera.position minus threeControls.target, rollLockAxis })   → bandedOffset
+│   │   │   ├── impls yaws bandedOffset about rollLockAxis by minus the horizontal pointer delta from leftDrag times radiansPerPixel
+│   │   │   ├── impls cameraRightAxis = normalize(cross(-bandedOffset, rollLockAxis))
+│   │   │   ├── impls polarAngle = the angle from rollLockAxis to bandedOffset
+│   │   │   ├── impls pitchAngle = minus the vertical pointer delta from leftDrag times radiansPerPixel
+│   │   │   ├── impls pitchAngle = pitchAngle clamped so polarAngle + pitchAngle stays inside [ROLL_LOCKED_POLAR_ANGLE_EPSILON, π − ROLL_LOCKED_POLAR_ANGLE_EPSILON]  # a drag stops short of either pole
+│   │   │   ├── impls pitches bandedOffset about cameraRightAxis by pitchAngle
+│   │   │   ├── impls leftDrag = the event's pointer position, the one the next move's delta is measured from
+│   │   │   ├── impls camera.position = threeControls.target + bandedOffset
 │   │   │   ├── calls holdRollLockedCameraPose({ camera, target: threeControls.target, rollLockAxis, heldEyeOffset })
 │   │   │   └── impls threeControls.dispatchEvent({ type: "change" })
 │   │   ├── impls window.addEventListener("pointermove", turnRollLockedLeftDrag), so it runs for each left-drag pointer move
+│   │   ├── impls freeApplyCameraState = controls.applyCameraState, the free trackball's own camera-state write kept for rollLockedApplyCameraState to apply through
 │   │   ├── function rollLockedApplyCameraState(cameraState) [local]
 │   │   │   ├── # Applies a camera state as the free trackball does, then re-holds the roll-locked pose it leaves.
-│   │   │   ├── impls cameraState applied the way the free trackball applies it
+│   │   │   ├── impls freeApplyCameraState(cameraState), applying it the way the free trackball applies it
 │   │   │   └── calls holdRollLockedCameraPose({ camera, target: threeControls.target, rollLockAxis, heldEyeOffset })
 │   │   ├── impls controls.applyCameraState = rollLockedApplyCameraState, so each state it is handed is re-held on the lock
 │   │   ├── function rollLockedUpdate() [local]
@@ -514,8 +524,8 @@ trackball_camera_controls.ts
 │   │   │   ├── calls holdRollLockedCameraPose({ camera, target: threeControls.target, rollLockAxis, heldEyeOffset })
 │   │   │   └── impls three's own trackball update of threeControls
 │   │   ├── impls threeControls.update = rollLockedUpdate
-│   │   └── return
-│   └── return  # the controls exactly as they arrived, so a caller naming no axis renders what it rendered before this argument existed
+│   │   └── return controls
+│   └── return controls  # the free trackball controls exactly as three constructed them, so a caller naming no axis renders what it rendered before this argument existed
 ├── function holdRollLockedCameraPose({ camera, target, rollLockAxis, heldEyeOffset })  # heldEyeOffset: the banded eye offset the previous hold left behind
 │   ├── # Holds the camera on the roll-locked pose its own framing implies, the eye banded off the lock axis and camera.up re-derived from the view direction and that axis.
 │   ├── impls offset = camera.position minus target
@@ -532,8 +542,10 @@ trackball_camera_controls.ts
 │   ├── # Bands an eye offset's polar angle off the lock axis into [ROLL_LOCKED_POLAR_ANGLE_EPSILON, π − ROLL_LOCKED_POLAR_ANGLE_EPSILON], rebuilding it at the banded angle on its own meridian.
 │   ├── if the offset's polar angle already lies inside the band
 │   │   └── return offset
-│   ├── calls resolveRollLockMeridian({ offset, rollLockAxis })
-│   ├── impls bandedOffset = meridian × radius·sin(banded polar angle) + rollLockAxis × radius·cos(banded polar angle)
+│   ├── calls resolveRollLockMeridian({ offset, rollLockAxis })   → meridian
+│   ├── impls bandedPolarAngle = the offset's polar angle clamped into [ROLL_LOCKED_POLAR_ANGLE_EPSILON, π − ROLL_LOCKED_POLAR_ANGLE_EPSILON]
+│   ├── impls radius = the length of offset
+│   ├── impls bandedOffset = meridian × radius·sin(bandedPolarAngle) + rollLockAxis × radius·cos(bandedPolarAngle)
 │   └── return bandedOffset
 ├── function resolveRollLockMeridian({ offset, rollLockAxis }: { offset: THREE.Vector3; rollLockAxis: THREE.Vector3 }): THREE.Vector3
 │   ├── # Resolves the meridian an eye offset stands on, as a unit vector perpendicular to the lock axis.
@@ -541,7 +553,9 @@ trackball_camera_controls.ts
 │   ├── if meridian has non-zero length
 │   │   ├── impls meridian.normalize()
 │   │   └── return meridian
-│   ├── impls fallbackMeridian = normalize(cross(rollLockAxis, the world basis vector rollLockAxis leans on least))  # an offset on the axis stands on every meridian at once
+│   ├── impls axisMagnitudes = the absolute value of each component of rollLockAxis  # an offset on the axis stands on every meridian at once
+│   ├── impls leastLeanedBasisVector = the world basis vector along the smallest of axisMagnitudes, the one rollLockAxis leans on least
+│   ├── impls fallbackMeridian = normalize(cross(rollLockAxis, leastLeanedBasisVector))
 │   └── return fallbackMeridian
 ├── function assertTrackballCameraControls({ controls, camera, renderer, lockRoll }: { controls: ThreeTrackballCameraControls; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; lockRoll: THREE.Vector3 | null }): void
 │   ├── # Validates the constructed controls satisfy every trackball contract by running the mouse-mapping, no-orbit, no-pose-clamp, and roll-lock assertions.
