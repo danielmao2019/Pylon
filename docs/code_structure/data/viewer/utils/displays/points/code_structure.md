@@ -341,6 +341,9 @@ core_points_display.py
 │   └── return trace
 ├── def create_dash_points_component(scene: go.Scatter3d, controls: Dict[str, Any]) -> dcc.Graph  # controls: the Plotly gl3d controls create_dash_trackball_camera_controls built
 │   ├── # Assembles the Dash component that hosts the point-cloud scene under its trackball camera controls.
+│   ├── def _validate_inputs [local]
+│   │   └── assert isinstance(scene, go.Scatter3d), "..."
+│   ├── calls _validate_inputs()
 │   ├── impls display = dcc.Graph(figure=go.Figure(data=[scene], layout={"scene": controls["scene"]}))
 │   ├── if controls["graph_id"] is not None
 │   │   └── impls display.id = controls["graph_id"]  # the pattern-matching id the roll-lock callback holds this graph by
