@@ -155,7 +155,8 @@ class CameraExtrinsics:
         Returns:
             The 4x4 world-to-camera torch.Tensor.
         """
-        return torch.inverse(self._extrinsics)
+        w2c = torch.inverse(self._extrinsics)
+        return w2c
 
     @property
     def center(self) -> torch.Tensor:
@@ -346,15 +347,17 @@ class CameraExtrinsics:
         else:
             extrinsics = self._extrinsics
 
-        return CameraExtrinsics(
-            extrinsics=extrinsics.to(
-                device=device,
-                dtype=dtype,
-                non_blocking=non_blocking,
-                copy=copy,
-            ),
+        extrinsics = extrinsics.to(
+            device=device,
+            dtype=dtype,
+            non_blocking=non_blocking,
+            copy=copy,
+        )
+        extrinsics = CameraExtrinsics(
+            extrinsics=extrinsics,
             extr_convention=extr_convention,
         )
+        return extrinsics
 
     def transform_extrinsics(
         self,
@@ -492,10 +495,11 @@ class CameraExtrinsics:
             extrinsics_new[..., :3, :3]
         )
 
-        return CameraExtrinsics(
+        extrinsics = CameraExtrinsics(
             extrinsics=extrinsics_new,
             extr_convention=self._extr_convention,
         )
+        return extrinsics
 
 
 def _stabilize_rotation_matrix(rotation: torch.Tensor) -> torch.Tensor:
@@ -508,12 +512,6 @@ def _stabilize_rotation_matrix(rotation: torch.Tensor) -> torch.Tensor:
         The nearest proper rotation matrices, in the received shape and dtype.
     """
     # Input validations
-    assert isinstance(rotation, torch.Tensor), (
-        "Expected rotation matrix to be a torch.Tensor. " f"{type(rotation)=}"
-    )
-    assert rotation.shape[-2:] == (3, 3), (
-        "Expected rotation matrix trailing dims to be 3x3. " f"{rotation.shape=}"
-    )
     assert rotation.dtype in (torch.float32, torch.float64), (
         "Expected rotation matrix dtype to be float32 or float64. " f"{rotation.dtype=}"
     )
@@ -531,12 +529,13 @@ def _stabilize_rotation_matrix(rotation: torch.Tensor) -> torch.Tensor:
 
     u, _, v_h = torch.linalg.svd(rotation)
     rotation_fixed = u @ v_h
-    column_scales = torch.ones_like(u[..., 0, :])
-    column_scales[..., -1] = torch.where(
+    signs = torch.ones_like(u[..., 0, :])
+    signs[..., -1] = torch.where(
         torch.linalg.det(rotation_fixed) < 0.0,
-        -column_scales[..., -1],
-        column_scales[..., -1],
+        -signs[..., -1],
+        signs[..., -1],
     )
-    rotation_fixed = (u * column_scales.unsqueeze(-2)) @ v_h
+    u = u * signs.unsqueeze(-2)
+    rotation_fixed = u @ v_h
     validate_rotation_matrix(rotation_fixed)
     return rotation_fixed

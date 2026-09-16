@@ -124,10 +124,12 @@ def load_cameras(
             The payload the file holds, plural or single.
         """
         if format == "json":
-            return json.loads(cameras_path.read_text(encoding="utf-8"))
+            payload = json.loads(cameras_path.read_text(encoding="utf-8"))
+            return payload
         if format == "npz":
             with np.load(cameras_path, allow_pickle=False) as payload_file:
-                return {key: payload_file[key] for key in payload_file.files}
+                payload = {key: payload_file[key] for key in payload_file.files}
+            return payload
         assert False, "Expected Cameras load format to be handled. " f"{format=}"
 
     payload = _read_payload()
@@ -648,14 +650,6 @@ def _serialize_intrinsics_params(
     """
     serialized_params: Dict[str, Union[int, float]] = {}
     for key, value in params.items():
-        assert isinstance(value, torch.Tensor), (
-            "Expected serialized intrinsics params to be tensor-valued. "
-            f"{key=} {type(value)=}"
-        )
-        assert value.shape == (), (
-            "Expected one camera's serialized intrinsics params to be 0-dim tensors. "
-            f"{key=} {value.shape=}"
-        )
         number = value.detach().cpu().item()
         if key in {"h", "w"}:
             assert number.is_integer(), (
@@ -735,7 +729,8 @@ def _normalize_payload_to_single(
         return payload[0]
 
     if format == "npz":
-        return {key: value[0] for key, value in payload.items()}
+        payload = {key: value[0] for key, value in payload.items()}
+        return payload
 
     assert False, "Expected Cameras serialization format to be handled. " f"{format=}"
 
