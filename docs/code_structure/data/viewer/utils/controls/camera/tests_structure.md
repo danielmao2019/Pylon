@@ -10,41 +10,80 @@
 test_trackball_camera_controls.py
 ├── import base64
 ├── import json
+├── import math
+├── import subprocess
+├── import sys
+├── from pathlib import Path
+├── from typing import Optional, Tuple
 ├── import pytest
-├── from dash import ALL
+├── from dash import ALL, Input
 ├── from data.viewer.utils.controls.camera.camera_controls.dash.trackball_camera_controls import ROLL_LOCK_CALLBACK_SCRIPT, ROLL_LOCKED_GRAPH_ID_TYPE, assert_dash_no_camera_pose_clamps, assert_dash_roll_lock, create_dash_trackball_camera_controls
+├── from data.viewer.utils.displays.mesh.dash.core_mesh_display import TEXTURED_MESH_VIEWER_SCRIPT_PATH
+├── REPO_ROOT = Path(__file__).resolve().parents[8]  # the working dir the registration probe imports the module from
+├── NON_AXIS_ALIGNED_LOCK_ROLL = (0.3, 0.9, -0.2)  # deliberately non-axis-aligned, so no world basis vector stands in for it
+├── NON_UNIT_LOCK_ROLL = (3.0, 9.0, -2.0)  # the same direction at ten times the length
+├── NORMALIZED_LOCK_ROLL = tuple(component / math.sqrt(sum(value * value for value in NON_AXIS_ALIGNED_LOCK_ROLL)) for component in NON_AXIS_ALIGNED_LOCK_ROLL)
+│   └── for component in NON_AXIS_ALIGNED_LOCK_ROLL
+│       └── impls component / math.sqrt(sum(value * value for value in NON_AXIS_ALIGNED_LOCK_ROLL))
+│           └── for value in NON_AXIS_ALIGNED_LOCK_ROLL
+│               └── impls value * value
+├── FREE_TRACKBALL_RENDERER_SOURCE = renderer source wiring the trackball mouse mapping whose left-drag turns camera.up with the eye
+├── REGISTRATION_PROBE_SCRIPT = script a fresh interpreter runs to print, as JSON, the global callbacks on the roll-locked graph pattern and the global inline scripts
 ├── def test_no_axis_builds_the_free_roll_controls
 │   ├── # Plotly controls built with no lock_roll run the free-roll orbit dragmode, pin no camera.up, and carry no graph id, so the roll-lock callback matches nothing of theirs.
-│   ├── calls create_dash_trackball_camera_controls
-│   ├── impls assert the controls equal {"scene": {"dragmode": "orbit"}, "graph_id": None}
+│   ├── calls create_dash_trackball_camera_controls()   → controls
+│   ├── assert controls == {"scene": {"dragmode": "orbit"}, "graph_id": None}, "..."
 │   └── return
 ├── def test_a_supplied_axis_seeds_the_normalized_axis_as_camera_up
 │   ├── # Plotly controls built with a lock_roll carry that axis, normalized, as their scene's camera.up under the free-roll orbit dragmode.
-│   ├── impls construct with a deliberately non-axis-aligned lock_roll
-│   ├── calls create_dash_trackball_camera_controls
-│   ├── impls assert the scene carries dragmode "orbit", aspectmode "data", and camera.up equal to the normalized lock_roll
+│   ├── calls create_dash_trackball_camera_controls(lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL)   → controls
+│   ├── assert controls["scene"]["dragmode"] == "orbit", "..."
+│   ├── assert controls["scene"]["aspectmode"] == "data", "..."
+│   ├── impls up = controls["scene"]["camera"]["up"]
+│   ├── assert up == pytest.approx({x, y, z of NORMALIZED_LOCK_ROLL}, abs=1e-12), "..."
 │   └── return
 ├── def test_a_non_unit_axis_is_normalized
 │   ├── # The caller's axis need not be unit length, so the same direction at any length pins the same camera up vector and hands the callback the same axis.
-│   ├── calls create_dash_trackball_camera_controls
-│   ├── impls assert the same direction supplied at two lengths yields the same normalized camera up vector and the same graph_id lock_roll
+│   ├── calls create_dash_trackball_camera_controls(lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL)   → unit_controls
+│   ├── calls create_dash_trackball_camera_controls(lock_roll=NON_UNIT_LOCK_ROLL)   → scaled_controls
+│   ├── impls unit_up, scaled_up = the two controls' scene camera.up
+│   ├── assert scaled_up == pytest.approx(unit_up, abs=1e-12), "..."
+│   ├── assert math.isclose(math.hypot(scaled_up x, y, z), 1.0), "..."
+│   ├── impls unit_graph_axis, scaled_graph_axis = each controls' graph_id lock_roll, base64-decoded then JSON-loaded
+│   ├── assert scaled_graph_axis == pytest.approx(unit_graph_axis, abs=1e-12), "..."
 │   └── return
 ├── def test_a_supplied_axis_carries_the_roll_locked_graph_id
 │   ├── # Plotly controls built with a lock_roll carry a ROLL_LOCKED_GRAPH_ID_TYPE component id handing the callback the normalized axis, its index unique per construction so two roll-locked graphs on one page never share an id.
-│   ├── calls create_dash_trackball_camera_controls
-│   ├── impls assert graph_id["type"] is ROLL_LOCKED_GRAPH_ID_TYPE and json.loads(base64.b64decode(graph_id["lock_roll"])) equals the normalized lock_roll
-│   ├── impls assert no value of graph_id contains ".", which Dash escapes in output ids
-│   ├── impls assert two constructions with the same lock_roll carry different graph_id indices
+│   ├── calls create_dash_trackball_camera_controls(lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL)   → first_controls
+│   ├── calls create_dash_trackball_camera_controls(lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL)   → second_controls
+│   ├── assert first_controls["graph_id"]["type"] == ROLL_LOCKED_GRAPH_ID_TYPE, "..."
+│   ├── impls graph_axis = json.loads(base64.b64decode(first_controls["graph_id"]["lock_roll"]))
+│   ├── assert graph_axis == pytest.approx(NORMALIZED_LOCK_ROLL, abs=1e-12), "..."
+│   ├── impls graph_id_text = the graph_id values joined
+│   ├── assert "." not in graph_id_text, "..."  # Dash escapes "." in output ids
+│   ├── assert the two graph_id indices differ, "..."
 │   └── return
 ├── def test_a_supplied_axis_pins_the_data_aspect
 │   ├── # Plotly controls built with a lock_roll draw the scene at its data's own proportions, so the world axis keeps its direction in the scene's space, while free controls leave the aspect to Plotly.
-│   ├── calls create_dash_trackball_camera_controls
-│   ├── impls assert the roll-locked scene carries aspectmode "data" and the free scene carries no aspectmode
+│   ├── calls create_dash_trackball_camera_controls(lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL)   → roll_locked_controls
+│   ├── calls create_dash_trackball_camera_controls()   → free_controls
+│   ├── assert roll_locked_controls["scene"]["aspectmode"] == "data", "..."
+│   ├── assert "aspectmode" not in free_controls["scene"], "..."
 │   └── return
 ├── def test_the_roll_lock_callback_is_registered_once_on_the_roll_locked_graph_pattern
 │   ├── # Importing the module registers exactly one clientside callback, matching every roll-locked graph's relayoutData by pattern and running the shipped roll_lock.js source, so no display registers a callback of its own.
-│   ├── impls collect the Dash global clientside callbacks whose inputs name ROLL_LOCKED_GRAPH_ID_TYPE
-│   ├── impls assert exactly one, its one input {"type": ROLL_LOCKED_GRAPH_ID_TYPE, "index": ALL, "lock_roll": ALL} relayoutData and its inline source ROLL_LOCK_CALLBACK_SCRIPT
+│   ├── impls completed = subprocess.run([sys.executable, "-c", REGISTRATION_PROBE_SCRIPT], cwd=REPO_ROOT, capture_output=True, text=True)  # a fresh interpreter: the first Dash app to set up its server empties the global callback lists
+│   ├── assert completed.returncode == 0, "..."
+│   ├── impls probe = json.loads(completed.stdout)
+│   ├── assert len(probe["callbacks"]) == 1, "..."
+│   ├── impls callback = probe["callbacks"][0]
+│   ├── impls expected_input = Input({"type": ROLL_LOCKED_GRAPH_ID_TYPE, "index": ALL, "lock_roll": ALL}, "relayoutData").to_dict()
+│   ├── assert callback["inputs"] == [expected_input], "..."
+│   ├── impls registering_scripts = [script for script in probe["inline_scripts"] if callback["clientside_function"]["function_name"] in script]
+│   │   └── for script in probe["inline_scripts"]
+│   │       └── if callback["clientside_function"]["function_name"] in script
+│   │           └── impls script
+│   ├── assert exactly one registering script, holding ROLL_LOCK_CALLBACK_SCRIPT, "..."
 │   └── return
 ├── def test_a_zero_axis_is_rejected
 │   ├── # A zero-length lock_roll names no direction, so it is rejected rather than normalized into a NaN camera.up.
@@ -53,25 +92,24 @@ test_trackball_camera_controls.py
 │   └── return
 ├── def test_roll_locked_controls_keep_every_other_degree_of_freedom_free
 │   ├── # Roll lock constrains roll alone, so roll-locked Plotly controls still pass the mouse-mapping, no-orbit, and no-pose-clamp contracts.
-│   ├── calls create_dash_trackball_camera_controls
-│   ├── impls assert the validation raises nothing, so its azimuth angle, target lock, distance bounds, pan, and translation stay unrestricted
+│   ├── calls create_dash_trackball_camera_controls(lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL)  # the factory runs every trackball contract, so returning without raising is the assertion
 │   └── return
 ├── def test_the_threejs_viewer_source_passes_the_trackball_contract
 │   ├── # The shipped three.js mesh viewer source, handed over the way the mesh display hands it, satisfies every trackball contract and comes back unchanged, so the display's guard keeps guarding it.
-│   ├── impls read the shipped renderer JavaScript source
-│   ├── calls create_dash_trackball_camera_controls
-│   ├── impls assert the returned controls are that source unchanged
+│   ├── impls source = the shipped three.js viewer source read from TEXTURED_MESH_VIEWER_SCRIPT_PATH, its __CAMERA_SYNC_SCRIPT__ placeholder stripped as the mesh display does
+│   ├── calls create_dash_trackball_camera_controls(renderer_controls=source)   → constructed
+│   ├── assert constructed is source, "..."
 │   └── return
 ├── def test_free_trackball_source_leaves_camera_roll_unconstrained
 │   ├── # Renderer source whose left-drag rotation carries the camera up vector passes the free-trackball contract and fails the roll-locked one.
-│   ├── impls build renderer source whose left-drag carries the camera up vector
-│   ├── calls create_dash_trackball_camera_controls
+│   ├── calls create_dash_trackball_camera_controls(renderer_controls=FREE_TRACKBALL_RENDERER_SOURCE)   → constructed
+│   ├── assert constructed is FREE_TRACKBALL_RENDERER_SOURCE, "..."
 │   ├── with pytest.raises when the same source is asserted against a supplied axis
-│   │   └── calls assert_dash_roll_lock
+│   │   └── calls assert_dash_roll_lock(controls=FREE_TRACKBALL_RENDERER_SOURCE, lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL)
 │   └── return
 ├── def test_the_roll_lock_source_holds_the_camera_right_axis_and_up_vector
 │   ├── # The shipped roll_lock.js source passes the roll-locked contract and fails the free-trackball one.
-│   ├── calls assert_dash_roll_lock(controls=ROLL_LOCK_CALLBACK_SCRIPT, lock_roll=lock_roll)
+│   ├── calls assert_dash_roll_lock(controls=ROLL_LOCK_CALLBACK_SCRIPT, lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL)
 │   ├── with pytest.raises when the same source is asserted with no axis supplied
 │   │   └── calls assert_dash_roll_lock
 │   └── return
@@ -114,13 +152,13 @@ test_trackball_camera_controls.py
 │   │   └── with pytest.raises on the free-trackball-must-leave-roll-unconstrained message
 │   │       └── calls assert_dash_roll_lock
 │   └── return
-├── def test_assert_dash_no_camera_pose_clamps_rejects_the_pose_clamping_dragmode
+├── @pytest.mark.parametrize("lock_roll", [None, NON_AXIS_ALIGNED_LOCK_ROLL]) def test_assert_dash_no_camera_pose_clamps_rejects_the_pose_clamping_dragmode(lock_roll: Optional[Tuple[float, float, float]]) -> None
 │   ├── # The turntable dragmode pins camera.up onto world +Z, so it is rejected as a pose clamp whether or not an axis is supplied.
 │   ├── impls build Plotly controls whose scene carries the turntable dragmode
 │   ├── with pytest.raises on the restricted-camera-pose-controls message
 │   │   └── calls assert_dash_no_camera_pose_clamps
 │   └── return
-└── def test_assert_dash_no_camera_pose_clamps_rejects_an_omitted_dragmode
+└── @pytest.mark.parametrize("lock_roll", [None, NON_AXIS_ALIGNED_LOCK_ROLL]) def test_assert_dash_no_camera_pose_clamps_rejects_an_omitted_dragmode(lock_roll: Optional[Tuple[float, float, float]]) -> None
     ├── # Plotly controls whose scene names no dragmode run Plotly's turntable default, so they are rejected the same way.
     ├── impls build Plotly controls whose scene carries no dragmode
     ├── with pytest.raises on the restricted-camera-pose-controls message
@@ -147,5 +185,8 @@ frontend roll-lock expectations  # agent-conducted manual procedures, each condu
 ├── A camera or rotation target written directly onto a roll-locked display — a Plotly.relayout, a Dash figure update with or without a projection switch in it, a Dash figure update that drops the 3D trace and adds it back, a modebar reset-camera, a rotation-mode switch in either direction, or a projection switch on Dash; a controls.target or camera.position write on TS — renders no frame off the lock, and on Dash leaves the camera the layout stores on the lock.
 ├── A camera written onto a roll-locked display with its up on the far side of the axis keeps the eye it was written with, turned upright about its own view direction.
 ├── A roll-locked display right-drag-pans and wheel-zooms over the same range its free counterpart reaches.
-└── Two camera-synced displays built with the same lockRoll setting end every left-drag on either one in the same pose, both roll-locked throughout.
+├── Two camera-synced displays built with the same lockRoll setting end every left-drag on either one in the same pose, both roll-locked throughout.
+├── A roll-locked TS display whose camera is written with its eye on its target keeps the pose it last held, renders no frame off the lock, and answers the next drag and wheel normally.
+├── A roll-locked Dash display whose camera is written with its eye on its center keeps the pose it last held, renders no frame off the lock, and answers the next drag and wheel normally.
+└── A burst of camera writes issued without awaiting on a roll-locked Dash display leaves the camera the layout stores on the lock.
 ```
