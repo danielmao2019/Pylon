@@ -219,7 +219,8 @@ roll_lock.js
     │   │   ├── function rollLockedLookAt(time, eye, center, up) [local]  # up: the written up, which the lock re-derives from the view direction and axis
     │   │   │   ├── # Writes one pose into the controller's keyframes on the lock.
     │   │   │   ├── impls fills each of eye and center the caller left null from the controller's own pose at time
-    │   │   │   ├── calls resolveRollLockedPose(eye, center)
+    │   │   │   ├── calls resolveHeldEye(eye, center, controller, time)   → heldEye
+    │   │   │   ├── calls resolveRollLockedPose(heldEye, center)
     │   │   │   ├── impls the controller's own lookAt(time, the roll-locked eye, center, the roll-locked up)
     │   │   │   ├── if that write appended a keyframe to the controller's quaternion rotation  # the orbital controller's; the turntable controller keeps angles, which have no second hemisphere
     │   │   │   │   └── calls alignRotationKeyframeHemisphere(controller.rotation)
@@ -236,7 +237,7 @@ roll_lock.js
     │   │   ├── # Subscribes the lock once to graphDiv's plotly_relayout and plotly_afterplot events and to the scenes Plotly mounts inside it, so the camera the layout stores is rewritten to the roll-locked pose the renderer already draws.
     │   │   ├── if graphDiv already carries the subscription
     │   │   │   └── return
-    │   │   ├── impls graphDiv.__rollLock = { writing: false }, the in-flight flag applyRollLock holds while its own relayout lands
+    │   │   ├── impls graphDiv.__rollLock = { writing: false, pending: false }  # writing: the in-flight flag applyRollLock holds while its own relayout lands; pending: whether a camera write arrived while it did
     │   │   ├── function rewriteWrittenCamera(eventData) [local]
     │   │   │   ├── # Rewrites the camera one relayout event wrote into the layout onto the lock.
     │   │   │   ├── calls resolveWrittenCamera(graphDiv, eventData)
@@ -274,15 +275,26 @@ roll_lock.js
     │   │   ├── # Writes the roll-locked pose back to the graph when the camera it reports sits off the lock.
     │   │   ├── for each of camera.eye, camera.center and camera.up
     │   │   │   └── calls recordToVector(record)
-    │   │   ├── calls resolveRollLockedPose(eye, center)
-    │   │   ├── if up already lies within ROLL_LOCK_VIOLATION_EPSILON of the roll-locked up
+    │   │   ├── calls resolveHeldEye(eye, center, the scene's view, the view's latest keyframe time)   → heldEye
+    │   │   ├── calls resolveRollLockedPose(heldEye, center)
+    │   │   ├── if heldEye is the written eye and up already lies within ROLL_LOCK_VIOLATION_EPSILON of the roll-locked up
     │   │   │   └── return
     │   │   ├── if graphDiv's own roll-lock relayout is still in flight
+    │   │   │   ├── impls graphDiv.__rollLock.pending = true, so the camera this write leaves is read back once that relayout lands
     │   │   │   └── return
     │   │   ├── for each of the roll-locked eye and up
     │   │   │   └── calls vectorToRecord(vector)
     │   │   ├── impls Plotly.relayout(graphDiv, the roll-locked eye and up records), graphDiv's in-flight flag held until it resolves
+    │   │   ├── if graphDiv.__rollLock.pending once that relayout resolves
+    │   │   │   ├── impls graphDiv.__rollLock.pending = false
+    │   │   │   └── calls applyRollLock(graphDiv, graphDiv._fullLayout.scene.camera)  # the camera the writes that arrived in flight left behind
     │   │   └── return
+    │   ├── function resolveHeldEye(eye, center, heldPose, time) [local]  # heldPose: the camera controller a write goes into, or the scene's own view
+    │   │   ├── # Resolves the eye the lock holds a written camera from, keeping the eye offset heldPose holds at time when the written eye sits on its center and so names no view direction.
+    │   │   ├── if eye and center do not coincide
+    │   │   │   └── return eye
+    │   │   ├── impls heldEye = center plus the eye offset heldPose holds at time
+    │   │   └── return heldEye
     │   ├── function resolveTurnedPose(eye, center, yaw, pitch) [local]
     │   │   ├── # Turns a roll-locked pose by one drag step's yaw about axis and pitch about the camera right axis.
     │   │   ├── calls resolveBandedOffset(vectorSubtract(eye, center))
@@ -404,21 +416,26 @@ trackball_camera_controls.ts
 │   ├── if lockRoll is not null
 │   │   ├── impls rollLockAxis = lockRoll normalized to unit length
 │   │   ├── impls threeControls.noRotate = true, so the roll-locked left-drag below replaces three's free rotation while its right-drag pan and wheel zoom stay
-│   │   ├── calls holdRollLockedCameraPose({ camera, target: threeControls.target, rollLockAxis })  # the framing the controls are constructed on
+│   │   ├── impls heldEyeOffset = a zero vector, the eye offset each hold below leaves behind for the next
+│   │   ├── calls holdRollLockedCameraPose({ camera, target: threeControls.target, rollLockAxis, heldEyeOffset })  # the framing the controls are constructed on
 │   │   ├── for each left-drag pointer move
 │   │   │   ├── impls radiansPerPixel = threeControls.rotateSpeed / (0.5 × renderer.domElement.clientWidth), the free trackball's own rotation per pixel
 │   │   │   ├── calls resolveRollLockBandedOffset({ offset: camera.position minus threeControls.target, rollLockAxis })
 │   │   │   ├── impls yaws the banded offset about rollLockAxis by the horizontal pointer delta times radiansPerPixel
 │   │   │   ├── impls pitches it about the camera right axis by the vertical pointer delta times radiansPerPixel, clamped to the polar band short of both poles, so a drag stops at a pole instead of carrying the view through it
-│   │   │   ├── calls holdRollLockedCameraPose({ camera, target: threeControls.target, rollLockAxis })
+│   │   │   ├── calls holdRollLockedCameraPose({ camera, target: threeControls.target, rollLockAxis, heldEyeOffset })
 │   │   │   └── impls threeControls.dispatchEvent({ type: "change" })
-│   │   ├── impls controls.applyCameraState re-holds the roll-locked pose through holdRollLockedCameraPose after applying each state it is handed
-│   │   ├── impls threeControls.update runs holdRollLockedCameraPose before three's own update, so a target or position a caller writes directly is held from the next update on
+│   │   ├── impls controls.applyCameraState re-holds the roll-locked pose through holdRollLockedCameraPose, with heldEyeOffset, after applying each state it is handed
+│   │   ├── impls threeControls.update runs holdRollLockedCameraPose, with heldEyeOffset, before three's own update, so a target or position a caller writes directly is held from the next update on
 │   │   └── return
 │   └── return  # the controls exactly as they arrived, so a caller naming no axis renders what it rendered before this argument existed
-├── function holdRollLockedCameraPose({ camera, target, rollLockAxis })
+├── function holdRollLockedCameraPose({ camera, target, rollLockAxis, heldEyeOffset })  # heldEyeOffset: the banded eye offset the previous hold left behind
 │   ├── # Holds the camera on the roll-locked pose its own framing implies, the eye banded off the lock axis and camera.up re-derived from the view direction and that axis.
-│   ├── calls resolveRollLockBandedOffset({ offset: camera.position minus target, rollLockAxis })
+│   ├── impls offset = camera.position minus target
+│   ├── if offset has zero length  # an eye written onto the target, or the target onto the eye, names no view direction
+│   │   └── impls offset = heldEyeOffset
+│   ├── calls resolveRollLockBandedOffset({ offset, rollLockAxis })
+│   ├── impls heldEyeOffset = bandedOffset, overwritten in place for the next hold
 │   ├── impls cameraRightAxis = normalize(cross(-bandedOffset, rollLockAxis))
 │   ├── impls camera.position = target + bandedOffset
 │   ├── impls camera.up = normalize(cross(cameraRightAxis, normalize(-bandedOffset)))
