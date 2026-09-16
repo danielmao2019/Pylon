@@ -347,8 +347,8 @@ io.py
 │   ├── from data.structures.three_d.camera.camera import Camera    # inline runtime import; camera.py imports io.py, so this would cycle at module top
 │   ├── from data.structures.three_d.camera.cameras import Cameras  # inline runtime import; cameras.py imports io.py, so this would cycle at module top
 │   ├── def _validate_inputs [local]
-│   │   ├── assert cameras is a Camera or a Cameras
-│   │   └── assert format is in _CAMERA_SERIALIZATION_FORMATS  # drawn because this is format's only owner on this path
+│   │   ├── assert isinstance(cameras, (Camera, Cameras))
+│   │   └── assert format in _CAMERA_SERIALIZATION_FORMATS  # drawn because this is format's only owner on this path
 │   ├── calls _validate_inputs
 │   ├── def _normalize_inputs [local]
 │   │   ├── impls was_single = isinstance(cameras, Camera)
