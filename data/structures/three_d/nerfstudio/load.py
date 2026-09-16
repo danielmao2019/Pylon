@@ -112,7 +112,8 @@ def load_intrinsic_params(data: Dict[str, Any]) -> Dict[str, Union[float, int]]:
         The `fl_x`, `fl_y`, `cx`, `cy`, `k1`, `k2`, `p1`, `p2` entries of the record.
     """
     keys = ["fl_x", "fl_y", "cx", "cy", "k1", "k2", "p1", "p2"]
-    return {key: data[key] for key in keys}
+    intrinsic_params = {key: data[key] for key in keys}
+    return intrinsic_params
 
 
 def load_resolution(data: Dict[str, Any]) -> Tuple[int, int]:
@@ -192,7 +193,8 @@ def load_applied_transform(data: Dict[str, Any]) -> np.ndarray:
     Returns:
         The record's applied transform as a float32 [3, 4] numpy array.
     """
-    return np.asarray(data["applied_transform"], dtype=np.float32)
+    applied_transform = np.asarray(data["applied_transform"], dtype=np.float32)
+    return applied_transform
 
 
 def load_ply_file_path(data: Dict[str, Any]) -> str:
@@ -273,9 +275,10 @@ def load_modalities(data: Dict[str, Any]) -> List[str]:
         The names of the modalities whose path key the first frame holds, in MODALITY_SPECS order.
     """
     frames: List[Any] = data["frames"]
-    return [
+    modalities = [
         modality for modality, spec in MODALITY_SPECS.items() if spec[0] in frames[0]
     ]
+    return modalities
 
 
 def load_split_filenames(

@@ -63,6 +63,14 @@ def convert_nerfstudio_to_colmap(
 
 
 def _build_colmap_cameras(transforms: NerfStudio_Data) -> Dict[int, ColmapCamera]:
+    """Build the single shared COLMAP camera the capture's one top-level intrinsic block names.
+
+    Args:
+        transforms: The NerfStudio capture, whose resolution is ordered height first and whose intrinsic params carry ``fl_x`` / ``fl_y`` / ``cx`` / ``cy`` in pixels.
+
+    Returns:
+        A one-entry mapping from the camera's id to its OPENCV COLMAP camera, whose params are the float32 focal pair, principal point and four zeroed distortion terms.
+    """
     # Input validations
     assert transforms.__class__.__name__ == "NerfStudio_Data", f"{type(transforms)=}"
     assert (
@@ -103,13 +111,23 @@ def _build_colmap_cameras(transforms: NerfStudio_Data) -> Dict[int, ColmapCamera
         height=height,
         params=params,
     )
-    return {colmap_camera.id: colmap_camera}
+    colmap_cameras = {colmap_camera.id: colmap_camera}
+    return colmap_cameras
 
 
 def _build_colmap_images(
     transforms: NerfStudio_Data,
     colmap_cameras: Dict[int, ColmapCamera],
 ) -> Dict[int, ColmapImage]:
+    """Build one COLMAP image record per posed frame of the capture, against the single camera they all share.
+
+    Args:
+        transforms: The NerfStudio capture, whose filenames pair one to one with its cameras and name each camera by its image-file stem.
+        colmap_cameras: The one-entry mapping from id to the COLMAP camera every frame shares.
+
+    Returns:
+        COLMAP image records keyed by their one-based frame index, each holding the frame's OpenCV world-to-camera rotation as a qvec and its translation as a tvec, with no 2D observations.
+    """
     # Input validations
     assert transforms.__class__.__name__ == "NerfStudio_Data", f"{type(transforms)=}"
     assert (
