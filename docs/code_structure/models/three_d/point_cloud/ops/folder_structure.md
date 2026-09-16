@@ -40,5 +40,5 @@ tests/models/three_d/point_cloud/ops/
 ├── knn/  # the knn neighbor search by k and by radius across its backends, with its edge cases
 ├── set_ops/  # point cloud intersection and symmetric difference, with their edge cases
 ├── test_correspondences/  # the correspondence search between two point clouds: its main, edge, and error cases
-└── test_world_to_camera_transform.py  # the world-to-camera entry: the camera batch axis it carries onto its result, and the inplace it refuses for one
+└── test_world_to_camera_transform.py  # the world-to-camera entry: the camera batch axis it carries onto its result, the inplace it refuses for one, and the chunk split that returns what one pass returns
 ```
