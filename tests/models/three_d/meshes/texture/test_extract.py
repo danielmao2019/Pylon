@@ -5,7 +5,6 @@ from typing import Any, Dict, Optional
 import pytest
 import torch
 
-import models.three_d.meshes.texture.extract.extract as extract_module
 from data.structures.three_d.camera.cameras import Cameras
 from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
 from data.structures.three_d.camera.intrinsics.camera_intrinsics import (
@@ -16,7 +15,12 @@ from data.structures.three_d.mesh.texture.mesh_texture_uv_texture_map import (
     MeshTextureUVTextureMap,
 )
 from data.structures.three_d.mesh.texture.texel_face_map import build_texel_face_map
-from models.three_d.meshes.texture.extract.extract import extract_texture_from_images
+from models.three_d.meshes.texture.extract.extract import (
+    _extract_uv_texture_map_from_single_image,
+    _fuse_uv_texture_observations,
+    _fuse_vertex_color_observations,
+    extract_texture_from_images,
+)
 from models.three_d.meshes.texture.extract.visibility.texel_visibility import (
     _compute_visible_uv_texels_from_uv_polygon_regions,
     _map_visible_screen_space_polygon_regions_to_uv,
@@ -467,8 +471,7 @@ def test_extract_texture_from_images_reuses_single_mesh_across_views(
         }
 
     monkeypatch.setattr(
-        extract_module,
-        "_extract_vertex_color_from_single_image",
+        "models.three_d.meshes.texture.extract.extract._extract_vertex_color_from_single_image",
         _fake_extract_vertex_color_from_single_image,
     )
 
@@ -554,8 +557,7 @@ def test_extract_texture_from_images_uses_per_view_mesh_geometry(
         }
 
     monkeypatch.setattr(
-        extract_module,
-        "_extract_vertex_color_from_single_image",
+        "models.three_d.meshes.texture.extract.extract._extract_vertex_color_from_single_image",
         _fake_extract_vertex_color_from_single_image,
     )
 
@@ -696,7 +698,7 @@ def test_fuse_uv_texture_observations_returns_image_row_order() -> None:
         }
     ]
 
-    fused_outputs = extract_module._fuse_uv_texture_observations(
+    fused_outputs = _fuse_uv_texture_observations(
         observations=observations,
         weights_cfg={"weights": "visible"},
         default_color=0.7,
@@ -759,7 +761,7 @@ def test_fuse_uv_texture_observations_rejects_out_of_range_default_color() -> No
         AssertionError,
         match="Expected float32 RGB values to be at most 1",
     ):
-        extract_module._fuse_uv_texture_observations(
+        _fuse_uv_texture_observations(
             observations=observations,
             weights_cfg={"weights": "visible"},
             default_color=1.2,
@@ -793,78 +795,29 @@ def test_fuse_vertex_color_observations_rejects_negative_weights() -> None:
         AssertionError,
         match="Expected vertex-color weights to be non-negative before fusion",
     ):
-        extract_module._fuse_vertex_color_observations(
+        _fuse_vertex_color_observations(
             observations=observations,
             weights_cfg={"weights": "visible"},
             default_color=0.7,
         )
 
 
-def test_extract_uv_texture_map_from_single_image_returns_image_row_order(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_extract_uv_texture_map_from_single_image_returns_image_row_order() -> None:
     """Return one-view UV observations in ordinary image row order.
 
     Args:
-        monkeypatch: Pytest monkeypatch fixture.
+        None.
 
     Returns:
         None.
     """
 
-    def _fake_extract_uv_texture_map_from_single_image(
-        mesh: Mesh,
-        image: torch.Tensor,
-        camera: Cameras,
-        weights_cfg: Dict[str, Any],
-        texel_face_map: Dict[str, torch.Tensor],
-        polygon_rast_method: Optional[str] = None,
-        texel_visibility_method: Optional[str] = None,
-    ) -> Dict[str, torch.Tensor]:
-        assert isinstance(mesh, Mesh), f"{type(mesh)=}"
-        assert isinstance(image, torch.Tensor), f"{type(image)=}"
-        assert isinstance(camera, Cameras), f"{type(camera)=}"
-        assert isinstance(weights_cfg, dict), f"{type(weights_cfg)=}"
-        assert isinstance(texel_face_map, dict), f"{type(texel_face_map)=}"
-        assert isinstance(polygon_rast_method, str) or isinstance(
-            texel_visibility_method, str
-        ), (
-            "Expected one visibility-method keyword to be provided. "
-            f"{type(polygon_rast_method)=} {type(texel_visibility_method)=}"
-        )
-        return {
-            "texture": torch.tensor(
-                [
-                    [
-                        [[0.90, 0.80, 0.70]],
-                        [[0.10, 0.20, 0.30]],
-                    ]
-                ],
-                dtype=torch.float32,
-            ),
-            "weight": torch.tensor(
-                [
-                    [
-                        [[0.0]],
-                        [[1.0]],
-                    ]
-                ],
-                dtype=torch.float32,
-            ),
-        }
-
-    monkeypatch.setattr(
-        extract_module,
-        "_extract_uv_texture_map_from_single_image",
-        _fake_extract_uv_texture_map_from_single_image,
-    )
-
     mesh = Mesh(
         verts=torch.tensor(
             [
-                [0.0, 0.0, 0.0],
-                [1.0, 0.0, 0.0],
-                [0.0, 1.0, 0.0],
+                [0.0, 0.0, 1.0],
+                [0.0, 1.0, 1.0],
+                [1.0, 0.0, 1.0],
             ],
             dtype=torch.float32,
         ),
@@ -883,7 +836,7 @@ def test_extract_uv_texture_map_from_single_image_returns_image_row_order(
             uv_convention="obj",
         ),
     )
-    image = torch.zeros((3, 2, 2), dtype=torch.float32)
+    image = torch.zeros((3, 1, 1), dtype=torch.float32)
     camera = Cameras(
         intrinsics=build_camera_intrinsics(
             model="pinhole",
@@ -892,8 +845,8 @@ def test_extract_uv_texture_map_from_single_image_returns_image_row_order(
                 "fy": torch.tensor([1.0]),
                 "cx": torch.tensor([0.0]),
                 "cy": torch.tensor([0.0]),
-                "h": torch.tensor([2.0]),
-                "w": torch.tensor([2.0]),
+                "h": torch.tensor([1.0]),
+                "w": torch.tensor([1.0]),
             },
             intr_convention="standard",
             device="cpu",
@@ -907,41 +860,29 @@ def test_extract_uv_texture_map_from_single_image_returns_image_row_order(
     )
     texel_face_map = _build_texel_face_map_stub(texture_size=2)
 
-    extracted_uv_texture_map = extract_module._extract_uv_texture_map_from_single_image(
+    extracted_uv_texture_map = _extract_uv_texture_map_from_single_image(
         mesh=mesh,
         image=image,
         camera=camera,
         weights_cfg={"weights": "visible"},
         texel_face_map=texel_face_map,
-        polygon_rast_method="v2",
     )
 
-    expected_texture = torch.tensor(
-        [
-            [
-                [[0.90, 0.80, 0.70]],
-                [[0.10, 0.20, 0.30]],
-            ]
-        ],
-        dtype=torch.float32,
-    )
+    # The one pixel's square [-0.5, 0.5]^2 sees the face only over screen [0, 0.5]^2, whose UV image [0, 0.25]^2 lies in the smallest-v texel (u, v in [0, 0.5]); obj UVs put v = 0 at the image bottom, so image row order holds that texel in the last row.
     expected_weight = torch.tensor(
         [
             [
-                [[0.0]],
-                [[1.0]],
+                [[0.0], [0.0]],
+                [[1.0], [0.0]],
             ]
         ],
         dtype=torch.float32,
     )
-    assert torch.allclose(
-        extracted_uv_texture_map["texture"],
-        expected_texture,
-    ), f"{extracted_uv_texture_map['texture']=} {expected_texture=}"
-    assert torch.equal(
-        extracted_uv_texture_map["weight"],
-        expected_weight,
-    ), f"{extracted_uv_texture_map['weight']=} {expected_weight=}"
+    assert torch.equal(extracted_uv_texture_map["weight"], expected_weight), (
+        "Expected only the smallest-v texel to be marked visible, in the last row of "
+        "the image-row-ordered weight map. "
+        f"{extracted_uv_texture_map['weight'][0, :, :, 0]=}"
+    )
 
 
 def test_extract_texture_from_images_keeps_uv_texture_row_order(
@@ -1006,13 +947,11 @@ def test_extract_texture_from_images_keeps_uv_texture_row_order(
         }
 
     monkeypatch.setattr(
-        extract_module,
-        "build_texel_face_map",
+        "models.three_d.meshes.texture.extract.extract.build_texel_face_map",
         _fake_build_texel_face_map,
     )
     monkeypatch.setattr(
-        extract_module,
-        "_extract_uv_texture_map_from_single_image",
+        "models.three_d.meshes.texture.extract.extract._extract_uv_texture_map_from_single_image",
         _fake_extract_uv_texture_map_from_single_image,
     )
 

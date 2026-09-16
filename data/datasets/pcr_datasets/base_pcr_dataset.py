@@ -82,14 +82,12 @@ class BasePCRDataset(BaseDataset):
         union_points = torch.cat([src_points_normalized, tgt_points_normalized], dim=0)
 
         # Create colors for union (red for source, blue for target)
-        src_colors = torch.zeros(
-            (len(src_points_normalized), 3), device=src_points_normalized.device
-        )
-        src_colors[:, 0] = 1.0  # Red for source
-        tgt_colors = torch.zeros(
-            (len(tgt_points_normalized), 3), device=tgt_points_normalized.device
-        )
-        tgt_colors[:, 2] = 1.0  # Blue for target
+        src_colors = torch.tensor(
+            [[1.0, 0.0, 0.0]], device=src_points_normalized.device
+        ).repeat(len(src_points_normalized), 1)
+        tgt_colors = torch.tensor(
+            [[0.0, 0.0, 1.0]], device=tgt_points_normalized.device
+        ).repeat(len(tgt_points_normalized), 1)
         union_colors = torch.cat([src_colors, tgt_colors], dim=0)
 
         union_pc = PointCloud(xyz=union_points, data={'rgb': union_colors})
@@ -157,10 +155,12 @@ class BasePCRDataset(BaseDataset):
             sym_diff_points = torch.cat([src_diff, tgt_diff], dim=0)
 
             # Create colors for symmetric difference (red for source, blue for target)
-            src_colors = torch.zeros((len(src_indices), 3), device=src_diff.device)
-            src_colors[:, 0] = 1.0  # Red for source
-            tgt_colors = torch.zeros((len(tgt_indices), 3), device=tgt_diff.device)
-            tgt_colors[:, 2] = 1.0  # Blue for target
+            src_colors = torch.tensor([[1.0, 0.0, 0.0]], device=src_diff.device).repeat(
+                len(src_indices), 1
+            )
+            tgt_colors = torch.tensor([[0.0, 0.0, 1.0]], device=tgt_diff.device).repeat(
+                len(tgt_indices), 1
+            )
             sym_diff_colors = torch.cat([src_colors, tgt_colors], dim=0)
 
             sym_diff_pc = PointCloud(xyz=sym_diff_points, data={'rgb': sym_diff_colors})
@@ -227,7 +227,12 @@ class BasePCRDataset(BaseDataset):
         # Format the transformation matrix as a string
         transform_str = "Transform Matrix:\n"
         for i in range(4):
-            row = [f"{transform_normalized[i, j]:.4f}" for j in range(4)]
+            row = [
+                f"{transform_normalized[i, 0]:.4f}",
+                f"{transform_normalized[i, 1]:.4f}",
+                f"{transform_normalized[i, 2]:.4f}",
+                f"{transform_normalized[i, 3]:.4f}",
+            ]
             transform_str += "  ".join(row) + "\n"
 
         return {
@@ -293,7 +298,9 @@ class BasePCRDataset(BaseDataset):
         if (
             isinstance(value, list)
             and len(value) == 3
-            and all(isinstance(x, (int, float)) for x in value)
+            and isinstance(value[0], (int, float))
+            and isinstance(value[1], (int, float))
+            and isinstance(value[2], (int, float))
         ):
             # Handle 3D vectors with context-specific formatting
             if 'angle' in key.lower():
@@ -403,8 +410,10 @@ class BasePCRDataset(BaseDataset):
         src_points_normalized = _normalize_points(src_points)
         tgt_points_normalized = _normalize_points(tgt_points)
 
-        src_points_np = src_points_normalized.cpu().numpy()
-        tgt_points_np = tgt_points_normalized.cpu().numpy()
+        src_points_np, tgt_points_np = (
+            src_points_normalized.cpu().numpy(),
+            tgt_points_normalized.cpu().numpy(),
+        )
         correspondences_np = correspondences.cpu().numpy()
 
         # Calculate spatial bounds for proper side-by-side positioning
@@ -426,8 +435,9 @@ class BasePCRDataset(BaseDataset):
         x_offset = src_bounds['x'][1] + gap - tgt_bounds['x'][0]
 
         # Offset target points for side-by-side layout
-        tgt_points_offset = tgt_points_np.copy()
-        tgt_points_offset[:, 0] += x_offset
+        tgt_points_offset = tgt_points_np + np.array(
+            [x_offset, 0.0, 0.0], dtype=tgt_points_np.dtype
+        )
 
         # Create figure
         fig = go.Figure()
@@ -613,9 +623,7 @@ class BasePCRDataset(BaseDataset):
 
         # Compute unified axis ranges across all point clouds for consistent scaling
         all_points = [src_xyz, tgt_xyz, src_pc_transformed]
-        x_coords = torch.cat([pc[:, 0] for pc in all_points])
-        y_coords = torch.cat([pc[:, 1] for pc in all_points])
-        z_coords = torch.cat([pc[:, 2] for pc in all_points])
+        x_coords, y_coords, z_coords = torch.cat(all_points, dim=0).unbind(dim=1)
 
         # Add small padding for better visualization
         padding = 0.05  # 5% padding
