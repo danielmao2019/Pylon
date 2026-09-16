@@ -385,8 +385,8 @@ render_rgb_volumetric.py
 ├── from data.structures.three_d.point_cloud.select import Select
 ├── from models.three_d.point_cloud.render.common.prepare_points_for_rendering import prepare_points_for_rendering
 ├── from models.three_d.point_cloud.render.render_rgb import render_rgb_from_point_cloud
-├── from models.three_d.splatfacto.load_splatfacto import load_splatfacto_model
-├── from models.three_d.splatfacto.render import render_rgb_from_splatfacto
+├── from models.three_d.nerfstudio.splatfacto.load_splatfacto import load_splatfacto_model
+├── from models.three_d.nerfstudio.splatfacto.render import render_rgb_from_splatfacto
 ├── def render_rgb_from_point_cloud_volumetric(pc: PointCloud, camera: Camera, resolution: Tuple[int, int], debug: bool = False) -> torch.Tensor
 │   ├── # Renders one view volumetrically: cull to the points that project, ring the view with auxiliary cameras, train a splatfacto model on that tiny dataset, evaluate it back at the original camera.
 │   ├── impls total_start = time.time()
