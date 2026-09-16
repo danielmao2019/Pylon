@@ -152,8 +152,10 @@ def test_a_non_unit_axis_is_normalized() -> None:
         lock_roll=NON_UNIT_LOCK_ROLL
     )
 
-    unit_up = unit_controls["scene"]["camera"]["up"]
-    scaled_up = scaled_controls["scene"]["camera"]["up"]
+    unit_up, scaled_up = (
+        unit_controls["scene"]["camera"]["up"],
+        scaled_controls["scene"]["camera"]["up"],
+    )
     assert scaled_up == pytest.approx(unit_up, abs=1e-12), (
         "Expected one direction at two lengths to pin one camera up vector. "
         f"{unit_up=} {scaled_up=}"
@@ -161,11 +163,9 @@ def test_a_non_unit_axis_is_normalized() -> None:
     assert math.isclose(
         math.hypot(scaled_up["x"], scaled_up["y"], scaled_up["z"]), 1.0
     ), ("Expected the pinned camera up vector to be unit length. " f"{scaled_up=}")
-    unit_graph_axis = json.loads(
-        base64.b64decode(unit_controls["graph_id"]["lock_roll"])
-    )
-    scaled_graph_axis = json.loads(
-        base64.b64decode(scaled_controls["graph_id"]["lock_roll"])
+    unit_graph_axis, scaled_graph_axis = (
+        json.loads(base64.b64decode(unit_controls["graph_id"]["lock_roll"])),
+        json.loads(base64.b64decode(scaled_controls["graph_id"]["lock_roll"])),
     )
     assert scaled_graph_axis == pytest.approx(unit_graph_axis, abs=1e-12), (
         "Expected one direction at two lengths to hand the callback one axis. "
@@ -276,11 +276,10 @@ def test_the_roll_lock_callback_is_registered_once_on_the_roll_locked_graph_patt
         "Expected the callback's one input to be every roll-locked graph's "
         f"relayoutData. {callback['inputs']=} {expected_input=}"
     )
-    registering_scripts = [
-        script
-        for script in probe["inline_scripts"]
-        if callback["clientside_function"]["function_name"] in script
-    ]
+    registering_scripts = []
+    for script in probe["inline_scripts"]:
+        if callback["clientside_function"]["function_name"] in script:
+            registering_scripts.append(script)
     assert (
         len(registering_scripts) == 1
         and ROLL_LOCK_CALLBACK_SCRIPT in registering_scripts[0]
