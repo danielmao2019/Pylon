@@ -13,10 +13,12 @@ validation.py
 ├── _ROTATION_MATRIX_RESIDUAL_FLOOR_ULPS = 32  # orthogonality/determinant residual floor of the float SVD projection, in machine-epsilon units; its O(1) prefactor is the empirical LAPACK floor (worst 11 over the reference poses and 53k synthetic rotations), set to 32 for margin
 ├── def validate_camera_extrinsics_attributes(extrinsics: Any, extr_convention: Any, device: Any, dtype: Any) -> None
 │   ├── # Single-entry validation for CameraExtrinsics.__init__: validate the cam2world input, pose frame, device target, and dtype target.
-│   ├── calls validate_camera_extrinsics
-│   ├── calls validate_extr_convention
+│   ├── calls validate_camera_extrinsics(extrinsics)
+│   ├── calls validate_extr_convention(extr_convention)
 │   ├── assert device is None or a str or torch.device
-│   ├── assert dtype is None or a floating torch dtype
+│   ├── assert dtype is None or a torch.dtype
+│   ├── if dtype is not None
+│   │   └── assert dtype is a floating dtype
 │   └── return
 ├── def validate_camera_extrinsics(obj: Any) -> Union[np.ndarray, torch.Tensor, List[List[Union[int, float]]]]
 │   ├── # Dispatch camera-extrinsics validation on the input representation.
