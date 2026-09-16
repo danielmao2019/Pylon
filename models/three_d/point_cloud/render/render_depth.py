@@ -50,17 +50,19 @@ def render_depth_from_point_cloud(
     Raises:
         AssertionError: If point cloud is empty or no points project within image bounds.
     """
-    assert isinstance(pc, PointCloud), f"{type(pc)=}"
 
-    # Validate inputs
-    validate_rendering_inputs(
-        pc=pc,
-        camera=camera,
-        resolution=resolution,
-        ignore_value=ignore_value,
-        return_mask=return_mask,
-        point_size=point_size,
-    )
+    def _validate_inputs() -> None:
+        # camera is whichever of Camera / Cameras the caller passed, so the shared preconditions are checked over either
+        validate_rendering_inputs(
+            pc=pc,
+            camera=camera,
+            resolution=resolution,
+            ignore_value=ignore_value,
+            return_mask=return_mask,
+            point_size=point_size,
+        )
+
+    _validate_inputs()
 
     # Prepare points for rendering; a single camera's validity is None, its culled points already dropped
     rendered_points, valid, _ = prepare_points_for_rendering(

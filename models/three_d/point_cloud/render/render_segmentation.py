@@ -54,18 +54,23 @@ def render_segmentation_from_point_cloud(
     Raises:
         AssertionError: If point cloud is empty, labels are missing, or no points project within bounds.
     """
-    assert isinstance(pc, PointCloud), f"{type(pc)=}"
-    assert hasattr(pc, key), f"PointCloud must contain '{key}' field"
 
-    # Validate inputs
-    validate_rendering_inputs(
-        pc=pc,
-        camera=camera,
-        resolution=resolution,
-        ignore_value=ignore_value,
-        return_mask=return_mask,
-        point_size=point_size,
-    )
+    def _validate_inputs() -> None:
+        validate_rendering_inputs(
+            pc=pc,
+            camera=camera,
+            resolution=resolution,
+            ignore_value=ignore_value,
+            return_mask=return_mask,
+            point_size=point_size,
+        )
+        assert hasattr(pc, key), f"PointCloud must contain '{key}' field"
+        # this entry renders one camera, a batch being the depth entry's
+        assert isinstance(camera, Camera), (
+            "Expected camera to be a Camera. " f"{type(camera)=}"
+        )
+
+    _validate_inputs()
 
     # Prepare points for rendering; a single camera's validity is None, its culled points already dropped
     rendering_points, _, original_data_indices = prepare_points_for_rendering(
