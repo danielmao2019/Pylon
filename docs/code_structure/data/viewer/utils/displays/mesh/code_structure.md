@@ -47,9 +47,10 @@ apis.py
 
 ```text
 core_mesh_display.py
-├── from typing import Any, Optional, Tuple
+├── from typing import Any, Dict, Optional, Tuple
 ├── import plotly.graph_objects as go
 ├── from dash import dcc
+├── from data.structures.three_d.mesh.mesh import Mesh
 ├── from data.viewer.utils.controls.camera.camera_controls.dash.trackball_camera_controls import create_dash_trackball_camera_controls
 ├── DEFAULT_MESH_COLOR = "#cccccc"  # uniform fallback color used when geometry has no texture AND has no per-vertex colors AND the caller does not supply mesh_color; lib-owned default, overridable
 ├── DEFAULT_MESH_OPACITY = 1.0      # opaque default applied when the caller does not supply mesh_opacity; lib-owned default, overridable
@@ -58,8 +59,8 @@ core_mesh_display.py
 │   ├── # Renders a Dash mesh display element with trackball camera controls; mesh_color, mesh_opacity, and mesh_side overrides are opt-in.
 │   ├── calls create_dash_mesh_scene(mesh=mesh, mesh_color=mesh_color, mesh_opacity=mesh_opacity, mesh_side=mesh_side)
 │   ├── calls create_dash_trackball_camera_controls(lock_roll=lock_roll)
-│   ├── calls create_dash_mesh_component(scene=scene, controls=controls)
-│   └── return
+│   ├── calls create_dash_mesh_component(scene=scene, controls=controls)   → display
+│   └── return display  # the display element, carrying the roll-locked graph id when lock_roll is supplied
 ├── def create_dash_mesh_scene(mesh: Any, mesh_color: Optional[str] = None, mesh_opacity: Optional[float] = None, mesh_side: Optional[str] = None) -> go.Mesh3d
 │   ├── # Sync-builds the Plotly Mesh3d trace from the mesh.
 │   ├── impls effective_opacity = mesh_opacity if mesh_opacity is not None else DEFAULT_MESH_OPACITY
