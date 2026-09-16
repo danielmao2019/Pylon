@@ -134,24 +134,6 @@ function createRendererTrackballCameraControls({
       listener(cameraState);
     }
   });
-
-  // Subscribes a listener to every camera state the controls report on change.
-  //
-  // Args:
-  //   listener: the callback handed each camera state (camera-to-world extrinsics + intrinsics) the controls report.
-  //
-  // Returns:
-  //   The unsubscribe function that removes listener.
-  function subscribeCameraStateChange(listener: (cameraState: CameraState) => void): () => void {
-    if (typeof listener !== "function") {
-      throw new Error("camera state listener must be a function");
-    }
-    listeners.add(listener);
-    return () => {
-      listeners.delete(listener);
-    };
-  }
-
   const controls: ThreeTrackballCameraControls = Object.assign(threeControls, {
     rollLockAxis: null,
     rollLockPolarAngleEpsilon: null,
@@ -167,7 +149,15 @@ function createRendererTrackballCameraControls({
         cameraState,
       });
     },
-    subscribeCameraStateChange,
+    subscribeCameraStateChange: (listener: (cameraState: CameraState) => void) => {
+      if (typeof listener !== "function") {
+        throw new Error("camera state listener must be a function");
+      }
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
   });
 
   if (lockRoll !== null) {
@@ -189,59 +179,75 @@ function createRendererTrackballCameraControls({
       heldEyeOffset,
     });
 
-    let leftDragActive = false;
-    let lastClientX = 0;
-    let lastClientY = 0;
-    renderer.domElement.addEventListener("pointerdown", (event: PointerEvent) => {
+    let leftDrag: { clientX: number; clientY: number } | null = null;
+
+    // Starts a roll-locked left drag at the pointer a left-button press lands on.
+    //
+    // Args:
+    //   event: a pointer press on renderer.domElement.
+    //
+    // Returns:
+    //   void.
+    function startRollLockedLeftDrag(event: PointerEvent): void {
       if (event.button !== 0) {
         return;
       }
-      leftDragActive = true;
-      lastClientX = event.clientX;
-      lastClientY = event.clientY;
-    });
-    window.addEventListener("pointerup", () => {
-      leftDragActive = false;
-    });
-    window.addEventListener("pointermove", (event: PointerEvent) => {
-      if (!leftDragActive) {
+      leftDrag = { clientX: event.clientX, clientY: event.clientY };
+    }
+    renderer.domElement.addEventListener("pointerdown", startRollLockedLeftDrag);
+
+    // Ends the roll-locked left drag wherever the pointer is released.
+    //
+    // Args:
+    //   None.
+    //
+    // Returns:
+    //   void.
+    function endRollLockedLeftDrag(): void {
+      leftDrag = null;
+    }
+    window.addEventListener("pointerup", endRollLockedLeftDrag);
+
+    // Turns the camera by one left-drag pointer move, as yaw about rollLockAxis plus pitch about the camera right axis.
+    //
+    // Args:
+    //   event: a pointer move anywhere on the page.
+    //
+    // Returns:
+    //   void.
+    function turnRollLockedLeftDrag(event: PointerEvent): void {
+      if (leftDrag === null) {
         return;
       }
       // Three's trackball turns by rotateSpeed per half canvas width of pointer travel, so the locked drag turns exactly as far per pixel as the free one.
       const radiansPerPixel =
         threeControls.rotateSpeed / (0.5 * renderer.domElement.clientWidth);
-      const deltaX = event.clientX - lastClientX;
-      const deltaY = event.clientY - lastClientY;
-      lastClientX = event.clientX;
-      lastClientY = event.clientY;
       // A pan moves the rotation target out from under the eye, so the pose a drag starts from can sit on the lock axis however the previous one was held. Banding it first is what leaves the camera right axis below derivable at all: on the axis that cross product collapses, three normalizes the collapse to a zero vector rather than a NaN one, so the pitch quaternion the clamp feeds is built about nothing and the camera never leaves the pole again.
-      const offset = resolveRollLockBandedOffset({
+      const bandedOffset = resolveRollLockBandedOffset({
         offset: camera.position.clone().sub(threeControls.target),
         rollLockAxis,
       });
-      const yaw = new THREE.Quaternion().setFromAxisAngle(
+      bandedOffset.applyAxisAngle(
         rollLockAxis,
-        -deltaX * radiansPerPixel,
+        -(event.clientX - leftDrag.clientX) * radiansPerPixel,
       );
-      offset.applyQuaternion(yaw);
       const cameraRightAxis = new THREE.Vector3()
-        .crossVectors(offset.clone().negate(), rollLockAxis)
+        .crossVectors(bandedOffset.clone().negate(), rollLockAxis)
         .normalize();
       // Yaw turns about the lock axis and so leaves the angle to it alone, which makes the pitch the whole of what can reach a pole. Clamping it to the band keeps the camera short of the pole, where a further pitch step toward it is rejected instead of carrying the view through and inverting the scene.
-      const polarAngle = offset.angleTo(rollLockAxis);
-      const pitchAngle = Math.min(
-        Math.max(
-          -deltaY * radiansPerPixel,
-          ROLL_LOCKED_POLAR_ANGLE_EPSILON - polarAngle,
-        ),
-        Math.PI - ROLL_LOCKED_POLAR_ANGLE_EPSILON - polarAngle,
-      );
-      const pitch = new THREE.Quaternion().setFromAxisAngle(
+      const polarAngle = bandedOffset.angleTo(rollLockAxis);
+      bandedOffset.applyAxisAngle(
         cameraRightAxis,
-        pitchAngle,
+        Math.min(
+          Math.max(
+            -(event.clientY - leftDrag.clientY) * radiansPerPixel,
+            ROLL_LOCKED_POLAR_ANGLE_EPSILON - polarAngle,
+          ),
+          Math.PI - ROLL_LOCKED_POLAR_ANGLE_EPSILON - polarAngle,
+        ),
       );
-      offset.applyQuaternion(pitch);
-      camera.position.copy(threeControls.target).add(offset);
+      leftDrag = { clientX: event.clientX, clientY: event.clientY };
+      camera.position.copy(threeControls.target).add(bandedOffset);
       holdRollLockedCameraPose({
         camera,
         target: threeControls.target,
@@ -249,10 +255,17 @@ function createRendererTrackballCameraControls({
         heldEyeOffset,
       });
       threeControls.dispatchEvent({ type: "change" });
-    });
+    }
+    window.addEventListener("pointermove", turnRollLockedLeftDrag);
 
-    // A camera-sync peer, a restored framing, or the container's data-camera-state can hand over any pose at all, so each one is held on the lock the moment it lands.
-    controls.applyCameraState = (cameraState: CameraState | null): void => {
+    // Applies a camera state as the free trackball does, then re-holds the roll-locked pose it leaves.
+    //
+    // Args:
+    //   cameraState: the camera state (camera-to-world extrinsics + intrinsics) to apply; null, or a state in another convention, leaves the camera as it was before the hold.
+    //
+    // Returns:
+    //   void.
+    function rollLockedApplyCameraState(cameraState: CameraState | null): void {
       applyThreeTrackballCameraState({
         camera,
         controls: threeControls,
@@ -264,10 +277,18 @@ function createRendererTrackballCameraControls({
         rollLockAxis,
         heldEyeOffset,
       });
-    };
+    }
+    // A camera-sync peer, a restored framing, or the container's data-camera-state can hand over any pose at all, so each one is held on the lock the moment it lands.
+    controls.applyCameraState = rollLockedApplyCameraState;
 
-    // target and camera.position are public, so a caller can move either between drags; holding the pose at the top of every update is what keeps that write off every frame the renderer draws.
-    threeControls.update = (): void => {
+    // Holds the roll-locked pose before three's own update, so a target or position a caller writes directly is held from the next update on.
+    //
+    // Args:
+    //   None.
+    //
+    // Returns:
+    //   void.
+    function rollLockedUpdate(): void {
       holdRollLockedCameraPose({
         camera,
         target: threeControls.target,
@@ -275,7 +296,9 @@ function createRendererTrackballCameraControls({
         heldEyeOffset,
       });
       ThreeTrackballControlsImpl.prototype.update.call(threeControls);
-    };
+    }
+    // target and camera.position are public, so a caller can move either between drags; holding the pose at the top of every update is what keeps that write off every frame the renderer draws.
+    threeControls.update = rollLockedUpdate;
     return controls;
   }
   return controls;
