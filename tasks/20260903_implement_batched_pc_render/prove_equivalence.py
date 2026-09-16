@@ -22,11 +22,13 @@ from scene_rendering import (
     render_single_camera,
 )
 
+from data.structures.three_d.camera.camera import Camera
 from data.structures.three_d.camera.cameras import Cameras
 from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
 from data.structures.three_d.camera.intrinsics.camera_intrinsics import (
     build_camera_intrinsics,
 )
+from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from models.three_d.point_cloud.render.common.apply_point_size_postprocessing import (
     apply_point_size_postprocessing,
 )
@@ -81,8 +83,19 @@ def main() -> None:
     )
     batch_records = compare_batch_to_one_by_one(scenes=scenes)
     point_size_summary = summarize_point_size_changes(main_renders=main_renders)
+    # A report is evidence only for the commit it names.
+    branch_worktree_clean = (
+        subprocess.run(
+            args=["git", "status", "--porcelain"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout
+        == ""
+    )
 
-    # --- Report: the commits, the devices, both record lists with their required checks tallied, and the point-size summary
+    # --- Report: the commits, whether the branch worktree was clean, the devices, both record lists with their required checks tallied, and the point-size summary
     comparisons = {}
     for name, records in (("dod_1", single_camera_records), ("dod_2", batch_records)):
         required_records = [record for record in records if record["required"]]
@@ -105,6 +118,7 @@ def main() -> None:
             text=True,
             check=True,
         ).stdout.strip(),
+        "branch_worktree_clean": branch_worktree_clean,
         "devices": [str(device) for device in DEVICES],
         # main's scatter is racy on cuda otherwise, so its reference is the deterministic one render_on_main.py switches on before it renders.
         "main_deterministic_algorithms": True,
@@ -116,6 +130,7 @@ def main() -> None:
     # --- One summary line per tally
     print(
         f"commits: main {report['main_commit']}, branch {report['branch_commit']}, "
+        f"branch worktree clean {report['branch_worktree_clean']}, "
         f"devices {report['devices']}, "
         f"main deterministic algorithms {report['main_deterministic_algorithms']}"
     )
@@ -201,10 +216,10 @@ def build_scenes() -> List[Dict[str, Any]]:
         "stated_resolution": (90, 120),
         "resolution": (90, 120),
     }
-    # Few enough rows that CUDA picks its small-matrix kernels.
+    # At most sixteen rows, the most CUDA's small-matrix kernel takes.
     few_points = {
         "name": "few_points",
-        "xyz": torch.rand(25, 3, generator=generator) * 2.0 - 1.0,
+        "xyz": torch.rand(12, 3, generator=generator) * 2.0 - 1.0,
         "rgb_dtype": torch.float32,
         "model": "pinhole",
         "intr_convention": "standard",
@@ -304,7 +319,7 @@ def load_or_render_on_main(
         force: Whether to rerender even when "main_renders.pt" exists at main's commit and from these scenes.
 
     Returns:
-        The dict of "renders", mapping (device name, scene name, camera index, renderer, point size, return_mask) to main's cpu render (the map, or the (map, [H, W] bool mask) tuple when return_mask is True); "kernels", mapping each point size to main's [K, 2] int64 (y, x) kernel offsets; "main_commit", the main commit that rendered them; and "scenes_digest", the hex sha256 of the "scenes.pt" bytes they were rendered from.
+        The dict of "renders", mapping (device name, scene name, camera index, renderer, point size, return_mask) to main's cpu render (the map, or the (map, [H, W] bool mask) tuple when return_mask is True); "kernels", mapping each point size to main's [K, 2] int64 (y, x) kernel offsets; "dilations", mapping (device name, scene name, camera index, point size) at every point size above one to main's [H, W] float32 cpu dilation of its depth render at point size one without a mask, background set to positive infinity; "main_commit", the main commit that rendered them; and "scenes_digest", the hex sha256 of the "scenes.pt" bytes they were rendered from.
     """
     main_commit = subprocess.run(
         args=["git", "rev-parse", "HEAD"],
@@ -506,6 +521,8 @@ def compare_batch_to_one_by_one(scenes: List[Dict[str, Any]]) -> List[Dict[str, 
                     comparison = compare_preparations(
                         output=(batch_points[camera_index], batch_valid[camera_index]),
                         reference=(points, original_data_indices),
+                        pc=pc,
+                        camera=camera,
                         resolution=scene["resolution"],
                     )
                 records.append(
@@ -680,13 +697,13 @@ def build_cameras(
 
 
 def summarize_point_size_changes(main_renders: Dict[str, Any]) -> Dict[str, Any]:
-    """Records the two facts that account for every difference from main above one pixel: which point sizes grow a different disc on each side, and that main's depth-based entries ignore the point size altogether.
+    """Records the three facts that account for every difference from main above one pixel: which point sizes grow a different disc on each side, that main's depth-based entries ignore the point size altogether, and which neighbour each side's dilation keeps on one depth map.
 
     Args:
-        main_renders: The dict load_or_render_on_main returns, whose "kernels" maps each point size to main's [K, 2] int64 (y, x) kernel offsets and whose "renders" maps (device name, scene name, camera index, renderer, point size, return_mask) to main's cpu render.
+        main_renders: The dict load_or_render_on_main returns, whose "kernels" maps each point size to main's [K, 2] int64 (y, x) kernel offsets, whose "renders" maps (device name, scene name, camera index, renderer, point size, return_mask) to main's cpu render, and whose "dilations" maps (device name, scene name, camera index, point size) to main's dilation of its depth render at point size one without a mask, background set to positive infinity.
 
     Returns:
-        The JSON-ready summary: per point size, whether this branch's kernel and main's hold the same set of (y, x) offsets; and per depth-based renderer and point size, how many of main's renders compare_exactly finds equal to main's render of the same device, scene, camera and mask option at point size one, out of how many.
+        The JSON-ready summary: per point size, whether this branch's kernel and main's hold the same set of (y, x) offsets; per depth-based renderer and point size, how many of main's renders compare_exactly finds equal to main's render of the same device, scene, camera and mask option at point size one, out of how many; and per point size above one, how many of this branch's dilations of main's depth render compare_exactly finds equal to main's dilation of the same device, scene, camera and point size, out of how many.
     """
     summary = {}
 
@@ -732,12 +749,50 @@ def summarize_point_size_changes(main_renders: Dict[str, Any]) -> Dict[str, Any]
         ]
         tally["total"] += 1
         tally["equal"] += comparison["equal"]
+
+    # --- Whether this branch's dilation of main's depth map equals main's dilation of it
+    summary.update(
+        {
+            f"branch dilation of main's depth at point_size {point_size} equal to main's dilation": {
+                "total": 0,
+                "equal": 0,
+            }
+            for point_size in POINT_SIZES
+            if point_size > 1.0
+        }
+    )
+    for (
+        device_name,
+        scene_name,
+        camera_index,
+        point_size,
+    ), main_dilation in main_renders["dilations"].items():
+        depth_render = main_renders["renders"][
+            (device_name, scene_name, camera_index, "depth", 1.0, False)
+        ]
+        # The map render_on_main dilated with main's own dilation, main's depth entry filling the pixels no point lands on with its default ignore_value of -1.0.
+        depth_map = depth_render.masked_fill(depth_render == -1.0, float("inf"))
+        dilation = apply_point_size_postprocessing(
+            rendered_image=depth_map,
+            depth_map=depth_map,
+            point_size=point_size,
+            ignore_value=float("inf"),
+        )
+        comparison = compare_exactly(output=dilation, reference=main_dilation)
+        # main keeps the last nearer neighbour in kernel order, this branch the nearest.
+        tally = summary[
+            f"branch dilation of main's depth at point_size {point_size} equal to main's dilation"
+        ]
+        tally["total"] += 1
+        tally["equal"] += comparison["equal"]
     return summary
 
 
 def compare_preparations(
     output: Tuple[torch.Tensor, torch.Tensor],
     reference: Tuple[torch.Tensor, torch.Tensor],
+    pc: PointCloud,
+    camera: Camera,
     resolution: Tuple[int, int],
 ) -> Dict[str, Any]:
     """Decides whether two preparations of one camera agree up to floating-point rounding, the test a cuda batch's preparation is held to.
@@ -745,6 +800,8 @@ def compare_preparations(
     Args:
         output: The batch's preparation of the camera, on any device: its [N, 3] floating (x, y, depth) points, x and y in pixels and row i being point i of the cloud, and its [N] bool valid mask.
         reference: The camera's own preparation, on any device: its [M, 3] (x, y, depth) survivors in output's dtype and their [M] int64 original_data_indices into the cloud.
+        pc: The PointCloud both preparations were made from, its xyz the [N, 3] world-space points.
+        camera: The single Camera both preparations project through, its extrinsics camera-to-world in any pose convention and its intrinsics carrying the fx and fy the projection scales by.
         resolution: Render resolution as an (H, W) tuple, the image bounds both preparations cull against.
 
     Returns:
@@ -781,6 +838,12 @@ def compare_preparations(
             "Expected the camera's original_data_indices to be [M] int64 over its survivors. "
             f"{reference[1].shape=} {reference[1].dtype=} {reference[0].shape=}"
         )
+        assert isinstance(pc, PointCloud), (
+            "Expected pc to be a PointCloud. " f"{type(pc)=}"
+        )
+        assert isinstance(camera, Camera), (
+            "Expected camera to be a single Camera. " f"{type(camera)=}"
+        )
 
     _validate_inputs()
 
@@ -789,18 +852,25 @@ def compare_preparations(
     reference_points, reference_indices = (member.cpu() for member in reference)
     reference_valid = torch.zeros_like(valid)
     reference_valid[reference_indices] = True
-    # Per coordinate, the magnitude is the largest one x, y or depth takes over the points either side keeps.
-    tolerance = (
-        4
-        * torch.finfo(points.dtype).eps
-        * torch.cat([points[valid], reference_points]).abs().amax(dim=0)
-    )
-    kept = valid & reference_valid
     reference_rows = torch.zeros_like(points)
     reference_rows[reference_indices] = reference_points
+    # The size of the numbers the world-to-camera transform rounds.
+    magnitude = max(float(camera.extrinsics.center.norm()), float(pc.xyz.abs().max()))
+    # The projection multiplies camera-frame rounding by focal length over depth, read per point off whichever side kept it.
+    camera_frame_tolerance = 4 * torch.finfo(points.dtype).eps * magnitude
+    depth = torch.where(valid, points[:, 2], reference_rows[:, 2])
+    tolerance = torch.stack(
+        [
+            camera_frame_tolerance * float(camera.intrinsics.fx) / depth,
+            camera_frame_tolerance * float(camera.intrinsics.fy) / depth,
+            torch.full_like(depth, camera_frame_tolerance),
+        ],
+        dim=1,
+    )
+    kept = valid & reference_valid
     # A point either side culls lands on no pixel, so its coordinates carry nothing to compare.
     points_close = bool(
-        ((points[kept] - reference_rows[kept]).abs() <= tolerance).all()
+        ((points[kept] - reference_rows[kept]).abs() <= tolerance[kept]).all()
     )
     flipped = valid != reference_valid
     flipped_rows = torch.where(
@@ -818,7 +888,7 @@ def compare_preparations(
         dim=1,
     )
     flips_explained = bool(
-        (boundary_distances <= tolerance[[0, 0, 1, 1, 2]]).any(dim=1).all()
+        (boundary_distances <= tolerance[flipped][:, [0, 0, 1, 1, 2]]).any(dim=1).all()
     )
     exact = compare_exactly(
         output=(points[valid], valid.nonzero().squeeze(1)), reference=reference
