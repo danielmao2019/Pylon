@@ -236,16 +236,12 @@ function createRendererTrackballCameraControls({
         .normalize();
       // Yaw turns about the lock axis and so leaves the angle to it alone, which makes the pitch the whole of what can reach a pole. Clamping it to the band keeps the camera short of the pole, where a further pitch step toward it is rejected instead of carrying the view through and inverting the scene.
       const polarAngle = bandedOffset.angleTo(rollLockAxis);
-      bandedOffset.applyAxisAngle(
-        cameraRightAxis,
-        Math.min(
-          Math.max(
-            -(event.clientY - leftDrag.clientY) * radiansPerPixel,
-            ROLL_LOCKED_POLAR_ANGLE_EPSILON - polarAngle,
-          ),
-          Math.PI - ROLL_LOCKED_POLAR_ANGLE_EPSILON - polarAngle,
-        ),
+      let pitchAngle = -(event.clientY - leftDrag.clientY) * radiansPerPixel;
+      pitchAngle = Math.min(
+        Math.max(pitchAngle, ROLL_LOCKED_POLAR_ANGLE_EPSILON - polarAngle),
+        Math.PI - ROLL_LOCKED_POLAR_ANGLE_EPSILON - polarAngle,
       );
+      bandedOffset.applyAxisAngle(cameraRightAxis, pitchAngle);
       leftDrag = { clientX: event.clientX, clientY: event.clientY };
       camera.position.copy(threeControls.target).add(bandedOffset);
       holdRollLockedCameraPose({
@@ -258,6 +254,9 @@ function createRendererTrackballCameraControls({
     }
     window.addEventListener("pointermove", turnRollLockedLeftDrag);
 
+    // The free trackball's own camera-state write, kept for rollLockedApplyCameraState to apply through.
+    const freeApplyCameraState = controls.applyCameraState;
+
     // Applies a camera state as the free trackball does, then re-holds the roll-locked pose it leaves.
     //
     // Args:
@@ -266,11 +265,7 @@ function createRendererTrackballCameraControls({
     // Returns:
     //   void.
     function rollLockedApplyCameraState(cameraState: CameraState | null): void {
-      applyThreeTrackballCameraState({
-        camera,
-        controls: threeControls,
-        cameraState,
-      });
+      freeApplyCameraState(cameraState);
       holdRollLockedCameraPose({
         camera,
         target: threeControls.target,
