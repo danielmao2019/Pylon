@@ -437,15 +437,21 @@ camera_intrinsics.py
 │   ├── def _normalize_inputs [local]
 │   │   ├── if resolution is not None
 │   │   │   ├── if resolution is a single int
-│   │   │   │   └── impls resolution = (resolution, resolution)
-│   │   │   └── if resolution is a length-2 array-like
-│   │   │       └── impls resolution = (int(resolution[0]), int(resolution[1]))
+│   │   │   │   ├── impls resolution = (resolution, resolution)
+│   │   │   │   └── return resolution, scale
+│   │   │   ├── if resolution is a length-2 array-like
+│   │   │   │   ├── impls resolution = (int(resolution[0]), int(resolution[1]))
+│   │   │   │   └── return resolution, scale
+│   │   │   └── assert 0, "Should not reach here."
 │   │   ├── if scale is not None
 │   │   │   ├── if scale is a single number
-│   │   │   │   └── impls scale = (scale, scale)  # one factor names the same one on both axes, in the (sx, sy) form the pair case already arrives in
-│   │   │   └── if scale is a length-2 array-like pair
-│   │   │       └── impls scale = (scale[0], scale[1])
-│   │   └── return resolution, scale
+│   │   │   │   ├── impls scale = (scale, scale)  # one factor names the same one on both axes, in the (sx, sy) form the pair case already arrives in
+│   │   │   │   └── return resolution, scale
+│   │   │   ├── if scale is a length-2 array-like pair
+│   │   │   │   ├── impls scale = (scale[0], scale[1])
+│   │   │   │   └── return resolution, scale
+│   │   │   └── assert 0, "Should not reach here."
+│   │   └── assert 0, "Should not reach here."
 │   ├── calls _normalize_inputs(resolution=resolution, scale=scale)  # -> resolution, scale
 │   ├── if resolution is not None
 │   │   └── return resolution
