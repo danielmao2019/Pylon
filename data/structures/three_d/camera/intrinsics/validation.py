@@ -293,36 +293,35 @@ def _validate_principal_point_within_image(
     if model == "ortho":
         # A weak-perspective cx / cy is where the world origin lands rather than where an axis pierces, and a fit drives that off the frame while the camera stays valid.
         return
-    cx = params["cx"]
-    cy = params["cy"]
-    height = params["h"]
-    width = params["w"]
     if intr_convention == "standard":
-        assert torch.all((cx >= 0.0) & (cx <= width)) and torch.all(
-            (cy >= 0.0) & (cy <= height)
-        ), (
+        assert torch.all(
+            (params["cx"] >= 0.0) & (params["cx"] <= params["w"])
+        ) and torch.all((params["cy"] >= 0.0) & (params["cy"] <= params["h"])), (
             "Expected the principal point to fall within the pixel raster running "
             "corner to corner. "
-            f"{cx=} {cy=} {height=} {width=}"
+            f"{params['cx']=} {params['cy']=} {params['h']=} {params['w']=}"
         )
         return
     if intr_convention in {"opengl", "vulkan"}:
-        assert torch.all((cx >= -1.0) & (cx <= 1.0)) and torch.all(
-            (cy >= -1.0) & (cy <= 1.0)
+        assert torch.all((params["cx"] >= -1.0) & (params["cx"] <= 1.0)) and torch.all(
+            (params["cy"] >= -1.0) & (params["cy"] <= 1.0)
         ), (
             "Expected the principal point to fall within the device frame, each "
             "axis normalized by its own side. "
-            f"{cx=} {cy=} {intr_convention=}"
+            f"{params['cx']=} {params['cy']=} {intr_convention=}"
         )
         return
     if intr_convention == "pytorch3d":
-        shorter_side = torch.minimum(height, width)
-        assert torch.all(torch.abs(cx) <= width / shorter_side) and torch.all(
-            torch.abs(cy) <= height / shorter_side
+        assert torch.all(
+            torch.abs(params["cx"])
+            <= params["w"] / torch.minimum(params["h"], params["w"])
+        ) and torch.all(
+            torch.abs(params["cy"])
+            <= params["h"] / torch.minimum(params["h"], params["w"])
         ), (
             "Expected the principal point to fall within the pytorch3d device "
             "frame, whose shorter side alone reaches 1. "
-            f"{cx=} {cy=} {height=} {width=}"
+            f"{params['cx']=} {params['cy']=} {params['h']=} {params['w']=}"
         )
         return
     assert 0, "Should not reach here. " f"{intr_convention=}"

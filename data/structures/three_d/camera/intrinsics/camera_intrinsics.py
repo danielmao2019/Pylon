@@ -156,7 +156,8 @@ class CameraIntrinsics(ABC):
         Returns:
             The model identifier ``type(self).MODEL``.
         """
-        return type(self).MODEL
+        model = type(self).MODEL
+        return model
 
     @property
     def params(self) -> Dict[str, torch.Tensor]:
@@ -501,7 +502,6 @@ class CameraIntrinsics(ABC):
         Returns:
             The horizontal focal length / scale as a ``[]`` or ``[B]`` tensor.
         """
-        raise NotImplementedError
 
     @property
     @abstractmethod
@@ -514,7 +514,6 @@ class CameraIntrinsics(ABC):
         Returns:
             The vertical focal length / scale as a ``[]`` or ``[B]`` tensor.
         """
-        raise NotImplementedError
 
     @classmethod
     @abstractmethod
@@ -530,7 +529,6 @@ class CameraIntrinsics(ABC):
         Returns:
             This model's focal params keyed by their own names.
         """
-        raise NotImplementedError
 
     @abstractmethod
     def project(
@@ -547,7 +545,6 @@ class CameraIntrinsics(ABC):
         Returns:
             The ``[..., 2]`` image points torch.Tensor (a view into ``points_camera`` when inplace, else a new tensor).
         """
-        raise NotImplementedError
 
     def to(
         self,
@@ -689,9 +686,8 @@ class CameraIntrinsicsSimplePinhole(CameraIntrinsics):
         out = points_camera[..., :2] if inplace else points_camera[..., :2].clone()
         z = points_camera[..., 2]
         # each param unsqueezed against the point axis so a [B] param batch aligns with [B, N] points
-        f, cx, cy = self.fx[..., None], self.cx[..., None], self.cy[..., None]
-        out[..., 0].div_(z).mul_(f).add_(cx)
-        out[..., 1].div_(z).mul_(f).add_(cy)
+        out[..., 0].div_(z).mul_(self.fx[..., None]).add_(self.cx[..., None])
+        out[..., 1].div_(z).mul_(self.fx[..., None]).add_(self.cy[..., None])
         return out
 
     @property
@@ -783,14 +779,8 @@ class CameraIntrinsicsPinhole(CameraIntrinsics):
         out = points_camera[..., :2] if inplace else points_camera[..., :2].clone()
         z = points_camera[..., 2]
         # each param unsqueezed against the point axis so a [B] param batch aligns with [B, N] points
-        fx, fy, cx, cy = (
-            self.fx[..., None],
-            self.fy[..., None],
-            self.cx[..., None],
-            self.cy[..., None],
-        )
-        out[..., 0].div_(z).mul_(fx).add_(cx)
-        out[..., 1].div_(z).mul_(fy).add_(cy)
+        out[..., 0].div_(z).mul_(self.fx[..., None]).add_(self.cx[..., None])
+        out[..., 1].div_(z).mul_(self.fy[..., None]).add_(self.cy[..., None])
         return out
 
     @property
@@ -881,14 +871,8 @@ class CameraIntrinsicsOrtho(CameraIntrinsics):
 
         out = points_camera[..., :2] if inplace else points_camera[..., :2].clone()
         # each param unsqueezed against the point axis so a [B] param batch aligns with [B, N] points
-        fx, fy, cx, cy = (
-            self.fx[..., None],
-            self.fy[..., None],
-            self.cx[..., None],
-            self.cy[..., None],
-        )
-        out[..., 0].mul_(fx).add_(cx)
-        out[..., 1].mul_(fy).add_(cy)
+        out[..., 0].mul_(self.fx[..., None]).add_(self.cx[..., None])
+        out[..., 1].mul_(self.fy[..., None]).add_(self.cy[..., None])
         return out
 
 
@@ -997,14 +981,14 @@ def _resolve_target_resolution(
         if resolution is not None:
             if isinstance(resolution, int):
                 resolution = (resolution, resolution)
-            elif isinstance(resolution, (tuple, list, np.ndarray, torch.Tensor)):
+            if isinstance(resolution, (tuple, list, np.ndarray, torch.Tensor)):
                 resolution = (int(resolution[0]), int(resolution[1]))
         if scale is not None:
             if isinstance(scale, (int, float)) or (
                 isinstance(scale, torch.Tensor) and scale.ndim == 0
             ):
                 scale = (scale, scale)
-            elif isinstance(scale, (tuple, list, np.ndarray, torch.Tensor)):
+            if isinstance(scale, (tuple, list, np.ndarray, torch.Tensor)):
                 scale = (scale[0], scale[1])
         return resolution, scale
 

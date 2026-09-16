@@ -11,8 +11,7 @@ def transform_intr_convention(
 ) -> Dict[str, Union[int, float, torch.Tensor]]:
     """Restate one camera model's named params from one image-plane frame into another.
 
-    Routed through the standard frame, so each frame brings its own two helpers
-    rather than one against every frame already here.
+    Routed through the standard frame, so each frame brings its own two helpers rather than one against every frame already here.
 
     Args:
         params: The model's named scalar intrinsics params stated on ``source_intr_convention``; carries ``cx`` / ``cy`` / ``h`` / ``w`` plus the model's focal key(s).
@@ -80,8 +79,7 @@ def _opengl_to_standard(
 ) -> Dict[str, Union[int, float, torch.Tensor]]:
     """Restate OpenGL device params back on the standard pixel frame.
 
-    The inbound half of the same frame, the three steps run in reverse so a round
-    trip returns what it started as.
+    The inbound half of the same frame, the three steps run in reverse so a round trip returns what it started as.
 
     Args:
         params: The model's named intrinsics params on the opengl frame.
@@ -165,8 +163,7 @@ def _standard_to_opengl(
 ) -> Dict[str, Union[int, float, torch.Tensor]]:
     """Restate pixel params on OpenGL's device frame.
 
-    Its origin is the image's centre, its x runs with standard's toward the right
-    edge and its y against it toward the top, each axis spanning its own side.
+    Its origin is the image's centre, its x runs with standard's toward the right edge and its y against it toward the top, each axis spanning its own side.
 
     Args:
         params: The model's named intrinsics params on the standard pixel frame.
@@ -194,8 +191,7 @@ def _standard_to_pytorch3d(
 ) -> Dict[str, Union[int, float, torch.Tensor]]:
     """Restate pixel params on PyTorch3D's device frame.
 
-    Its origin is the image's centre, its x runs toward the left edge and its y
-    toward the top, and its shorter side alone spans ``[-1, 1]``.
+    Its origin is the image's centre, its x runs toward the left edge and its y toward the top, and its shorter side alone spans ``[-1, 1]``.
 
     Args:
         params: The model's named intrinsics params on the standard pixel frame.
@@ -228,8 +224,7 @@ def _standard_to_vulkan(
 ) -> Dict[str, Union[int, float, torch.Tensor]]:
     """Restate pixel params on Vulkan's device frame.
 
-    It agrees with standard on both axis directions, and differs from OpenGL's in
-    exactly that.
+    It agrees with standard on both axis directions, and differs from OpenGL's in exactly that.
 
     Args:
         params: The model's named intrinsics params on the standard pixel frame.
@@ -273,9 +268,7 @@ def _reverse_axes(
 ) -> Dict[str, Union[int, float, torch.Tensor]]:
     """Reverse the named image axes, which reaches the principal point alone.
 
-    The focal params are left as they are: the reversal reaches the linear term at
-    both ends, the camera-space coordinate feeding it and the image coordinate it
-    produces, and those two cancel.
+    The focal params are left as they are: the reversal reaches the linear term at both ends, the camera-space coordinate feeding it and the image coordinate it produces, and those two cancel.
 
     Args:
         params: The model's named intrinsics params.
@@ -284,12 +277,17 @@ def _reverse_axes(
     Returns:
         The params on the reversed axes.
     """
-    params = dict(params)
+
+    def _validate_inputs() -> None:
+        for axis in axes:
+            assert axis in {"x", "y"}, (
+                "Expected each reversed image axis to be x or y. " f"{axis=} {axes=}"
+            )
+
+    _validate_inputs()
+
     for axis in axes:
-        assert axis in {"x", "y"}, (
-            "Expected each reversed image axis to be x or y. " f"{axis=} {axes=}"
-        )
-        params[f"c{axis}"] = -params[f"c{axis}"]
+        params = {**params, f"c{axis}": -params[f"c{axis}"]}
     return params
 
 
