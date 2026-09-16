@@ -34,7 +34,7 @@ test_rotation_stabilize_validate_compat.py
 │       ├── calls _stabilize_rotation_matrix(rotation=rotations)  # -> stabilized
 │       ├── for each index, rotation of rotations
 │       │   ├── calls _stabilize_rotation_matrix(rotation=rotation)  # -> stabilized_alone
-│       │   └── assert stabilized[index] equals stabilized_alone exactly  # "Expected stabilizing a batch in one call to match stabilizing each rotation of that batch alone.", reporting dtype, index, stabilized[index], stabilized_alone
+│       │   └── assert stabilized[index] equals stabilized_alone exactly
 │       ├── impls extrinsics = batch_size 4x4 identities in dtype, a [batch_size, 4, 4] stack
 │       ├── impls extrinsics[:, :3, :3] = stabilized  # the (batch_size, 4, 4) cam2world batch
 │       └── calls validate_camera_extrinsics(obj=extrinsics)

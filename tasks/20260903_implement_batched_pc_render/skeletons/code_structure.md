@@ -37,7 +37,7 @@ scene_rendering.py
 └── def render_single_camera(renderer: str, pc: PointCloud, camera: Camera, resolution: Tuple[int, int], return_mask: bool, point_size: float) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]
     ├── # Renders one camera through the named entry with the same keyword arguments on either checkout, each entry keeping its own default background.
     ├── def _validate_inputs [local]
-    │   └── assert renderer is one of RENDERERS  # "Expected renderer to name one of the entries both checkouts carry. " f"{renderer=} {RENDERERS=}"
+    │   └── assert renderer is one of RENDERERS
     ├── calls _validate_inputs()
     ├── if renderer == "depth"
     │   ├── calls render_depth_from_point_cloud(pc=pc, camera=camera, resolution=resolution, return_mask=return_mask, point_size=point_size)
@@ -216,7 +216,7 @@ prove_equivalence.py
 │   ├── impls main_commit = the HEAD of main_repo, read through git
 │   ├── impls scenes_digest = the hex sha256 of the scenes file's bytes
 │   ├── impls main_branch_commit = the commit this repo's main branch points at, read through git in REPO_ROOT
-│   ├── assert main_commit == main_branch_commit  # "Expected the main checkout to sit at the commit this repo's main branch points at. " f"{main_repo=} {main_commit=} {main_branch_commit=}"; the proof is against main as it stands, not an older checkout of it
+│   ├── assert main_commit == main_branch_commit  # the proof is against main as it stands, not an older checkout of it
 │   ├── if the renders file exists and not force
 │   │   ├── impls cached = the renders torch's load reads from it
 │   │   └── if cached carries main_commit and scenes_digest

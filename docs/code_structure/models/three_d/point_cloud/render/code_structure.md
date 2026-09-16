@@ -138,7 +138,7 @@ validate_rendering_inputs.py
 └── def validate_rendering_inputs(pc: PointCloud, camera: Union[Camera, Cameras], resolution: Tuple[int, int], ignore_value: Optional[Union[int, float]] = None, return_mask: bool = False, point_size: float = 1.0) -> None
     ├── # The precondition the depth, rgb, segmentation and normal entries assert before projecting: a point cloud sharing one device with its camera, a positive (height, width) pair, a point size of at least one pixel.
     ├── assert isinstance(pc, PointCloud)  # f"{type(pc)=}"
-    ├── assert isinstance(camera, (Camera, Cameras))  # f"{type(camera)=}"; the checks below read only the two components, which a single camera and a batch both carry
+    ├── assert isinstance(camera, (Camera, Cameras))  # the checks below read only the two components, which a single camera and a batch both carry
     ├── impls points = pc.xyz
     ├── impls intrinsics = camera.intrinsics
     ├── impls extrinsics = camera.extrinsics
@@ -244,7 +244,7 @@ render_normal.py
 ├── def render_normal_from_point_cloud_2d(pc: PointCloud, camera: Camera, resolution: Tuple[int, int], ignore_value: float = 0.0, return_mask: bool = False, point_size: float = 1.0) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]
 │   ├── # Renders a normal map from the point cloud's geometry: rasterizes its depth through the camera rescaled to resolution, then derives opencv camera-frame normals from that depth map with a K of the camera's native-resolution fx, fy, cx, cy.
 │   ├── def _validate_inputs [local]
-│   │   └── assert isinstance(camera, Camera)  # "Expected camera to be a Camera. " f"{type(camera)=}"; this entry renders one camera, a batch being the depth entry's
+│   │   └── assert isinstance(camera, Camera)  # this entry renders one camera, a batch being the depth entry's
 │   ├── calls _validate_inputs()
 │   ├── calls render_depth_from_point_cloud(pc=pc, camera=camera, resolution=resolution, ignore_value=float('inf'), return_mask=False, point_size=point_size)  # -> depth_map; it asserts isinstance(pc, PointCloud) through validate_rendering_inputs
 │   ├── impls intrinsics = the camera's intrinsics
@@ -255,8 +255,8 @@ render_normal.py
 │   ├── # Renders the normals a point cloud already carries through the camera to a normal map, chaining validation, projection, rasterization, and point-size dilation.
 │   ├── def _validate_inputs [local]
 │   │   ├── calls validate_rendering_inputs(pc=pc, camera=camera, resolution=resolution, ignore_value=ignore_value, return_mask=return_mask, point_size=point_size)
-│   │   ├── assert hasattr(pc, "normals")      # "PointCloud must contain normals field"
-│   │   └── assert isinstance(camera, Camera)  # "Expected camera to be a Camera. " f"{type(camera)=}"; this entry renders one camera, a batch being the depth entry's
+│   │   ├── assert hasattr(pc, "normals")
+│   │   └── assert isinstance(camera, Camera)  # this entry renders one camera, a batch being the depth entry's
 │   ├── calls _validate_inputs()
 │   ├── calls prepare_points_for_rendering(pc=pc, camera=camera, resolution=resolution)
 │   ├── impls rendering_points, original_data_indices = the first and third of the three it returned  # a single camera's validity is None, its culled points already dropped
@@ -316,8 +316,8 @@ render_rgb.py
 │   ├── # Renders a point cloud's colours through the camera to an RGB image, chaining validation, projection, rasterization, and point-size dilation.
 │   ├── def _validate_inputs [local]
 │   │   ├── calls validate_rendering_inputs(pc=pc, camera=camera, resolution=resolution, ignore_value=ignore_value, return_mask=return_mask, point_size=point_size)
-│   │   ├── assert hasattr(pc, "rgb")          # "PointCloud must contain rgb field"
-│   │   └── assert isinstance(camera, Camera)  # "Expected camera to be a Camera. " f"{type(camera)=}"; this entry renders one camera, a batch being the depth entry's
+│   │   ├── assert hasattr(pc, "rgb")
+│   │   └── assert isinstance(camera, Camera)  # this entry renders one camera, a batch being the depth entry's
 │   ├── calls _validate_inputs()
 │   ├── calls prepare_points_for_rendering(pc=pc, camera=camera, resolution=resolution)
 │   ├── impls rendering_points, original_data_indices = the first and third of the three it returned  # a single camera's validity is None, its culled points already dropped
@@ -519,7 +519,7 @@ render_rgb_volumetric.py
 │   ├── impls nerfstudio_path = root / "transforms.json"
 │   ├── impls create the parent directory of nerfstudio_path
 │   ├── impls camera_names = the name of each camera
-│   ├── assert no entry of camera_names is None  # f"{camera_names=}"
+│   ├── assert no entry of camera_names is None
 │   ├── impls camera_intrinsics = the intrinsics of the first camera
 │   ├── impls intrinsic_params = a dict of fl_x, fl_y, cx, cy off camera_intrinsics, its four distortion terms zeroed
 │   ├── impls resolution = twice camera_intrinsics.cy by twice camera_intrinsics.cx, each rounded to an int
@@ -571,8 +571,8 @@ render_segmentation.py
 │   ├── # Renders the labels a point cloud carries under key through the camera to a segmentation map, chaining validation, projection, rasterization, and point-size dilation.
 │   ├── def _validate_inputs [local]
 │   │   ├── calls validate_rendering_inputs(pc=pc, camera=camera, resolution=resolution, ignore_value=ignore_value, return_mask=return_mask, point_size=point_size)
-│   │   ├── assert hasattr(pc, key)            # f"PointCloud must contain '{key}' field"
-│   │   └── assert isinstance(camera, Camera)  # "Expected camera to be a Camera. " f"{type(camera)=}"; this entry renders one camera, a batch being the depth entry's
+│   │   ├── assert hasattr(pc, key)
+│   │   └── assert isinstance(camera, Camera)  # this entry renders one camera, a batch being the depth entry's
 │   ├── calls _validate_inputs()
 │   ├── calls prepare_points_for_rendering(pc=pc, camera=camera, resolution=resolution)
 │   ├── impls rendering_points, original_data_indices = the first and third of the three it returned  # a single camera's validity is None, its culled points already dropped
