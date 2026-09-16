@@ -18,15 +18,16 @@ from models.three_d.point_cloud.render.render_segmentation import (
     render_segmentation_from_point_cloud,
 )
 
-# Every public point-cloud entry main and this branch both carry.
+# Every point-cloud entry main and this branch both carry that takes return_mask and point_size.
 RENDERERS: Tuple[str, ...] = ("depth", "rgb", "segmentation", "normal_3d", "normal_2d")
 # Odd and even, so both kernel shapes are reached.
 POINT_SIZES: Tuple[float, ...] = (1.0, 2.0, 3.0, 5.0)
 RETURN_MASK_OPTIONS: Tuple[bool, ...] = (False, True)
 # cpu, followed by cuda:0 when cuda is available; the indexed spelling, since main's Camera compares a bare cuda unequal to its components' cuda:0.
-DEVICES: Tuple[torch.device, ...] = (torch.device("cpu"),) + (
-    (torch.device("cuda:0"),) if torch.cuda.is_available() else ()
-)
+if torch.cuda.is_available():
+    DEVICES: Tuple[torch.device, ...] = (torch.device("cpu"), torch.device("cuda:0"))
+else:
+    DEVICES = (torch.device("cpu"),)
 
 
 def build_point_cloud(scene: Dict[str, Any], device: torch.device) -> PointCloud:

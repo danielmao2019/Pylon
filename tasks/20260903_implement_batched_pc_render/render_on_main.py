@@ -44,37 +44,47 @@ def main() -> None:
 
     # --- One render per device, scene, camera, renderer, point size and mask option
     renders = {}
-    for device, scene, camera_index, renderer, point_size, return_mask in (
-        (device, scene, camera_index, renderer, point_size, return_mask)
-        for device in DEVICES
-        for scene in scenes
-        for camera_index in range(len(scene["cameras"]))
-        for renderer in RENDERERS
-        for point_size in POINT_SIZES
-        for return_mask in RETURN_MASK_OPTIONS
-    ):
-        pc = build_point_cloud(scene=scene, device=device)
-        camera = build_camera(scene=scene, camera_index=camera_index, device=device)
-        output = render_single_camera(
-            renderer=renderer,
-            pc=pc,
-            camera=camera,
-            resolution=scene["resolution"],
-            return_mask=return_mask,
-            point_size=point_size,
-        )
-        renders[
-            (
-                str(device),
-                scene["name"],
-                camera_index,
-                renderer,
-                point_size,
-                return_mask,
-            )
-        ] = (
-            tuple(member.cpu() for member in output) if return_mask else output.cpu()
-        )
+    for device in DEVICES:
+        for scene in scenes:
+            for camera_index in range(len(scene["cameras"])):
+                for renderer in RENDERERS:
+                    for point_size in POINT_SIZES:
+                        for return_mask in RETURN_MASK_OPTIONS:
+                            pc = build_point_cloud(scene=scene, device=device)
+                            camera = build_camera(
+                                scene=scene, camera_index=camera_index, device=device
+                            )
+                            output = render_single_camera(
+                                renderer=renderer,
+                                pc=pc,
+                                camera=camera,
+                                resolution=scene["resolution"],
+                                return_mask=return_mask,
+                                point_size=point_size,
+                            )
+                            if return_mask:
+                                # The map and its mask.
+                                renders[
+                                    (
+                                        str(device),
+                                        scene["name"],
+                                        camera_index,
+                                        renderer,
+                                        point_size,
+                                        return_mask,
+                                    )
+                                ] = (output[0].cpu(), output[1].cpu())
+                            else:
+                                renders[
+                                    (
+                                        str(device),
+                                        scene["name"],
+                                        camera_index,
+                                        renderer,
+                                        point_size,
+                                        return_mask,
+                                    )
+                                ] = output.cpu()
 
     # --- main's kernel offsets per point size
     kernels = {}
@@ -85,27 +95,43 @@ def main() -> None:
 
     # --- main's dilation of each camera's depth render at every point size above one
     dilations = {}
-    for device, scene, camera_index, point_size in (
-        (device, scene, camera_index, point_size)
-        for device in DEVICES
-        for scene in scenes
-        for camera_index in range(len(scene["cameras"]))
-        for point_size in POINT_SIZES
-        if point_size > 1.0
-    ):
-        depth_render = renders[
-            (str(device), scene["name"], camera_index, "depth", 1.0, False)
-        ]
-        # main's depth entry fills the pixels no point lands on with its default ignore_value of -1.0.
-        depth_map = depth_render.masked_fill(depth_render == -1.0, float("inf"))
-        dilations[(str(device), scene["name"], camera_index, point_size)] = (
-            apply_point_size_postprocessing(
-                rendered_image=depth_map,
-                depth_map=depth_map,
-                point_size=point_size,
-                ignore_value=float("inf"),
-            )
-        )
+    for device in DEVICES:
+        for scene in scenes:
+            for camera_index in range(len(scene["cameras"])):
+                for point_size in POINT_SIZES:
+                    if point_size > 1.0:
+                        # main's depth entry fills the pixels no point lands on with its default ignore_value of -1.0.
+                        depth_map = renders[
+                            (
+                                str(device),
+                                scene["name"],
+                                camera_index,
+                                "depth",
+                                1.0,
+                                False,
+                            )
+                        ].masked_fill(
+                            renders[
+                                (
+                                    str(device),
+                                    scene["name"],
+                                    camera_index,
+                                    "depth",
+                                    1.0,
+                                    False,
+                                )
+                            ]
+                            == -1.0,
+                            float("inf"),
+                        )
+                        dilations[
+                            (str(device), scene["name"], camera_index, point_size)
+                        ] = apply_point_size_postprocessing(
+                            rendered_image=depth_map,
+                            depth_map=depth_map,
+                            point_size=point_size,
+                            ignore_value=float("inf"),
+                        )
 
     torch.save(
         {"renders": renders, "kernels": kernels, "dilations": dilations},

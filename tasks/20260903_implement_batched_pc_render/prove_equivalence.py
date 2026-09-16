@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple, Union
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+# So the repo-level imports below resolve.
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
@@ -95,20 +96,26 @@ def main() -> None:
         == ""
     )
 
-    # --- Report: the commits, whether the branch worktree was clean, the devices, both record lists with their required checks tallied, and the point-size summary
+    # --- Both record lists with their required checks tallied
     comparisons = {}
     for name, records in (("dod_1", single_camera_records), ("dod_2", batch_records)):
-        required_records = [record for record in records if record["required"]]
+        required_records = []
+        failures = []
+        for record in records:
+            if record["required"]:
+                required_records.append(record)
+                if not record["equal"]:
+                    failures.append(record)
         comparisons[name] = {
             "required": {
                 "total": len(required_records),
-                "equal": sum(record["equal"] for record in required_records),
-                "failures": [
-                    record for record in required_records if not record["equal"]
-                ],
+                "equal": len(required_records) - len(failures),
+                "failures": failures,
             },
             "records": records,
         }
+
+    # --- Report: the commits, whether the branch worktree was clean, the devices, both comparisons and the point-size summary
     report = {
         "main_commit": main_renders["main_commit"],
         "branch_commit": subprocess.run(
@@ -143,7 +150,12 @@ def main() -> None:
     for label, entry in point_size_summary.items():
         print(f"point-size summary, {label}: {entry}")
 
-    if any(comparison["required"]["failures"] for comparison in comparisons.values()):
+    # --- Exit non-zero when any required check failed
+    any_failed = False
+    for comparison in comparisons.values():
+        if comparison["required"]["failures"]:
+            any_failed = True
+    if any_failed:
         raise SystemExit(1)
 
 
@@ -189,6 +201,7 @@ def build_scenes() -> List[Dict[str, Any]]:
         "stated_resolution": (48, 64),
         "resolution": (48, 64),
     }
+    # Each camera sees a different subset.
     culling = {
         "name": "culling",
         "xyz": torch.rand(2000, 3, generator=generator) * 12.0 - 6.0,
@@ -238,28 +251,28 @@ def build_scenes() -> List[Dict[str, Any]]:
     }
     for scene in (collisions, culling, sparse, few_points):
         # --- Per-point colours, labels and normals
-        num_points = scene["xyz"].shape[0]
-        rgb_dtype = scene.pop("rgb_dtype")
-        scene["rgb"] = (
-            torch.randint(
+        num_points, rgb_dtype = scene["xyz"].shape[0], scene.pop("rgb_dtype")
+        if rgb_dtype == torch.uint8:
+            scene["rgb"] = torch.randint(
                 low=0,
                 high=256,
                 size=(num_points, 3),
                 generator=generator,
                 dtype=torch.uint8,
             )
-            if rgb_dtype == torch.uint8
-            else torch.rand(num_points, 3, generator=generator)
-        )
-        scene["labels"] = torch.randint(
-            low=0,
-            high=20,
-            size=(num_points,),
-            generator=generator,
-            dtype=torch.int64,
-        )
-        scene["normals"] = torch.nn.functional.normalize(
-            torch.randn(num_points, 3, generator=generator), dim=-1
+        else:
+            scene["rgb"] = torch.rand(num_points, 3, generator=generator)
+        scene["labels"], scene["normals"] = (
+            torch.randint(
+                low=0,
+                high=20,
+                size=(num_points,),
+                generator=generator,
+                dtype=torch.int64,
+            ),
+            torch.nn.functional.normalize(
+                torch.randn(num_points, 3, generator=generator), dim=-1
+            ),
         )
 
         # --- Cameras: opencv look-at poses aimed at the origin (+Z forward, +Y image-down), restated in the scene's convention, each with its own intrinsics
@@ -288,22 +301,24 @@ def build_scenes() -> List[Dict[str, Any]]:
             @ axis_changes[scene["extr_convention"]]
         )
         cam2world[:, :3, 3] = centre
-        focal = scene.pop("focal")
-        stated_height, stated_width = scene.pop("stated_resolution")
-        scene["cameras"] = [
-            {
-                "params": {
-                    "fx": torch.tensor(focal * (1.0 + 0.1 * camera_index)),
-                    "fy": torch.tensor(focal * (1.05 + 0.1 * camera_index)),
-                    "cx": torch.tensor(stated_width / 2.0 + camera_index),
-                    "cy": torch.tensor(stated_height / 2.0 - camera_index),
-                    "h": torch.tensor(float(stated_height)),
-                    "w": torch.tensor(float(stated_width)),
-                },
-                "extrinsics": cam2world[camera_index].clone(),
-            }
-            for camera_index in range(num_cameras)
-        ]
+        focal, (stated_height, stated_width) = scene.pop("focal"), scene.pop(
+            "stated_resolution"
+        )
+        scene["cameras"] = []
+        for camera_index in range(num_cameras):
+            scene["cameras"].append(
+                {
+                    "params": {
+                        "fx": torch.tensor(focal * (1.0 + 0.1 * camera_index)),
+                        "fy": torch.tensor(focal * (1.05 + 0.1 * camera_index)),
+                        "cx": torch.tensor(stated_width / 2.0 + camera_index),
+                        "cy": torch.tensor(stated_height / 2.0 - camera_index),
+                        "h": torch.tensor(float(stated_height)),
+                        "w": torch.tensor(float(stated_width)),
+                    },
+                    "extrinsics": cam2world[camera_index].clone(),
+                }
+            )
     return [collisions, culling, sparse, few_points]
 
 
@@ -366,8 +381,7 @@ def load_or_render_on_main(
         check=True,
     )
     main_renders = torch.load(output_dir / "main_renders.pt")
-    main_renders["main_commit"] = main_commit
-    main_renders["scenes_digest"] = scenes_digest
+    main_renders.update(main_commit=main_commit, scenes_digest=scenes_digest)
     torch.save(main_renders, output_dir / "main_renders.pt")
     return main_renders
 
@@ -385,81 +399,87 @@ def compare_single_camera_to_main(
         One JSON-ready record per comparison: its "kind" ("camera", or "batch_of_one" for the depth entry handed a Cameras of one), "device", "scene", "camera" index, "renderer", "point_size" and "return_mask"; the "equal", "differing_elements", "nan_elements" and "max_abs_diff" compare_exactly returns against main's render; and "required", True at point size one.
     """
     records = []
-    for device, scene, camera_index, renderer, point_size, return_mask in (
-        (device, scene, camera_index, renderer, point_size, return_mask)
-        for device in DEVICES
-        for scene in scenes
-        for camera_index in range(len(scene["cameras"]))
-        for renderer in RENDERERS
-        for point_size in POINT_SIZES
-        for return_mask in RETURN_MASK_OPTIONS
-    ):
-        pc = build_point_cloud(scene=scene, device=device)
-        camera = build_camera(scene=scene, camera_index=camera_index, device=device)
-        output = render_single_camera(
-            renderer=renderer,
-            pc=pc,
-            camera=camera,
-            resolution=scene["resolution"],
-            return_mask=return_mask,
-            point_size=point_size,
-        )
-        main_output = main_renders["renders"][
-            (
-                str(device),
-                scene["name"],
-                camera_index,
-                renderer,
-                point_size,
-                return_mask,
-            )
-        ]
-        comparison = compare_exactly(output=output, reference=main_output)
-        records.append(
-            {
-                "kind": "camera",
-                "device": str(device),
-                "scene": scene["name"],
-                "camera": camera_index,
-                "renderer": renderer,
-                "point_size": point_size,
-                "return_mask": return_mask,
-                **comparison,
-            }
-        )
+    for device in DEVICES:
+        for scene in scenes:
+            for camera_index in range(len(scene["cameras"])):
+                for renderer in RENDERERS:
+                    for point_size in POINT_SIZES:
+                        for return_mask in RETURN_MASK_OPTIONS:
+                            pc = build_point_cloud(scene=scene, device=device)
+                            camera = build_camera(
+                                scene=scene, camera_index=camera_index, device=device
+                            )
+                            output = render_single_camera(
+                                renderer=renderer,
+                                pc=pc,
+                                camera=camera,
+                                resolution=scene["resolution"],
+                                return_mask=return_mask,
+                                point_size=point_size,
+                            )
+                            main_output = main_renders["renders"][
+                                (
+                                    str(device),
+                                    scene["name"],
+                                    camera_index,
+                                    renderer,
+                                    point_size,
+                                    return_mask,
+                                )
+                            ]
+                            comparison = compare_exactly(
+                                output=output, reference=main_output
+                            )
+                            records.append(
+                                {
+                                    "kind": "camera",
+                                    "device": str(device),
+                                    "scene": scene["name"],
+                                    "camera": camera_index,
+                                    "renderer": renderer,
+                                    "point_size": point_size,
+                                    "return_mask": return_mask,
+                                    **comparison,
+                                }
+                            )
 
-        # --- The depth entry handed the same camera as a batch of one, its only slice against main's render
-        if renderer == "depth":
-            cameras = build_cameras(
-                scene=scene, camera_indices=[camera_index], device=device
-            )
-            batch_output = render_depth_from_point_cloud(
-                pc=pc,
-                camera=cameras,
-                resolution=scene["resolution"],
-                return_mask=return_mask,
-                point_size=point_size,
-            )
-            comparison = compare_exactly(
-                output=(
-                    tuple(member[0] for member in batch_output)
-                    if return_mask
-                    else batch_output[0]
-                ),
-                reference=main_output,
-            )
-            records.append(
-                {
-                    "kind": "batch_of_one",
-                    "device": str(device),
-                    "scene": scene["name"],
-                    "camera": camera_index,
-                    "renderer": renderer,
-                    "point_size": point_size,
-                    "return_mask": return_mask,
-                    **comparison,
-                }
-            )
+                            # --- The depth entry handed the same camera as a batch of one, its only slice against main's render
+                            if renderer == "depth":
+                                cameras = build_cameras(
+                                    scene=scene,
+                                    camera_indices=[camera_index],
+                                    device=device,
+                                )
+                                batch_output = render_depth_from_point_cloud(
+                                    pc=pc,
+                                    camera=cameras,
+                                    resolution=scene["resolution"],
+                                    return_mask=return_mask,
+                                    point_size=point_size,
+                                )
+                                if return_mask:
+                                    # The map's and the mask's only slice.
+                                    batch_slice = (
+                                        batch_output[0][0],
+                                        batch_output[1][0],
+                                    )
+                                else:
+                                    batch_slice = batch_output[0]
+                                comparison = compare_exactly(
+                                    output=batch_slice, reference=main_output
+                                )
+                                records.append(
+                                    {
+                                        "kind": "batch_of_one",
+                                        "device": str(device),
+                                        "scene": scene["name"],
+                                        "camera": camera_index,
+                                        "renderer": renderer,
+                                        "point_size": point_size,
+                                        "return_mask": return_mask,
+                                        **comparison,
+                                    }
+                                )
 
     # Above one pixel this branch's dilation grows a centred disc taking the nearest neighbour, and its depth entry applies it, where main did neither.
     for record in records:
@@ -477,176 +497,187 @@ def compare_batch_to_one_by_one(scenes: List[Dict[str, Any]]) -> List[Dict[str, 
         One JSON-ready record per comparison of the batch's slice against the camera's own, each carrying its "kind", "device", "scene" and "camera" index: "prepare" records the point preparation with the "num_divide" both sides used (None, or 2 for four point chunks), carrying on cpu compare_exactly's "equal", "differing_elements", "nan_elements" and "max_abs_diff" over the kept rows and their point indices, and on cuda compare_preparations' "equal", "exact", "flipped_points" and "max_abs_diff"; "rasterize" records compare_exactly over the depth raster of one shared preparation, with its "return_mask"; "dilate" records compare_exactly over that raster's dilation, with its "point_size"; "depth" records compare_exactly over the depth entry's map and mask, with its "point_size" and "return_mask". Each also carries "required", True for all but a cuda "depth" record.
     """
     records = []
-    for device, scene in ((device, scene) for device in DEVICES for scene in scenes):
-        pc = build_point_cloud(scene=scene, device=device)
-        cameras = build_cameras(
-            scene=scene,
-            camera_indices=list(range(len(scene["cameras"]))),
-            device=device,
-        )
-
-        # --- The batch's point preparation against each camera's own, whole and then in chunks
-        batch_preparations = {}
-        # The second splits the points into chunks, so a chunk's own row count reaches the small-matrix kernels.
-        for num_divide in (None, 2):
-            batch_preparations[num_divide] = prepare_points_for_rendering(
-                pc=pc,
-                camera=cameras,
-                resolution=scene["resolution"],
-                num_divide=num_divide,
+    for device in DEVICES:
+        for scene in scenes:
+            pc = build_point_cloud(scene=scene, device=device)
+            cameras = build_cameras(
+                scene=scene,
+                camera_indices=list(range(len(scene["cameras"]))),
+                device=device,
             )
-            batch_points, batch_valid, _ = batch_preparations[num_divide]
-            for camera_index in range(len(scene["cameras"])):
-                camera = build_camera(
-                    scene=scene, camera_index=camera_index, device=device
-                )
-                points, _, original_data_indices = prepare_points_for_rendering(
+
+            # --- The batch's point preparation against each camera's own, whole and then in chunks
+            batch_preparations = {}
+            # The second splits the points into chunks, so a chunk's own row count reaches the small-matrix kernels.
+            for num_divide in (None, 2):
+                batch_preparations[num_divide] = prepare_points_for_rendering(
                     pc=pc,
-                    camera=camera,
+                    camera=cameras,
                     resolution=scene["resolution"],
                     num_divide=num_divide,
                 )
-                if device.type == "cpu":
-                    comparison = compare_exactly(
-                        output=(
-                            batch_points[camera_index][batch_valid[camera_index]],
-                            batch_valid[camera_index].nonzero().squeeze(1),
-                        ),
-                        reference=(points, original_data_indices),
+                batch_points, batch_valid, _ = batch_preparations[num_divide]
+                for camera_index in range(len(scene["cameras"])):
+                    camera = build_camera(
+                        scene=scene, camera_index=camera_index, device=device
                     )
-                else:
-                    # CUDA's batched inverse and product round unlike a single camera's.
-                    comparison = compare_preparations(
-                        output=(batch_points[camera_index], batch_valid[camera_index]),
-                        reference=(points, original_data_indices),
+                    points, _, original_data_indices = prepare_points_for_rendering(
                         pc=pc,
                         camera=camera,
                         resolution=scene["resolution"],
+                        num_divide=num_divide,
                     )
-                records.append(
-                    {
-                        "kind": "prepare",
-                        "device": str(device),
-                        "scene": scene["name"],
-                        "camera": camera_index,
-                        "num_divide": num_divide,
-                        **comparison,
-                    }
-                )
+                    if device.type == "cpu":
+                        comparison = compare_exactly(
+                            output=(
+                                batch_points[camera_index][batch_valid[camera_index]],
+                                batch_valid[camera_index].nonzero().squeeze(1),
+                            ),
+                            reference=(points, original_data_indices),
+                        )
+                    else:
+                        # CUDA's batched inverse and product round unlike a single camera's.
+                        comparison = compare_preparations(
+                            output=(
+                                batch_points[camera_index],
+                                batch_valid[camera_index],
+                            ),
+                            reference=(points, original_data_indices),
+                            pc=pc,
+                            camera=camera,
+                            resolution=scene["resolution"],
+                        )
+                    records.append(
+                        {
+                            "kind": "prepare",
+                            "device": str(device),
+                            "scene": scene["name"],
+                            "camera": camera_index,
+                            "num_divide": num_divide,
+                            **comparison,
+                        }
+                    )
 
-        # --- Rasterizing the batch against rasterizing each of its slices
-        # One input handed to both sides, so the rasterizing stage is measured apart from the rounding before it.
-        rendering_points, valid, _ = batch_preparations[None]
-        for return_mask in RETURN_MASK_OPTIONS:
-            batch_raster = render_depth_from_rendering_points(
-                rendering_points=rendering_points,
-                resolution=scene["resolution"],
-                ignore_value=float("inf"),
-                return_mask=return_mask,
-                valid=valid,
-            )
-            batch_depth_map = batch_raster[0] if return_mask else batch_raster
-            for camera_index in range(len(scene["cameras"])):
-                slice_raster = render_depth_from_rendering_points(
-                    rendering_points=rendering_points[camera_index],
+            # --- Rasterizing the batch against rasterizing each of its slices
+            # One input handed to both sides, so the rasterizing stage is measured apart from the rounding before it.
+            rendering_points, valid, _ = batch_preparations[None]
+            for return_mask in RETURN_MASK_OPTIONS:
+                batch_raster = render_depth_from_rendering_points(
+                    rendering_points=rendering_points,
                     resolution=scene["resolution"],
                     ignore_value=float("inf"),
                     return_mask=return_mask,
-                    valid=valid[camera_index],
+                    valid=valid,
                 )
-                comparison = compare_exactly(
-                    output=(
-                        tuple(member[camera_index] for member in batch_raster)
-                        if return_mask
-                        else batch_raster[camera_index]
-                    ),
-                    reference=slice_raster,
-                )
-                records.append(
-                    {
-                        "kind": "rasterize",
-                        "device": str(device),
-                        "scene": scene["name"],
-                        "camera": camera_index,
-                        "return_mask": return_mask,
-                        **comparison,
-                    }
-                )
+                # The depth map of batch_raster.
+                if return_mask:
+                    batch_depth_map = batch_raster[0]
+                else:
+                    batch_depth_map = batch_raster
+                for camera_index in range(len(scene["cameras"])):
+                    slice_raster = render_depth_from_rendering_points(
+                        rendering_points=rendering_points[camera_index],
+                        resolution=scene["resolution"],
+                        ignore_value=float("inf"),
+                        return_mask=return_mask,
+                        valid=valid[camera_index],
+                    )
+                    if return_mask:
+                        # The map's and the mask's slice at camera_index.
+                        batch_slice = (
+                            batch_raster[0][camera_index],
+                            batch_raster[1][camera_index],
+                        )
+                    else:
+                        batch_slice = batch_raster[camera_index]
+                    comparison = compare_exactly(
+                        output=batch_slice, reference=slice_raster
+                    )
+                    records.append(
+                        {
+                            "kind": "rasterize",
+                            "device": str(device),
+                            "scene": scene["name"],
+                            "camera": camera_index,
+                            "return_mask": return_mask,
+                            **comparison,
+                        }
+                    )
 
-        # --- Dilating the batch's depth map against dilating each of its slices
-        for point_size in (
-            point_size for point_size in POINT_SIZES if point_size > 1.0
-        ):
-            batch_dilation = apply_point_size_postprocessing(
-                rendered_image=batch_depth_map,
-                depth_map=batch_depth_map,
-                point_size=point_size,
-                ignore_value=float("inf"),
-            )
-            for camera_index in range(len(scene["cameras"])):
-                slice_dilation = apply_point_size_postprocessing(
-                    rendered_image=batch_depth_map[camera_index],
-                    depth_map=batch_depth_map[camera_index],
-                    point_size=point_size,
-                    ignore_value=float("inf"),
-                )
-                comparison = compare_exactly(
-                    output=batch_dilation[camera_index], reference=slice_dilation
-                )
-                records.append(
-                    {
-                        "kind": "dilate",
-                        "device": str(device),
-                        "scene": scene["name"],
-                        "camera": camera_index,
-                        "point_size": point_size,
-                        **comparison,
-                    }
-                )
+            # --- Dilating the batch's depth map against dilating each of its slices
+            for point_size in POINT_SIZES:
+                if point_size > 1.0:
+                    batch_dilation = apply_point_size_postprocessing(
+                        rendered_image=batch_depth_map,
+                        depth_map=batch_depth_map,
+                        point_size=point_size,
+                        ignore_value=float("inf"),
+                    )
+                    for camera_index in range(len(scene["cameras"])):
+                        slice_dilation = apply_point_size_postprocessing(
+                            rendered_image=batch_depth_map[camera_index],
+                            depth_map=batch_depth_map[camera_index],
+                            point_size=point_size,
+                            ignore_value=float("inf"),
+                        )
+                        comparison = compare_exactly(
+                            output=batch_dilation[camera_index],
+                            reference=slice_dilation,
+                        )
+                        records.append(
+                            {
+                                "kind": "dilate",
+                                "device": str(device),
+                                "scene": scene["name"],
+                                "camera": camera_index,
+                                "point_size": point_size,
+                                **comparison,
+                            }
+                        )
 
-        # --- The depth entry over the batch against each camera on its own
-        for point_size, return_mask in (
-            (point_size, return_mask)
-            for point_size in POINT_SIZES
-            for return_mask in RETURN_MASK_OPTIONS
-        ):
-            batch_output = render_depth_from_point_cloud(
-                pc=pc,
-                camera=cameras,
-                resolution=scene["resolution"],
-                return_mask=return_mask,
-                point_size=point_size,
-            )
-            for camera_index in range(len(scene["cameras"])):
-                camera = build_camera(
-                    scene=scene, camera_index=camera_index, device=device
-                )
-                camera_output = render_depth_from_point_cloud(
-                    pc=pc,
-                    camera=camera,
-                    resolution=scene["resolution"],
-                    return_mask=return_mask,
-                    point_size=point_size,
-                )
-                comparison = compare_exactly(
-                    output=(
-                        tuple(member[camera_index] for member in batch_output)
-                        if return_mask
-                        else batch_output[camera_index]
-                    ),
-                    reference=camera_output,
-                )
-                records.append(
-                    {
-                        "kind": "depth",
-                        "device": str(device),
-                        "scene": scene["name"],
-                        "camera": camera_index,
-                        "point_size": point_size,
-                        "return_mask": return_mask,
-                        **comparison,
-                    }
-                )
+            # --- The depth entry over the batch against each camera on its own
+            for point_size in POINT_SIZES:
+                for return_mask in RETURN_MASK_OPTIONS:
+                    batch_output = render_depth_from_point_cloud(
+                        pc=pc,
+                        camera=cameras,
+                        resolution=scene["resolution"],
+                        return_mask=return_mask,
+                        point_size=point_size,
+                    )
+                    for camera_index in range(len(scene["cameras"])):
+                        camera = build_camera(
+                            scene=scene, camera_index=camera_index, device=device
+                        )
+                        camera_output = render_depth_from_point_cloud(
+                            pc=pc,
+                            camera=camera,
+                            resolution=scene["resolution"],
+                            return_mask=return_mask,
+                            point_size=point_size,
+                        )
+                        if return_mask:
+                            # The map's and the mask's slice at camera_index.
+                            batch_slice = (
+                                batch_output[0][camera_index],
+                                batch_output[1][camera_index],
+                            )
+                        else:
+                            batch_slice = batch_output[camera_index]
+                        comparison = compare_exactly(
+                            output=batch_slice, reference=camera_output
+                        )
+                        records.append(
+                            {
+                                "kind": "depth",
+                                "device": str(device),
+                                "scene": scene["name"],
+                                "camera": camera_index,
+                                "point_size": point_size,
+                                "return_mask": return_mask,
+                                **comparison,
+                            }
+                        )
 
     # End to end, cuda carries the preparation's rounding into the render, which the "prepare", "rasterize" and "dilate" records account for between them.
     for record in records:
@@ -667,27 +698,24 @@ def build_cameras(
     Returns:
         The Cameras on device whose intrinsics params are each [B] and whose extrinsics are [B, 4, 4] in scene["extr_convention"], B being len(camera_indices).
     """
+    params = {}
+    for key in scene["cameras"][camera_indices[0]]["params"]:
+        param_values = []
+        for camera_index in camera_indices:
+            param_values.append(scene["cameras"][camera_index]["params"][key])
+        params[key] = torch.stack(param_values)
     intrinsics = build_camera_intrinsics(
         model=scene["model"],
-        params={
-            key: torch.stack(
-                [
-                    scene["cameras"][camera_index]["params"][key]
-                    for camera_index in camera_indices
-                ]
-            )
-            for key in scene["cameras"][camera_indices[0]]["params"]
-        },
+        params=params,
         intr_convention=scene["intr_convention"],
         device=device,
     )
+    extrinsics_list = []
+    for camera_index in camera_indices:
+        extrinsics_list.append(scene["cameras"][camera_index]["extrinsics"])
+    extrinsics_matrices = torch.stack(extrinsics_list)
     extrinsics = CameraExtrinsics(
-        extrinsics=torch.stack(
-            [
-                scene["cameras"][camera_index]["extrinsics"]
-                for camera_index in camera_indices
-            ]
-        ),
+        extrinsics=extrinsics_matrices,
         extr_convention=scene["extr_convention"],
         device=device,
     )
@@ -701,7 +729,7 @@ def summarize_point_size_changes(main_renders: Dict[str, Any]) -> Dict[str, Any]
         main_renders: The dict load_or_render_on_main returns, whose "kernels" maps each point size to main's [K, 2] int64 (y, x) kernel offsets, whose "renders" maps (device name, scene name, camera index, renderer, point size, return_mask) to main's cpu render, and whose "dilations" maps (device name, scene name, camera index, point size) to main's dilation of its depth render at point size one without a mask, background set to positive infinity.
 
     Returns:
-        The JSON-ready summary: per point size, whether this branch's kernel and main's hold the same set of (y, x) offsets; per depth-based renderer and point size, how many of main's renders compare_exactly finds equal to main's render of the same device, scene, camera and mask option at point size one, out of how many; and per point size above one, how many of this branch's dilations of main's depth render compare_exactly finds equal to main's dilation of the same device, scene, camera and point size, out of how many.
+        The JSON-ready summary: per point size, whether this branch's kernel and main's hold the same set of (y, x) offsets; per depth-based renderer and point size, the tally {True: equal count, False: unequal count} of main's renders compare_exactly finds equal to main's render of the same device, scene, camera and mask option at point size one; and per point size above one, the same tally of this branch's dilations of main's depth render against main's dilation of the same device, scene, camera and point size.
     """
     summary = {}
 
@@ -731,12 +759,10 @@ def summarize_point_size_changes(main_renders: Dict[str, Any]) -> Dict[str, Any]
                 (device_name, scene_name, camera_index, renderer, 1.0, return_mask)
             ],
         )
-        tally = summary.setdefault(
+        summary.setdefault(
             f"main {renderer} at point_size {point_size} equal to its point_size 1.0 render",
-            {"total": 0, "equal": 0},
-        )
-        tally["total"] += 1
-        tally["equal"] += comparison["equal"]
+            {True: 0, False: 0},
+        )[comparison["equal"]] += 1
 
     # --- Whether this branch's dilation of main's depth map equals main's dilation of it
     for (
@@ -745,11 +771,16 @@ def summarize_point_size_changes(main_renders: Dict[str, Any]) -> Dict[str, Any]
         camera_index,
         point_size,
     ), main_dilation in main_renders["dilations"].items():
-        depth_render = main_renders["renders"][
-            (device_name, scene_name, camera_index, "depth", 1.0, False)
-        ]
         # The map render_on_main dilated with main's own dilation, main's depth entry filling the pixels no point lands on with its default ignore_value of -1.0.
-        depth_map = depth_render.masked_fill(depth_render == -1.0, float("inf"))
+        depth_map = main_renders["renders"][
+            (device_name, scene_name, camera_index, "depth", 1.0, False)
+        ].masked_fill(
+            main_renders["renders"][
+                (device_name, scene_name, camera_index, "depth", 1.0, False)
+            ]
+            == -1.0,
+            float("inf"),
+        )
         dilation = apply_point_size_postprocessing(
             rendered_image=depth_map,
             depth_map=depth_map,
@@ -758,12 +789,10 @@ def summarize_point_size_changes(main_renders: Dict[str, Any]) -> Dict[str, Any]
         )
         comparison = compare_exactly(output=dilation, reference=main_dilation)
         # main keeps the last nearer neighbour in kernel order, this branch the nearest.
-        tally = summary.setdefault(
+        summary.setdefault(
             f"branch dilation of main's depth at point_size {point_size} equal to main's dilation",
-            {"total": 0, "equal": 0},
-        )
-        tally["total"] += 1
-        tally["equal"] += comparison["equal"]
+            {True: 0, False: 0},
+        )[comparison["equal"]] += 1
     return summary
 
 
@@ -780,7 +809,7 @@ def compare_preparations(
         output: The batch's preparation of the camera, on any device: its [N, 3] floating (x, y, depth) points, x and y in pixels and row i being point i of the cloud, and its [N] bool valid mask.
         reference: The camera's own preparation, on any device: its [M, 3] (x, y, depth) survivors in output's dtype and their [M] int64 original_data_indices into the cloud.
         pc: The PointCloud both preparations were made from, its xyz the [N, 3] world-space points.
-        camera: The single Camera both preparations project through, its extrinsics camera-to-world in any pose convention and its intrinsics carrying the fx and fy the projection scales by.
+        camera: The single Camera both preparations project through, its extrinsics camera-to-world in any pose convention and its intrinsics stated at their own resolution, which the preparation rescales to resolution before projecting.
         resolution: Render resolution as an (H, W) tuple, the image bounds both preparations cull against.
 
     Returns:
@@ -829,19 +858,22 @@ def compare_preparations(
     points, valid = output[0].cpu(), output[1].cpu()
     # The single camera's survivors and the points they are.
     reference_points, reference_indices = reference[0].cpu(), reference[1].cpu()
-    reference_valid = torch.zeros_like(valid)
-    reference_valid[reference_indices] = True
-    reference_rows = torch.zeros_like(points)
-    reference_rows[reference_indices] = reference_points
+    reference_valid = torch.zeros_like(valid).index_fill_(0, reference_indices, True)
+    reference_rows = torch.zeros_like(points).index_copy_(
+        0, reference_indices, reference_points
+    )
     # The size of the numbers the world-to-camera transform rounds.
     magnitude = max(float(camera.extrinsics.center.norm()), float(pc.xyz.abs().max()))
-    # The projection multiplies camera-frame rounding by focal length over depth, read per point off whichever side kept it.
+    # Its focal lengths are the ones the preparation projects with at resolution.
+    render_camera = camera.scale_intrinsics(resolution=resolution)
     camera_frame_tolerance = 4 * torch.finfo(points.dtype).eps * magnitude
+    # Read per point off whichever side kept it.
     depth = torch.where(valid, points[:, 2], reference_rows[:, 2])
+    # The projection multiplies camera-frame rounding by focal length over depth.
     tolerance = torch.stack(
         [
-            camera_frame_tolerance * float(camera.intrinsics.fx) / depth,
-            camera_frame_tolerance * float(camera.intrinsics.fy) / depth,
+            camera_frame_tolerance * float(render_camera.intrinsics.fx) / depth,
+            camera_frame_tolerance * float(render_camera.intrinsics.fy) / depth,
             torch.full_like(depth, camera_frame_tolerance),
         ],
         dim=1,
@@ -852,23 +884,28 @@ def compare_preparations(
         ((points[kept] - reference_rows[kept]).abs() <= tolerance[kept]).all()
     )
     flipped = valid != reference_valid
+    # The side that culled it keeps no row, so which boundary it crossed is not on record.
     flipped_rows = torch.where(
         valid[flipped].unsqueeze(1), points[flipped], reference_rows[flipped]
     )
-    height, width = resolution
-    boundary_distances = torch.stack(
-        [
-            flipped_rows[:, 0].abs(),
-            (flipped_rows[:, 0] - width).abs(),
-            flipped_rows[:, 1].abs(),
-            (flipped_rows[:, 1] - height).abs(),
-            flipped_rows[:, 2].abs(),
-        ],
-        dim=1,
-    )
     flips_explained = bool(
-        (boundary_distances <= tolerance[flipped][:, [0, 0, 1, 1, 2]]).any(dim=1).all()
+        (
+            torch.stack(
+                [
+                    flipped_rows[:, 0].abs(),
+                    (flipped_rows[:, 0] - resolution[1]).abs(),
+                    flipped_rows[:, 1].abs(),
+                    (flipped_rows[:, 1] - resolution[0]).abs(),
+                    flipped_rows[:, 2].abs(),
+                ],
+                dim=1,
+            )
+            <= tolerance[flipped][:, [0, 0, 1, 1, 2]]
+        )
+        .any(dim=1)
+        .all()
     )
+    # So the report shows how often rounding moved anything at all.
     exact = compare_exactly(
         output=(points[valid], valid.nonzero().squeeze(1)), reference=reference
     )
@@ -910,71 +947,84 @@ def compare_exactly(
         output: Union[torch.Tensor, Tuple[torch.Tensor, ...]],
         reference: Union[torch.Tensor, Tuple[torch.Tensor, ...]],
     ) -> Tuple[Tuple[torch.Tensor, ...], Tuple[torch.Tensor, ...]]:
-        output = tuple(
-            member.cpu()
-            for member in (output if isinstance(output, tuple) else (output,))
-        )
-        reference = tuple(
-            member.cpu()
-            for member in (reference if isinstance(reference, tuple) else (reference,))
-        )
+        # A lone map becoming a tuple of one.
+        if not isinstance(output, tuple):
+            output = (output,)
+        if not isinstance(reference, tuple):
+            reference = (reference,)
+        cpu_members = []
+        for member in output:
+            cpu_members.append(member.cpu())
+        output = tuple(cpu_members)
+        cpu_reference_members = []
+        for member in reference:
+            cpu_reference_members.append(member.cpu())
+        reference = tuple(cpu_reference_members)
         return output, reference
 
     output, reference = _normalize_inputs(output=output, reference=reference)
 
     # --- Pair the tensors up and mark, per pair of one shape, the elements that disagree, a NaN against a NaN agreeing
-    pairs = (
-        list(zip(output, reference, strict=True))
-        if len(output) == len(reference)
-        else []
-    )
-    disagreements = [
-        (
-            (member != reference_member)
-            & ~(torch.isnan(member) & torch.isnan(reference_member))
-            if member.shape == reference_member.shape
-            else None
-        )
-        for member, reference_member in pairs
-    ]
+    if len(output) == len(reference):
+        pairs = list(zip(output, reference, strict=True))
+    else:
+        pairs = []
+    disagreements = []
+    for member, reference_member in pairs:
+        if member.shape == reference_member.shape:
+            disagreements.append(
+                (member != reference_member)
+                & ~(torch.isnan(member) & torch.isnan(reference_member))
+            )
+        else:
+            disagreements.append(None)
 
     # --- The verdict and the counts behind it
-    equal = len(output) == len(reference) and all(
-        member.shape == reference_member.shape
-        and member.dtype == reference_member.dtype
-        and not bool(disagreement.any())
-        for (member, reference_member), disagreement in zip(
-            pairs, disagreements, strict=True
+    equal = len(output) == len(reference)
+    for (member, reference_member), disagreement in zip(
+        pairs, disagreements, strict=True
+    ):
+        equal = (
+            equal
+            and member.shape == reference_member.shape
+            and member.dtype == reference_member.dtype
+            and not bool(disagreement.any())
         )
-    )
-    differing_elements = [
-        None if disagreement is None else int(disagreement.sum())
-        for disagreement in disagreements
-    ]
-    nan_elements = [
-        (
-            int((torch.isnan(member) & torch.isnan(reference_member)).sum())
-            if member.shape == reference_member.shape
-            else None
-        )
-        for member, reference_member in pairs
-    ]
-    max_abs_diff = max(
-        (
-            float(
-                torch.where(
-                    torch.isfinite(member) & torch.isfinite(reference_member),
-                    (member - reference_member).abs(),
-                    0.0,
-                ).max()
+    # None for a pair of two shapes.
+    differing_elements = []
+    for disagreement in disagreements:
+        if disagreement is None:
+            differing_elements.append(None)
+        else:
+            differing_elements.append(int(disagreement.sum()))
+    # None for a pair of two shapes.
+    nan_elements = []
+    for member, reference_member in pairs:
+        if member.shape == reference_member.shape:
+            nan_elements.append(
+                int((torch.isnan(member) & torch.isnan(reference_member)).sum())
             )
-            for member, reference_member in pairs
-            if member.shape == reference_member.shape
+        else:
+            nan_elements.append(None)
+    # None when no pair is of one shape with both members floating.
+    max_abs_diff = None
+    for member, reference_member in pairs:
+        if (
+            member.shape == reference_member.shape
             and member.is_floating_point()
             and reference_member.is_floating_point()
-        ),
-        default=None,
-    )
+        ):
+            # Every difference is non-negative, so a None before the first such pair counts as 0.0.
+            max_abs_diff = max(
+                max_abs_diff or 0.0,
+                float(
+                    torch.where(
+                        torch.isfinite(member) & torch.isfinite(reference_member),
+                        (member - reference_member).abs(),
+                        0.0,
+                    ).max()
+                ),
+            )
     return {
         "equal": equal,
         "differing_elements": differing_elements,
