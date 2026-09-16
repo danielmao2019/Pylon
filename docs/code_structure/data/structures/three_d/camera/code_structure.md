@@ -204,8 +204,8 @@ cameras.py
     │   └── return cameras
     ├── def transform_extrinsics(self, scale: Union[int, float, np.ndarray, torch.Tensor], rotation: Union[np.ndarray, torch.Tensor, List[List[Union[int, float]]]], translation: Union[np.ndarray, torch.Tensor, Tuple[Union[int, float], Union[int, float], Union[int, float]], List[Union[int, float]]]) -> "Cameras"
     │   ├── # Return this batch under array-like scale, rotation and translation applied to every pose at once.
-    │   ├── calls self._extrinsics.transform_extrinsics(scale=scale, rotation=rotation, translation=translation)
-    │   ├── impls cameras = Cameras(...)
+    │   ├── calls self._extrinsics.transform_extrinsics(scale=scale, rotation=rotation, translation=translation)  # -> extrinsics
+    │   ├── impls cameras = Cameras(intrinsics=self._intrinsics, extrinsics=extrinsics, names=self._names, ids=self._ids)  # a method constructing its own enclosing class, drawn as impls because no order puts this method above its class
     │   └── return cameras
     ├── def __len__(self) -> int
     │   ├── # The number of cameras in the batch, the extent of the leading axis.
