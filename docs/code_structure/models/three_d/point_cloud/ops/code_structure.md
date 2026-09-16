@@ -40,16 +40,17 @@ apply_transform.py
 │   │   ├── if was_batched
 │   │   │   └── impls transformed = transformed with the batch dimension added back
 │   │   └── return transformed  # the numpy points, the caller's own array when inplace and unbatched
-│   └── else
-│       ├── impls points_h = points with a ones homogeneous column appended
-│       ├── calls chunked_matmul(large=points_h, small=transform transposed over its trailing two axes, max_divide=max_divide, num_divide=num_divide)  # chunked over the point rows, broadcast over the transform's leading axes: [..., 4, 4] yields [..., N, 4], [4, 4] still [N, 4]
-│       ├── impls transformed = the chunked-matmul result with the homogeneous coordinate dropped
-│       ├── if inplace
-│       │   ├── impls copy transformed into points  # points is the caller's tensor, or a view of it when a batch axis was squeezed, so the write lands in the caller's own buffer
-│       │   └── impls transformed = points
-│       ├── if was_batched
-│       │   └── impls transformed = transformed with the batch dimension added back
-│       └── return transformed  # the torch points, the caller's own tensor when inplace and unbatched
+│   ├── if isinstance(points, torch.Tensor)
+│   │   ├── impls points_h = points with a ones homogeneous column appended
+│   │   ├── calls chunked_matmul(large=points_h, small=transform transposed over its trailing two axes, max_divide=max_divide, num_divide=num_divide)  # chunked over the point rows, broadcast over the transform's leading axes: [..., 4, 4] yields [..., N, 4], [4, 4] still [N, 4]
+│   │   ├── impls transformed = the chunked-matmul result with the homogeneous coordinate dropped
+│   │   ├── if inplace
+│   │   │   ├── impls copy transformed into points  # points is the caller's tensor, or a view of it when a batch axis was squeezed, so the write lands in the caller's own buffer
+│   │   │   └── impls transformed = points
+│   │   ├── if was_batched
+│   │   │   └── impls transformed = transformed with the batch dimension added back
+│   │   └── return transformed  # the torch points, the caller's own tensor when inplace and unbatched
+│   └── assert 0, "Should not reach here."
 ├── def _normalize_points(points: Union[np.ndarray, torch.Tensor]) -> Tuple[Union[np.ndarray, torch.Tensor], bool]
 │   ├── # Normalizes points to unbatched (N, 3) while preserving type, reporting whether the input was batched.
 │   ├── if points.ndim == 2
