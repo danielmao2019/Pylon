@@ -376,7 +376,7 @@ camera_intrinsics.py
 │   ├── def fy(self) -> torch.Tensor  # @property [override]
 │   │   ├── # The vertical focal length params["fy"].
 │   │   └── return self._params["fy"]
-│   ├── def _focal_params(cls, fx: torch.Tensor, fy: torch.Tensor) -> Dict[str, torch.Tensor]  # @classmethod [override]
+│   ├── @classmethod def _focal_params(cls, fx: torch.Tensor, fy: torch.Tensor) -> Dict[str, torch.Tensor]  [override]
 │   │   ├── # States the pair as this model's independent fx / fy focal lengths.
 │   │   └── return  # {"fx": fx, "fy": fy}
 │   ├── def project(self, points_camera: torch.Tensor, inplace: bool = False) -> torch.Tensor   [override]
