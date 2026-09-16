@@ -481,7 +481,8 @@ def _run_ns_train_splatfacto(
         reverse=True,
     )
     assert config_paths, f"ns-train did not create any configs under {output_dir}"
-    return config_paths[0].parent
+    model_dir = config_paths[0].parent
+    return model_dir
 
 
 def _assert_checkpoint_exists(model_dir: Path) -> Path:

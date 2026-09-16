@@ -51,8 +51,11 @@ def validate_rendering_inputs(
     assert (
         len(resolution) == 2
     ), f"resolution must have 2 elements (height, width), got {len(resolution)}"
-    assert all(
-        isinstance(x, int) and x > 0 for x in resolution
+    assert (
+        isinstance(resolution[0], int)
+        and resolution[0] > 0
+        and isinstance(resolution[1], int)
+        and resolution[1] > 0
     ), f"resolution must be positive integers, got {resolution}"
 
     # Validate ignore_value if provided

@@ -192,7 +192,8 @@ def _normalize_transform_numpy(
         transform = np.array(transform, dtype=target_dtype)
     if isinstance(transform, torch.Tensor):
         transform = transform.cpu().numpy()
-    return transform.astype(target_dtype)
+    transform = transform.astype(target_dtype)
+    return transform
 
 
 def _normalize_transform_torch(
@@ -214,4 +215,5 @@ def _normalize_transform_torch(
         transform = torch.tensor(transform, dtype=target_dtype, device=target_device)
     if isinstance(transform, np.ndarray):
         transform = torch.from_numpy(transform)
-    return transform.to(dtype=target_dtype, device=target_device)
+    transform = transform.to(dtype=target_dtype, device=target_device)
+    return transform
