@@ -40,9 +40,8 @@ def test_stabilize_rejects_unsupported_dtype() -> None:
     Returns:
         None.
     """
-    r = torch.eye(3, dtype=torch.float16)
     with pytest.raises(AssertionError):
-        _stabilize_rotation_matrix(rotation=r)
+        _stabilize_rotation_matrix(rotation=torch.eye(3, dtype=torch.float16))
 
 
 def test_stabilized_batch_passes_validator() -> None:
@@ -152,9 +151,8 @@ def test_validator_requires_determinant_plus_one() -> None:
 
     extrinsics = torch.eye(4, dtype=torch.float64)
     extrinsics[:3, :3] = reflection
-    batch = torch.stack([extrinsics, extrinsics])
     with pytest.raises(AssertionError):
-        validate_camera_extrinsics(obj=batch)
+        validate_camera_extrinsics(obj=torch.stack([extrinsics, extrinsics]))
 
 
 def _random_rotation(dtype: torch.dtype, seed: int) -> torch.Tensor:
@@ -173,4 +171,5 @@ def _random_rotation(dtype: torch.dtype, seed: int) -> torch.Tensor:
     q = q @ torch.diag(torch.sign(torch.diagonal(r)))
     if float(torch.linalg.det(q)) < 0:
         q[:, 0] = -q[:, 0]
-    return q.to(dtype)
+    q = q.to(dtype)
+    return q
