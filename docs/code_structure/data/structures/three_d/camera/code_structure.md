@@ -180,10 +180,10 @@ cameras.py
     │   ├── impls self._name_to_index = the index of each named camera, keyed by its name  # the unnamed cameras contribute no entry, and a name two cameras share is refused rather than silently resolving to one of them
     │   ├── impls self._device = device  # the resolved device the components were brought to, not read back off them
     │   └── impls self._dtype = dtype  # the resolved dtype the components were cast to, not read back off them
-    ├── def intrinsics(self) -> CameraIntrinsics  # @property
+    ├── @property def intrinsics(self) -> CameraIntrinsics
     │   ├── # The batch's intrinsics, whose params carry the batch axis so its own project / scale_intrinsics cover every camera at once.
     │   └── return self._intrinsics
-    ├── def extrinsics(self) -> CameraExtrinsics  # @property
+    ├── @property def extrinsics(self) -> CameraExtrinsics
     │   ├── # The batch's extrinsics, whose [B, 4, 4] matrix every pose op broadcasts over.
     │   └── return self._extrinsics
     ├── def to(self, device: Optional[Union[str, torch.device]] = None, dtype: Optional[torch.dtype] = None, non_blocking: bool = False, copy: bool = False, intr_convention: Optional[str] = None, extr_convention: Optional[str] = None) -> "Cameras"
@@ -223,28 +223,28 @@ cameras.py
     │   ├── # Iterate one Camera at a time, for callers that genuinely need a single camera rather than the batch.
     │   └── for each index in range(len(self))
     │       └── yield  # self[index]
-    ├── def names(self) -> Sequence[Optional[str]]  # @property
+    ├── @property def names(self) -> Sequence[Optional[str]]
     │   ├── # The per-camera labels, metadata that never enters a tensor op.
     │   └── return self._names
-    ├── def ids(self) -> Sequence[Optional[int]]  # @property
+    ├── @property def ids(self) -> Sequence[Optional[int]]
     │   ├── # The per-camera integer identities that survive a serialize / deserialize round trip.
     │   └── return self._ids
-    ├── def device(self) -> torch.device  # @property
+    ├── @property def device(self) -> torch.device
     │   ├── # The device this batch was constructed on, the one its component tensors were brought to.
     │   └── return self._device
-    ├── def dtype(self) -> torch.dtype  # @property
+    ├── @property def dtype(self) -> torch.dtype
     │   ├── # The dtype this batch was constructed with, the one its component tensors were cast to.
     │   └── return self._dtype
-    ├── def center(self) -> torch.Tensor  # @property
+    ├── @property def center(self) -> torch.Tensor
     │   ├── # The [B, 3] camera centers, its extrinsics' own center under the batch axis.
     │   └── return self._extrinsics.center
-    ├── def right(self) -> torch.Tensor  # @property
+    ├── @property def right(self) -> torch.Tensor
     │   ├── # The [B, 3] physical right axes, its extrinsics' own right under the batch axis.
     │   └── return self._extrinsics.right
-    ├── def forward(self) -> torch.Tensor  # @property
+    ├── @property def forward(self) -> torch.Tensor
     │   ├── # The [B, 3] physical forward axes, its extrinsics' own forward under the batch axis.
     │   └── return self._extrinsics.forward
-    └── def up(self) -> torch.Tensor  # @property
+    └── @property def up(self) -> torch.Tensor
         ├── # The [B, 3] physical up axes, its extrinsics' own up under the batch axis.
         └── return self._extrinsics.up
 ```
