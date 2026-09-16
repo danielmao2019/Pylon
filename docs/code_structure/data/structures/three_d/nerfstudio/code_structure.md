@@ -89,8 +89,10 @@ load.py
 ├── from data.structures.three_d.nerfstudio.validate import MODALITY_SPECS, validate_applied_transform_data, validate_camera_model_data, validate_data, validate_frames_data, validate_intrinsic_params, validate_intrinsics_data, validate_ply_file_path_data, validate_resolution_data, validate_split_filenames_data
 ├── def load_nerfstudio_data(filepath: Union[str, Path], device: Union[str, torch.device] = torch.device("cuda")) -> Tuple[Dict[str, Any], Dict[str, Union[float, int]], Tuple[int, int], str, torch.Tensor, np.ndarray, str, Cameras, List[str], Optional[List[str]], Optional[List[str]], Optional[List[str]]]
 │   ├── # Opens a NerfStudio transforms.json, validates each section of the record it holds, and returns the record beside every section read out of it.
-│   ├── assert isinstance(filepath, (str, Path))        # f"{type(filepath)=}"
-│   ├── assert isinstance(device, (str, torch.device))  # f"{type(device)=}"
+│   ├── def _validate_inputs [local]
+│   │   ├── assert isinstance(filepath, (str, Path))        # f"{type(filepath)=}"
+│   │   └── assert isinstance(device, (str, torch.device))  # f"{type(device)=}"
+│   ├── calls _validate_inputs
 │   ├── impls path = Path(filepath).resolve()
 │   ├── impls target_device = torch.device(device)
 │   ├── assert path.is_file()  # f"transforms.json not found: {path}"
