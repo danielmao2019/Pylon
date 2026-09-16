@@ -197,8 +197,8 @@ conventions.py
 └── def _rescale_intr_params(params: Dict[str, Union[int, float, torch.Tensor]], model: str, unit_x: Union[int, float, torch.Tensor], unit_y: Union[int, float, torch.Tensor]) -> Dict[str, Union[int, float, torch.Tensor]]
     ├── # Restates params measured in the image-plane unit; cx / cy are coordinates for perspective models and weak-perspective offsets for ortho.
     ├── impls params = a copy of params
-    ├── impls cx = unit_x * cx
-    ├── impls cy = unit_y * cy
+    ├── impls params["cx"] = unit_x * params["cx"]
+    ├── impls params["cy"] = unit_y * params["cy"]
     ├── def _rescale_focal(params: Dict[str, Union[int, float, torch.Tensor]]) -> Dict[str, Union[int, float, torch.Tensor]] [local]
     │   ├── # Scales whichever focal params the model carries, the one place the camera models differ under a rescale.
     │   ├── if model == "simple_pinhole"
