@@ -485,14 +485,14 @@ trackball_camera_controls.ts
 │   ├── impls camera.up = normalize(cross(cameraRightAxis, normalize(-bandedOffset)))
 │   ├── impls camera.lookAt(target)
 │   └── return
-├── function resolveRollLockBandedOffset({ offset, rollLockAxis })
+├── function resolveRollLockBandedOffset({ offset, rollLockAxis }: { offset: THREE.Vector3; rollLockAxis: THREE.Vector3 }): THREE.Vector3
 │   ├── # Bands an eye offset's polar angle off the lock axis into [ROLL_LOCKED_POLAR_ANGLE_EPSILON, π − ROLL_LOCKED_POLAR_ANGLE_EPSILON], rebuilding it at the banded angle on its own meridian.
 │   ├── if the offset's polar angle already lies inside the band
 │   │   └── return offset
 │   ├── calls resolveRollLockMeridian({ offset, rollLockAxis })
 │   ├── impls bandedOffset = meridian × radius·sin(banded polar angle) + rollLockAxis × radius·cos(banded polar angle)
 │   └── return bandedOffset
-├── function resolveRollLockMeridian({ offset, rollLockAxis })
+├── function resolveRollLockMeridian({ offset, rollLockAxis }: { offset: THREE.Vector3; rollLockAxis: THREE.Vector3 }): THREE.Vector3
 │   ├── # Resolves the meridian an eye offset stands on, as a unit vector perpendicular to the lock axis.
 │   ├── impls meridian = offset minus its projection onto rollLockAxis
 │   ├── if meridian has non-zero length
@@ -500,7 +500,7 @@ trackball_camera_controls.ts
 │   │   └── return meridian
 │   ├── impls fallbackMeridian = normalize(cross(rollLockAxis, the world basis vector rollLockAxis leans on least))  # an offset on the axis stands on every meridian at once
 │   └── return fallbackMeridian
-├── function assertTrackballCameraControls({ controls, camera, renderer, lockRoll })
+├── function assertTrackballCameraControls({ controls, camera, renderer, lockRoll }: { controls: ThreeTrackballCameraControls; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; lockRoll: THREE.Vector3 | null }): void
 │   ├── # Validates the constructed controls satisfy every trackball contract by running the mouse-mapping, no-orbit, no-pose-clamp, and roll-lock assertions.
 │   ├── calls assertTrackballMouseMapping({ controls, renderer })
 │   ├── calls assertNoOrbitCameraControls({ controls })
@@ -516,25 +516,25 @@ trackball_camera_controls.ts
 │   └── return
 ├── function assertNoOrbitCameraControls
 │   ├── # Asserts the controls do not use forbidden orbit-style target-locked camera semantics.
-│   ├── if controls use orbit-style target-locked camera semantics
+│   ├── if controls are not three's TrackballControls  # orbit-style target-locked controls are what this rules out
 │   │   └── throw orbit-style camera controls are forbidden
 │   └── return
-├── function assertNoCameraPoseClamps({ controls, lockRoll })
+├── function assertNoCameraPoseClamps({ controls, lockRoll }: { controls: ThreeTrackballCameraControls; lockRoll: THREE.Vector3 | null }): void
 │   ├── # Asserts the controls impose no camera-pose restriction on polar angle, azimuth angle, target lock, distance, pan, translation, or rotation beyond the polar band a roll lock costs.
-│   ├── if controls restrict azimuth angle, target lock, distance bounds, pan, or translation
+│   ├── if controls disable pan or bound the eye distance  # the azimuth, target-lock, distance and translation restrictions three's TrackballControls can carry
 │   │   └── throw restricted camera pose controls
 │   ├── if lockRoll is null and controls restrict polar angle or rotation
 │   │   └── throw restricted camera pose controls
 │   ├── if lockRoll is not null and three's rotation is off with no roll-locked rotation replacing it
 │   │   └── throw roll lock must cost only the roll axis and the polar extremes
 │   └── return
-└── function assertRollLock({ controls, camera, lockRoll })
+└── function assertRollLock({ controls, camera, lockRoll }: { controls: ThreeTrackballCameraControls; camera: THREE.PerspectiveCamera; lockRoll: THREE.Vector3 | null }): void
     ├── # Asserts roll is held about lockRoll when one is supplied and left free when none is, this module owning no axis of its own.
-    ├── if lockRoll is not null and controls let the camera right axis tilt away from perpendicular to lockRoll
+    ├── if lockRoll is not null and controls do not hold rollLockAxis as lockRoll normalized  # the axis the roll-locked drag keeps the camera right axis perpendicular to
     │   └── throw roll-locked camera controls must keep the camera right axis perpendicular to the supplied axis
     ├── if lockRoll is not null and controls let the camera up vector cross to the far side of lockRoll
     │   └── throw roll-locked camera controls must keep the camera up vector on the supplied axis's side
-    ├── if lockRoll is null and controls constrain the camera right axis against any axis
+    ├── if lockRoll is null and controls hold a rollLockAxis or a rollLockPolarAngleEpsilon  # either constrains the camera right axis against an axis
     │   └── throw free trackball camera controls must leave camera roll unconstrained
     └── return
 ```
