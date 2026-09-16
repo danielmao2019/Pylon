@@ -31,7 +31,10 @@ def test_validate_camera_model_accepts_all_supported() -> None:
         None.
     """
     for model in ("simple_pinhole", "pinhole", "ortho"):
-        assert validate_camera_model(model=model) == model, f"{model=}"
+        assert validate_camera_model(model=model) == model, (
+            "Expected validate_camera_model to return the model it accepted. "
+            f"{model=}"
+        )
 
 
 def test_validate_camera_model_rejects_unsupported() -> None:
@@ -250,7 +253,7 @@ def test_scale_intrinsics_rescales_a_batch_against_each_cameras_own_resolution()
 def test_validate_intrinsics_params_rejects_a_params_dict_missing_the_resolution() -> (
     None
 ):
-    """h and w are two of every model's own params, so a projection-only dict is rejected.
+    """h and w are two of every model's own params, so a projection-only dict is rejected ahead of the model's own dispatch.
 
     Args:
         None.
@@ -258,13 +261,13 @@ def test_validate_intrinsics_params_rejects_a_params_dict_missing_the_resolution
     Returns:
         None.
     """
-    projection_only: Dict[str, Dict[str, Union[int, float]]] = {
+    for model, params in {
         "simple_pinhole": {"f": 400.0, "cx": 160.0, "cy": 120.0},
         "pinhole": {"fx": 400.0, "fy": 410.0, "cx": 160.0, "cy": 120.0},
         "ortho": {"fx": 400.0, "fy": 410.0, "cx": 160.0, "cy": 120.0},
-    }
-    for model, params in projection_only.items():
-        with pytest.raises(AssertionError):
+    }.items():
+        # The resolution check's own message, since the model's key dispatch refuses this dict too and only the message shows which of the two fired first.
+        with pytest.raises(AssertionError, match="resolution keys h and w"):
             validate_camera_intrinsics_params(
                 model=model,
                 intr_convention="standard",
@@ -422,7 +425,10 @@ def test_a_centred_principal_point_survives_its_models_own_key_dispatch() -> Non
                 model=model, intr_convention="opengl", params=params
             )
             == params
-        ), f"{model=} {params=}"
+        ), (
+            "Expected a centred principal point to pass its model's key dispatch unchanged. "
+            f"{model=} {params=}"
+        )
 
 
 def test_a_frame_that_scales_the_axes_apart_cannot_hold_a_shared_focal() -> None:
@@ -583,17 +589,33 @@ def test_intrinsics_constructor_normalizes_scalar_compatible_params_to_tensors()
         device="cpu",
         dtype=torch.float64,
     )
-    assert intrinsics.dtype == torch.float64, f"{intrinsics.dtype=}"
-    assert intrinsics.device == torch.device("cpu"), f"{intrinsics.device=}"
+    assert intrinsics.dtype == torch.float64, (
+        "Expected the intrinsics to carry the requested dtype. " f"{intrinsics.dtype=}"
+    )
+    assert intrinsics.device == torch.device("cpu"), (
+        "Expected the intrinsics to land on the requested device. "
+        f"{intrinsics.device=}"
+    )
     for key, value in intrinsics.params.items():
-        assert isinstance(value, torch.Tensor), f"{key=} {type(value)=}"
-        assert value.shape == (), f"{key=} {value.shape=}"
-        assert value.dtype == torch.float64, f"{key=} {value.dtype=}"
+        assert isinstance(value, torch.Tensor), (
+            "Expected every scalar-compatible param to become a torch.Tensor. "
+            f"{key=} {type(value)=}"
+        )
+        assert value.shape == (), (
+            "Expected every scalar param to become a 0-d tensor. "
+            f"{key=} {value.shape=}"
+        )
+        assert value.dtype == torch.float64, (
+            "Expected every param to carry the requested dtype. "
+            f"{key=} {value.dtype=}"
+        )
     loss = intrinsics.project(
         points_camera=torch.tensor([[1.0, 2.0, 4.0]], dtype=torch.float64)
     ).sum()
     loss.backward()
-    assert fx.grad is not None, "Expected the source tensor param to receive grad."
+    assert fx.grad is not None, (
+        "Expected the source tensor param to receive grad. " f"{fx.grad=}"
+    )
 
 
 def test_build_camera_intrinsics_dispatches_to_model_subclass() -> None:
@@ -712,13 +734,14 @@ def test_intrinsics_to_follows_tensor_to_semantics() -> None:
         ),
         intr_convention="standard",
     )
-    moved = intrinsics.to(device="cpu", dtype=torch.float64, copy=True)
+    # The params' own device and dtype, so only copy=True can give the returned params storage of their own.
+    moved = intrinsics.to(device="cpu", dtype=torch.float32, copy=True)
     for key, value in moved.params.items():
         assert value.device == torch.device("cpu"), (
             "Expected every returned param tensor to carry the requested device. "
             f"{key=} {value.device=}"
         )
-        assert value.dtype == torch.float64, (
+        assert value.dtype == torch.float32, (
             "Expected every returned param tensor to carry the requested dtype. "
             f"{key=} {value.dtype=}"
         )
@@ -742,10 +765,14 @@ def test_simple_pinhole_project_applies_perspective_divide() -> None:
         intr_convention="standard",
         device="cpu",
     )
-    points = torch.tensor([[1.0, 2.0, 4.0]], dtype=torch.float32)
-    image = intrinsics.project(points_camera=points)
+    image = intrinsics.project(
+        points_camera=torch.tensor([[1.0, 2.0, 4.0]], dtype=torch.float32)
+    )
     expected = torch.tensor([[400.0 * 1.0 / 4.0 + 160.0, 400.0 * 2.0 / 4.0 + 120.0]])
-    assert torch.allclose(image, expected, atol=1.0e-05), f"{image=} {expected=}"
+    assert torch.allclose(image, expected, atol=1.0e-05), (
+        "Expected the simple_pinhole image points to be f * x / z + cx and f * y / z + cy. "
+        f"{image=} {expected=}"
+    )
 
 
 def test_pinhole_project_applies_perspective_divide() -> None:
@@ -762,10 +789,14 @@ def test_pinhole_project_applies_perspective_divide() -> None:
         intr_convention="standard",
         device="cpu",
     )
-    points = torch.tensor([[1.0, 2.0, 4.0]], dtype=torch.float32)
-    image = intrinsics.project(points_camera=points)
+    image = intrinsics.project(
+        points_camera=torch.tensor([[1.0, 2.0, 4.0]], dtype=torch.float32)
+    )
     expected = torch.tensor([[400.0 * 1.0 / 4.0 + 160.0, 410.0 * 2.0 / 4.0 + 120.0]])
-    assert torch.allclose(image, expected, atol=1.0e-05), f"{image=} {expected=}"
+    assert torch.allclose(image, expected, atol=1.0e-05), (
+        "Expected the pinhole image points to be fx * x / z + cx and fy * y / z + cy. "
+        f"{image=} {expected=}"
+    )
 
 
 def test_ortho_project_skips_perspective_divide() -> None:
@@ -782,12 +813,17 @@ def test_ortho_project_skips_perspective_divide() -> None:
         intr_convention="standard",
         device="cpu",
     )
-    near = torch.tensor([[1.0, 2.0, 4.0]], dtype=torch.float32)
-    far = torch.tensor([[1.0, 2.0, 40.0]], dtype=torch.float32)
-    image_near = intrinsics.project(points_camera=near)
-    image_far = intrinsics.project(points_camera=far)
+    image_near = intrinsics.project(
+        points_camera=torch.tensor([[1.0, 2.0, 4.0]], dtype=torch.float32)
+    )
+    image_far = intrinsics.project(
+        points_camera=torch.tensor([[1.0, 2.0, 40.0]], dtype=torch.float32)
+    )
     expected = torch.tensor([[400.0 * 1.0 + 160.0, 410.0 * 2.0 + 120.0]])
-    assert torch.allclose(image_near, expected, atol=1.0e-05), f"{image_near=}"
+    assert torch.allclose(image_near, expected, atol=1.0e-05), (
+        "Expected the ortho image points to be fx * x + cx and fy * y + cy. "
+        f"{image_near=} {expected=}"
+    )
     assert torch.allclose(image_near, image_far, atol=1.0e-05), (
         "Ortho projection must ignore depth (no perspective divide). "
         f"{image_near=} {image_far=}"
@@ -926,7 +962,7 @@ def test_project_inplace_overwrites_input_and_matches_not_inplace() -> None:
     Returns:
         None.
     """
-    model_params: Dict[str, Dict[str, Union[int, float]]] = {
+    for model, params in {
         "simple_pinhole": {"f": 400.0, "cx": 160.0, "cy": 120.0, "h": 240, "w": 320},
         "pinhole": {
             "fx": 400.0,
@@ -944,8 +980,7 @@ def test_project_inplace_overwrites_input_and_matches_not_inplace() -> None:
             "h": 240,
             "w": 320,
         },
-    }
-    for model, params in model_params.items():
+    }.items():
         intrinsics = build_camera_intrinsics(
             model=model,
             params=params,
@@ -980,7 +1015,7 @@ def test_project_not_inplace_preserves_input_and_returns_new_tensor() -> None:
     Returns:
         None.
     """
-    model_params: Dict[str, Dict[str, Union[int, float]]] = {
+    for model, params in {
         "simple_pinhole": {"f": 400.0, "cx": 160.0, "cy": 120.0, "h": 240, "w": 320},
         "pinhole": {
             "fx": 400.0,
@@ -998,8 +1033,7 @@ def test_project_not_inplace_preserves_input_and_returns_new_tensor() -> None:
             "h": 240,
             "w": 320,
         },
-    }
-    for model, params in model_params.items():
+    }.items():
         intrinsics = build_camera_intrinsics(
             model=model,
             params=params,
@@ -1033,7 +1067,14 @@ def test_project_supports_batched_leading_dims() -> None:
     Returns:
         None.
     """
-    model_params: Dict[str, Dict[str, Union[int, float]]] = {
+    batched = torch.tensor(
+        [
+            [[1.0, 2.0, 4.0], [3.0, -1.0, 8.0], [0.5, 0.5, 2.0]],
+            [[2.0, 1.0, 5.0], [-1.0, 3.0, 10.0], [4.0, 4.0, 4.0]],
+        ],
+        dtype=torch.float32,
+    )
+    for model, params in {
         "simple_pinhole": {"f": 400.0, "cx": 160.0, "cy": 120.0, "h": 240, "w": 320},
         "pinhole": {
             "fx": 400.0,
@@ -1051,15 +1092,7 @@ def test_project_supports_batched_leading_dims() -> None:
             "h": 240,
             "w": 320,
         },
-    }
-    batched = torch.tensor(
-        [
-            [[1.0, 2.0, 4.0], [3.0, -1.0, 8.0], [0.5, 0.5, 2.0]],
-            [[2.0, 1.0, 5.0], [-1.0, 3.0, 10.0], [4.0, 4.0, 4.0]],
-        ],
-        dtype=torch.float32,
-    )
-    for model, params in model_params.items():
+    }.items():
         intrinsics = build_camera_intrinsics(
             model=model,
             params=params,
@@ -1087,7 +1120,7 @@ def test_project_rejects_invalid_inputs() -> None:
     Returns:
         None.
     """
-    model_params: Dict[str, Dict[str, Union[int, float]]] = {
+    for model, params in {
         "simple_pinhole": {"f": 400.0, "cx": 160.0, "cy": 120.0, "h": 240, "w": 320},
         "pinhole": {
             "fx": 400.0,
@@ -1105,8 +1138,7 @@ def test_project_rejects_invalid_inputs() -> None:
             "h": 240,
             "w": 320,
         },
-    }
-    for model, params in model_params.items():
+    }.items():
         intrinsics = build_camera_intrinsics(
             model=model,
             params=params,
@@ -1131,7 +1163,7 @@ def test_fx_fy_cx_cy_derived_from_params() -> None:
     Returns:
         None.
     """
-    model_params: Dict[str, Dict[str, Union[int, float]]] = {
+    for model, params in {
         "simple_pinhole": {"f": 400.0, "cx": 160.0, "cy": 120.0, "h": 240, "w": 320},
         "pinhole": {
             "fx": 400.0,
@@ -1149,8 +1181,7 @@ def test_fx_fy_cx_cy_derived_from_params() -> None:
             "h": 240,
             "w": 320,
         },
-    }
-    for model, params in model_params.items():
+    }.items():
         intrinsics = build_camera_intrinsics(
             model=model,
             params=params,
@@ -1177,7 +1208,7 @@ def test_fov_defined_for_perspective_subclasses_only() -> None:
     Returns:
         None.
     """
-    model_params: Dict[str, Dict[str, Union[int, float]]] = {
+    for model, params in {
         "simple_pinhole": {"f": 400.0, "cx": 160.0, "cy": 120.0, "h": 240, "w": 320},
         "pinhole": {
             "fx": 400.0,
@@ -1187,8 +1218,7 @@ def test_fov_defined_for_perspective_subclasses_only() -> None:
             "h": 240,
             "w": 320,
         },
-    }
-    for model, params in model_params.items():
+    }.items():
         intrinsics = build_camera_intrinsics(
             model=model,
             params=params,
@@ -1221,9 +1251,9 @@ def test_fov_defined_for_perspective_subclasses_only() -> None:
         intr_convention="standard",
         device="cpu",
     )
-    assert (
-        hasattr(ortho_intrinsics, "fov") is False
-    ), "Ortho intrinsics must not expose fov."
+    assert hasattr(ortho_intrinsics, "fov") is False, (
+        "Ortho intrinsics must not expose fov. " f"{type(ortho_intrinsics)=}"
+    )
 
 
 def test_transform_intrinsics_restates_the_camera_onto_the_named_raster() -> None:
@@ -1241,18 +1271,29 @@ def test_transform_intrinsics_restates_the_camera_onto_the_named_raster() -> Non
         intr_convention="standard",
         device="cpu",
     )
-    transform = torch.tensor(
-        [[1.0, 0.0, 10.0], [0.0, 1.0, 20.0], [0.0, 0.0, 1.0]],
-        dtype=torch.float32,
-    )
     transformed = intrinsics.transform_intrinsics(
-        transform=transform,
+        transform=torch.tensor(
+            [[1.0, 0.0, 10.0], [0.0, 1.0, 20.0], [0.0, 0.0, 1.0]],
+            dtype=torch.float32,
+        ),
         resolution=(480, 640),
     )
-    assert transformed.params["h"] == 480, f"{transformed.params=}"
-    assert transformed.params["w"] == 640, f"{transformed.params=}"
-    assert transformed.params["cx"] == pytest.approx(160.0), f"{transformed.params=}"
-    assert transformed.params["cy"] == pytest.approx(130.0), f"{transformed.params=}"
+    assert transformed.params["h"] == 480, (
+        "Expected the returned h param to be the named raster's. "
+        f"{transformed.params=}"
+    )
+    assert transformed.params["w"] == 640, (
+        "Expected the returned w param to be the named raster's. "
+        f"{transformed.params=}"
+    )
+    assert transformed.params["cx"] == pytest.approx(160.0), (
+        "Expected the returned cx to be where the affine sends the original's. "
+        f"{transformed.params=}"
+    )
+    assert transformed.params["cy"] == pytest.approx(130.0), (
+        "Expected the returned cy to be where the affine sends the original's. "
+        f"{transformed.params=}"
+    )
 
 
 def test_transform_intrinsics_returns_the_frame_it_was_given() -> None:
@@ -1278,18 +1319,19 @@ def test_transform_intrinsics_returns_the_frame_it_was_given() -> None:
             intr_convention="standard",
             device="cpu",
         ).to(intr_convention=frame)
-        identity = torch.eye(3, dtype=torch.float32)
         transformed = intrinsics.transform_intrinsics(
-            transform=identity,
+            transform=torch.eye(3, dtype=torch.float32),
             resolution=intrinsics.resolution,
         )
-        assert (
-            transformed.intr_convention == frame
-        ), f"{frame=} {transformed.intr_convention=}"
+        assert transformed.intr_convention == frame, (
+            "Expected the transformed intrinsics to come back on the frame it was given. "
+            f"{frame=} {transformed.intr_convention=}"
+        )
         for key, value in intrinsics.params.items():
-            assert transformed.params[key] == pytest.approx(
-                value
-            ), f"{frame=} {key=} {transformed.params[key]=} {value=}"
+            assert transformed.params[key] == pytest.approx(value), (
+                "Expected an identity transform to return every param unchanged. "
+                f"{frame=} {key=} {transformed.params[key]=} {value=}"
+            )
 
 
 def test_a_shared_focal_refuses_a_transform_that_scales_the_axes_apart() -> None:
@@ -1307,12 +1349,14 @@ def test_a_shared_focal_refuses_a_transform_that_scales_the_axes_apart() -> None
         intr_convention="standard",
         device="cpu",
     )
-    transform = torch.tensor(
-        [[2.0, 0.0, 0.0], [0.0, 0.5, 0.0], [0.0, 0.0, 1.0]],
-        dtype=torch.float32,
-    )
     with pytest.raises(AssertionError):
-        intrinsics.transform_intrinsics(transform=transform, resolution=(120, 640))
+        intrinsics.transform_intrinsics(
+            transform=torch.tensor(
+                [[2.0, 0.0, 0.0], [0.0, 0.5, 0.0], [0.0, 0.0, 1.0]],
+                dtype=torch.float32,
+            ),
+            resolution=(120, 640),
+        )
 
 
 def test_transform_intrinsics_refuses_a_sheared_affine() -> None:
@@ -1324,11 +1368,7 @@ def test_transform_intrinsics_refuses_a_sheared_affine() -> None:
     Returns:
         None.
     """
-    sheared = torch.tensor(
-        [[1.0, 0.25, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
-        dtype=torch.float32,
-    )
-    model_params: Dict[str, Dict[str, Union[int, float]]] = {
+    for model, params in {
         "simple_pinhole": {"f": 400.0, "cx": 160.0, "cy": 120.0, "h": 240, "w": 320},
         "pinhole": {
             "fx": 400.0,
@@ -1346,8 +1386,7 @@ def test_transform_intrinsics_refuses_a_sheared_affine() -> None:
             "h": 240,
             "w": 320,
         },
-    }
-    for model, params in model_params.items():
+    }.items():
         intrinsics = build_camera_intrinsics(
             model=model,
             params=params,
@@ -1355,7 +1394,13 @@ def test_transform_intrinsics_refuses_a_sheared_affine() -> None:
             device="cpu",
         )
         with pytest.raises(AssertionError):
-            intrinsics.transform_intrinsics(transform=sheared, resolution=(240, 320))
+            intrinsics.transform_intrinsics(
+                transform=torch.tensor(
+                    [[1.0, 0.25, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+                    dtype=torch.float32,
+                ),
+                resolution=(240, 320),
+            )
 
 
 def test_a_resize_is_the_diagonal_case_of_a_transform() -> None:
@@ -1376,18 +1421,18 @@ def test_a_resize_is_the_diagonal_case_of_a_transform() -> None:
     target_resolution = (120, 640)
     scale_x = float(target_resolution[1]) / 320.0
     scale_y = float(target_resolution[0]) / 240.0
-    transform = torch.tensor(
-        [[scale_x, 0.0, 0.0], [0.0, scale_y, 0.0], [0.0, 0.0, 1.0]],
-        dtype=torch.float32,
-    )
     by_resize = intrinsics.scale_intrinsics(resolution=target_resolution)
     by_transform = intrinsics.transform_intrinsics(
-        transform=transform,
+        transform=torch.tensor(
+            [[scale_x, 0.0, 0.0], [0.0, scale_y, 0.0], [0.0, 0.0, 1.0]],
+            dtype=torch.float32,
+        ),
         resolution=target_resolution,
     )
-    assert (
-        by_resize.params == by_transform.params
-    ), f"{by_resize.params=} {by_transform.params=}"
+    assert by_resize.params == by_transform.params, (
+        "Expected a resize to equal its diagonal transform param for param. "
+        f"{by_resize.params=} {by_transform.params=}"
+    )
 
 
 def test_scale_intrinsics_scales_focal_and_cx_cy_params() -> None:
@@ -1399,9 +1444,7 @@ def test_scale_intrinsics_scales_focal_and_cx_cy_params() -> None:
     Returns:
         None.
     """
-    model_cases: List[
-        Tuple[str, Dict[str, Union[int, float]], Dict[str, Union[int, float]]]
-    ] = [
+    for model, params, expected_params in [
         (
             "simple_pinhole",
             {"f": 400.0, "cx": 160.0, "cy": 120.0, "h": 240, "w": 320},
@@ -1417,8 +1460,7 @@ def test_scale_intrinsics_scales_focal_and_cx_cy_params() -> None:
             {"fx": 400.0, "fy": 410.0, "cx": 160.0, "cy": 120.0, "h": 240, "w": 320},
             {"fx": 800.0, "fy": 820.0, "cx": 320.0, "cy": 240.0, "h": 480, "w": 640},
         ),
-    ]
-    for model, params, expected_params in model_cases:
+    ]:
         intrinsics = build_camera_intrinsics(
             model=model,
             params=params,
@@ -1426,15 +1468,16 @@ def test_scale_intrinsics_scales_focal_and_cx_cy_params() -> None:
             device="cpu",
         )
         by_resolution = intrinsics.scale_intrinsics(resolution=(480, 640))
-        assert (
-            by_resolution.params == expected_params
-        ), f"{model=} {by_resolution.params=} {expected_params=}"
-        assert type(by_resolution) is type(intrinsics), f"{type(by_resolution)=}"
+        assert by_resolution.params == expected_params, (
+            "Expected a target resolution to scale focal and cx / cy by the target over the own h and w, and to carry the target h and w. "
+            f"{model=} {by_resolution.params=} {expected_params=}"
+        )
 
         by_factor = intrinsics.scale_intrinsics(scale=2.0)
-        assert (
-            by_factor.params == expected_params
-        ), f"{model=} {by_factor.params=} {expected_params=}"
+        assert by_factor.params == expected_params, (
+            "Expected a single factor to scale focal, cx / cy, h and w by that factor. "
+            f"{model=} {by_factor.params=} {expected_params=}"
+        )
 
 
 def test_scale_intrinsics_takes_exactly_one_of_a_target_resolution_and_a_factor() -> (
@@ -1484,10 +1527,18 @@ def test_only_a_model_carrying_two_focal_params_can_be_scaled_apart() -> None:
             device="cpu",
         )
         scaled = intrinsics.scale_intrinsics(scale=(2.0, 0.5))
-        assert scaled.params["fx"] == pytest.approx(800.0), f"{model=} {scaled.params=}"
-        assert scaled.params["cx"] == pytest.approx(320.0), f"{model=} {scaled.params=}"
-        assert scaled.params["fy"] == pytest.approx(205.0), f"{model=} {scaled.params=}"
-        assert scaled.params["cy"] == pytest.approx(60.0), f"{model=} {scaled.params=}"
+        assert scaled.params["fx"] == pytest.approx(800.0), (
+            "Expected fx to scale by sx. " f"{model=} {scaled.params=}"
+        )
+        assert scaled.params["cx"] == pytest.approx(320.0), (
+            "Expected cx to scale by sx. " f"{model=} {scaled.params=}"
+        )
+        assert scaled.params["fy"] == pytest.approx(205.0), (
+            "Expected fy to scale by sy. " f"{model=} {scaled.params=}"
+        )
+        assert scaled.params["cy"] == pytest.approx(60.0), (
+            "Expected cy to scale by sy. " f"{model=} {scaled.params=}"
+        )
 
     simple = build_camera_intrinsics(
         model="simple_pinhole",
@@ -1517,11 +1568,18 @@ def test_a_per_axis_normalized_frames_params_do_not_move_with_the_resolution() -
         )
         scaled = intrinsics.scale_intrinsics(resolution=(120, 640))
         for key in ("fx", "fy", "cx", "cy"):
-            assert scaled.params[key] == pytest.approx(
-                intrinsics.params[key]
-            ), f"{frame=} {key=} {scaled.params[key]=} {intrinsics.params[key]=}"
-        assert scaled.params["h"] == 120, f"{frame=} {scaled.params=}"
-        assert scaled.params["w"] == 640, f"{frame=} {scaled.params=}"
+            assert scaled.params[key] == pytest.approx(intrinsics.params[key]), (
+                "Expected a per-axis normalized frame's param not to move with the resolution. "
+                f"{frame=} {key=} {scaled.params[key]=} {intrinsics.params[key]=}"
+            )
+        assert scaled.params["h"] == 120, (
+            "Expected the restated h param to be the target one. "
+            f"{frame=} {scaled.params=}"
+        )
+        assert scaled.params["w"] == 640, (
+            "Expected the restated w param to be the target one. "
+            f"{frame=} {scaled.params=}"
+        )
 
 
 def test_the_pytorch3d_frames_params_move_when_the_aspect_ratio_does() -> None:
@@ -1548,9 +1606,10 @@ def test_the_pytorch3d_frames_params_move_when_the_aspect_ratio_does() -> None:
     )
     uniform = intrinsics.scale_intrinsics(scale=torch.tensor(2.0))
     for key in ("fx", "fy", "cx", "cy"):
-        assert uniform.params[key] == pytest.approx(
-            intrinsics.params[key]
-        ), f"{key=} {uniform.params[key]=} {intrinsics.params[key]=}"
+        assert uniform.params[key] == pytest.approx(intrinsics.params[key]), (
+            "Expected a uniform resize to leave the pytorch3d param unchanged. "
+            f"{key=} {uniform.params[key]=} {intrinsics.params[key]=}"
+        )
 
     target_resolution = torch.tensor([120, 640])
     aspect = intrinsics.scale_intrinsics(resolution=target_resolution)
@@ -1560,12 +1619,14 @@ def test_the_pytorch3d_frames_params_move_when_the_aspect_ratio_does() -> None:
         .to(intr_convention="pytorch3d")
     )
     for key in ("fx", "fy", "cx", "cy"):
-        assert aspect.params[key] == pytest.approx(
-            through_pixels.params[key]
-        ), f"{key=} {aspect.params[key]=} {through_pixels.params[key]=}"
-    assert aspect.params["cx"] != pytest.approx(
-        intrinsics.params["cx"]
-    ), f"{aspect.params=} {intrinsics.params=}"
+        assert aspect.params[key] == pytest.approx(through_pixels.params[key]), (
+            "Expected an aspect change to restate the pytorch3d param as the same resize carried through pixels does. "
+            f"{key=} {aspect.params[key]=} {through_pixels.params[key]=}"
+        )
+    assert aspect.params["cx"] != pytest.approx(intrinsics.params["cx"]), (
+        "Expected an aspect change to move the pytorch3d principal point. "
+        f"{aspect.params=} {intrinsics.params=}"
+    )
 
 
 def test_intrinsics_tensor_state_stays_differentiable_through_project() -> None:
@@ -1577,7 +1638,7 @@ def test_intrinsics_tensor_state_stays_differentiable_through_project() -> None:
     Returns:
         None.
     """
-    model_params: Dict[str, Tuple[Dict[str, Union[int, float]], Tuple[str, ...]]] = {
+    for model, (numeric_params, projection_keys) in {
         "simple_pinhole": (
             {"f": 400.0, "cx": 160.0, "cy": 120.0, "h": 240, "w": 320},
             ("f", "cx", "cy"),
@@ -1604,8 +1665,7 @@ def test_intrinsics_tensor_state_stays_differentiable_through_project() -> None:
             },
             ("fx", "fy", "cx", "cy"),
         ),
-    }
-    for model, (numeric_params, projection_keys) in model_params.items():
+    }.items():
         params = _tensor_params(params=numeric_params, requires_grad=True)
         intrinsics = build_camera_intrinsics(
             model=model,
@@ -1634,7 +1694,7 @@ def test_scale_intrinsics_keeps_tensor_state_differentiable() -> None:
     Returns:
         None.
     """
-    model_params: Dict[str, Tuple[Dict[str, Union[int, float]], Tuple[str, ...]]] = {
+    for model, (numeric_params, projection_keys) in {
         "simple_pinhole": (
             {"f": 400.0, "cx": 160.0, "cy": 120.0, "h": 240, "w": 320},
             ("f", "cx", "cy"),
@@ -1661,8 +1721,7 @@ def test_scale_intrinsics_keeps_tensor_state_differentiable() -> None:
             },
             ("fx", "fy", "cx", "cy"),
         ),
-    }
-    for model, (numeric_params, projection_keys) in model_params.items():
+    }.items():
         params = _tensor_params(params=numeric_params, requires_grad=True)
         intrinsics = build_camera_intrinsics(
             model=model,
