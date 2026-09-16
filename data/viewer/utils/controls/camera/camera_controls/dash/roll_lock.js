@@ -2,7 +2,7 @@
 //
 // `orbit` leaves camera roll free. The panel's own view controller turns the camera about the camera's own screen axes, and successive yaw and pitch turns about a frame that each turn moves compose into roll, so the camera right axis drifts off the caller's axis; the same controller applies no pitch limit, so a drag that carries the view through a pole leaves the scene hanging upside down. This module holds both back: it keeps the camera right axis perpendicular to the caller's axis as the scene draws it, and the camera up vector on that axis's own side. The caller's axis is a direction in the data's own world frame, while the view controller turns the camera in the scene's normalized space, where Plotly draws each world axis scaled by its aspect ratio over its range - one scale on all three axes under aspectmode "data", a different one per axis under "cube" or "manual" - so the lock holds the camera about the world axis scaled into that space, re-resolved from the scene's layout each time the lock is held on a scene.
 //
-// Every pose reaches the renderer as a keyframe one of the view's camera controllers - orbital, turntable, matrix - writes through its own `lookAt` into a time-indexed spline the renderer samples a frame or two behind. The view's `lookAt` hands a pose to every controller, and the rotation-mode setter the modebar's "Turntable rotation" button runs writes straight into the newly active controller, so the module wraps each controller's `lookAt` rather than the view's: a drag step, a `Plotly.relayout`, a reset-camera button, a replot and a rotation-mode switch all go into the keyframes already roll-locked, each orbital quaternion in the hemisphere of the keyframe before it, and the renderer never holds an unlocked keyframe to draw. A drag arrives one pointer move at a time through the view's rotation, which the module replaces with the roll-locked turn, written as sub-step keyframes a bounded turn apart so that the frames the renderer interpolates between them stay on the lock too. The locked pose keeps the eye a camera was written with, banded off the poles, and re-derives the up vector from its view direction and the axis whatever up was written, so a camera written upside down is turned upright about its own view direction rather than moved. The layout keeps its own record of the camera, which a relayout, a reset button, a switch to turntable or a Dash figure update writes as it was handed, so the graph's `plotly_relayout` and `plotly_afterplot` events rewrite that record to the roll-locked pose the renderer already draws. A projection switch, on its own or inside a figure update, also builds the scene a new view controller from that record, which the scene's render loop draws before the replot reports itself, so the lock goes onto each view controller where the scene builds it, before it draws a frame, and each replot re-holds the lock on whichever view controller the scene has. A figure update that drops the 3D trace and adds it back builds a new scene altogether, and a mutation observer on the graph div holds the lock on that scene before its first animation frame. Rotation is the whole of what the replaced turn has to cover: the controller's pan carries the eye and the center together and its wheel zoom moves the eye along the view direction, so both leave the camera frame - and the lock - exactly as they found it.
+// Every pose reaches the renderer as a keyframe one of the view's camera controllers - orbital, turntable, matrix - writes through its own `lookAt` into a time-indexed spline the renderer samples a frame or two behind. The view's `lookAt` hands a pose to every controller, and the rotation-mode setter the modebar's "Turntable rotation" button runs writes straight into the newly active controller, so the module wraps each controller's `lookAt` rather than the view's: a drag step, a `Plotly.relayout`, a reset-camera button, a replot and a rotation-mode switch all go into the keyframes already roll-locked, each orbital quaternion in the hemisphere of the keyframe before it, and the renderer never holds an unlocked keyframe to draw. A drag arrives one pointer move at a time through the view's rotation, which the module replaces with the roll-locked turn, written as sub-step keyframes a bounded turn apart so that the frames the renderer interpolates between them stay on the lock too. The locked pose keeps the eye a camera was written with, banded off the poles, and re-derives the up vector from its view direction and the axis whatever up was written, so a camera written upside down is turned upright about its own view direction rather than moved; a camera written with its eye on its center names no view direction at all, so the lock takes the eye offset the pose that write goes into holds at that write's time, about the written center. The layout keeps its own record of the camera, which a relayout, a reset button, a switch to turntable or a Dash figure update writes as it was handed, so the graph's `plotly_relayout` and `plotly_afterplot` events rewrite that record to the roll-locked pose the renderer already draws. A projection switch, on its own or inside a figure update, also builds the scene a new view controller from that record, which the scene's render loop draws before the replot reports itself, so the lock goes onto each view controller where the scene builds it, before it draws a frame, and each replot re-holds the lock on whichever view controller the scene has. A figure update that drops the 3D trace and adds it back builds a new scene altogether, and a mutation observer on the graph div holds the lock on that scene before its first animation frame. Rotation is the whole of what the replaced turn has to cover: the controller's pan carries the eye and the center together and its wheel zoom moves the eye along the view direction, so both leave the camera frame - and the lock - exactly as they found it.
 //
 // The module is the named function `holdRollLockedGraphs`, which Dash's inline clientside template assigns as the one clientside callback `trackball_camera_controls.py` registers, on the relayoutData of every graph whose pattern-matching component id has type `dash-roll-locked-graph`. Each time any of those graphs reports a relayout - its first render, and a graph a Dash callback adds after the page loaded, included - it walks every matched input in `callback_context.inputs_list[0]`: it resolves the DOM id dash-renderer renders that graph's dict id onto, decodes the unit-length world-frame axis the id's `lock_roll` carries as base64-encoded JSON, and runs the per-graph lock `createRollLockCallback` builds from the two on that graph's relayoutData. The per-graph lock keeps its state on the graph div, its scene and its view controllers, so building it afresh on every run re-holds the lock rather than installing it twice.
 function holdRollLockedGraphs(relayoutDataList) {
@@ -146,11 +146,11 @@ function holdRollLockedGraphs(relayoutDataList) {
         function holdControllerRollLock(controller) {
             const controllerLookAt = controller.lookAt;
 
-            // Writes one pose into the controller's keyframes on the lock, taking the same optional eye and center the controller's own lookAt does and filling a missing one from the controller's pose at that time; the written up is the one thing the lock never keeps, since it re-derives the up from the view direction and the axis. Only the orbital controller keeps its rotation as quaternion keyframes; the turntable controller keeps angles and the matrix controller whole matrices, which have no second hemisphere to land in.
+            // Writes one pose into the controller's keyframes on the lock, taking the same optional eye and center the controller's own lookAt does, filling a missing one from the controller's pose at that time, and an eye written onto its center from the eye offset that pose holds; the written up is the one thing the lock never keeps, since it re-derives the up from the view direction and the axis. Only the orbital controller keeps its rotation as quaternion keyframes; the turntable controller keeps angles and the matrix controller whole matrices, which have no second hemisphere to land in.
             function rollLockedLookAt(time, eye, center, up) {
                 controller.recalcMatrix(time);
-                const writtenEye = (eye || controller.computedEye).slice();
                 const writtenCenter = (center || controller.computedCenter).slice();
+                const writtenEye = resolveHeldEye((eye || controller.computedEye).slice(), writtenCenter, controller, time);
                 const rollLockedPose = resolveRollLockedPose(writtenEye, writtenCenter);
                 const rotation = controller.rotation;
                 const keyframeCount = rotation && rotation._time.length;
@@ -190,7 +190,8 @@ function holdRollLockedGraphs(relayoutDataList) {
             if (graphDiv.__rollLock !== undefined) {
                 return;
             }
-            graphDiv.__rollLock = { writing: false };
+            // `writing` is the in-flight flag applyRollLock holds while its own relayout lands; `pending` records whether a camera write arrived while it was in flight.
+            graphDiv.__rollLock = { writing: false, pending: false };
 
             // Rewrites the camera one relayout event wrote into the layout onto the lock.
             function rewriteWrittenCamera(eventData) {
@@ -245,17 +246,21 @@ function holdRollLockedGraphs(relayoutDataList) {
             return null;
         }
 
-        // Writes the roll-locked pose back to the graph when the camera it reports sits off the lock. The reported up matching the roll-locked one is the whole of the question: both halves of the lock - the right axis perpendicular to the caller's axis, the up vector on that axis's own side - are exactly what the roll-locked up is built from.
+        // Writes the roll-locked pose back to the graph when the camera it reports sits off the lock. The reported up matching the roll-locked one is the whole of the question: both halves of the lock - the right axis perpendicular to the caller's axis, the up vector on that axis's own side - are exactly what the roll-locked up is built from. A camera reported with its eye on its center has no view direction to sit on the lock with: the wrapped controllers already hold the scene's view at its last eye offset about that center, so its record is rewritten to that pose whatever up it reports.
         function applyRollLock(graphDiv, camera) {
             const eye = recordToVector(camera.eye);
             const center = recordToVector(camera.center);
             const up = recordToVector(camera.up);
-            const rollLockedPose = resolveRollLockedPose(eye, center);
+            const view = graphDiv._fullLayout.scene._scene.camera.view;
+            const heldEye = resolveHeldEye(eye, center, view, view.lastT());
+            const rollLockedPose = resolveRollLockedPose(heldEye, center);
             const upDistance = vectorSubtract(up, rollLockedPose.up);
-            if (vectorDot(upDistance, upDistance) <= ROLL_LOCK_VIOLATION_EPSILON) {
+            if (heldEye === eye && vectorDot(upDistance, upDistance) <= ROLL_LOCK_VIOLATION_EPSILON) {
                 return;
             }
             if (graphDiv.__rollLock.writing) {
+                // Camera writes fired back to back reach the layout one after another while a correction is already in flight, and each of their events leaves the record to that correction; the record the last of them left is the one read back once the correction lands, rather than left as it was written.
+                graphDiv.__rollLock.pending = true;
                 return;
             }
             graphDiv.__rollLock.writing = true;
@@ -264,6 +269,12 @@ function holdRollLockedGraphs(relayoutDataList) {
                 "scene.camera.up": vectorToRecord(rollLockedPose.up),
             }).then(function () {
                 graphDiv.__rollLock.writing = false;
+                if (graphDiv.__rollLock.pending !== true) {
+                    return;
+                }
+                graphDiv.__rollLock.pending = false;
+                applyRollLock(graphDiv, graphDiv._fullLayout.scene.camera);
+                return;
             });
             return;
         }
@@ -284,6 +295,17 @@ function holdRollLockedGraphs(relayoutDataList) {
             const turnedUp = vectorNormalize(vectorCross(right, vectorScale(turnedOffset, -1)));
             const turnedPose = { eye: vectorAdd(center, turnedOffset), up: turnedUp };
             return turnedPose;
+        }
+
+        // Resolves the eye the lock holds a written camera from: the eye it was written with, or - when that eye coincides with its center, so the camera carries no view direction to lock - the written center moved by the eye offset heldPose holds at time, heldPose being the camera controller the camera is written into or the scene's view. The lock thereby keeps the view direction and the distance the scene last held and takes the written center alone.
+        function resolveHeldEye(eye, center, heldPose, time) {
+            const offset = vectorSubtract(eye, center);
+            if (vectorDot(offset, offset) !== 0) {
+                return eye;
+            }
+            heldPose.recalcMatrix(time);
+            const heldEye = vectorAdd(center, vectorSubtract(heldPose.computedEye, heldPose.computedCenter));
+            return heldEye;
         }
 
         // Resolves the pose the lock holds a camera at: its eye where it was written, banded off the poles, and the up vector the view direction from that eye and axis determine, whatever up was written. A camera written with its up on the far side of the axis therefore keeps its eye and is turned upright about its own view direction.

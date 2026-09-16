@@ -164,6 +164,8 @@ function createRendererTrackballCameraControls({
     const rollLockAxis = lockRoll.clone().normalize();
     controls.rollLockAxis = rollLockAxis;
     controls.rollLockPolarAngleEpsilon = ROLL_LOCKED_POLAR_ANGLE_EPSILON;
+    // The eye offset every hold below last left behind, held again in place of an eye written exactly onto the target, the one framing that names no offset of its own.
+    const heldEyeOffset = new THREE.Vector3();
 
     // Three's own rotation is the free trackball that carries camera.up along with the drag; the roll-locked left-drag below replaces it, leaving three's right-drag pan and wheel zoom untouched.
     threeControls.noRotate = true;
@@ -173,6 +175,7 @@ function createRendererTrackballCameraControls({
       camera,
       target: threeControls.target,
       rollLockAxis,
+      heldEyeOffset,
     });
 
     let leftDragActive = false;
@@ -232,6 +235,7 @@ function createRendererTrackballCameraControls({
         camera,
         target: threeControls.target,
         rollLockAxis,
+        heldEyeOffset,
       });
       threeControls.dispatchEvent({ type: "change" });
     });
@@ -247,6 +251,7 @@ function createRendererTrackballCameraControls({
         camera,
         target: threeControls.target,
         rollLockAxis,
+        heldEyeOffset,
       });
     };
 
@@ -256,6 +261,7 @@ function createRendererTrackballCameraControls({
         camera,
         target: threeControls.target,
         rollLockAxis,
+        heldEyeOffset,
       });
       ThreeTrackballControlsImpl.prototype.update.call(threeControls);
     };
@@ -264,25 +270,34 @@ function createRendererTrackballCameraControls({
   return controls;
 }
 
-// Holds the camera on the roll-locked pose its own framing implies: the eye banded off the lock axis, and the up vector the view direction from that eye and the lock axis determine. Every framing that enters the roll-locked controls comes through here - the one they are constructed on, the one a camera-sync peer writes through applyCameraState, and the one each drag step leaves behind - so the camera right axis is derived from a banded eye every time and never collapses onto the direction a view running parallel to the axis cannot name.
+// Holds the camera on the roll-locked pose its own framing implies: the eye banded off the lock axis, and the up vector the view direction from that eye and the lock axis determine. Every framing that enters the roll-locked controls comes through here - the one they are constructed on, the one a camera-sync peer writes through applyCameraState, and the one each drag step leaves behind - so the camera right axis is derived from a banded eye every time and never collapses onto the direction a view running parallel to the axis cannot name. An eye written exactly onto the target, or the target onto the eye, implies no framing at all, so there the lock holds the eye offset it last held around wherever the target now stands.
 //
 // Args:
 //   camera: the perspective camera the controls drive; its position and up vector are rewritten in place, and it is left looking at the target.
 //   target: the rotation target the eye offset is measured from, in the scene's own world frame.
 //   rollLockAxis: the unit-length world-space axis camera roll is locked about.
+//   heldEyeOffset: the eye offset these controls last held, as the camera position minus the rotation target in the scene's own world frame; read in place of an offset of zero length, and overwritten in place with the offset this call holds.
 //
 // Returns:
 //   void.
 function holdRollLockedCameraPose({
   camera,
   target,
-  rollLockAxis
+  rollLockAxis,
+  heldEyeOffset
 }: {
   camera: THREE.PerspectiveCamera;
   target: THREE.Vector3;
-  rollLockAxis: THREE.Vector3
+  rollLockAxis: THREE.Vector3;
+  heldEyeOffset: THREE.Vector3
 }): void {
-  const bandedOffset = resolveRollLockBandedOffset({ offset: camera.position.clone().sub(target), rollLockAxis });
+  const offset = camera.position.clone().sub(target);
+  // A zero-length offset has no polar angle for the band to read, so it would pass through unbanded and cross into a zero right axis, a zero up vector, and a lookAt with no direction. The held offset keeps the view the lock last drew, and gives three's pan and zoom, which both scale by the eye distance, a distance to act on.
+  const bandedOffset = resolveRollLockBandedOffset({
+    offset: offset.lengthSq() > 0 ? offset : heldEyeOffset,
+    rollLockAxis,
+  });
+  heldEyeOffset.copy(bandedOffset);
   const cameraRightAxis = new THREE.Vector3()
     .crossVectors(bandedOffset.clone().negate(), rollLockAxis)
     .normalize();
