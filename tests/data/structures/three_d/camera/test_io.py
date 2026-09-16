@@ -167,7 +167,10 @@ def test_multi_cameras_json_round_trip(tmp_path: Path) -> None:
 
     json_path = tmp_path / "cameras.json"
     save_cameras(cameras=cameras, cameras_path=json_path)
-    assert json.loads(json_path.read_text(encoding="utf-8")) == serialized
+    assert json.loads(json_path.read_text(encoding="utf-8")) == serialized, (
+        "Expected the saved JSON file to hold the serialized cameras payload. "
+        f"{json_path=} {serialized=}"
+    )
     _assert_cameras_fields_equal(
         loaded=load_cameras(cameras_path=json_path, device="cpu"), original=cameras
     )
