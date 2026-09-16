@@ -28,9 +28,15 @@ chunked_matmul.py
 │   ├── impls small = small.contiguous()
 │   ├── impls N = large.shape[0]
 │   ├── impls M = small.shape[-1]
-│   ├── impls out = large if inplace else a fresh empty [..., N, M] on large's device and dtype  # impls-node-one-step:skip
+│   ├── if inplace
+│   │   └── impls out = large
+│   ├── else
+│   │   └── impls out = a fresh empty [..., N, M] tensor, its leading axes small's, on large's device and dtype
 │   ├── impls direct = not inplace and not large.requires_grad and not small.requires_grad  # impls-node-one-step:skip
-│   ├── impls bs = max(1, math.ceil(N / 2 ** num_divide)) if num_divide is not None else N  # impls-node-one-step:skip
+│   ├── if num_divide is not None
+│   │   └── impls bs = max(1, math.ceil(N / 2 ** num_divide))
+│   ├── else
+│   │   └── impls bs = N
 │   ├── impls i = 0
 │   ├── impls divides = 0
 │   ├── while i < N
