@@ -17,14 +17,27 @@ from models.three_d.point_cloud.render.render_depth import render_depth_from_poi
 
 
 def test_create_circular_kernel_offsets_disc_is_centred() -> None:
-    """Test that the kernel offsets are closed under negation, so the disc is centred on the point."""
+    """The kernel reaches equally on both sides of the origin, since a disc that reaches farther one way grows every rendered point off its own pixel.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
     for point_size in (1.0, 1.5, 2.0, 3.0, 4.0, 5.0):
         kernel_offsets = create_circular_kernel_offsets(
             point_size=point_size, device=torch.device("cpu")
         )
-        offsets = {(int(offset[0]), int(offset[1])) for offset in kernel_offsets}
+        offsets = set()
+        for offset in kernel_offsets:
+            offsets.add((int(offset[0]), int(offset[1])))
 
-        unmatched = {(y, x) for y, x in offsets if (-y, -x) not in offsets}
+        # The offsets whose negation is missing from the same set.
+        unmatched = set()
+        for y, x in offsets:
+            if (-y, -x) not in offsets:
+                unmatched.add((y, x))
         assert not unmatched, (
             "Every kernel offset must have its negation in the kernel, otherwise the disc "
             "reaches farther on one side of the point than on the other. "
@@ -33,21 +46,31 @@ def test_create_circular_kernel_offsets_disc_is_centred() -> None:
 
 
 def test_create_circular_kernel_offsets_membership_is_the_radius_rule() -> None:
-    """Test that the kernel holds exactly the integer cells whose centre lies within point_size / 2 of the origin, each of them once."""
+    """The kernel is exactly the cells whose centre lies inside the disc, neither more nor fewer, checked against a radius rule the test derives itself.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
     for point_size in (1.0, 1.5, 2.0, 3.0, 4.0, 5.0):
         kernel_offsets = create_circular_kernel_offsets(
             point_size=point_size, device=torch.device("cpu")
         )
-        offsets = {(int(offset[0]), int(offset[1])) for offset in kernel_offsets}
+        offsets = set()
+        for offset in kernel_offsets:
+            offsets.add((int(offset[0]), int(offset[1])))
 
         kernel_radius = point_size / 2.0
+        # A generous search box, one cell past the disc.
         search_reach = math.ceil(point_size) + 1
-        expected = {
-            (y, x)
-            for y in range(-search_reach, search_reach + 1)
-            for x in range(-search_reach, search_reach + 1)
-            if math.hypot(y, x) <= kernel_radius
-        }
+        # The integer cells of the search box whose distance from the origin is within kernel_radius.
+        expected = set()
+        for y in range(-search_reach, search_reach + 1):
+            for x in range(-search_reach, search_reach + 1):
+                if math.hypot(y, x) <= kernel_radius:
+                    expected.add((y, x))
         assert offsets == expected and len(offsets) == kernel_offsets.shape[0], (
             "The kernel must hold exactly the cells whose centre lies inside the disc, and must not repeat a cell, otherwise a disc pixel is dilated twice. "
             f"{point_size=} {kernel_radius=} {sorted(offsets - expected)=} "
@@ -56,22 +79,22 @@ def test_create_circular_kernel_offsets_membership_is_the_radius_rule() -> None:
 
 
 def test_create_circular_kernel_offsets_dilates_a_point_into_a_centred_disc() -> None:
-    """Test that rendering one point at each point size covers a disc of pixels centred on the point's own pixel."""
-    expected_covered_counts = {
-        1.0: 1,
-        1.5: 1,
-        2.0: 5,
-        3.0: 9,
-        4.0: 13,
-        5.0: 21,
-    }
+    """One rendered point grows into a disc centred on its own pixel, which is the kernel's symmetry seen through the renderer that uses it.
 
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    # The pixel count each point size's disc holds.
+    expected_covered_counts = {1.0: 1, 1.5: 1, 2.0: 5, 3.0: 9, 4.0: 13, 5.0: 21}
     principal_point = 20.5
     pc_data = PointCloud(xyz=torch.tensor([[0.0, 0.0, -1.0]], dtype=torch.float32))
     camera = _build_camera(focal=100.0, principal_point=principal_point)
     resolution = (41, 41)
 
-    # The point sits on the optical axis, so it lands on the pixel holding the principal point, which is the same pixel index on both axes.
+    # The point sits on the optical axis, so it lands on the pixel holding the principal point, the same pixel index on both axes.
     center_pixel = math.floor(principal_point)
 
     for point_size in (1.0, 1.5, 2.0, 3.0, 4.0, 5.0):
@@ -83,11 +106,15 @@ def test_create_circular_kernel_offsets_dilates_a_point_into_a_centred_disc() ->
             point_size=point_size,
         )
 
-        covered = {
-            (int(pixel[0]) - center_pixel, int(pixel[1]) - center_pixel)
-            for pixel in valid_mask.nonzero()
-        }
-        unmatched = {(y, x) for y, x in covered if (-y, -x) not in covered}
+        # The covered pixels as offsets from the pixel the point itself landed on.
+        covered = set()
+        for pixel in valid_mask.nonzero():
+            covered.add((int(pixel[0]) - center_pixel, int(pixel[1]) - center_pixel))
+
+        unmatched = set()
+        for y, x in covered:
+            if (-y, -x) not in covered:
+                unmatched.add((y, x))
         assert not unmatched, (
             "The covered pixels must be symmetric about the point's own pixel. "
             f"{point_size=} {center_pixel=} {sorted(unmatched)=} {sorted(covered)=}"
@@ -100,7 +127,7 @@ def test_create_circular_kernel_offsets_dilates_a_point_into_a_centred_disc() ->
 
 
 def _build_camera(focal: float, principal_point: float) -> Camera:
-    """Build an identity-pose OpenGL pinhole camera on the CPU.
+    """Builds the identity-pose OpenGL pinhole camera on the CPU whose own extents match the requested resolution, so no intrinsics rescaling moves the point off centre.
 
     Args:
         focal: Shared focal length used for both fx and fy.

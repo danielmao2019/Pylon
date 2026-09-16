@@ -15,9 +15,9 @@ def test_world_to_camera_transform_carries_the_camera_batch_axis() -> None:
     Returns:
         None.
     """
-    devices = [torch.device("cpu")] + (
-        [torch.device("cuda")] if torch.cuda.is_available() else []
-    )
+    devices = [torch.device("cpu")]
+    if torch.cuda.is_available():
+        devices.append(torch.device("cuda"))
     for device in devices:
         torch.manual_seed(0)
         points = torch.randn(size=(512, 3), dtype=torch.float32, device=device)
@@ -107,28 +107,35 @@ def test_world_to_camera_transform_inplace_rejects_a_camera_batch() -> None:
     Returns:
         None.
     """
-    torch.manual_seed(2)
-    points = torch.randn(size=(512, 3), dtype=torch.float32)
-    points_world = points.clone()
-    generators = torch.randn(size=(4, 3, 3), dtype=torch.float32)
-    extrinsics = torch.eye(4, dtype=torch.float32).repeat(4, 1, 1)
-    extrinsics[:, :3, :3] = torch.linalg.matrix_exp(
-        generators - generators.transpose(-1, -2)
-    )
-    extrinsics[:, :3, 3] = torch.randn(size=(4, 3), dtype=torch.float32)
+    points = torch.ones(size=(512, 3), dtype=torch.float32)
 
     points_camera = world_to_camera_transform(
-        points=points, extrinsics=extrinsics[0], inplace=True
+        points=points,
+        extrinsics=torch.tensor(
+            [
+                [1.0, 0.0, 0.0, 1.0],
+                [0.0, 1.0, 0.0, 0.0],
+                [0.0, 0.0, 1.0, 0.0],
+                [0.0, 0.0, 0.0, 1.0],
+            ],
+            dtype=torch.float32,
+        ),
+        inplace=True,
     )
 
-    assert points_camera is points and not torch.equal(points_camera, points_world), (
+    assert points_camera is points and not torch.equal(
+        points_camera, torch.ones(size=(512, 3), dtype=torch.float32)
+    ), (
         "Expected an unbatched inplace call to return the points object itself with "
-        f"its values transformed. {points_camera is points=} "
-        f"{points_camera=} {points_world=}"
+        f"its values transformed. {points_camera is points=} {points_camera=}"
     )
 
     with pytest.raises(AssertionError):
-        world_to_camera_transform(points=points, extrinsics=extrinsics, inplace=True)
+        world_to_camera_transform(
+            points=points,
+            extrinsics=torch.eye(4, dtype=torch.float32).repeat(4, 1, 1),
+            inplace=True,
+        )
 
 
 def test_world_to_camera_transform_chunking_matches_the_unchunked_result() -> None:

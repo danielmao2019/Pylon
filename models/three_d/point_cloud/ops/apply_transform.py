@@ -67,11 +67,16 @@ def apply_transform(
     ) -> Tuple[Union[np.ndarray, torch.Tensor], bool, Union[np.ndarray, torch.Tensor]]:
         # An unbatched [N, 3], a view of the caller's array when a batch axis was squeezed.
         points, was_batched = _normalize_points(points=points)
+        if isinstance(points, torch.Tensor):
+            target_device = points.device
+        else:
+            target_device = None
+        # The [..., 4, 4] transform in the points' own type, dtype and device.
         transform = _normalize_transform(
             transform=transform,
             target_type=type(points),
             target_dtype=points.dtype,
-            target_device=points.device if isinstance(points, torch.Tensor) else None,
+            target_device=target_device,
         )
         assert transform.dtype == points.dtype, (
             "Expected the normalized points and transform to share one dtype. "

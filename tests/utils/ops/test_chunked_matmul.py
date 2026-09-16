@@ -234,9 +234,9 @@ def test_batched_small_broadcasts_onto_the_product() -> None:
         None.
     """
     B, K = 3, 4
-    devices = [torch.device("cpu")] + (
-        [torch.device("cuda")] if torch.cuda.is_available() else []
-    )
+    devices = [torch.device("cpu")]
+    if torch.cuda.is_available():
+        devices.append(torch.device("cuda"))
     for device in devices:
         # The small row counts where CUDA's batched and unbatched products disagree in the last place.
         for N in (1, 17, 25, 33, 100):
@@ -261,7 +261,14 @@ def test_batched_small_broadcasts_onto_the_product() -> None:
 
 
 def test_inplace_rejects_batched_small() -> None:
-    """inplace=True with a batched small raises an assertion (the product is wider than large, leaving nothing to overwrite in place)."""
+    """inplace=True with a batched small raises an assertion (the product is wider than large, leaving nothing to overwrite in place).
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
     large = torch.randn(10, 5, dtype=torch.float64)
     small = torch.randn(3, 5, 5, dtype=torch.float64)
     with pytest.raises(AssertionError):
@@ -269,7 +276,14 @@ def test_inplace_rejects_batched_small() -> None:
 
 
 def test_rejects_non_square_small() -> None:
-    """a non-square small raises an assertion (small must be square in its trailing two axes)."""
+    """a non-square small raises an assertion (small must be square in its trailing two axes).
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
     large = torch.randn(5, 4, dtype=torch.float64)
     small = torch.randn(3, 4, 3, dtype=torch.float64)
     with pytest.raises(AssertionError):
@@ -277,7 +291,14 @@ def test_rejects_non_square_small() -> None:
 
 
 def test_rejects_mismatched_inner_dim() -> None:
-    """large.shape[1] != small.shape[-2] raises an assertion (inner dimensions must match)."""
+    """large.shape[1] != small.shape[-2] raises an assertion (inner dimensions must match).
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
     large = torch.randn(5, 4, dtype=torch.float64)
     small = torch.randn(4, 3, 3, dtype=torch.float64)
     with pytest.raises(AssertionError):
@@ -285,7 +306,14 @@ def test_rejects_mismatched_inner_dim() -> None:
 
 
 def test_rejects_mismatched_dtype() -> None:
-    """large and small of different dtypes raise an assertion (operands must share dtype)."""
+    """large and small of different dtypes raise an assertion (operands must share dtype).
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
     large = torch.randn(5, 5, dtype=torch.float64)
     small = torch.randn(5, 5, dtype=torch.float32)
     with pytest.raises(AssertionError):
@@ -293,7 +321,14 @@ def test_rejects_mismatched_dtype() -> None:
 
 
 def test_inplace_rejects_grad() -> None:
-    """inplace=True with a grad-requiring operand raises an assertion (in-place overwrite is illegal under autograd)."""
+    """inplace=True with a grad-requiring operand raises an assertion (in-place overwrite is illegal under autograd).
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
     large = torch.randn(10, 5, dtype=torch.float64, requires_grad=True)
     small = torch.randn(5, 5, dtype=torch.float64)
     with pytest.raises(AssertionError):

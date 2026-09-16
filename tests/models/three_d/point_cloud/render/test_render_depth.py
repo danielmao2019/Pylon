@@ -18,7 +18,14 @@ from models.three_d.point_cloud.render import (
 
 
 def test_render_depth_basic() -> None:
-    """Test basic depth rendering without mask."""
+    """A depth map asked for without a mask comes back at the requested resolution, in float32, with every rendered pixel at a positive depth.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
     pc_data = PointCloud(
         xyz=torch.tensor(
             [
@@ -51,7 +58,14 @@ def test_render_depth_basic() -> None:
 
 
 def test_render_depth_with_mask() -> None:
-    """Test depth rendering with valid mask."""
+    """The mask a caller asks for marks exactly the rendered pixels, and the background carries the ignore value on the rest.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
     pc_data = PointCloud(
         xyz=torch.tensor(
             [
@@ -93,7 +107,14 @@ def test_render_depth_with_mask() -> None:
 
 
 def test_render_depth_sorting() -> None:
-    """Test that closer points overwrite farther ones."""
+    """Two points on one ray render as the near one, since a farther point must not overwrite what occludes it.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
     pc_data = PointCloud(
         xyz=torch.tensor(
             [
@@ -114,11 +135,21 @@ def test_render_depth_sorting() -> None:
 
     valid_depths = depth_map[depth_map != -1.0]
     if len(valid_depths) > 0:
-        assert valid_depths.min() < 1.5
+        assert valid_depths.min() < 1.5, (
+            "The ray's two points must render as the near one. "
+            f"{valid_depths.min()=} {valid_depths.unique()=}"
+        )
 
 
 def test_render_depth_custom_ignore_value() -> None:
-    """Test using custom ignore value for empty pixels."""
+    """The background value is the caller's to name, and it reaches every pixel no point projected onto.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
     pc_data = PointCloud(xyz=torch.tensor([[0.0, 0.0, -1.0]], dtype=torch.float32))
 
     camera = _build_camera(focal=100.0, principal_point=50.0)
@@ -137,7 +168,14 @@ def test_render_depth_custom_ignore_value() -> None:
 
 
 def test_render_depth_points_behind_camera() -> None:
-    """Test that points behind camera are filtered out."""
+    """A point behind an OpenGL camera is dropped rather than folded back in front of it.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
     pc_data = PointCloud(
         xyz=torch.tensor(
             [
@@ -164,7 +202,14 @@ def test_render_depth_points_behind_camera() -> None:
 
 
 def test_render_depth_multiple_points_per_pixel() -> None:
-    """Test that multiple points projecting to same pixel are handled correctly."""
+    """Several points landing on one pixel resolve to the nearest, which is the same rule sorting states at pixel granularity.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
     pc_data = PointCloud(
         xyz=torch.tensor(
             [
@@ -185,14 +230,23 @@ def test_render_depth_multiple_points_per_pixel() -> None:
         resolution=(100, 100),
     )
 
-    center_region = depth_map[48:52, 48:52]
-    valid_depths = center_region[center_region != -1.0]
+    valid_depths = depth_map[48:52, 48:52][depth_map[48:52, 48:52] != -1.0]
     if len(valid_depths) > 0:
-        assert valid_depths.min() < 1.5
+        assert valid_depths.min() < 1.5, (
+            "The points sharing the central pixels must resolve to the nearest. "
+            f"{valid_depths.min()=} {valid_depths.unique()=}"
+        )
 
 
 def test_render_depth_intrinsics_scaling() -> None:
-    """Test that intrinsics are properly scaled for different resolutions."""
+    """One camera renders at two resolutions, so the intrinsics are scaled to the request rather than pinned to the camera's own extents.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
     pc_data = PointCloud(
         xyz=torch.tensor(
             [
@@ -228,7 +282,14 @@ def test_render_depth_intrinsics_scaling() -> None:
 
 
 def test_render_depth_batched_matches_per_camera() -> None:
-    """Test that a Cameras renders every pose in one call, each slice matching that pose alone."""
+    """A Cameras of several poses renders one cloud in a single call to [B, H, W], each slice equal to what that pose renders on its own.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
     pc_data = PointCloud(
         xyz=torch.tensor(
             [
@@ -272,7 +333,14 @@ def test_render_depth_batched_matches_per_camera() -> None:
 
 
 def test_render_depth_batch_of_one_keeps_its_axis() -> None:
-    """Test that a Cameras of length one renders to [1, H, W] rather than [H, W]."""
+    """A Cameras of length one renders to [1, H, W] rather than [H, W].
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
     pc_data = PointCloud(
         xyz=torch.tensor(
             [
@@ -297,7 +365,10 @@ def test_render_depth_batch_of_one_keeps_its_axis() -> None:
         resolution=(64, 80),
     )
 
-    assert depth_maps.shape == (1, 64, 80)
+    assert depth_maps.shape == (1, 64, 80), (
+        "A Cameras of length one must render to [1, 64, 80], keeping its leading axis. "
+        f"{depth_maps.shape=}"
+    )
 
     depth_map = render_depth_from_point_cloud(
         pc=pc_data,
@@ -313,7 +384,14 @@ def test_render_depth_batch_of_one_keeps_its_axis() -> None:
 
 
 def test_render_depth_batched_cull_is_per_camera() -> None:
-    """Test that cameras seeing different subsets of one cloud each keep their own survivors."""
+    """Cameras seeing different subsets of one cloud each keep their own survivors, culling marking a per-camera mask rather than compacting.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
     pc_data = PointCloud(
         xyz=torch.tensor(
             [
@@ -355,7 +433,14 @@ def test_render_depth_batched_cull_is_per_camera() -> None:
 
 
 def test_render_depth_occlusion_holds_when_pixels_collide() -> None:
-    """Test that many points sharing each pixel still render the nearest, identically every run."""
+    """A cloud dense enough that many points share a pixel still renders the nearest of them, and renders the same map every run, since occlusion must not depend on which write landed last.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
     focal = 100.0
     principal_point = 50.0
     resolution = (32, 32)
@@ -390,14 +475,15 @@ def test_render_depth_occlusion_holds_when_pixels_collide() -> None:
 
     camera = _build_camera(focal=focal, principal_point=principal_point)
 
-    depth_maps = [
-        render_depth_from_point_cloud(
-            pc=pc_data,
-            camera=camera,
-            resolution=resolution,
+    depth_maps = []
+    for _ in range(6):
+        depth_maps.append(
+            render_depth_from_point_cloud(
+                pc=pc_data,
+                camera=camera,
+                resolution=resolution,
+            )
         )
-        for _ in range(6)
-    ]
 
     for render_index, depth_map in enumerate(depth_maps):
         assert torch.equal(depth_map, depth_maps[0]), (
@@ -440,7 +526,14 @@ def test_render_depth_occlusion_holds_when_pixels_collide() -> None:
 
 
 def test_render_depth_batched_matches_per_camera_when_pixels_collide() -> None:
-    """Test that the batch's per-camera equality holds where many points share each pixel."""
+    """The per-camera equality the batch promises holds at that same density, which is the regime a batch is rendered at.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
     focal = 100.0
     principal_point = 50.0
     resolution = (32, 32)
@@ -497,7 +590,14 @@ def test_render_depth_batched_matches_per_camera_when_pixels_collide() -> None:
 
 
 def test_render_depth_point_size_dilates_the_rendered_discs() -> None:
-    """Test that a point size above one pixel grows each rendered point into a disc."""
+    """A point size above one pixel grows each rendered point into a disc, so the parameter the entry point takes changes what it returns.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
     pc_data = PointCloud(xyz=torch.tensor([[0.0, 0.0, -1.0]], dtype=torch.float32))
 
     camera = _build_camera(focal=100.0, principal_point=50.0)
@@ -528,7 +628,14 @@ def test_render_depth_point_size_dilates_the_rendered_discs() -> None:
 
 
 def test_render_depth_point_size_keeps_a_nan_background() -> None:
-    """Test that a NaN background survives the dilation: the discs cover the pixels they cover under a finite background, and every pixel outside them stays NaN."""
+    """A NaN background survives the dilation: the discs cover the pixels they cover under a finite background, and every pixel outside them stays NaN.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
     pc_data = PointCloud(
         xyz=torch.tensor(
             [
@@ -578,7 +685,14 @@ def test_render_depth_point_size_keeps_a_nan_background() -> None:
 
 
 def test_render_depth_invalid_inputs() -> None:
-    """Test various invalid input conditions."""
+    """The malformed inputs are refused where each is first named, which for the two camera pieces is their own construction rather than the render call.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
     valid_pc_data = PointCloud(
         xyz=torch.tensor([[0.0, 0.0, -1.0]], dtype=torch.float32)
     )
@@ -595,11 +709,7 @@ def test_render_depth_invalid_inputs() -> None:
     with pytest.raises(AssertionError):
         Camera(
             intrinsics=torch.eye(4, dtype=torch.float32),
-            extrinsics=CameraExtrinsics(
-                extrinsics=torch.eye(4, dtype=torch.float32),
-                extr_convention="opengl",
-                device=torch.device("cpu"),
-            ),
+            extrinsics=valid_camera.extrinsics,
             device=torch.device("cpu"),
         )
 
@@ -620,7 +730,7 @@ def test_render_depth_invalid_inputs() -> None:
 
 
 def _build_camera(focal: float, principal_point: float) -> Camera:
-    """Build an identity-pose OpenGL pinhole camera on the CPU.
+    """Builds the identity-pose OpenGL pinhole camera on the CPU that every single-camera case here renders through.
 
     Args:
         focal: Shared focal length used for both fx and fy.
@@ -657,7 +767,7 @@ def _build_cameras(
     principal_point: float,
     translations: List[Tuple[float, float, float]],
 ) -> Cameras:
-    """Build a batch of OpenGL pinhole cameras on the CPU, one pose per translation.
+    """Builds the OpenGL pinhole batch every batched case here renders through, one pose per translation.
 
     Args:
         focal: Shared focal length used for both fx and fy of every camera.

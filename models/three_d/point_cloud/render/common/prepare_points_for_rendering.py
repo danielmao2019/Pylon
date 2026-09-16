@@ -176,11 +176,14 @@ def _prepare_points_for_rendering_chunked(
         )
 
     points_2d = torch.cat(points_chunks, dim=-2)
-    valid = None if valid_chunks[0] is None else torch.cat(valid_chunks, dim=-1)
-    original_data_indices = (
-        None
-        if indices_chunks[0] is None
-        else torch.cat(
+    if valid_chunks[0] is not None:
+        # A batch, whose chunks mark each camera's survivors.
+        valid = torch.cat(valid_chunks, dim=-1)
+        original_data_indices = None
+    else:
+        # A single camera, whose chunks carry only their survivors.
+        valid = None
+        original_data_indices = torch.cat(
             [
                 chunk_indices + chunk_start
                 for chunk_start, chunk_indices in zip(
@@ -188,7 +191,6 @@ def _prepare_points_for_rendering_chunked(
                 )
             ]
         )
-    )
     return points_2d, valid, original_data_indices
 
 

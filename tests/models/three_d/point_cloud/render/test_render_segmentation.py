@@ -12,7 +12,14 @@ from models.three_d.point_cloud.render import render_segmentation_from_point_clo
 
 
 def test_render_segmentation_lands_on_the_pixel_of_its_own_point() -> None:
-    """Test that each rendered pixel carries the label of the point that projected onto it."""
+    """Each rendered pixel carries the label of the point that projected onto it, which is the one thing a per-point attribute renderer must get right.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
     pc_data = PointCloud(
         xyz=torch.tensor(
             [
@@ -45,7 +52,14 @@ def test_render_segmentation_lands_on_the_pixel_of_its_own_point() -> None:
 
 
 def test_render_segmentation_ignores_the_points_that_culled_out() -> None:
-    """Test that a cloud of several survivors and several culled points renders only the survivors."""
+    """A cloud with several survivors and several culled points renders only the survivors, the regime a fixture of one or two in-bounds points cannot reach.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
     pc_data = PointCloud(
         xyz=torch.tensor(
             [
@@ -88,7 +102,14 @@ def test_render_segmentation_ignores_the_points_that_culled_out() -> None:
 
 
 def test_render_segmentation_takes_the_nearest_point_where_two_share_a_pixel() -> None:
-    """Test that two points on one ray paint the nearer one's label."""
+    """Two points on one ray paint the nearer one's label, so the attribute follows the same occlusion the depth map resolves.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
     pc_data = PointCloud(
         xyz=torch.tensor(
             [
@@ -116,7 +137,7 @@ def test_render_segmentation_takes_the_nearest_point_where_two_share_a_pixel() -
 
 
 def _build_camera(focal: float, principal_point: float) -> Camera:
-    """Build an identity-pose OpenGL pinhole camera on the CPU.
+    """Builds the identity-pose OpenGL pinhole camera on the CPU that every case here renders through.
 
     Args:
         focal: Shared focal length used for both fx and fy.
