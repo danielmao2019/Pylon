@@ -413,11 +413,15 @@ camera_intrinsics.py
 ├── def _resolve_target_resolution(params: Dict[str, torch.Tensor], resolution: Optional[Union[int, Tuple[int, int], List[int], np.ndarray, torch.Tensor]] = None, scale: Optional[Union[int, float, Tuple[Union[int, float], Union[int, float]], List[Union[int, float]], np.ndarray, torch.Tensor]] = None) -> Tuple[Union[int, torch.Tensor], Union[int, torch.Tensor]]
 │   ├── # Resolves the two ways a caller names a target resolution — the size itself, or a factor on the size the params already carry — into the single form a rescale reads.
 │   ├── def _validate_inputs [local]
-│   │   ├── impls assert exactly one of resolution and scale is given  # impls-node-one-step:skip; a target resolution and a factor are two ways to name the same thing, and giving both leaves unstated which one wins
+│   │   ├── assert exactly one of resolution and scale is given  # a target resolution and a factor are two ways to name the same thing, and giving both leaves unstated which one wins
 │   │   ├── if resolution is not None
-│   │   │   └── impls assert resolution is a positive int or a length-2 array-like of positive integer-valued entries
+│   │   │   ├── assert resolution is a positive int or a length-2 array-like
+│   │   │   └── if resolution is a length-2 array-like
+│   │   │       └── assert resolution[0] and resolution[1] are positive integer-valued numbers
 │   │   └── if scale is not None
-│   │       └── impls assert scale is a positive number, or a length-2 array-like pair of positive numbers
+│   │       ├── assert scale is a positive number or a length-2 array-like
+│   │       └── if scale is a length-2 array-like
+│   │           └── assert scale[0] and scale[1] are positive numbers
 │   ├── calls _validate_inputs
 │   ├── def _normalize_inputs [local]
 │   │   ├── if resolution is not None

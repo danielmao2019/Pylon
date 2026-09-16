@@ -162,8 +162,10 @@ cameras.py
     │   │   │   └── impls dtype = extrinsics.dtype  # the one exception: an unset dtype resolves to the given extrinsics'
     │   │   ├── calls intrinsics.to(device=device, dtype=dtype)  # -> intrinsics, brought to the resolved device and dtype
     │   │   ├── calls extrinsics.to(device=device, dtype=dtype)  # -> extrinsics, brought to the resolved device and dtype, never the other way around
-    │   │   ├── impls names = names, or one None per camera when the batch was named by omission
-    │   │   ├── impls ids = ids, or one None per camera when the batch was identified by omission
+    │   │   ├── if names is None  # the batch named by omission
+    │   │   │   └── impls names = one None per camera of the batch both components share
+    │   │   ├── if ids is None  # the batch identified by omission
+    │   │   │   └── impls ids = one None per camera of the batch both components share
     │   │   └── return intrinsics, extrinsics, names, ids, device, dtype
     │   ├── calls _normalize_inputs(intrinsics=intrinsics, extrinsics=extrinsics, names=names, ids=ids, device=device, dtype=dtype)
     │   ├── impls intrinsics, extrinsics, names, ids, device, dtype = the returned values from _normalize_inputs
