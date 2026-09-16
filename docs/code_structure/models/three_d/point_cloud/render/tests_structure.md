@@ -112,7 +112,7 @@ test_render_depth.py
 │   │   ├── calls render_depth_from_point_cloud(pc=pc_data, camera=camera, resolution=resolution)  # -> depth_map
 │   │   └── impls depth_maps gains depth_map
 │   ├── for render_index, depth_map in enumerate(depth_maps)
-│   │   └── assert torch.equal(depth_map, depth_maps[0])  # "Repeated renders of one camera must give the same depth map.", reporting render_index and the max abs difference from the first render
+│   │   └── assert torch.equal(depth_map, depth_maps[0])
 │   ├── impls point_depths = -pc_data.xyz[:, 2]  # the nearest depth per pixel is projected here rather than read back from the render
 │   ├── impls point_columns = pc_data.xyz[:, 0] / point_depths * render_fx + render_cx
 │   ├── impls point_rows = -pc_data.xyz[:, 1] / point_depths * render_fy + render_cy
@@ -123,7 +123,7 @@ test_render_depth.py
 │   │   ├── if points_per_pixel[point_row, point_column] == 0 or point_depth < expected_depth_map[point_row, point_column]
 │   │   │   └── impls expected_depth_map[point_row, point_column] = point_depth
 │   │   └── impls points_per_pixel[point_row, point_column] += 1
-│   └── assert torch.equal(depth_maps[0], expected_depth_map)  # "Each rendered pixel must carry the smallest depth among the points that projected onto it.", reporting the max abs difference and the differing-pixel count
+│   └── assert torch.equal(depth_maps[0], expected_depth_map)
 ├── def test_render_depth_batched_matches_per_camera_when_pixels_collide() -> None
 │   ├── # The per-camera equality the batch promises holds at that same density, which is the regime a batch is rendered at.
 │   ├── impls focal = 100.0
@@ -144,7 +144,7 @@ test_render_depth.py
 │   ├── calls render_depth_from_point_cloud(pc=pc_data, camera=cameras, resolution=resolution)  # -> depth_maps
 │   └── for index, camera in enumerate(cameras)
 │       ├── calls render_depth_from_point_cloud(pc=pc_data, camera=camera, resolution=resolution)  # -> depth_map
-│       └── assert torch.equal(depth_maps[index], depth_map)  # "Each batched slice must equal what its own camera renders alone.", reporting index, the max abs difference and the differing-pixel count
+│       └── assert torch.equal(depth_maps[index], depth_map)
 ├── def test_render_depth_point_size_dilates_the_rendered_discs() -> None
 │   ├── # A point size above one pixel grows each rendered point into a disc, so the parameter the entry point takes changes what it returns.
 │   ├── calls PointCloud(xyz=one float32 point at depth one)
@@ -208,7 +208,7 @@ test_render_rgb.py
 │   ├── calls render_rgb_from_point_cloud(pc=pc_data, camera=camera, resolution=resolution)  # -> rgb_image
 │   ├── impls pixels = [(50, 50), (43, 62), (56, 37)]  # the pixels the three points project to, in point order
 │   └── for point_index, (row, column) in enumerate(pixels)
-│       └── assert torch.equal(rgb_image[:, row, column], pc_data.rgb[point_index])  # "Each rendered pixel must carry the colour of the point that projected onto it.", reporting point_index, row, column and both colours; the colour belonging to the point that projected there, not another point's
+│       └── assert torch.equal(rgb_image[:, row, column], pc_data.rgb[point_index])  # the colour belonging to the point that projected there, not another point's
 ├── def test_render_rgb_ignores_the_points_that_culled_out() -> None
 │   ├── # A cloud with several survivors and several culled points renders only the survivors, the regime a fixture of one or two in-bounds points cannot reach.
 │   ├── calls PointCloud(xyz=three float32 points inside the image bounds and two placed far outside them, data=one distinguishable colour per point)  # -> pc_data
@@ -219,10 +219,10 @@ test_render_rgb.py
 │   ├── impls expected_painted = a bool map of shape resolution filled with False
 │   ├── for row, column in [(50, 50), (43, 62), (56, 37)]
 │   │   └── impls expected_painted[row, column] = True
-│   ├── assert torch.equal(painted, expected_painted)  # "Exactly the three survivors' pixels must be painted.", reporting both painted counts and the painted pixels
+│   ├── assert torch.equal(painted, expected_painted)
 │   └── for culled_index in (3, 4)
 │       ├── impls culled_color = pc_data.rgb[culled_index] reshaped to [3, 1, 1]
-│       └── assert not (rgb_image == culled_color).all(dim=0).any()  # "No pixel may carry the colour of a point that culled out.", reporting culled_index, its colour and the pixels carrying it
+│       └── assert not (rgb_image == culled_color).all(dim=0).any()
 ├── def test_render_rgb_takes_the_nearest_point_where_two_share_a_pixel() -> None
 │   ├── # Two points on one ray paint the nearer one's colour, so the attribute follows the same occlusion the depth map resolves.
 │   ├── calls PointCloud(xyz=two float32 points on one ray at depths three and one, data=one distinguishable colour per point)
@@ -255,7 +255,7 @@ test_render_segmentation.py
 │   ├── calls render_segmentation_from_point_cloud(pc=pc_data, key='labels', camera=camera, resolution=resolution)  # -> seg_map
 │   ├── impls pixels = [(50, 50), (43, 62), (56, 37)]  # the pixels the three points project to, in point order
 │   └── for point_index, (row, column) in enumerate(pixels)
-│       └── assert seg_map[row, column] == pc_data.labels[point_index]  # "Each rendered pixel must carry the label of the point that projected onto it.", reporting point_index, row, column and both labels; the label belonging to the point that projected there, not another point's
+│       └── assert seg_map[row, column] == pc_data.labels[point_index]  # the label belonging to the point that projected there, not another point's
 ├── def test_render_segmentation_ignores_the_points_that_culled_out() -> None
 │   ├── # A cloud with several survivors and several culled points renders only the survivors, the regime a fixture of one or two in-bounds points cannot reach.
 │   ├── calls PointCloud(xyz=three float32 points inside the image bounds and two placed far outside them, data=one distinguishable label per point)  # -> pc_data
@@ -266,9 +266,9 @@ test_render_segmentation.py
 │   ├── impls expected_painted = a bool map of shape resolution filled with False
 │   ├── for row, column in [(50, 50), (43, 62), (56, 37)]
 │   │   └── impls expected_painted[row, column] = True
-│   ├── assert torch.equal(painted, expected_painted)  # "Exactly the three survivors' pixels must be painted.", reporting both painted counts and the painted pixels
+│   ├── assert torch.equal(painted, expected_painted)
 │   └── for culled_index in (3, 4)
-│       └── assert not (seg_map == pc_data.labels[culled_index]).any()  # "No pixel may carry the label of a point that culled out.", reporting culled_index, its label and the pixels carrying it
+│       └── assert not (seg_map == pc_data.labels[culled_index]).any()
 ├── def test_render_segmentation_takes_the_nearest_point_where_two_share_a_pixel() -> None
 │   ├── # Two points on one ray paint the nearer one's label, so the attribute follows the same occlusion the depth map resolves.
 │   ├── calls PointCloud(xyz=two float32 points on one ray at depths three and one, data=one distinguishable label per point)
@@ -302,7 +302,7 @@ test_render_normal.py
 │   ├── impls camera_normals = pc_data.normals * [1.0, -1.0, -1.0] as a float32 tensor  # the camera frame the renderer rotates a normal into: the identity OpenGL pose reaches OpenCV as the world-to-camera rotation diag(1, -1, -1)
 │   ├── impls pixels = [(50, 50), (43, 62), (56, 37)]  # the pixels the three points project to, in point order
 │   └── for point_index, (row, column) in enumerate(pixels)
-│       └── assert (normal_map[:, row, column] == camera_normals[point_index]).all()  # "Each rendered pixel must carry the normal of the point that projected onto it.", reporting point_index, row, column and both normals; the normal of the point that projected there, not another point's
+│       └── assert (normal_map[:, row, column] == camera_normals[point_index]).all()  # the normal of the point that projected there, not another point's
 ├── def test_render_normal_ignores_the_points_that_culled_out() -> None
 │   ├── # A cloud with several survivors and several culled points renders only the survivors, the regime a fixture of one or two in-bounds points cannot reach.
 │   ├── calls PointCloud(xyz=three float32 points inside the image bounds and two placed far outside them, data=one distinguishable normal per point)  # -> pc_data
@@ -313,11 +313,11 @@ test_render_normal.py
 │   ├── impls expected_painted = a bool map of shape resolution filled with False
 │   ├── for row, column in [(50, 50), (43, 62), (56, 37)]
 │   │   └── impls expected_painted[row, column] = True
-│   ├── assert torch.equal(painted, expected_painted)  # "Exactly the three survivors' pixels must be painted.", reporting both painted counts and the painted pixels
+│   ├── assert torch.equal(painted, expected_painted)
 │   ├── impls camera_normals = pc_data.normals * [1.0, -1.0, -1.0] as a float32 tensor  # the camera frame the renderer rotates a normal into: the identity OpenGL pose reaches OpenCV as the world-to-camera rotation diag(1, -1, -1)
 │   └── for culled_index in (3, 4)
 │       ├── impls culled_normal = camera_normals[culled_index] reshaped to [3, 1, 1]
-│       └── assert not (normal_map == culled_normal).all(dim=0).any()  # "No pixel may carry the normal of a point that culled out.", reporting culled_index, its camera-frame normal and the pixels carrying it
+│       └── assert not (normal_map == culled_normal).all(dim=0).any()
 ├── def test_render_normal_takes_the_nearest_point_where_two_share_a_pixel() -> None
 │   ├── # Two points on one ray paint the nearer one's normal, so the attribute follows the same occlusion the depth map resolves.
 │   ├── calls PointCloud(xyz=two float32 points on one ray at depths three and one, data=one distinguishable normal per point)  # -> pc_data
@@ -325,7 +325,7 @@ test_render_normal.py
 │   ├── impls resolution = (100, 100)
 │   ├── calls render_normal_from_point_cloud_3d(pc=pc_data, camera=camera, resolution=resolution)  # -> normal_map
 │   ├── impls camera_normals = pc_data.normals * [1.0, -1.0, -1.0] as a float32 tensor  # the camera frame the renderer rotates a normal into: the identity OpenGL pose reaches OpenCV as the world-to-camera rotation diag(1, -1, -1)
-│   └── assert (normal_map[:, 50, 50] == camera_normals[1]).all()  # "The pixel two points share must carry the near point's normal.", reporting that pixel's normal and both points' camera-frame normals
+│   └── assert (normal_map[:, 50, 50] == camera_normals[1]).all()
 └── def _build_camera(focal: float, principal_point: float) -> Camera
     ├── # Builds the identity-pose OpenGL pinhole camera on the CPU that every case here renders through.
     ├── calls build_camera_intrinsics(model='pinhole', params=the shared focal and principal point with the extents twice that point implies, intr_convention='standard', device=torch.device('cpu'))
@@ -357,7 +357,7 @@ test_create_circular_kernel_offsets.py
 │       ├── for each (y, x) of offsets
 │       │   └── if (-y, -x) is not in offsets
 │       │       └── impls unmatched gains (y, x)
-│       └── assert not unmatched  # "Every kernel offset must have its negation in the kernel, otherwise the disc reaches farther on one side of the point than on the other.", reporting point_size and the sorted unmatched and offsets
+│       └── assert not unmatched
 ├── def test_create_circular_kernel_offsets_membership_is_the_radius_rule() -> None
 │   ├── # The kernel is exactly the cells whose centre lies inside the disc, neither more nor fewer, checked against a radius rule the test derives itself.
 │   └── for point_size in (1.0, 1.5, 2.0, 3.0, 4.0, 5.0)
@@ -372,7 +372,7 @@ test_create_circular_kernel_offsets.py
 │       │   └── for each x from -search_reach to search_reach
 │       │       └── if the distance of (y, x) from the origin is at most kernel_radius
 │       │           └── impls expected gains (y, x)
-│       └── assert offsets == expected and len(offsets) == kernel_offsets.shape[0]  # "The kernel must hold exactly the cells whose centre lies inside the disc, and must not repeat a cell, otherwise a disc pixel is dilated twice.", reporting point_size, kernel_radius, both set differences, len(offsets) and kernel_offsets.shape
+│       └── assert offsets == expected and len(offsets) == kernel_offsets.shape[0]
 ├── def test_create_circular_kernel_offsets_dilates_a_point_into_a_centred_disc() -> None
 │   ├── # One rendered point grows into a disc centred on its own pixel, which is the kernel's symmetry seen through the renderer that uses it.
 │   ├── impls expected_covered_counts = {1.0: 1, 1.5: 1, 2.0: 5, 3.0: 9, 4.0: 13, 5.0: 21}  # the pixel count each point size's disc holds
@@ -390,8 +390,8 @@ test_create_circular_kernel_offsets.py
 │       ├── for each (y, x) of covered
 │       │   └── if (-y, -x) is not in covered
 │       │       └── impls unmatched gains (y, x)
-│       ├── assert not unmatched  # "The covered pixels must be symmetric about the point's own pixel.", reporting point_size, center_pixel and the sorted unmatched and covered
-│       └── assert len(covered) == expected_covered_counts[point_size]  # "A point must dilate into the disc of pixels its point size reaches.", reporting point_size, len(covered), the expected count and the sorted covered
+│       ├── assert not unmatched
+│       └── assert len(covered) == expected_covered_counts[point_size]
 └── def _build_camera(focal: float, principal_point: float) -> Camera
     ├── # Builds the identity-pose OpenGL pinhole camera on the CPU whose own extents match the requested resolution, so no intrinsics rescaling moves the point off centre.
     ├── calls build_camera_intrinsics(model='pinhole', params=the shared focal and principal point with the extents twice that point implies, intr_convention='standard', device=torch.device('cpu'))

@@ -71,9 +71,9 @@ test_chunked_matmul.py
 │               └── for b in range(B)
 │                   ├── calls chunked_matmul(large=large, small=small[b], num_divide=num_divide)  # -> one_small_result
 │                   ├── if device.type == 'cpu'
-│                   │   └── assert torch.equal(result[b], one_small_result)  # "slice b differs from its own small multiplied alone", reporting b, device, N and num_divide; the same split on both sides, since a row chunk may round unlike the whole product
+│                   │   └── assert torch.equal(result[b], one_small_result)  # the same split on both sides, since a row chunk may round unlike the whole product
 │                   └── else
-│                       └── assert torch.allclose(result[b], one_small_result, rtol=1.3e-6, atol=1e-5)  # "slice b disagrees with its own small multiplied alone beyond float32 rounding", reporting b, device, N, num_divide and the max abs difference; CUDA picks a batched kernel for several entries, which rounds unlike the single product at some row counts, and the tolerances are torch.testing's float32 defaults
+│                       └── assert torch.allclose(result[b], one_small_result, rtol=1.3e-6, atol=1e-5)  # CUDA picks a batched kernel for several entries, which rounds unlike the single product at some row counts, and the tolerances are torch.testing's float32 defaults
 ├── def test_inplace_rejects_batched_small
 │   ├── # inplace=True with a batched small raises an assertion (the product is wider than large, leaving nothing to overwrite in place).
 │   ├── impls large = a float64 [10, 5] standard-normal tensor
