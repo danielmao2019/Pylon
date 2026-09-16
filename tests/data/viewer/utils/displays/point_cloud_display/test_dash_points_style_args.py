@@ -184,7 +184,15 @@ def test_create_dash_points_component_wraps_scene(large_radius_xyz):
         scene=scene, controls=create_dash_trackball_camera_controls()
     )
 
-    assert isinstance(graph, dcc.Graph)
-    assert isinstance(graph.figure, go.Figure)
-    assert len(graph.figure.data) == 1
-    assert graph.figure.data[0].marker.size == 3.0
+    assert isinstance(
+        graph, dcc.Graph
+    ), f"component is not a dcc.Graph: type={type(graph)}"
+    assert isinstance(
+        graph.figure, go.Figure
+    ), f"graph figure is not a go.Figure: type={type(graph.figure)}"
+    assert (
+        len(graph.figure.data) == 1
+    ), f"graph figure does not hold exactly one trace: len={len(graph.figure.data)}"
+    assert (
+        graph.figure.data[0].marker.size == 3.0
+    ), f"trace marker size is not the requested point size: size={graph.figure.data[0].marker.size}"
