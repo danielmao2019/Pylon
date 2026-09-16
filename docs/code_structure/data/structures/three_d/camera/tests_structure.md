@@ -6,6 +6,7 @@
 
 ```text
 test_conventions.py
+├── from typing import Tuple
 ├── import pytest
 ├── import torch
 ├── from data.structures.three_d.camera.camera import Camera
@@ -116,17 +117,37 @@ test_conventions.py
 │   └── return
 ├── def test_cameras_device_and_dtype_follow_the_given_placement
 │   ├── # A Cameras takes its device and dtype from the ones it is handed, bringing both components to them, and falls back to its extrinsics' own only for one left unset.
-│   ├── calls _build_extrinsics_matrix
-│   ├── calls build_camera_intrinsics(model="pinhole", params=one float32 pinhole param set as [1] columns, intr_convention="standard", device="cpu")
-│   ├── calls CameraExtrinsics(extrinsics=the matrix it built as a float32 [1, 4, 4] stack, extr_convention="standard", device="cpu")
-│   ├── calls Cameras(intrinsics=intrinsics, extrinsics=extrinsics)
-│   ├── impls assert the batch's device and dtype are its extrinsics' own, cpu and float32
-│   ├── calls Cameras(intrinsics=intrinsics, extrinsics=extrinsics, dtype=torch.float64)
-│   ├── impls assert the batch's dtype is float64, its extrinsics matrix and every intrinsics param are float64, and its device is still the extrinsics' cpu
-│   ├── if cuda is available
-│   │   ├── calls Cameras(intrinsics=intrinsics, extrinsics=extrinsics, device="cuda")
-│   │   └── impls assert the batch's device is cuda:0, the device its extrinsics matrix and intrinsics params now sit on, and its dtype is still float32
-│   └── return
+│   ├── calls _build_extrinsics_matrix  # -> matrix
+│   ├── calls build_camera_intrinsics(model="pinhole", params={key: torch.tensor([value], dtype=torch.float32) for key, value in _build_pinhole_params().items()}, intr_convention="standard", device="cpu")  # -> intrinsics; one float32 pinhole param set as [1] columns
+│   │   ├── calls _build_pinhole_params
+│   │   └── for key, value in _build_pinhole_params().items()
+│   │       └── impls key: torch.tensor([value], dtype=torch.float32)
+│   ├── calls CameraExtrinsics(extrinsics=matrix[None], extr_convention="standard", device="cpu")  # -> extrinsics; matrix[None] is the matrix it built as a float32 [1, 4, 4] stack
+│   ├── calls Cameras(intrinsics=intrinsics, extrinsics=extrinsics)  # -> unset
+│   ├── assert unset.device == extrinsics.device == torch.device("cpu")  # f"Expected a Cameras handed no device to take its extrinsics' own. {unset.device=} {extrinsics.device=}"
+│   ├── assert unset.dtype == extrinsics.dtype == torch.float32  # f"Expected a Cameras handed no dtype to take its extrinsics' own. {unset.dtype=} {extrinsics.dtype=}"
+│   ├── calls Cameras(intrinsics=intrinsics, extrinsics=extrinsics, dtype=torch.float64)  # -> cast
+│   ├── impls param_dtypes = {key: value.dtype for key, value in cast.intrinsics.params.items()}  # the dtype of each of cast's intrinsics params, by key
+│   │   └── for key, value in cast.intrinsics.params.items()
+│   │       └── impls key: value.dtype
+│   ├── assert cast.dtype == torch.float64  # f"Expected a Cameras handed a dtype to take it. {cast.dtype=}"
+│   ├── assert cast.extrinsics.extrinsics.dtype == torch.float64  # f"Expected the extrinsics matrix to be cast to the dtype the batch was handed. {cast.extrinsics.extrinsics.dtype=}"
+│   ├── assert all(dtype == torch.float64 for dtype in param_dtypes.values())  # f"Expected every intrinsics param to be cast to the dtype the batch was handed. {param_dtypes=}"
+│   │   └── for dtype in param_dtypes.values()
+│   │       └── impls dtype == torch.float64
+│   ├── assert cast.device == torch.device("cpu")  # f"Expected a Cameras handed only a dtype to keep its extrinsics' device. {cast.device=}"
+│   └── if torch.cuda.is_available()
+│       ├── calls Cameras(intrinsics=intrinsics, extrinsics=extrinsics, device="cuda")  # -> moved
+│       ├── impls cuda_zero = torch.device("cuda:0")
+│       ├── impls param_devices = {key: value.device for key, value in moved.intrinsics.params.items()}  # the device of each of moved's intrinsics params, by key
+│       │   └── for key, value in moved.intrinsics.params.items()
+│       │       └── impls key: value.device
+│       ├── assert moved.device == cuda_zero  # f"Expected a Cameras handed cuda to spell the device with its index. {moved.device=}"
+│       ├── assert moved.extrinsics.extrinsics.device == cuda_zero  # f"Expected the extrinsics matrix to be brought to the batch's device. {moved.extrinsics.extrinsics.device=}"
+│       ├── assert all(device == cuda_zero for device in param_devices.values())  # f"Expected every intrinsics param to be brought to the batch's device. {param_devices=}"
+│       │   └── for device in param_devices.values()
+│       │       └── impls device == cuda_zero
+│       └── assert moved.dtype == torch.float32  # f"Expected a Cameras handed only a device to keep its extrinsics' dtype. {moved.dtype=}"
 ├── def test_transform_extrinsics_normalizes_rotation_input
 │   ├── # CameraExtrinsics.transform_extrinsics accepts each validated rotation representation and normalizes it to the pose tensor's placement.
 │   ├── for each rotation in {a (3, 3) numpy array, a (3, 3) torch tensor, a length-3 nested numeric list}
@@ -323,6 +344,7 @@ test_conventions.py
 
 ```text
 test_io.py
+├── from pathlib import Path
 ├── import torch
 ├── from data.structures.three_d.camera.camera import Camera
 ├── from data.structures.three_d.camera.cameras import Cameras
@@ -397,16 +419,25 @@ test_io.py
 │   └── return
 ├── def test_round_trip_keeps_the_batch_dtype
 │   ├── # Both formats record the batch's dtype and rebuild both components in it, so a batch loads back in the dtype it was saved in rather than one the format imposes.
-│   ├── for each format in {json, npz}
-│   │   └── for each dtype of float32 and float64
-│   │       ├── calls build_camera_intrinsics(model="pinhole", params=a [3] column per pinhole key whose focal and principal-point entries are thirds, intr_convention="standard", device="cpu", dtype=dtype)  # a third has no exact float32 spelling, so a float32 detour on the way back would change it
-│   │       ├── calls CameraExtrinsics(extrinsics=a [3, 4, 4] stack of identities whose translation columns are thirds, extr_convention="opengl", device="cpu", dtype=dtype)
-│   │       ├── calls Cameras(intrinsics=intrinsics, extrinsics=extrinsics, device="cpu")
-│   │       ├── calls save_cameras(cameras=cameras, cameras_path=a tmp_path file with that format's suffix)
-│   │       ├── calls load_cameras(cameras_path=that path, device="cpu")
-│   │       ├── impls assert the loaded batch, its extrinsics and its intrinsics all carry dtype
-│   │       └── impls assert the loaded extrinsics stack and every intrinsics param equal the saved ones exactly
-│   └── return
+│   └── for format in ("json", "npz")
+│       └── for each dtype of float32 and float64
+│           ├── calls build_camera_intrinsics(model="pinhole", params=a float64 [3] column per pinhole key whose focal and principal-point entries are thirds, intr_convention="standard", device="cpu", dtype=dtype)  # -> intrinsics; a third has no exact float32 spelling, so a float32 detour on the way back would change it
+│           ├── impls matrices = three float64 4x4 identities, a [3, 4, 4] stack
+│           ├── impls set matrices' translation columns to three distinct centres whose entries are thirds
+│           ├── calls CameraExtrinsics(extrinsics=matrices, extr_convention="opengl", device="cpu", dtype=dtype)  # -> extrinsics
+│           ├── calls Cameras(intrinsics=intrinsics, extrinsics=extrinsics, device="cpu")  # -> cameras
+│           ├── impls cameras_path = tmp_path / f"{dtype}.{format}"  # a tmp_path file with that format's suffix
+│           ├── calls save_cameras(cameras=cameras, cameras_path=cameras_path)
+│           ├── calls load_cameras(cameras_path=cameras_path, device="cpu")  # -> loaded
+│           ├── impls param_dtypes = {key: value.dtype for key, value in loaded.intrinsics.params.items()}  # the dtype of each of loaded's intrinsics params, by key
+│           │   └── for key, value in loaded.intrinsics.params.items()
+│           │       └── impls key: value.dtype
+│           ├── assert loaded.dtype == dtype and loaded.extrinsics.dtype == dtype and loaded.extrinsics.extrinsics.dtype == dtype and loaded.intrinsics.dtype == dtype and all(param_dtype == dtype for param_dtype in param_dtypes.values())  # f"Expected the loaded batch and both its components to carry the dtype it was saved in. {format=} {dtype=} {loaded.dtype=} {loaded.extrinsics.extrinsics.dtype=} {param_dtypes=}"
+│           │   └── for param_dtype in param_dtypes.values()
+│           │       └── impls param_dtype == dtype
+│           ├── assert torch.equal(loaded.extrinsics.extrinsics, cameras.extrinsics.extrinsics)  # f"Expected the loaded extrinsics stack to equal the saved one exactly. {format=} {dtype=} {loaded.extrinsics.extrinsics=} {cameras.extrinsics.extrinsics=}"
+│           └── for key, value in cameras.intrinsics.params.items()
+│               └── assert torch.equal(loaded.intrinsics.params[key], value)  # f"Expected every loaded intrinsics param to equal the saved one exactly. {format=} {dtype=} {key=} {loaded.intrinsics.params[key]=} {value=}"
 ├── def _make_multi_cameras
 │   ├── # Builds the three-camera Cameras fixture both collection round trips run on, its cameras differing in param values, centre, name and id so the payload spans every per-camera path the format has to carry.
 │   ├── calls build_camera_intrinsics(model="pinhole", params=that model's param set with a distinct [3] column per key, intr_convention="standard", device="cpu")

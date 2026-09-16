@@ -53,28 +53,35 @@ test_chunked_matmul.py
 │   └── return
 ├── def test_rejects_non_2d_large
 │   ├── # a 1D or N-D large raises an assertion (the chunked operand must be 2D), as does a 1D small.
-│   ├── for each of a 1D and a 3D large, and a 1D small
-│   │   └── with pytest.raises(AssertionError)
-│   │       └── calls chunked_matmul(large=large, small=small)
-│   └── return
+│   └── for large, small in ((a 1D [4] large, a [4, 4] small), (a 3D [2, 4, 3] large, a [3, 3] small), (a [4, 3] large, a 1D [3] small))  # standard-normal draws
+│       └── with pytest.raises(AssertionError)
+│           └── calls chunked_matmul(large=large, small=small)
 ├── def test_batched_small_broadcasts_onto_the_product
 │   ├── # a [B, K, K] small gives a [B, N, K] product whose every slice equals that slice's own small multiplied alone under the same split, bit for bit on cpu and within floating-point rounding on cuda.
-│   ├── for each device of cpu, and cuda when it is available
-│   │   └── for each row count N of 1, 17, 25, 33 and 100  # the small row counts where CUDA's batched and unbatched products disagree in the last place
-│   │       └── for each num_divide over several splits, the unchunked default among them
-│   │           ├── calls chunked_matmul(large=an [N, K] large on that device, small=a [B, K, K] small on that device, num_divide=num_divide)
-│   │           └── for each slice b of the result
-│   │               ├── calls chunked_matmul(large=that same large, small=small[b], num_divide=num_divide)
-│   │               ├── if device is cpu
-│   │               │   └── impls assert slice b equals it exactly  # the same split on both sides, since a row chunk may round unlike the whole product
-│   │               └── else
-│   │                   └── impls assert slice b agrees with it within floating-point rounding  # CUDA picks a batched kernel for several entries, which rounds unlike the single product at some row counts
-│   └── return
+│   ├── impls B, K = 3, 4
+│   ├── impls devices = [torch.device('cpu')] + ([torch.device('cuda')] if torch.cuda.is_available() else [])  # cpu, and cuda when it is available
+│   │   ├── if torch.cuda.is_available()
+│   │   │   └── impls [torch.device('cuda')]
+│   │   └── else
+│   │       └── impls []
+│   └── for device in devices
+│       └── for N in (1, 17, 25, 33, 100)  # the small row counts where CUDA's batched and unbatched products disagree in the last place
+│           ├── impls large = a float32 [N, K] standard-normal tensor on device
+│           ├── impls small = a float32 [B, K, K] standard-normal tensor on device
+│           └── for num_divide in (None, 0, 2, 3)  # several splits, the unchunked default among them
+│               ├── calls chunked_matmul(large=large, small=small, num_divide=num_divide)  # -> result
+│               └── for b in range(B)
+│                   ├── calls chunked_matmul(large=large, small=small[b], num_divide=num_divide)  # -> one_small_result
+│                   ├── if device.type == 'cpu'
+│                   │   └── assert torch.equal(result[b], one_small_result)  # "slice b differs from its own small multiplied alone", reporting b, device, N and num_divide; the same split on both sides, since a row chunk may round unlike the whole product
+│                   └── else
+│                       └── assert torch.allclose(result[b], one_small_result, rtol=1.3e-6, atol=1e-5)  # "slice b disagrees with its own small multiplied alone beyond float32 rounding", reporting b, device, N, num_divide and the max abs difference; CUDA picks a batched kernel for several entries, which rounds unlike the single product at some row counts, and the tolerances are torch.testing's float32 defaults
 ├── def test_inplace_rejects_batched_small
 │   ├── # inplace=True with a batched small raises an assertion (the product is wider than large, leaving nothing to overwrite in place).
-│   ├── with pytest.raises(AssertionError)
-│   │   └── calls chunked_matmul(large=large, small=a [B, K, K] small, inplace=True)
-│   └── return
+│   ├── impls large = a float64 [10, 5] standard-normal tensor
+│   ├── impls small = a float64 [3, 5, 5] standard-normal tensor  # a batched small
+│   └── with pytest.raises(AssertionError)
+│       └── calls chunked_matmul(large=large, small=small, inplace=True)
 ├── def test_rejects_non_square_small
 │   ├── # a non-square small raises an assertion (small must be square in its trailing two axes).
 │   ├── with pytest.raises(AssertionError)

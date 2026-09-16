@@ -38,32 +38,38 @@ test_intrinsics.py
 │   └── return
 ├── def test_intrinsics_params_carry_one_shared_batch_axis
 │   ├── # A camera's params are scalars or a [B] batch, all sharing one leading shape, so a batch of cameras is one intrinsics rather than a list of them.
-│   ├── calls _tensor_params(params=the pinhole key set, batch_size=3)
-│   ├── calls validate_camera_intrinsics_params(model="pinhole", intr_convention="standard", params=those [3] params)
-│   ├── impls assert the returned params dict equals the accepted one
-│   ├── with pytest.raises(AssertionError)
-│   │   └── calls validate_camera_intrinsics_params(model="pinhole", intr_convention="standard", params=a key set whose entries disagree on their leading extent)
-│   └── return
+│   ├── calls _tensor_params(params={"fx": 400.0, "fy": 410.0, "cx": 160.0, "cy": 120.0, "h": 240, "w": 320}, batch_size=3)  # -> batched_params; the pinhole key set
+│   ├── calls validate_camera_intrinsics_params(model="pinhole", intr_convention="standard", params=batched_params)  # -> accepted; batched_params are those [3] params
+│   ├── assert accepted == batched_params  # f"Expected the validated batched params to be the accepted params dict. {set(accepted.keys())=} {set(batched_params.keys())=}"
+│   ├── calls _tensor_params(params={"fy": 410.0}, batch_size=2)
+│   ├── impls mismatched_params: Dict[str, torch.Tensor] = batched_params with its fy overridden by that [2] fy
+│   └── with pytest.raises(AssertionError)
+│       └── calls validate_camera_intrinsics_params(model="pinhole", intr_convention="standard", params=mismatched_params)  # a key set whose entries disagree on their leading extent
 ├── def test_batched_intrinsics_carry_the_batch_through_its_accessors_and_project
 │   ├── # Every derived quantity a batched intrinsics reports carries the batch axis, so one intrinsics answers for all its cameras in one call.
-│   ├── calls _tensor_params(params=the pinhole key set, batch_size=3)
-│   ├── calls build_camera_intrinsics(model="pinhole", params=those [3] params, intr_convention="standard")
-│   ├── impls assert fx, fy, cx, cy and both resolution sides are each [3]
-│   ├── calls intrinsics.project(points_camera=valid camera-space points under the batch axis)
-│   ├── impls assert the image points carry the batch axis ahead of the point axis
-│   ├── for each camera index of the batch
-│   │   ├── calls build_camera_intrinsics(model="pinhole", params=that index's params alone, intr_convention="standard")
-│   │   ├── calls intrinsics.project(points_camera=that camera's points)
-│   │   └── impls assert the batched result's matching slice equals it
-│   └── return
+│   ├── calls _tensor_params(params={"fx": 400.0, "fy": 410.0, "cx": 160.0, "cy": 120.0, "h": 240, "w": 320}, batch_size=3)  # -> batched_params; the pinhole key set
+│   ├── calls build_camera_intrinsics(model="pinhole", params=batched_params, intr_convention="standard")  # -> intrinsics; batched_params are those [3] params
+│   ├── impls height, width = intrinsics.resolution
+│   ├── for name, derived in (("fx", intrinsics.fx), ("fy", intrinsics.fy), ("cx", intrinsics.cx), ("cy", intrinsics.cy), ("h", height), ("w", width))
+│   │   └── assert derived.shape == (3,)  # f"Expected every derived quantity of a three-camera batch to carry the batch axis. {name=} {derived.shape=}"
+│   ├── impls points_camera = a float32 [3, 2, 3] tensor of valid camera-space points, two per camera
+│   ├── calls intrinsics.project(points_camera=points_camera, inplace=False)  # -> image_points
+│   ├── assert image_points.shape == (3, 2, 2)  # f"Expected the image points to carry the batch axis ahead of the point axis. {image_points.shape=} {points_camera.shape=}"
+│   └── for index in range(3)
+│       ├── calls build_camera_intrinsics(model="pinhole", params={key: value[index] for key, value in batched_params.items()}, intr_convention="standard")  # -> one_camera; that index's params alone
+│       │   └── for key, value in batched_params.items()
+│       │       └── impls key: value[index]
+│       ├── calls one_camera.project(points_camera=points_camera[index], inplace=False)  # -> one_camera_image_points
+│       └── assert torch.equal(image_points[index], one_camera_image_points)  # f"Expected the batched image points slice to equal that camera's own projection. {index=} {image_points[index]=} {one_camera_image_points=}"
 ├── def test_scale_intrinsics_rescales_a_batch_against_each_cameras_own_resolution
 │   ├── # A batch states one resolution per camera, so a shared factor lands on each camera's own raster rather than on one resolution the batch does not have.
-│   ├── calls _tensor_params(params=the pinhole key set whose h and w differ per camera, batch_size=3)
-│   ├── calls build_camera_intrinsics(model="pinhole", params=those [3] params, intr_convention="standard")
-│   ├── calls intrinsics.scale_intrinsics(scale=one factor shared by the batch)
-│   ├── impls assert both resolution sides are [3] and each equals that camera's own side scaled
-│   ├── impls assert each focal equals that camera's own focal scaled
-│   └── return
+│   ├── calls _tensor_params(params={"fx": 400.0, "fy": 410.0, "cx": 160.0, "cy": 120.0, "h": [240, 300, 360], "w": [320, 400, 480]}, batch_size=3)  # -> batched_params; the pinhole key set whose h and w differ per camera
+│   ├── calls build_camera_intrinsics(model="pinhole", params=batched_params, intr_convention="standard")  # -> intrinsics; batched_params are those [3] params
+│   ├── calls intrinsics.scale_intrinsics(scale=2.0)  # -> scaled; one factor shared by the batch
+│   ├── impls height, width = scaled.resolution
+│   ├── assert height.shape == (3,) and width.shape == (3,)  # f"Expected both scaled resolution sides to carry the batch axis. {height.shape=} {width.shape=}"
+│   ├── assert torch.equal(height, 2.0 * batched_params["h"]) and torch.equal(width, 2.0 * batched_params["w"])  # f"Expected each scaled resolution side to be that camera's own side scaled. {height=} {width=} {batched_params['h']=} {batched_params['w']=}"
+│   └── assert torch.equal(scaled.fx, 2.0 * batched_params["fx"]) and torch.equal(scaled.fy, 2.0 * batched_params["fy"])  # f"Expected each scaled focal to be that camera's own focal scaled. {scaled.fx=} {scaled.fy=} {batched_params['fx']=} {batched_params['fy']=}"
 ├── def test_validate_intrinsics_params_rejects_a_params_dict_missing_the_resolution
 │   ├── # h and w are two of every model's own params rather than a resolution supplied beside them, so a dict carrying the projection keys alone is rejected ahead of the model's own dispatch.
 │   ├── for each model in {simple_pinhole, pinhole, ortho}
@@ -279,11 +285,10 @@ test_intrinsics.py
 │   └── return
 ├── def test_transform_intrinsics_refuses_a_sheared_affine
 │   ├── # A skew-free K stays skew-free only under an axis-aligned affine, so an affine carrying an off-diagonal entry aborts rather than having it dropped.
-│   ├── for each of the three camera models
-│   │   ├── calls build_camera_intrinsics
-│   │   └── with pytest.raises(AssertionError)
-│   │       └── calls intrinsics.transform_intrinsics(transform=an affine carrying a nonzero [0, 1] entry, resolution=a raster)
-│   └── return
+│   └── for model, params in {"simple_pinhole": its f, cx, cy, h, w set, "pinhole": its fx, fy, cx, cy, h, w set, "ortho": its fx, fy, cx, cy, h, w set}.items()  # each of the three camera models at a 240x320 raster
+│       ├── calls build_camera_intrinsics(model=model, params=params, intr_convention="standard", device="cpu")  # -> intrinsics
+│       └── with pytest.raises(AssertionError)
+│           └── calls intrinsics.transform_intrinsics(transform=a float32 3x3 identity whose [0, 1] entry is 0.25, resolution=(240, 320))  # an affine carrying a nonzero [0, 1] entry
 ├── def test_a_resize_is_the_diagonal_case_of_a_transform
 │   ├── # A resize scales both axes about the pixel frame's own origin, which is a diagonal affine, so the two entries agree rather than each carrying its own rule.
 │   ├── calls build_camera_intrinsics
