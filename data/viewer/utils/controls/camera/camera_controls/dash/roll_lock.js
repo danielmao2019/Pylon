@@ -148,14 +148,14 @@ function holdRollLockedGraphs(relayoutDataList) {
             // Writes one pose into the controller's keyframes on the lock, taking the same optional eye and center the controller's own lookAt does, filling a missing one from the controller's pose at that time, and an eye written onto its center from the eye offset that pose holds; the written up is the one thing the lock never keeps, since it re-derives the up from the view direction and the axis. Only the orbital controller keeps its rotation as quaternion keyframes; the turntable controller keeps angles and the matrix controller whole matrices, which have no second hemisphere to land in.
             function rollLockedLookAt(time, eye, center, up) {
                 controller.recalcMatrix(time);
-                const writtenCenter = (center || controller.computedCenter).slice();
-                const writtenEye = resolveHeldEye((eye || controller.computedEye).slice(), writtenCenter, controller, time);
-                const rollLockedPose = resolveRollLockedPose(writtenEye, writtenCenter);
-                const rotation = controller.rotation;
-                const keyframeCount = rotation && rotation._time.length;
-                controllerLookAt.call(controller, time, rollLockedPose.eye, writtenCenter, rollLockedPose.up);
-                if (rotation !== undefined && rotation._time.length > keyframeCount) {
-                    alignRotationKeyframeHemisphere(rotation);
+                center = (center || controller.computedCenter).slice();
+                eye = (eye || controller.computedEye).slice();
+                const heldEye = resolveHeldEye(eye, center, controller, time);
+                const rollLockedPose = resolveRollLockedPose(heldEye, center);
+                const keyframeCount = controller.rotation && controller.rotation._time.length;
+                controllerLookAt.call(controller, time, rollLockedPose.eye, center, rollLockedPose.up);
+                if (controller.rotation !== undefined && controller.rotation._time.length > keyframeCount) {
+                    alignRotationKeyframeHemisphere(controller.rotation);
                 }
                 return;
             }
