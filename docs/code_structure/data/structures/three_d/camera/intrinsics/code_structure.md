@@ -202,11 +202,11 @@ conventions.py
     ├── def _rescale_focal(params: Dict[str, Union[int, float, torch.Tensor]]) -> Dict[str, Union[int, float, torch.Tensor]] [local]
     │   ├── # Scales whichever focal params the model carries, the one place the camera models differ under a rescale.
     │   ├── if model == "simple_pinhole"
-    │   │   ├── impls assert unit_x == unit_y  # one shared f cannot carry two different axis scales, and a pair that disagrees is a pinhole rather than this model
-    │   │   ├── impls f = unit_x * f in a copy of params
+    │   │   ├── assert unit_x and unit_y hold the same value at every entry  # one shared f cannot carry two different axis scales, and a pair that disagrees is a pinhole rather than this model
+    │   │   ├── impls params["f"] = unit_x * params["f"]
     │   │   └── return params
     │   ├── if model in {"pinhole", "ortho"}
-    │   │   ├── impls fx, fy = unit_x * fx, unit_y * fy in a copy of params  # the two models carry the same focal params and take the same rule, a focal being a pixels-per-camera-unit ratio either way
+    │   │   ├── impls params["fx"], params["fy"] = unit_x * params["fx"], unit_y * params["fy"]  # the two models carry the same focal params and take the same rule, a focal being a pixels-per-camera-unit ratio either way
     │   │   └── return params
     │   └── raise NotImplementedError  # a camera model whose focal params no rescale here has a rule for yet
     ├── calls _rescale_focal
@@ -354,7 +354,7 @@ camera_intrinsics.py
 │   │   └── return self._params["f"]
 │   ├── @classmethod def _focal_params(cls, fx: torch.Tensor, fy: torch.Tensor) -> Dict[str, torch.Tensor]  [override]
 │   │   ├── # States the pair as the one shared focal f, since this model states its two focals as one f.
-│   │   ├── assert fx and fy agree at every entry, within torch.isclose's default tolerance  # one shared f holds one ratio, so an affine scaling the axes apart leaves this model nothing to state the second in
+│   │   ├── assert fx and fy agree at every entry, up to floating-point rounding  # one shared f holds one ratio, so an affine scaling the axes apart leaves this model nothing to state the second in
 │   │   └── return  # {"f": fx}
 │   ├── def project(self, points_camera: torch.Tensor, inplace: bool = False) -> torch.Tensor   [override]
 │   │   ├── # Perspective projection with a single shared focal length.
