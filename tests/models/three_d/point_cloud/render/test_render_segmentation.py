@@ -101,13 +101,12 @@ def test_render_segmentation_takes_the_nearest_point_where_two_share_a_pixel() -
     )
 
     camera = _build_camera(focal=100.0, principal_point=50.0)
-    resolution = (100, 100)
 
     seg_map = render_segmentation_from_point_cloud(
         pc=pc_data,
         key='labels',
         camera=camera,
-        resolution=resolution,
+        resolution=(100, 100),
     )
 
     assert seg_map[50, 50] == pc_data.labels[1], (
