@@ -164,11 +164,12 @@ function createRendererTrackballCameraControls({
     const rollLockAxis = lockRoll.clone().normalize();
     controls.rollLockAxis = rollLockAxis;
     controls.rollLockPolarAngleEpsilon = ROLL_LOCKED_POLAR_ANGLE_EPSILON;
-    // The eye offset every hold below last left behind, held again in place of an eye written exactly onto the target, the one framing that names no offset of its own.
-    const heldEyeOffset = new THREE.Vector3();
 
     // Three's own rotation is the free trackball that carries camera.up along with the drag; the roll-locked left-drag below replaces it, leaving three's right-drag pan and wheel zoom untouched.
     threeControls.noRotate = true;
+
+    // The eye offset every hold below last left behind, held again in place of an eye written exactly onto the target, the one framing that names no offset of its own.
+    const heldEyeOffset = new THREE.Vector3();
 
     // The framing the controls are constructed on is a pose like any other, and a caller is free to hand over one looking straight down the lock axis. Holding it here is what leaves the camera frame real before anything draws with it, rather than only once a drag has repaired it.
     holdRollLockedCameraPose({
@@ -291,12 +292,12 @@ function holdRollLockedCameraPose({
   rollLockAxis: THREE.Vector3;
   heldEyeOffset: THREE.Vector3
 }): void {
-  const offset = camera.position.clone().sub(target);
+  let offset = camera.position.clone().sub(target);
   // A zero-length offset has no polar angle for the band to read, so it would pass through unbanded and cross into a zero right axis, a zero up vector, and a lookAt with no direction. The held offset keeps the view the lock last drew, and gives three's pan and zoom, which both scale by the eye distance, a distance to act on.
-  const bandedOffset = resolveRollLockBandedOffset({
-    offset: offset.lengthSq() > 0 ? offset : heldEyeOffset,
-    rollLockAxis,
-  });
+  if (offset.lengthSq() === 0) {
+    offset = heldEyeOffset;
+  }
+  const bandedOffset = resolveRollLockBandedOffset({ offset, rollLockAxis });
   heldEyeOffset.copy(bandedOffset);
   const cameraRightAxis = new THREE.Vector3()
     .crossVectors(bandedOffset.clone().negate(), rollLockAxis)
