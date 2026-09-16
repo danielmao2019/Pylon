@@ -244,7 +244,7 @@ class Camera:
             copy=copy,
             extr_convention=extr_convention,
         )
-        return Camera(
+        camera = Camera(
             intrinsics=intrinsics,
             extrinsics=extrinsics,
             name=self._name,
@@ -252,6 +252,7 @@ class Camera:
             device=device,
             dtype=dtype,
         )
+        return camera
 
     def transform_intrinsics(
         self,
@@ -273,7 +274,7 @@ class Camera:
             transform=transform,
             resolution=resolution,
         )
-        return Camera(
+        camera = Camera(
             intrinsics=intrinsics,
             extrinsics=self._extrinsics,
             name=self._name,
@@ -281,6 +282,7 @@ class Camera:
             device=self._device,
             dtype=self._dtype,
         )
+        return camera
 
     def scale_intrinsics(
         self,
@@ -311,7 +313,7 @@ class Camera:
             resolution=resolution,
             scale=scale,
         )
-        return Camera(
+        camera = Camera(
             intrinsics=intrinsics,
             extrinsics=self._extrinsics,
             name=self._name,
@@ -319,6 +321,7 @@ class Camera:
             device=self._device,
             dtype=self._dtype,
         )
+        return camera
 
     def transform_extrinsics(
         self,
@@ -346,7 +349,7 @@ class Camera:
             rotation=rotation,
             translation=translation,
         )
-        return Camera(
+        camera = Camera(
             intrinsics=self._intrinsics,
             extrinsics=extrinsics,
             name=self._name,
@@ -354,6 +357,7 @@ class Camera:
             device=self._device,
             dtype=self._dtype,
         )
+        return camera
 
     def serialize(self, format: str = "json") -> Dict[str, Any]:
         """Serialize this Camera into a single-form payload.

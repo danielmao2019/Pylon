@@ -310,10 +310,6 @@ class Cameras:
             A single Camera or a sub-Cameras batch.
         """
         if isinstance(index, str):
-            assert index in self._name_to_index, (
-                "Expected the indexing name to label a camera in this batch. "
-                f"{index=} {list(self._name_to_index.keys())=}"
-            )
             index = self._name_to_index[index]
         intrinsics = self._intrinsics[index]
         extrinsics = self._extrinsics[index]
