@@ -90,7 +90,7 @@ prepare_points_for_rendering.py
 │   ├── for each chunk [i:j] of points  # chunked over points for memory; the camera batch axis passes through whole
 │   │   └── calls _prepare_points_for_rendering(points=points[i:j], render_intrinsics=render_intrinsics, extrinsics=extrinsics, resolution=resolution, cull_func=cull_func)
 │   ├── if no point of any camera survived
-│   │   └── raise AssertionError  # no points remained after culling in all chunks
+│   │   └── raise AssertionError
 │   ├── impls points_2d = the per-chunk points concatenated along the point axis
 │   ├── if the chunks carry validity  # a batch, whose chunks mark each camera's survivors
 │   │   ├── impls valid = the per-chunk validity concatenated along the point axis
