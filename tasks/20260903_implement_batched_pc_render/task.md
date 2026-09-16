@@ -8,13 +8,13 @@ Batched rendering needs the tensors of every camera in the batch to share one si
 
 the dtype and device of `Cameras` are
 1. optional args default to None
-2. resolved to those of `extrinsics` arg when None
-3. `extrinsics` always follows the given `dtype` and/or `device` when they are not None.
+2. resolved to the dtype and device the given `intrinsics` and `extrinsics` share when None
+3. `intrinsics` and `extrinsics` both always follow the given `dtype` and/or `device` when they are not None.
 
 i.e., the mental model is:
-1. the dtype and device of the stored extrinsics matrix is a consequence of the given dtype and device, rather than the other way around.
+1. the dtype and device of the stored intrinsics params and extrinsics matrix are consequences of the given dtype and device, rather than the other way around.
 2. the stored dtype and device are also consequences of the given dtype and device, rather than the other way around.
-3. the only exception is when dtype or device is given None, in which case you resolve it to those of the given extrinsics matrix.
+3. the only exception is when dtype or device is given None, in which case you resolve it to the one the two given components share, neither component taking precedence over the other.
 
 `transform_intrinsics` must NOT call any helper that serves convention conversion.
 
