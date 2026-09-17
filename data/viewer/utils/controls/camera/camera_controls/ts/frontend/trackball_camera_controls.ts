@@ -265,7 +265,7 @@ function createRendererTrackballCameraControls({
     // Returns:
     //   void.
     function rollLockedApplyCameraState(cameraState: CameraState | null): void {
-      freeApplyCameraState(cameraState);
+      freeApplyCameraState.call(controls, cameraState);
       holdRollLockedCameraPose({
         camera,
         target: threeControls.target,
