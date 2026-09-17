@@ -482,12 +482,12 @@ trackball_camera_controls.ts
 │   ├── calls assertTrackballCameraControls({ controls, camera, renderer, lockRoll })
 │   ├── if initialCameraState is not null
 │   │   └── calls controls.applyCameraState(initialCameraState)
-│   ├── impls observer = new MutationObserver over the callback below
 │   ├── () => [local]  # the observer's callback, run on each change to the container's data-camera-state attribute
 │   │   ├── impls serializedCameraState = container.dataset.cameraState
 │   │   ├── if serializedCameraState is undefined
 │   │   │   └── return
 │   │   └── calls controls.applyCameraState(JSON.parse(serializedCameraState))
+│   ├── impls observer = new MutationObserver over the callback above
 │   ├── impls observer.observe(container, { attributeFilter: ["data-camera-state"], attributes: true })
 │   └── return controls
 ├── function createRendererTrackballCameraControls({ camera, renderer, lockRoll }: { camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; lockRoll: THREE.Vector3 | null }): ThreeTrackballCameraControls
