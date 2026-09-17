@@ -150,7 +150,7 @@ cameras.py
 ├── from data.structures.three_d.camera.intrinsics.camera_intrinsics import CameraIntrinsics
 ├── from data.structures.three_d.camera.validation import validate_cameras_attributes
 └── class Cameras
-    ├── # A batch of cameras: one CameraIntrinsics and one CameraExtrinsics carrying a leading batch axis, so every method they already have operates on the whole batch.
+    ├── # A batch of cameras: one CameraIntrinsics and one CameraExtrinsics, each either carrying the leading batch axis or broadcasting over it, so every method they already have operates on the whole batch.
     ├── def __init__(self, intrinsics: CameraIntrinsics, extrinsics: CameraExtrinsics, names: Optional[List[Optional[str]]] = None, ids: Optional[List[Optional[int]]] = None, device: Optional[Union[str, torch.device]] = None, dtype: Optional[torch.dtype] = None) -> None
     │   ├── # Construct a Cameras from a batched CameraIntrinsics whose params are [B] and a batched CameraExtrinsics whose matrix is [B, 4, 4].
     │   ├── def _validate_inputs [local]
@@ -183,10 +183,10 @@ cameras.py
     │   ├── impls self._device = device  # the resolved device the components were brought to, not read back off them
     │   └── impls self._dtype = dtype  # the resolved dtype the components were cast to, not read back off them
     ├── @property def intrinsics(self) -> CameraIntrinsics
-    │   ├── # The batch's intrinsics, whose params carry the batch axis so its own project / scale_intrinsics cover every camera at once.
+    │   ├── # The batch's intrinsics, whose params carry the batch axis, or broadcast over it, so its own project / scale_intrinsics cover every camera at once.
     │   └── return self._intrinsics
     ├── @property def extrinsics(self) -> CameraExtrinsics
-    │   ├── # The batch's extrinsics, whose [B, 4, 4] matrix every pose op broadcasts over.
+    │   ├── # The batch's extrinsics, whose [B, 4, 4] matrix, or the [4, 4] it broadcasts over the batch, every pose op runs over.
     │   └── return self._extrinsics
     ├── def to(self, device: Optional[Union[str, torch.device]] = None, dtype: Optional[torch.dtype] = None, non_blocking: bool = False, copy: bool = False, intr_convention: Optional[str] = None, extr_convention: Optional[str] = None) -> "Cameras"
     │   ├── # Return this batch with Tensor.to-style placement / copy semantics plus optional frame conversions, each delegated to the component that owns it.
@@ -210,7 +210,7 @@ cameras.py
     │   ├── impls cameras = Cameras(intrinsics=self._intrinsics, extrinsics=extrinsics, names=self._names, ids=self._ids)  # a method constructing its own enclosing class, drawn as impls because no order puts this method above its class
     │   └── return cameras
     ├── def __len__(self) -> int
-    │   ├── # The number of cameras in the batch, the extent of the leading axis.
+    │   ├── # The number of cameras in the batch, resolved once at construction.
     │   └── return  # self._extrinsics.extrinsics.shape[0]
     ├── def __getitem__(self, index: Union[int, slice, List[int], str]) -> Union["Camera", "Cameras"]
     │   ├── # Index the batch by slicing the leading axis of both components, never by selecting from stored per-camera objects.
