@@ -152,7 +152,7 @@ load_point_cloud.py
 │       ├── impls vertices = an empty list
 │       ├── for each of the n_vertices vertex lines that follow
 │       │   ├── impls coords = the whitespace-separated floats of that line
-│       │   └── impls vertices gains the leading three entries of coords
+│       │   └── impls append the leading three entries of coords to vertices
 │       ├── calls torch.tensor(vertices, dtype=torch.float32, device=device)
 │       ├── impls positions = the built tensor
 │       ├── impls result = {'xyz': positions}
@@ -214,13 +214,13 @@ save_point_cloud.py
     │   │   │   └── impls color_data = color_data scaled by 255 and cast to np.uint8
     │   │   ├── else
     │   │   │   └── impls color_data = color_data cast to np.uint8
-    │   │   ├── impls vertex_dtype gains ('red', 'u1'), ('green', 'u1') and ('blue', 'u1')
+    │   │   ├── impls append to vertex_dtype ('red', 'u1'), ('green', 'u1') and ('blue', 'u1')
     │   │   ├── impls vertex_arrays['red'] = column 0 of color_data
     │   │   ├── impls vertex_arrays['green'] = column 1 of color_data
     │   │   └── impls vertex_arrays['blue'] = column 2 of color_data
     │   ├── elif field_name is 'normals', and field_data has three columns
     │   │   ├── impls normal_data = field_data cast to np.float32
-    │   │   ├── impls vertex_dtype gains ('nx', 'f4'), ('ny', 'f4') and ('nz', 'f4')
+    │   │   ├── impls append to vertex_dtype ('nx', 'f4'), ('ny', 'f4') and ('nz', 'f4')
     │   │   ├── impls vertex_arrays['nx'] = column 0 of normal_data
     │   │   ├── impls vertex_arrays['ny'] = column 1 of normal_data
     │   │   └── impls vertex_arrays['nz'] = column 2 of normal_data
@@ -230,7 +230,7 @@ save_point_cloud.py
     │       │   │   └── impls dtype_char = 'i4'  # every integer field is narrowed to i4
     │       │   ├── else
     │       │   │   └── impls dtype_char = 'f4' when field_data.dtype.itemsize is at most 4, else 'f8'
-    │       │   ├── impls vertex_dtype gains (field_name, dtype_char)
+    │       │   ├── impls append (field_name, dtype_char) to vertex_dtype
     │       │   └── impls vertex_arrays[field_name] = field_data cast to dtype_char  # the dtype string is rebuilt from its own characters
     │       └── elif field_data is two-dimensional
     │           └── for each column i of field_data
@@ -239,7 +239,7 @@ save_point_cloud.py
     │               │   └── impls dtype_char = 'i4'  # every integer field is narrowed to i4
     │               ├── else
     │               │   └── impls dtype_char = 'f4' when field_data.dtype.itemsize is at most 4, else 'f8'
-    │               ├── impls vertex_dtype gains (col_name, dtype_char)
+    │               ├── impls append (col_name, dtype_char) to vertex_dtype
     │               └── impls vertex_arrays[col_name] = column i of field_data cast to dtype_char  # the dtype string is rebuilt from its own characters
     ├── impls vertex_array = an empty structured array of num_points rows and dtype vertex_dtype
     ├── for each field_name in vertex_arrays

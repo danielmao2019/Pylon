@@ -160,9 +160,9 @@ load.py
 │   ├── impls names: List[Optional[str]] = the stem of each frame's file_path as a Path
 │   ├── for each frame in frames
 │   │   ├── if frame carries a colmap_im_id
-│   │   │   └── impls ids gains that colmap_im_id
+│   │   │   └── impls append that colmap_im_id to ids
 │   │   └── else
-│   │       └── impls ids gains None
+│   │       └── impls append None to ids
 │   ├── calls Cameras(intrinsics=intrinsics, extrinsics=extrinsics, names=names, ids=ids, device=device)
 │   └── return  # the cameras it built
 ├── def load_modalities(data: Dict[str, Any]) -> List[str]

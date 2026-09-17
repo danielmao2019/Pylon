@@ -130,16 +130,16 @@ convert.py
     ├── if depths_dir is a directory
     │   ├── impls depth_names = the stems of its .npy files
     │   └── if every camera name is among depth_names
-    │       └── impls modalities gains "depth"
+    │       └── impls append "depth" to modalities
     ├── impls normals_dir = the normals subdirectory of output_dir
     ├── if normals_dir is a directory
     │   ├── impls normal_names = the stems of its .png files
     │   └── if every camera name is among normal_names
-    │       └── impls modalities gains "normal"
+    │       └── impls append "normal" to modalities
     ├── impls masks_dir = the masks subdirectory of output_dir
     ├── if masks_dir is a directory
     │   ├── impls mask_names = the stems of its .png files
     │   └── if every camera name is among mask_names
-    │       └── impls modalities gains "mask"
+    │       └── impls append "mask" to modalities
     └── return modalities
 ```

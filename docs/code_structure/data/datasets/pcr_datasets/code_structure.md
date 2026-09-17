@@ -71,7 +71,7 @@ base_pcr_dataset.py
     │   ├── if 'correspondences' in inputs
     │   │   ├── impls correspondences = inputs['correspondences']
     │   │   ├── calls BasePCRDataset.create_correspondence_visualization(src_pc_transformed, tgt_xyz, correspondences=correspondences, point_size=point_size, point_opacity=point_opacity, camera_state=camera_state, lod_type=lod_type, density_percentage=density_percentage, point_cloud_id=build_point_cloud_id(datapoint, "correspondences"), title="Point Cloud Correspondences")
-    │   │   └── impls figure_tasks gains that view's lambda as a fifth task
+    │   │   └── impls append that view's lambda as a fifth task to figure_tasks
     │   ├── calls ParallelFigureCreator(max_workers=4, enable_timing=False)
     │   ├── impls figure_creator = the four-worker pool it built
     │   ├── calls figure_creator.create_figures_parallel(figure_tasks)
@@ -92,9 +92,9 @@ base_pcr_dataset.py
     │   ├── if 'correspondences' in inputs
     │   │   ├── impls correspondences = inputs['correspondences']
     │   │   ├── calls BasePCRDataset._create_correspondence_stats_section(correspondences)
-    │   │   └── impls layout_sections gains that correspondence-statistics section
+    │   │   └── impls append that correspondence-statistics section to layout_sections
     │   ├── calls BasePCRDataset._create_meta_info_section(datapoint.get('meta_info', {}))
-    │   ├── impls layout_sections gains that meta-info section last
+    │   ├── impls append that meta-info section last to layout_sections
     │   └── return  # layout_sections in one html.Div
     ├── @staticmethod def create_union_visualization(src_points: torch.Tensor, tgt_points: torch.Tensor, point_size: float = 2, point_opacity: float = 0.8, camera_state: Optional[Dict[str, Any]] = None, lod_type: str = "continuous", point_cloud_id: Optional[Union[str, Tuple[str, int, str]]] = None, density_percentage: int = 100, axis_ranges: Optional[Dict[str, Tuple[float, float]]] = None, title: str = "Union (Transformed Source + Target)") -> go.Figure
     │   ├── # Draws both clouds in one view, red against blue, which is how a viewer reads whether the pose aligns them.
@@ -144,7 +144,7 @@ base_pcr_dataset.py
     │   ├── impls transform_str = the line "Transform Matrix:"
     │   ├── for each row index i below 4
     │   │   ├── impls row = that row's four entries, each at four decimal places
-    │   │   └── impls transform_str gains row joined by two spaces, closed by a newline
+    │   │   └── impls append to transform_str row joined by two spaces, closed by a newline
     │   └── return  # transform_str, rotation_angle, translation_magnitude keyed by name
     ├── @staticmethod def _create_transform_info_section(transform_info: Dict[str, Any]) -> html.Div
     │   ├── # Renders that pose summary as the transform panel, which is where a viewer reads the pair's stated registration.
@@ -176,21 +176,21 @@ base_pcr_dataset.py
     │   ├── # Renders a statistics or metadata mapping as nested HTML lists, recursing into whatever sub-mappings it holds.
     │   ├── impls items = an empty list
     │   ├── if key_name
-    │   │   └── impls items gains a heading reading key_name, margined fifteen pixels above, five below
+    │   │   └── impls append to items a heading reading key_name, margined fifteen pixels above, five below
     │   ├── impls list_items = an empty list
     │   ├── for each key, value in data
     │   │   ├── if value is a dict
     │   │   │   ├── calls BasePCRDataset._dict_to_html_list(value, key)
-    │   │   │   └── impls items gains that nested rendering
+    │   │   │   └── impls append that nested rendering to items
     │   │   └── else
     │   │       ├── calls BasePCRDataset._format_value(key, value)
     │   │       ├── impls formatted_value = the display text it produced
     │   │       ├── if key is 'overlap'
-    │   │       │   └── impls list_items gains a "key: formatted_value" item, bold in '#2E86AB'  # overlap is the PCR metric a viewer looks for first
+    │   │       │   └── impls append to list_items a "key: formatted_value" item, bold in '#2E86AB'  # overlap is the PCR metric a viewer looks for first
     │   │       └── else
-    │   │           └── impls list_items gains a plain "key: formatted_value" item
+    │   │           └── impls append a plain "key: formatted_value" item to list_items
     │   ├── if list_items is non-empty
-    │   │   └── impls items gains list_items as a list indented twenty pixels, margined five above
+    │   │   └── impls append to items list_items as a list indented twenty pixels, margined five above
     │   └── return  # items in one html.Div
     ├── @staticmethod def _format_value(key: str, value: Any) -> str
     │   ├── # Formats one statistics value for display, taking its precision from its type, its degree suffix from the key's name.
@@ -222,8 +222,8 @@ base_pcr_dataset.py
         ├── impls x_offset = the shift putting tgt_bounds' left edge one gap past src_bounds' right edge
         ├── impls tgt_points_offset = a copy of tgt_points_np displaced along x by x_offset
         ├── impls fig = an empty plotly figure
-        ├── impls fig gains a legended blue "Source Points" scatter3d over src_points_np at point_size, point_opacity
-        ├── impls fig gains a legended red "Target Points" scatter3d over tgt_points_offset at point_size, point_opacity
+        ├── impls add to fig a legended blue "Source Points" scatter3d over src_points_np at point_size, point_opacity
+        ├── impls add to fig a legended red "Target Points" scatter3d over tgt_points_offset at point_size, point_opacity
         ├── if correspondences_np is non-empty
         │   ├── impls max_correspondences = 50
         │   ├── if correspondences_np holds more rows than max_correspondences
@@ -235,12 +235,12 @@ base_pcr_dataset.py
         │   ├── impls tgt_corr_indices = the second column of correspondences_display as ints
         │   ├── impls src_corr_points = the src_points_np rows src_corr_indices names
         │   ├── impls tgt_corr_points_offset = the tgt_points_offset rows tgt_corr_indices names
-        │   ├── impls fig gains a legended cyan scatter3d over src_corr_points named "Source Correspondences" with the drawn count, its markers half again point_size at full opacity
-        │   ├── impls fig gains a legended yellow scatter3d over tgt_corr_points_offset named "Target Correspondences" with the drawn count, its markers half again point_size at full opacity
+        │   ├── impls add to fig a legended cyan scatter3d over src_corr_points named "Source Correspondences" with the drawn count, its markers half again point_size at full opacity
+        │   ├── impls add to fig a legended yellow scatter3d over tgt_corr_points_offset named "Target Correspondences" with the drawn count, its markers half again point_size at full opacity
         │   └── for each i below the count of correspondences_display
         │       ├── impls src_point = src_corr_points[i]
         │       ├── impls tgt_point = tgt_corr_points_offset[i]
-        │       └── impls fig gains a dashed green two-point line trace joining those, kept off the legend, kept off hover
+        │       └── impls add to fig a dashed green two-point line trace joining those, kept off the legend, kept off hover
         ├── impls fig's layout set to the title carrying the total correspondence count, x/y/z axis titles, data aspect mode, the legend shown, a 1000 by 600 size
         ├── if camera_state is not None
         │   └── impls fig's scene camera set to camera_state
@@ -312,11 +312,11 @@ modelnet40_dataset.py
         │   ├── impls category_dir = that category's directory under the data root for split_dir
         │   ├── if category_dir does not exist
         │   │   └── continue
-        │   └── impls off_files gains the sorted OFF files under category_dir
+        │   └── impls extend off_files with the sorted OFF files under category_dir
         ├── impls self.annotations = an empty list
         ├── for each file_path in off_files
         │   ├── calls self.get_category_from_path(file_path)
-        │   └── impls self.annotations gains that file as both source and target, under the category it named  # impls-node-one-step:skip — one step; the "and" names what it is made of
+        │   └── impls append to self.annotations that file as both source and target, under the category it named  # impls-node-one-step:skip — one step; the "and" names what it is made of
         └── impls the count found printed for the split
 ```
 
@@ -374,7 +374,7 @@ synthetic_transform_pcr_dataset.py
     │   │       ├── with self.cache_lock
     │   │       │   ├── impls cache_list = self.trials_cache[idx_key]
     │   │       │   ├── assert cache_list holds exactly trial_idx entries
-    │   │       │   ├── impls cache_list gains overlap_ratio
+    │   │       │   ├── impls append overlap_ratio to cache_list
     │   │       │   └── if self.cache_filepath is not None
     │   │       │       └── calls self._save_trials_cache()
     │   │       └── if overlap_ratio is not None and falls in self.overlap_range, its low end exclusive
@@ -416,7 +416,7 @@ threedmatch_dataset.py
 │       ├── calls load_point_cloud(annotation['src_path'], device=self.device)
 │       ├── calls load_point_cloud(annotation['tgt_path'], device=self.device)
 │       ├── impls src_pc, tgt_pc = the two clouds it loaded
-│       ├── impls each of them gains a float32 ones column as feat
+│       ├── impls add a float32 ones column as feat to each of them
 │       ├── impls transform_tgt_to_src = the float32 [4, 4] the annotation's rotation and translation make  # impls-node-one-step:skip — one step; the "and" names what it is made of
 │       ├── impls transform = the inverse of transform_tgt_to_src
 │       └── return  # the two clouds, transform as the label, and the paths, scene name, overlap and two frame ids as meta info

@@ -482,7 +482,7 @@ render_rgb_volumetric.py
 │   │   ├── calls CameraExtrinsics(extrinsics=aux_standard, extr_convention='standard', device=device)
 │   │   ├── impls aux_extrinsics = the extrinsics it built
 │   │   ├── calls Camera(intrinsics=camera.intrinsics, extrinsics=aux_extrinsics, device=device)
-│   │   └── impls auxiliary_cameras gains that camera brought to the convention camera now carries, which the rebinding above left standard
+│   │   └── impls append to auxiliary_cameras that camera brought to the convention camera now carries, which the rebinding above left standard
 │   └── return auxiliary_cameras
 ├── def _create_images(images: List[torch.Tensor], output_root: str, downscale_factor: int) -> None
 │   ├── # Writes the rendered RGB tensors out as the downscale-suffixed images directory a nerfstudio dataset reads.
