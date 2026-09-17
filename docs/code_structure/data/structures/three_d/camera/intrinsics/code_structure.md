@@ -118,7 +118,7 @@ conventions.py
 │   │   │   ├── calls _vulkan_to_standard(params=params, model=model)  # -> params, on the standard frame
 │   │   │   └── return params
 │   │   └── assert 0, "Should not reach here."
-│   ├── calls _to_standard
+│   ├── calls _to_standard(params=params)
 │   ├── def _from_standard(params: Dict[str, Union[int, float, torch.Tensor]]) -> Dict[str, Union[int, float, torch.Tensor]] [local]
 │   │   ├── # Dispatches the target frame onto its own outbound spoke, the standard frame needing none.
 │   │   ├── if target_intr_convention == "standard"
@@ -133,7 +133,7 @@ conventions.py
 │   │   │   ├── calls _standard_to_vulkan(params=params, model=model)  # -> params, on the vulkan frame
 │   │   │   └── return params
 │   │   └── assert 0, "Should not reach here."
-│   ├── calls _from_standard
+│   ├── calls _from_standard(params=params)
 │   └── return  # params, restated on target_intr_convention
 ├── def _opengl_to_standard(params: Dict[str, Union[int, float, torch.Tensor]], model: str) -> Dict[str, Union[int, float, torch.Tensor]]
 │   ├── # The inbound half of the same frame, the three steps run in reverse so a round trip returns what it started as.
@@ -209,7 +209,7 @@ conventions.py
     │   │   ├── impls params["fx"], params["fy"] = unit_x * params["fx"], unit_y * params["fy"]  # the two models carry the same focal params and take the same rule, a focal being a pixels-per-camera-unit ratio either way
     │   │   └── return params
     │   └── raise NotImplementedError  # a camera model whose focal params no rescale here has a rule for yet
-    ├── calls _rescale_focal
+    ├── calls _rescale_focal(params=params)
     └── return  # params, in the target unit, h and w as they came in
 ```
 
@@ -295,7 +295,7 @@ camera_intrinsics.py
 │   │   │   ├── else
 │   │   │   │   └── impls sx, sy = resolution[1] / self._params["w"], resolution[0] / self._params["h"]  # the size the params are already stated against is two of those params, the one place every model states it
 │   │   │   └── return resolution, sx, sy
-│   │   ├── calls _normalize_inputs
+│   │   ├── calls _normalize_inputs(resolution=resolution, scale=scale)
 │   │   ├── impls resolution, sx, sy = the returned values from _normalize_inputs
 │   │   ├── # A rounded raster and a raw factor are not exactly consistent when the product is not whole; the gradient is what this trade keeps.
 │   │   ├── impls transform = [[sx, 0, 0], [0, sy, 0], [0, 0, 1]]                                # a resize scales both axes about the pixel frame's own origin, its top-left corner, which is what makes it diagonal
