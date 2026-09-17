@@ -152,7 +152,7 @@ roll_lock.js
     │   ├── impls ROLL_LOCK_VIOLATION_EPSILON = the squared distance at or below which a reported up vector already equals the roll-locked one
     │   ├── impls ROLL_LOCK_RADIANS_PER_DRAG_UNIT = the radians the view controller's own trackball turns per unit of the screen-space drag it hands its rotation
     │   ├── impls ROLL_LOCK_SUB_STEP_RADIANS = the largest turn one roll-locked drag keyframe takes from the keyframe before it
-    │   ├── impls axis, ROLL_LOCK_FALLBACK_MERIDIAN = the lock axis in the mounted scene's normalized space and the meridian an eye sitting on it is banded onto, both set by resolveSceneAxis each time the lock is held on a scene
+    │   ├── impls axis, ROLL_LOCK_FALLBACK_MERIDIAN = the lock axis in the mounted scene's normalized space and the meridian an eye on it is banded onto, set by resolveSceneAxis on each hold and each re-plot
     │   ├── function rollLockCallback(relayoutData) [local]
     │   │   ├── # Re-holds the lock on graphElementId's gl3d scene each time the roll-lock callback runs, its first render included.
     │   │   ├── calls resolveMountedScene()
@@ -312,7 +312,7 @@ roll_lock.js
     │   │   ├── impls graphDiv.__rollLock.writing = true, the in-flight flag held until the relayout below resolves
     │   │   ├── calls vectorToRecord(the roll-locked eye)
     │   │   ├── calls vectorToRecord(the roll-locked up)
-    │   │   ├── impls await Plotly.relayout(graphDiv, the roll-locked eye record, the roll-locked up record)
+    │   │   ├── impls await Plotly.relayout(graphDiv, { "scene.camera.eye": the roll-locked eye record, "scene.camera.up": the roll-locked up record })
     │   │   ├── impls graphDiv.__rollLock.writing = false, releasing the in-flight flag once that relayout resolves
     │   │   ├── if graphDiv.__rollLock.pending
     │   │   │   ├── impls graphDiv.__rollLock.pending = false
@@ -449,7 +449,7 @@ trackball_camera_controls.ts
 ├── export const DEFAULT_TRACKBALL_PERSPECTIVE_CAMERA_FOV: number = 45
 │   └── # Shared vertical-FOV (degrees) every TS spatial display must construct its THREE.PerspectiveCamera with — 45° is the standard 50mm-equivalent lens FOV, trading perspective realism against off-center foreshortening for the orbit-around-near-scene-content use case this lib targets.
 ├── const ROLL_LOCKED_POLAR_ANGLE_EPSILON = 1e-6  # radians the roll-locked camera stops short of either pole of the lock axis
-├── interface ThreeTrackballCameraControls
+├── export interface ThreeTrackballCameraControls
 │   ├── getCameraState
 │   │   └── # serializes the entire camera state (every CameraState field — both intrinsics and extrinsics) into a CameraState
 │   ├── applyCameraState
@@ -466,15 +466,30 @@ trackball_camera_controls.ts
 │   ├── addEventListener
 │   ├── handleResize
 │   └── update
-├── function createTrackballCameraControls({ container, camera, renderer, initialCameraState, lockRoll = null })  # lockRoll: a non-zero THREE.Vector3 world-space axis of any length, or null for the free trackball
+├── export function createTrackballCameraControls({ container, camera, renderer, initialCameraState = null, lockRoll = null }: { container: HTMLElement; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; initialCameraState?: CameraState | null; lockRoll?: THREE.Vector3 | null }): ThreeTrackballCameraControls  # lockRoll: a non-zero THREE.Vector3 world-space axis of any length, or null for the free trackball
 │   ├── # Builds, validates, and returns the trackball controls, seeding them from initialCameraState and observing the container's data-camera-state attribute for external sync.
-│   ├── calls createRendererTrackballCameraControls({ camera, renderer, lockRoll })
+│   ├── function _validate_inputs(): void [local]  # a zero or non-finite axis names no direction to lock roll about
+│   │   └── if lockRoll !== null
+│   │       ├── if lockRoll is not a THREE.Vector3
+│   │       │   └── throw lockRoll must be a THREE.Vector3 or null
+│   │       ├── if any component of lockRoll is not finite
+│   │       │   └── throw lockRoll must have finite components
+│   │       └── if lockRoll has zero length
+│   │           └── throw lockRoll must have non-zero length
+│   ├── calls _validate_inputs()
+│   ├── calls createRendererTrackballCameraControls({ camera, renderer, lockRoll })   → controls
 │   ├── calls assertTrackballCameraControls({ controls, camera, renderer, lockRoll })
 │   ├── if initialCameraState is not null
 │   │   └── calls controls.applyCameraState(initialCameraState)
-│   ├── impls MutationObserver on container's `data-camera-state` attribute → controls.applyCameraState(parsed state)
-│   └── return
-├── function createRendererTrackballCameraControls({ camera, renderer, lockRoll })
+│   ├── impls observer = new MutationObserver over the callback below
+│   ├── () => [local]  # the observer's callback, run on each change to the container's data-camera-state attribute
+│   │   ├── impls serializedCameraState = container.dataset.cameraState
+│   │   ├── if serializedCameraState is undefined
+│   │   │   └── return
+│   │   └── calls controls.applyCameraState(JSON.parse(serializedCameraState))
+│   ├── impls observer.observe(container, { attributeFilter: ["data-camera-state"], attributes: true })
+│   └── return controls
+├── function createRendererTrackballCameraControls({ camera, renderer, lockRoll }: { camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; lockRoll: THREE.Vector3 | null }): ThreeTrackballCameraControls
 │   ├── # Constructs the renderer-specific trackball controls wiring left-drag rotate, right-drag pan, wheel zoom, and context-menu suppression.
 │   ├── impls renderer-specific trackball camera controls with left-button rotation, right-button panning, mouse-wheel zoom, and suppressed canvas context menu  # impls-node-one-step:skip
 │   ├── if lockRoll is not null
@@ -485,17 +500,17 @@ trackball_camera_controls.ts
 │   │   ├── impls heldEyeOffset = a zero vector, the eye offset each hold below leaves behind for the next
 │   │   ├── calls holdRollLockedCameraPose({ camera, target: threeControls.target, rollLockAxis, heldEyeOffset })  # the framing the controls are constructed on
 │   │   ├── impls leftDrag = no left drag active, the drag state the handlers below share
-│   │   ├── function startRollLockedLeftDrag(event) [local]  # event: a pointer press on renderer.domElement
+│   │   ├── function startRollLockedLeftDrag(event: PointerEvent): void [local]  # event: a pointer press on renderer.domElement
 │   │   │   ├── # Starts a roll-locked left drag at the pointer a left-button press lands on.
 │   │   │   ├── if event is not a left-button press
 │   │   │   │   └── return
 │   │   │   └── impls leftDrag = active, from the event's pointer position
 │   │   ├── impls renderer.domElement.addEventListener("pointerdown", startRollLockedLeftDrag)
-│   │   ├── function endRollLockedLeftDrag() [local]
+│   │   ├── function endRollLockedLeftDrag(): void [local]
 │   │   │   ├── # Ends the roll-locked left drag wherever the pointer is released.
 │   │   │   └── impls leftDrag = no left drag active
 │   │   ├── impls window.addEventListener("pointerup", endRollLockedLeftDrag)
-│   │   ├── function turnRollLockedLeftDrag(event) [local]  # event: a pointer move anywhere on the page
+│   │   ├── function turnRollLockedLeftDrag(event: PointerEvent): void [local]  # event: a pointer move anywhere on the page
 │   │   │   ├── # Turns the camera by one left-drag pointer move, as yaw about rollLockAxis plus pitch about the camera right axis.
 │   │   │   ├── if no left drag is active
 │   │   │   │   └── return
@@ -513,19 +528,19 @@ trackball_camera_controls.ts
 │   │   │   └── impls threeControls.dispatchEvent({ type: "change" })
 │   │   ├── impls window.addEventListener("pointermove", turnRollLockedLeftDrag), so it runs for each left-drag pointer move
 │   │   ├── impls freeApplyCameraState = controls.applyCameraState, the free trackball's own camera-state write kept for rollLockedApplyCameraState to apply through
-│   │   ├── function rollLockedApplyCameraState(cameraState) [local]
+│   │   ├── function rollLockedApplyCameraState(cameraState: CameraState | null): void [local]
 │   │   │   ├── # Applies a camera state as the free trackball does, then re-holds the roll-locked pose it leaves.
-│   │   │   ├── impls freeApplyCameraState(cameraState), applying it the way the free trackball applies it
+│   │   │   ├── impls freeApplyCameraState called on controls with (cameraState), applying it the way the free trackball applies it
 │   │   │   └── calls holdRollLockedCameraPose({ camera, target: threeControls.target, rollLockAxis, heldEyeOffset })
 │   │   ├── impls controls.applyCameraState = rollLockedApplyCameraState, so each state it is handed is re-held on the lock
-│   │   ├── function rollLockedUpdate() [local]
+│   │   ├── function rollLockedUpdate(): void [local]
 │   │   │   ├── # Holds the roll-locked pose before three's own update, so a target or position a caller writes directly is held from the next update on.
 │   │   │   ├── calls holdRollLockedCameraPose({ camera, target: threeControls.target, rollLockAxis, heldEyeOffset })
 │   │   │   └── impls three's own trackball update of threeControls
 │   │   ├── impls threeControls.update = rollLockedUpdate
 │   │   └── return controls
-│   └── return controls  # the free trackball controls exactly as three constructed them, so a caller naming no axis renders what it rendered before this argument existed
-├── function holdRollLockedCameraPose({ camera, target, rollLockAxis, heldEyeOffset })  # heldEyeOffset: the banded eye offset the previous hold left behind
+│   └── return controls  # the free trackball controls, with no roll-locked rotation installed, so a caller naming no axis renders what it rendered before this argument existed
+├── function holdRollLockedCameraPose({ camera, target, rollLockAxis, heldEyeOffset }: { camera: THREE.PerspectiveCamera; target: THREE.Vector3; rollLockAxis: THREE.Vector3; heldEyeOffset: THREE.Vector3 }): void  # heldEyeOffset: the banded eye offset the previous hold left behind
 │   ├── # Holds the camera on the roll-locked pose its own framing implies, the eye banded off the lock axis and camera.up re-derived from the view direction and that axis.
 │   ├── impls offset = camera.position minus target
 │   ├── if offset has zero length  # an eye written onto the target, or the target onto the eye, names no view direction
