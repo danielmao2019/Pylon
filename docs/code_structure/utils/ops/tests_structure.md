@@ -61,7 +61,7 @@ test_chunked_matmul.py
 │   ├── impls B, K = 3, 4
 │   ├── impls devices = a list holding the cpu device
 │   ├── if cuda is available
-│   │   └── impls devices gains the cuda device
+│   │   └── impls append the cuda device to devices
 │   └── for device in devices
 │       └── for N in (1, 17, 25, 33, 100)  # the small row counts where CUDA's batched and unbatched products disagree in the last place
 │           ├── impls large = a float32 [N, K] standard-normal tensor on device

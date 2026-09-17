@@ -13,7 +13,7 @@ test_world_to_camera_transform.py
 │   ├── # A stack of extrinsics maps one cloud through every pose in one call, each slice equal to what that pose maps on its own, bit for bit on cpu and within floating-point rounding on cuda, which is the contract the batched renderer rests on.
 │   ├── impls devices = a list holding the cpu device
 │   ├── if cuda is available
-│   │   └── impls devices gains the cuda device
+│   │   └── impls append the cuda device to devices
 │   └── for device in devices
 │       ├── impls torch.manual_seed(0)
 │       ├── impls points = a [512, 3] float32 standard-normal world-space tensor on device

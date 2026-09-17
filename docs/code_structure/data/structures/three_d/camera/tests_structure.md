@@ -84,7 +84,7 @@ test_conventions.py
 │   ├── calls CameraExtrinsics(extrinsics=the matrix it built, extr_convention="standard", device="cpu", dtype=torch.float64)  # -> extrinsics
 │   ├── assert extrinsics.dtype == torch.float64 and extrinsics.extrinsics.dtype == torch.float64
 │   ├── calls extrinsics.to(device="cpu", dtype=torch.float64, copy=True)  # -> copied
-│   ├── assert the data pointer of copied.extrinsics differs from the data pointer of extrinsics.extrinsics
+│   ├── assert the data pointer of copied.extrinsics != the data pointer of extrinsics.extrinsics
 │   ├── calls extrinsics.to(dtype=torch.float32)  # -> moved
 │   └── assert moved.dtype == torch.float32 and moved.extrinsics.dtype == torch.float32
 ├── def test_transform_extrinsics_accepts_array_like_inputs_and_keeps_gradients
@@ -94,7 +94,7 @@ test_conventions.py
 │   ├── impls scale, rotation, translation = a float64 scalar of two, a float64 (3, 3) identity and a float64 (3,) offset [1, 2, 3], each requiring grad
 │   ├── calls CameraExtrinsics(extrinsics=matrix, extr_convention="standard", device="cpu", dtype=torch.float64)  # -> extrinsics
 │   ├── calls extrinsics.transform_extrinsics(scale=scale, rotation=rotation, translation=translation)  # -> transformed
-│   ├── impls backpropagate the sum of transformed.center, the returned centre
+│   ├── impls backpropagate sum(transformed.center)
 │   ├── assert transformed.dtype == torch.float64 and matrix.grad is not None and scale.grad is not None and rotation.grad is not None and translation.grad is not None
 │   ├── calls extrinsics.transform_extrinsics(scale=a numpy float64 scalar of two, rotation=a nested-list (3, 3) identity, translation=the (3,) tuple (1.0, 2.0, 3.0))  # -> list_transformed
 │   └── assert list_transformed.dtype == torch.float64
@@ -107,7 +107,7 @@ test_conventions.py
 │   ├── calls CameraExtrinsics(extrinsics=matrix, extr_convention="standard", device="cpu")  # -> extrinsics
 │   ├── calls Camera(intrinsics=intrinsics, extrinsics=extrinsics, device="cpu")  # -> camera
 │   ├── calls camera.to(dtype=torch.float64, extr_convention="pytorch3d")  # -> moved_camera; float64 is the floating dtype it moves to
-│   ├── impls camera_loss = moved_camera.intrinsics.fx + the sum of moved_camera.extrinsics.center
+│   ├── impls camera_loss = moved_camera.intrinsics.fx + sum(moved_camera.extrinsics.center)
 │   ├── impls backpropagate camera_loss, retaining its graph
 │   ├── assert params["fx"].grad is not None
 │   ├── assert matrix.grad is not None
@@ -115,7 +115,7 @@ test_conventions.py
 │   ├── impls matrix.grad = None
 │   ├── calls Cameras(intrinsics=intrinsics[None], extrinsics=extrinsics[None], device="cpu")  # -> cameras
 │   ├── calls cameras.to(dtype=torch.float64, extr_convention="pytorch3d")  # -> moved_cameras; float64 is the floating dtype it moves to
-│   ├── impls cameras_loss = moved_cameras.intrinsics[0].fx + the sum of moved_cameras.extrinsics[0].center
+│   ├── impls cameras_loss = moved_cameras.intrinsics[0].fx + sum(moved_cameras.extrinsics[0].center)
 │   ├── impls backpropagate cameras_loss
 │   ├── assert params["fx"].grad is not None
 │   └── assert matrix.grad is not None
@@ -220,23 +220,23 @@ test_conventions.py
 │   ├── impls functions = an empty list  # the names of the functions the intrinsics conventions module itself defines
 │   ├── for each name, obj of the functions inspect lists among intr_conventions' members
 │   │   └── if obj.__module__ == intr_conventions.__name__
-│   │       └── impls functions gains name
+│   │       └── impls append name to functions
 │   ├── impls public = an empty list
 │   ├── for each name of functions
 │   │   └── if name does not start with "_"
-│   │       └── impls public gains name
+│   │       └── impls append name to public
 │   ├── assert public == ["transform_intr_convention"] and "_rescale_intr_params" in functions
-│   ├── impls spokes = the set of the six names _standard_to_opengl, _opengl_to_standard, _standard_to_pytorch3d, _pytorch3d_to_standard, _standard_to_vulkan, _vulkan_to_standard
+│   ├── impls spokes = {"_standard_to_opengl", "_opengl_to_standard", "_standard_to_pytorch3d", "_pytorch3d_to_standard", "_standard_to_vulkan", "_vulkan_to_standard"}
 │   ├── impls obliques = an empty list
 │   ├── for each name of functions
 │   │   └── if "_to_" in name and "standard" not in name
-│   │       └── impls obliques gains name
-│   └── assert every name of spokes is in functions and obliques == []
+│   │       └── impls append name to obliques
+│   └── assert spokes ⊆ set(functions) and obliques == []
 ├── def test_a_frame_change_comes_down_to_the_same_per_axis_rescale
 │   ├── # A frame change's only length step is the per-axis rescale the conventions module owns, which is why a shared focal is refused identically whether a caller goes through the frame change or reaches that rescale directly.
 │   ├── calls _build_pinhole_params  # -> params, a pinhole's key set
 │   ├── calls _rescale_intr_params(params=params, model="pinhole", unit_x=2.0, unit_y=0.5)  # -> rescaled; unit_x and unit_y a factor and a different factor
-│   ├── assert rescaled["fx"], rescaled["cx"], rescaled["fy"] and rescaled["cy"] equal 800.0, 300.0, 205.0 and 55.0 within pytest's default approx tolerance, and rescaled["h"] == params["h"] and rescaled["w"] == params["w"]
+│   ├── assert (rescaled["fx"], rescaled["cx"], rescaled["fy"], rescaled["cy"]) == (800.0, 300.0, 205.0, 55.0) within pytest's default approx tolerance, and rescaled["h"] == params["h"] and rescaled["w"] == params["w"]
 │   ├── impls simple_params = the simple_pinhole params f 400.0, cx 150.0, cy 110.0, h 240 and w 320, a simple_pinhole's key set at a non-square size
 │   ├── with pytest.raises(AssertionError)
 │   │   └── calls transform_intr_convention(params=simple_params, model="simple_pinhole", source_intr_convention="standard", target_intr_convention="opengl")
@@ -347,7 +347,7 @@ test_conventions.py
     ├── # Camera.to and Cameras.to keep tensor-valued intrinsics and extrinsics on their autograd paths.
     ├── impls params = the ortho params as float32 scalar tensors fx 400, fy 410, cx 160, cy 120, h 240 and w 320, each requiring grad
     ├── impls translation = the float32 (3,) centre [0.3, -0.2, 1.1], requiring grad
-    ├── impls matrix = the 4x4 float32 cam2world with an identity rotation block, translation as its translation column and [0, 0, 0, 1] as its last row  # a valid cam2world tensor with tensor-valued translation
+    ├── impls matrix = the float32 block matrix [[I, translation], [0, 0, 0, 1]], I the 3x3 identity  # a valid cam2world tensor with tensor-valued translation
     ├── calls build_camera_intrinsics(model="ortho", params=params, intr_convention="standard")  # -> intrinsics
     ├── calls CameraExtrinsics(extrinsics=matrix, extr_convention="standard")  # -> extrinsics
     ├── calls Camera(intrinsics=intrinsics, extrinsics=extrinsics)  # -> camera
@@ -356,7 +356,7 @@ test_conventions.py
     ├── calls cameras.to(device=intrinsics.device, dtype=torch.float64, extr_convention="pytorch3d")  # -> moved_cameras
     ├── impls points_camera = the float64 [1, 3] camera-frame point [1, 2, 4]
     ├── calls moved_camera.intrinsics.project(points_camera=points_camera)  # summed into the loss below
-    ├── impls loss = the sum of that projection + the sum of moved_cameras.center
+    ├── impls loss = sum(that projection) + sum(moved_cameras.center)
     ├── impls backpropagate loss
     ├── assert params["fx"].grad is not None and params["fy"].grad is not None and params["cx"].grad is not None and params["cy"].grad is not None
     └── assert translation.grad is not None
