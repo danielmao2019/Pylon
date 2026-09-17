@@ -230,8 +230,8 @@ cameras.py
     │   │   ├── impls names = an empty list
     │   │   ├── impls ids = an empty list
     │   │   ├── for each item of index
-    │   │   │   ├── impls names gains self._names[item]
-    │   │   │   └── impls ids gains self._ids[item]
+    │   │   │   ├── impls append self._names[item] to names
+    │   │   │   └── impls append self._ids[item] to ids
     │   │   ├── impls cameras = Cameras(intrinsics=intrinsics, extrinsics=extrinsics, names=names, ids=ids)  # a method constructing its own enclosing class, drawn as impls because no order puts this method above its class
     │   │   └── return cameras
     │   └── assert 0, "Should not reach here."

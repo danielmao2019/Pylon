@@ -414,7 +414,7 @@ render_rgb_volumetric.py
 │   │   ├── calls Camera(intrinsics=intrinsics, extrinsics=_extrinsics, device=pc.device)
 │   │   ├── impls render_camera = the camera it built
 │   │   ├── calls render_rgb_from_point_cloud(pc=pc, camera=render_camera, resolution=resolution, return_mask=True)
-│   │   └── impls images, masks each gain the image, mask pair it returned
+│   │   └── impls append to images, masks each the image, mask pair it returned
 │   ├── impls log the base-render stage duration with the image count
 │   ├── impls target_device = pc.xyz.device
 │   ├── if debug
@@ -472,7 +472,7 @@ render_rgb_volumetric.py
 │   │   ├── calls CameraExtrinsics(extrinsics=aux_standard, extr_convention='standard', device=device)
 │   │   ├── impls aux_extrinsics = the extrinsics it built
 │   │   ├── calls Camera(intrinsics=camera.intrinsics, extrinsics=aux_extrinsics, device=device)
-│   │   └── impls auxiliary_cameras gains that camera brought to the convention camera now carries, which the rebinding above left standard
+│   │   └── impls append to auxiliary_cameras that camera brought to the convention camera now carries, which the rebinding above left standard
 │   └── return auxiliary_cameras
 ├── def _create_images(images: List[torch.Tensor], output_root: str, downscale_factor: int) -> None
 │   ├── # Writes the rendered RGB tensors out as the downscale-suffixed images directory a nerfstudio dataset reads.
