@@ -138,9 +138,9 @@ test_point_cloud_loading.py
 │   ├── # Writes a PLY whose one element carries xyz plus whichever optional columns the caller asks for.
 │   ├── impls columns = the x, y and z fields as float32  # impls-node-one-step:skip — names the three fields
 │   ├── if with_rgb
-│   │   └── impls columns gains red, green and blue as uint8  # impls-node-one-step:skip — names the three fields
+│   │   └── impls append to columns red, green and blue as uint8  # impls-node-one-step:skip — names the three fields
 │   ├── if extra_field is not None
-│   │   └── impls columns gains extra_field as float32
+│   │   └── impls append extra_field as float32 to columns
 │   ├── calls PlyElement.describe(the rows, element_name)
 │   └── calls PlyData.write(filepath)
 ├── def write_txt(filepath, num_points=8, num_columns=3)

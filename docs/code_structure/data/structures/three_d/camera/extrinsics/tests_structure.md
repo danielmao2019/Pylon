@@ -34,7 +34,7 @@ test_rotation_stabilize_validate_compat.py
 │       ├── calls _stabilize_rotation_matrix(rotation=rotations)  # -> stabilized
 │       ├── for each index, rotation of rotations
 │       │   ├── calls _stabilize_rotation_matrix(rotation=rotation)  # -> stabilized_alone
-│       │   └── assert stabilized[index] equals stabilized_alone exactly
+│       │   └── assert stabilized[index] == stabilized_alone at every entry
 │       ├── impls extrinsics = batch_size 4x4 identities in dtype, a [batch_size, 4, 4] stack
 │       ├── impls extrinsics[:, :3, :3] = stabilized  # the (batch_size, 4, 4) cam2world batch
 │       └── calls validate_camera_extrinsics(obj=extrinsics)
@@ -44,7 +44,7 @@ test_rotation_stabilize_validate_compat.py
 │   ├── impls rotation_list = an empty list
 │   ├── for each index below batch_size
 │   │   ├── calls _random_rotation(dtype=torch.float64, seed=index)  # -> the proper rotation at that seed
-│   │   └── impls rotation_list gains that proper rotation
+│   │   └── impls append that proper rotation to rotation_list
 │   ├── impls rotations = rotation_list stacked into a [batch_size, 3, 3] float64 batch  # the per-entry proper rotations
 │   ├── impls rotations[1::2, :, 0] = -rotations[1::2, :, 0]  # every second entry column-negated into a reflection
 │   └── with pytest.raises(AssertionError)

@@ -370,12 +370,12 @@ test_intrinsics.py
     │   │   ├── impls values = an empty list  # one float per camera of the batch
     │   │   ├── if value is a list
     │   │   │   ├── for item in value
-    │   │   │   │   └── impls values gains float(item)
+    │   │   │   │   └── impls append float(item) to values
     │   │   │   ├── impls tensor_params[key] = a [batch_size] float32 tensor of values, requiring grad when requires_grad
     │   │   │   └── continue
     │   │   ├── if value is an int or a float
     │   │   │   ├── for each camera index below batch_size
-    │   │   │   │   └── impls values gains float(value)
+    │   │   │   │   └── impls append float(value) to values
     │   │   │   ├── impls tensor_params[key] = a [batch_size] float32 tensor of values, requiring grad when requires_grad
     │   │   │   └── continue
     │   │   └── assert 0, "Should not reach here."
