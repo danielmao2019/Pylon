@@ -210,7 +210,7 @@ core_points_display.ts
 ├── const DEFAULT_POINT_SIZE_FLOOR = 0.005  # number — absolute floor for visibility at typical canonical-world camera framings; used by the bounding-sphere heuristic when pointSize is not supplied
 ├── const DEFAULT_POINT_SIZE_RATIO = 0.002  # number — fraction of geometry bounding-sphere radius used as the heuristic default size; lib-owned default, documented + overridable
 ├── const DEFAULT_POINT_COLOR = "#cccccc"   # hex color — uniform fallback used when geometry has no per-point colors AND the caller does not supply pointColor; lib-owned default, overridable
-├── function renderPointsDisplay({ displayResponse, initialCameraState, pointSize, pointColor, lockRoll = null }: { displayResponse: PointDisplayResponse; initialCameraState?: CameraState | null; pointSize?: number; pointColor?: string; lockRoll?: THREE.Vector3 | null }): LeafVNode
+├── function renderPointsDisplay({ displayResponse, initialCameraState = null, pointSize, pointColor, lockRoll = null }: { displayResponse: PointDisplayResponse; initialCameraState?: CameraState | null; pointSize?: number; pointColor?: string; lockRoll?: THREE.Vector3 | null }): LeafVNode
 │   ├── # Renders a self-contained point-cloud display element initialized at initialCameraState.
 │   ├── calls createSpatialDisplayScene({ initialCameraState })
 │   ├── calls createPointsObject({ displayResponse, pointSize, pointColor })   → object

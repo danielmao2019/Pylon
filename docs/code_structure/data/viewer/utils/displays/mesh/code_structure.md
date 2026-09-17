@@ -319,7 +319,7 @@ core_mesh_display.ts
 │   ├── uvTextureMap: THREE.Texture  # the texture image
 │   ├── vertsUvs: Float32Array       # [VT, 2] UV coordinates
 │   └── facesUvs: Uint32Array        # [F, 3] flattened — per-face UV-vertex indices
-├── function renderMeshDisplay({ displayResponse, initialCameraState, meshColor, meshOpacity, meshSide, lockRoll = null }: { displayResponse: MeshDisplayResponse; initialCameraState?: CameraState | null; meshColor?: string; meshOpacity?: number; meshSide?: THREE.Side; lockRoll?: THREE.Vector3 | null }): LeafVNode
+├── function renderMeshDisplay({ displayResponse, initialCameraState = null, meshColor, meshOpacity, meshSide, lockRoll = null }: { displayResponse: MeshDisplayResponse; initialCameraState?: CameraState | null; meshColor?: string; meshOpacity?: number; meshSide?: THREE.Side; lockRoll?: THREE.Vector3 | null }): LeafVNode
 │   ├── # Renders a self-contained mesh display element initialized at initialCameraState.
 │   ├── calls createSpatialDisplayScene({ initialCameraState })
 │   ├── calls createMeshObject({ displayResponse, meshColor, meshOpacity, meshSide })   → object

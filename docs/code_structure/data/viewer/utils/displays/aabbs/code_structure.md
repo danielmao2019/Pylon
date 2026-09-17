@@ -57,7 +57,7 @@ apis.ts
 ├── import { createSpatialDisplayScene, startThreeSceneRenderLoop } from "data/viewer/utils/displays/utils/ts/frontend/three_scene_helpers";
 ├── import { createTrackballCameraControls } from "data/viewer/utils/controls/camera/camera_controls/ts/frontend/trackball_camera_controls";
 ├── import { registerSpatialLayerRenderer } from "data/viewer/utils/displays/utils/ts/frontend/layer_renderer_registry";
-├── function renderAabb3dDisplay({ displayResponse, initialCameraState, lockRoll = null }: { displayResponse: Aabb3dDisplayResponse; initialCameraState?: CameraState | null; lockRoll?: THREE.Vector3 | null }): LeafVNode
+├── function renderAabb3dDisplay({ displayResponse, initialCameraState = null, lockRoll = null }: { displayResponse: Aabb3dDisplayResponse; initialCameraState?: CameraState | null; lockRoll?: THREE.Vector3 | null }): LeafVNode
 │   ├── # Renders a self-contained 3D-box display initialized at initialCameraState.
 │   ├── calls createSpatialDisplayScene({ initialCameraState })   → { container, scene, camera, renderer }
 │   ├── calls createAabb3dObject({ displayResponse })             → object
