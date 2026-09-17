@@ -88,7 +88,7 @@ test_trackball_camera_controls.py
 ├── def test_a_zero_axis_is_rejected
 │   ├── # A zero-length lock_roll names no direction, so it is rejected rather than normalized into a NaN camera.up.
 │   ├── with pytest.raises on the non-zero-3-tuple message
-│   │   └── calls create_dash_trackball_camera_controls
+│   │   └── calls create_dash_trackball_camera_controls(lock_roll=(0.0, 0.0, 0.0))
 │   └── return
 ├── def test_roll_locked_controls_keep_every_other_degree_of_freedom_free
 │   ├── # Roll lock constrains roll alone, so roll-locked Plotly controls still pass the mouse-mapping, no-orbit, and no-pose-clamp contracts.
@@ -111,19 +111,19 @@ test_trackball_camera_controls.py
 │   ├── # The shipped roll_lock.js source passes the roll-locked contract and fails the free-trackball one.
 │   ├── calls assert_dash_roll_lock(controls=ROLL_LOCK_CALLBACK_SCRIPT, lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL)
 │   ├── with pytest.raises when the same source is asserted with no axis supplied
-│   │   └── calls assert_dash_roll_lock
+│   │   └── calls assert_dash_roll_lock(controls=ROLL_LOCK_CALLBACK_SCRIPT)
 │   └── return
 ├── def test_assert_dash_roll_lock_rejects_an_ignored_flag
 │   ├── # Supplied-lock_roll Plotly controls that pin no camera.up are rejected, so the flag cannot be silently dropped.
-│   ├── impls build free-roll Plotly controls carrying no camera.up
+│   ├── impls controls = free-roll Plotly controls carrying no camera.up
 │   ├── with pytest.raises on the roll-locked-must-keep-the-right-axis-perpendicular-to-the-supplied-axis message
-│   │   └── calls assert_dash_roll_lock
+│   │   └── calls assert_dash_roll_lock(controls=controls, lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL)
 │   └── return
 ├── def test_assert_dash_roll_lock_rejects_a_mismatched_axis
 │   ├── # Plotly controls pinned to a different axis than the caller supplied are rejected, so the caller's axis cannot be swapped for another.
-│   ├── impls build Plotly controls whose pinned axis differs from the supplied lock_roll
+│   ├── impls controls = Plotly controls whose pinned axis differs from the supplied lock_roll
 │   ├── with pytest.raises on the roll-locked-must-keep-the-right-axis-perpendicular-to-the-supplied-axis message
-│   │   └── calls assert_dash_roll_lock
+│   │   └── calls assert_dash_roll_lock(controls=controls, lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL)
 │   └── return
 ├── def test_assert_dash_roll_lock_rejects_a_graph_id_the_callback_does_not_match
 │   ├── # Roll-locked Plotly controls whose graph id is missing, of another type, or carrying another axis are rejected, so the roll-lock callback can neither miss the graph nor hold it about the wrong axis.
@@ -131,7 +131,7 @@ test_trackball_camera_controls.py
 │   ├── impls variants = copies of controls, one per mismatched graph_id: None, a foreign type, a different lock_roll
 │   ├── for each variant
 │   │   └── with pytest.raises on the roll-locked-Plotly-controls-must-carry-the-graph-id-the-roll-lock-callback-matches message
-│   │       └── calls assert_dash_roll_lock
+│   │       └── calls assert_dash_roll_lock(controls=variant, lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL)
 │   └── return
 ├── def test_assert_dash_roll_lock_rejects_a_scene_not_at_data_proportions
 │   ├── # Roll-locked Plotly controls whose scene leaves the aspect to Plotly are rejected, since a stretched scene turns the world axis away from the direction the seeded camera.up names.
@@ -139,32 +139,32 @@ test_trackball_camera_controls.py
 │   ├── impls variants = copies of controls, one per scene aspect other than data proportions: no aspectmode, aspectmode "cube"
 │   ├── for each variant
 │   │   └── with pytest.raises on the roll-locked-Plotly-controls-must-draw-the-scene-at-its-data's-own-proportions message
-│   │       └── calls assert_dash_roll_lock
+│   │       └── calls assert_dash_roll_lock(controls=variant, lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL)
 │   └── return
 ├── def test_assert_dash_roll_lock_rejects_a_source_without_the_polar_band
 │   ├── # Roll-locked renderer source that holds the camera right axis perpendicular but bands no polar angle short of the poles is rejected, so a drag through a pole cannot hang the scene upside down.
-│   ├── impls build renderer source that re-derives the camera right axis each drag step and carries no polar band
+│   ├── impls source = renderer source that re-derives the camera right axis each drag step and carries no polar band
 │   ├── with pytest.raises on the roll-locked-must-keep-the-camera-up-vector-on-the-supplied-axis's-side message
-│   │   └── calls assert_dash_roll_lock
+│   │   └── calls assert_dash_roll_lock(controls=source, lock_roll=NON_AXIS_ALIGNED_LOCK_ROLL)
 │   └── return
 ├── def test_assert_dash_roll_lock_rejects_an_unrequested_lock
 │   ├── # lock_roll=None Plotly controls that nonetheless pin camera.up or carry a roll-locked graph id are rejected, so the default construction cannot quietly become roll-locked.
 │   ├── impls build lock_roll=None Plotly controls with a pinned camera.up, and ones with a roll-locked graph_id
 │   ├── for each of the two
 │   │   └── with pytest.raises on the free-trackball-must-leave-roll-unconstrained message
-│   │       └── calls assert_dash_roll_lock
+│   │       └── calls assert_dash_roll_lock(controls=controls, lock_roll=None)
 │   └── return
 ├── @pytest.mark.parametrize("lock_roll", [None, NON_AXIS_ALIGNED_LOCK_ROLL]) def test_assert_dash_no_camera_pose_clamps_rejects_the_pose_clamping_dragmode(lock_roll: Optional[Tuple[float, float, float]]) -> None
 │   ├── # The turntable dragmode pins camera.up onto world +Z, so it is rejected as a pose clamp whether or not an axis is supplied.
-│   ├── impls build Plotly controls whose scene carries the turntable dragmode
+│   ├── impls controls = Plotly controls whose scene carries the turntable dragmode
 │   ├── with pytest.raises on the restricted-camera-pose-controls message
-│   │   └── calls assert_dash_no_camera_pose_clamps
+│   │   └── calls assert_dash_no_camera_pose_clamps(controls=controls, lock_roll=lock_roll)
 │   └── return
 └── @pytest.mark.parametrize("lock_roll", [None, NON_AXIS_ALIGNED_LOCK_ROLL]) def test_assert_dash_no_camera_pose_clamps_rejects_an_omitted_dragmode(lock_roll: Optional[Tuple[float, float, float]]) -> None
     ├── # Plotly controls whose scene names no dragmode run Plotly's turntable default, so they are rejected the same way.
-    ├── impls build Plotly controls whose scene carries no dragmode
+    ├── impls controls = Plotly controls whose scene carries no dragmode
     ├── with pytest.raises on the restricted-camera-pose-controls message
-    │   └── calls assert_dash_no_camera_pose_clamps
+    │   └── calls assert_dash_no_camera_pose_clamps(controls=controls, lock_roll=lock_roll)
     └── return
 ```
 
