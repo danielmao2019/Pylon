@@ -69,8 +69,8 @@ render_on_main.py
 ├── def main() -> None
 │   ├── # Renders every scene with main's code in a child process launched inside the main checkout, so the branch has a fixed reference to compare against.
 │   ├── impls parser = an argparse parser described as rendering the saved scenes with the checkout this process imports from
-│   ├── impls parser gains a required str --scenes_path, the path of the saved scenes
-│   ├── impls parser gains a required str --output_path, the path the renders are saved to
+│   ├── impls add to parser a required str --scenes_path, the path of the saved scenes
+│   ├── impls add to parser a required str --output_path, the path the renders are saved to
 │   ├── impls args = the arguments parser parses
 │   ├── impls enable torch's deterministic algorithms  # main resolves a shared pixel by which write lands last, and deterministic mode makes that the last write in point order on cpu and cuda alike
 │   ├── impls scenes = the scenes deserialized from args.scenes_path
@@ -134,8 +134,8 @@ prove_equivalence.py
 ├── def main() -> None
 │   ├── # Proves the two equivalences the task is done on: one camera handed over as a batch renders what main renders, and a batch renders what its cameras render one by one.
 │   ├── impls parser = an argparse parser described as proving single-camera renders equal main's and batched renders equal one-by-one renders
-│   ├── impls parser gains a required Path --main_repo, a checkout of this repo's main branch
-│   ├── impls parser gains a store-true --force, rebuilding the cached scenes and main renders
+│   ├── impls add to parser a required Path --main_repo, a checkout of this repo's main branch
+│   ├── impls add to parser a store-true --force, rebuilding the cached scenes and main renders
 │   ├── impls args = the arguments parser parses
 │   ├── impls main_repo = the main_repo argument resolved to an absolute path  # it is the child's working directory and import root
 │   ├── impls output_dir = this task's outputs/ directory
@@ -154,9 +154,9 @@ prove_equivalence.py
 │   │   ├── impls failures = an empty list
 │   │   ├── for each record of records
 │   │   │   └── if the record is required
-│   │   │       ├── impls required_records gains record
+│   │   │       ├── impls append record to required_records
 │   │   │       └── if the record is not equal
-│   │   │           └── impls failures gains record
+│   │   │           └── impls append record to failures
 │   │   └── impls comparisons[name] = records with their required tally: the count of required_records, that count less the count of failures as the equal ones, and failures
 │   ├── impls report = the main commit main_renders carries, the branch HEAD read through git in REPO_ROOT, branch_worktree_clean, the device names, that main rendered under deterministic algorithms, every entry of comparisons, point_size_summary, and tie_summary  # main's scatter is racy on cuda otherwise, so its reference is the deterministic one
 │   ├── impls write report as json indented by two to output_dir / "equivalence_report.json"
@@ -209,7 +209,7 @@ prove_equivalence.py
 │   │   ├── impls focal, stated_height, stated_width = the base focal length and the resolution the intrinsics state, both popped from the scene
 │   │   ├── impls scene["cameras"] = an empty list
 │   │   └── for each camera_index below num_cameras
-│   │       └── impls scene["cameras"] gains {"params": 0-dim tensors fx = focal * (1 + 0.1 * camera_index), fy = focal * (1.05 + 0.1 * camera_index), cx = stated_width / 2 + camera_index, cy = stated_height / 2 - camera_index, h = stated_height, w = stated_width; "extrinsics": a copy of cam2world[camera_index]}
+│   │       └── impls append to scene["cameras"] {"params": 0-dim tensors fx = focal * (1 + 0.1 * camera_index), fy = focal * (1.05 + 0.1 * camera_index), cx = stated_width / 2 + camera_index, cy = stated_height / 2 - camera_index, h = stated_height, w = stated_width; "extrinsics": a copy of cam2world[camera_index]}
 │   └── return  # [collisions, culling, sparse, few_points, ties], each now a dict of its name, model, conventions, resolution and cpu tensors
 ├── def load_or_render_on_main(main_repo: Path, output_dir: Path, force: bool) -> Dict[str, Any]
 │   ├── # Returns main's renders of the scenes, from output_dir / "main_renders.pt" unless it is missing, was rendered at another main commit or from other scenes, or force asks for a rerender.
@@ -223,7 +223,7 @@ prove_equivalence.py
 │   │       └── return cached
 │   ├── impls run render_on_main.py by path under this interpreter with cwd main_repo and the current environment plus PYTHONPATH=main_repo and CUBLAS_WORKSPACE_CONFIG=:4096:8, handing it the scenes path and the renders path, checked
 │   ├── impls main_renders = the renders torch's load reads from the renders file
-│   ├── impls main_renders gains main_commit and scenes_digest
+│   ├── impls add main_commit and scenes_digest to main_renders
 │   ├── impls save main_renders back to the renders file through torch's save
 │   └── return main_renders
 ├── def compare_single_camera_to_main(scenes: List[Dict[str, Any]], main_renders: Dict[str, Any]) -> List[Dict[str, Any]]
@@ -240,7 +240,7 @@ prove_equivalence.py
 │   │                       ├── calls render_single_camera(renderer=renderer, pc=pc, camera=camera, resolution=scene["resolution"], return_mask=return_mask, point_size=point_size)  # -> output
 │   │                       ├── impls main_output = main's render at (device name, scene name, camera_index, renderer, point_size, return_mask)
 │   │                       ├── calls compare_exactly(output=output, reference=main_output)  # -> comparison
-│   │                       ├── impls records gain a "camera" record of the device name, scene name, camera_index, renderer, point_size and return_mask, merged with comparison
+│   │                       ├── impls append to records a "camera" record of the device name, scene name, camera_index, renderer, point_size and return_mask, merged with comparison
 │   │                       └── if renderer == "depth"
 │   │                           ├── calls build_cameras(scene=scene, camera_indices=[camera_index], device=device)  # -> cameras
 │   │                           ├── calls render_depth_from_point_cloud(pc=pc, camera=cameras, resolution=scene["resolution"], return_mask=return_mask, point_size=point_size)  # -> batch_output
@@ -249,7 +249,7 @@ prove_equivalence.py
 │   │                           ├── else
 │   │                           │   └── impls batch_slice = batch_output[0]
 │   │                           ├── calls compare_exactly(output=batch_slice, reference=main_output)  # -> comparison
-│   │                           └── impls records gain a "batch_of_one" record of the device name, scene name, camera_index, renderer, point_size and return_mask, merged with comparison
+│   │                           └── impls append to records a "batch_of_one" record of the device name, scene name, camera_index, renderer, point_size and return_mask, merged with comparison
 │   ├── for each record of records  # above one pixel this branch's dilation grows a centred disc taking the nearest neighbour, and its depth entry applies it, where main did neither; at a tied depth this branch keeps the lowest point index, where main keeps the last point in order on cpu and the first on cuda
 │   │   └── impls mark the record required when its point size is one and its scene is not "ties"
 │   └── return records
@@ -271,7 +271,7 @@ prove_equivalence.py
 │   │       │       │   └── calls compare_exactly(output=the rows batch_valid keeps in that camera's slice of batch_points, with those rows' point indices, reference=(points, original_data_indices))  # -> comparison
 │   │       │       ├── else
 │   │       │       │   └── calls compare_preparations(output=(batch_points[camera_index], batch_valid[camera_index]), reference=(points, original_data_indices), pc=pc, camera=camera, resolution=scene["resolution"])  # -> comparison; CUDA's batched inverse and product round unlike a single camera's
-│   │       │       └── impls records gain a "prepare" record of the device name, scene name, camera_index and num_divide, merged with comparison
+│   │       │       └── impls append to records a "prepare" record of the device name, scene name, camera_index and num_divide, merged with comparison
 │   │       ├── impls rendering_points, valid = the points and valid mask of batch_preparations[None], the unchunked one  # one input handed to both sides, so the rasterizing stage is measured apart from the rounding before it
 │   │       ├── for each return_mask of RETURN_MASK_OPTIONS
 │   │       │   ├── calls render_depth_from_rendering_points(rendering_points=rendering_points, resolution=scene["resolution"], ignore_value=float("inf"), return_mask=return_mask, valid=valid)  # -> batch_raster
@@ -286,14 +286,14 @@ prove_equivalence.py
 │   │       │       ├── else
 │   │       │       │   └── impls batch_slice = batch_raster[camera_index]
 │   │       │       ├── calls compare_exactly(output=batch_slice, reference=slice_raster)  # -> comparison
-│   │       │       └── impls records gain a "rasterize" record of the device name, scene name, camera_index and return_mask, merged with comparison
+│   │       │       └── impls append to records a "rasterize" record of the device name, scene name, camera_index and return_mask, merged with comparison
 │   │       ├── for each point_size of POINT_SIZES
 │   │       │   └── if point_size > 1.0
 │   │       │       ├── calls apply_point_size_postprocessing(rendered_image=batch_depth_map, depth_map=batch_depth_map, point_size=point_size, ignore_value=float("inf"))  # -> batch_dilation
 │   │       │       └── for each camera_index of the scene's camera indices
 │   │       │           ├── calls apply_point_size_postprocessing(rendered_image=batch_depth_map[camera_index], depth_map=batch_depth_map[camera_index], point_size=point_size, ignore_value=float("inf"))  # -> slice_dilation
 │   │       │           ├── calls compare_exactly(output=batch_dilation[camera_index], reference=slice_dilation)  # -> comparison
-│   │       │           └── impls records gain a "dilate" record of the device name, scene name, camera_index and point_size, merged with comparison
+│   │       │           └── impls append to records a "dilate" record of the device name, scene name, camera_index and point_size, merged with comparison
 │   │       └── for each point_size of POINT_SIZES
 │   │           └── for each return_mask of RETURN_MASK_OPTIONS
 │   │               ├── calls render_depth_from_point_cloud(pc=pc, camera=cameras, resolution=scene["resolution"], return_mask=return_mask, point_size=point_size)  # -> batch_output
@@ -305,7 +305,7 @@ prove_equivalence.py
 │   │                   ├── else
 │   │                   │   └── impls batch_slice = batch_output[camera_index]
 │   │                   ├── calls compare_exactly(output=batch_slice, reference=camera_output)  # -> comparison
-│   │                   └── impls records gain a "depth" record of the device name, scene name, camera_index, point_size and return_mask, merged with comparison
+│   │                   └── impls append to records a "depth" record of the device name, scene name, camera_index, point_size and return_mask, merged with comparison
 │   ├── for each record of records  # end to end, cuda carries the preparation's rounding into the render, which the "prepare", "rasterize" and "dilate" records account for between them
 │   │   └── impls mark the record required unless it is a cuda "depth" one
 │   └── return records
@@ -315,12 +315,12 @@ prove_equivalence.py
 │   ├── for each key of the first named camera's params
 │   │   ├── impls param_values = an empty list
 │   │   ├── for each camera_index of camera_indices
-│   │   │   └── impls param_values gains scene["cameras"][camera_index]["params"][key]
+│   │   │   └── impls append scene["cameras"][camera_index]["params"][key] to param_values
 │   │   └── impls params[key] = param_values stacked
 │   ├── calls build_camera_intrinsics(model=scene["model"], params=params, intr_convention=scene["intr_convention"], device=device)  # -> intrinsics
 │   ├── impls extrinsics_list = an empty list
 │   ├── for each camera_index of camera_indices
-│   │   └── impls extrinsics_list gains scene["cameras"][camera_index]["extrinsics"]
+│   │   └── impls append scene["cameras"][camera_index]["extrinsics"] to extrinsics_list
 │   ├── impls extrinsics_matrices = extrinsics_list stacked to [B, 4, 4]
 │   ├── calls CameraExtrinsics(extrinsics=extrinsics_matrices, extr_convention=scene["extr_convention"], device=device)  # -> extrinsics
 │   ├── calls Cameras(intrinsics=intrinsics, extrinsics=extrinsics, device=device)
@@ -330,7 +330,7 @@ prove_equivalence.py
 │   ├── impls summary = an empty dict
 │   ├── for each point_size of POINT_SIZES
 │   │   ├── calls create_circular_kernel_offsets(point_size=point_size, device=torch.device("cpu"))  # -> kernel_offsets
-│   │   └── impls summary gains, under point_size, whether kernel_offsets and main's kernel offsets for point_size hold the same set of (y, x) offsets
+│   │   └── impls add to summary, under point_size, whether kernel_offsets and main's kernel offsets for point_size hold the same set of (y, x) offsets
 │   ├── for each (device name, scene name, camera_index, renderer, point_size, return_mask) key of main's renders and the render under it
 │   │   ├── if renderer is neither "depth" nor "normal_2d"
 │   │   │   └── continue
@@ -376,11 +376,11 @@ prove_equivalence.py
 │   │   │   └── impls reference = a tuple of reference alone
 │   │   ├── impls cpu_members = an empty list
 │   │   ├── for each member of output
-│   │   │   └── impls cpu_members gains member moved to cpu
+│   │   │   └── impls append to cpu_members member moved to cpu
 │   │   ├── impls output = cpu_members as a tuple
 │   │   ├── impls cpu_reference_members = an empty list
 │   │   ├── for each member of reference
-│   │   │   └── impls cpu_reference_members gains member moved to cpu
+│   │   │   └── impls append to cpu_reference_members member moved to cpu
 │   │   ├── impls reference = cpu_reference_members as a tuple
 │   │   └── return output, reference
 │   ├── calls _normalize_inputs(output=output, reference=reference)  # -> output, reference
@@ -391,24 +391,24 @@ prove_equivalence.py
 │   ├── impls disagreements = an empty list
 │   ├── for each member, reference_member of pairs
 │   │   ├── if member and reference_member share a shape
-│   │   │   └── impls disagreements gains the elements where member and reference_member differ and are not both NaN
+│   │   │   └── impls append to disagreements the elements where member and reference_member differ and are not both NaN
 │   │   └── else
-│   │       └── impls disagreements gains None
+│   │       └── impls append None to disagreements
 │   ├── impls equal = whether output and reference hold as many tensors
 │   ├── for each (member, reference_member), disagreement of pairs paired with disagreements
 │   │   └── impls equal = equal and member and reference_member share a shape and a dtype and disagreement marks no element
 │   ├── impls differing_elements = an empty list  # None for a pair of two shapes
 │   ├── for each disagreement of disagreements
 │   │   ├── if disagreement is None
-│   │   │   └── impls differing_elements gains None
+│   │   │   └── impls append None to differing_elements
 │   │   └── else
-│   │       └── impls differing_elements gains the count of elements disagreement marks
+│   │       └── impls append the count of elements disagreement marks to differing_elements
 │   ├── impls nan_elements = an empty list  # None for a pair of two shapes
 │   ├── for each member, reference_member of pairs
 │   │   ├── if member and reference_member share a shape
-│   │   │   └── impls nan_elements gains the count of positions where both hold NaN
+│   │   │   └── impls append to nan_elements the count of positions where both hold NaN
 │   │   └── else
-│   │       └── impls nan_elements gains None
+│   │       └── impls append None to nan_elements
 │   ├── impls max_abs_diff = None  # None when no pair is of one shape with both members floating
 │   ├── for each member, reference_member of pairs
 │   │   └── if member and reference_member share a shape and both are floating
