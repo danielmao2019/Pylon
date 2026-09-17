@@ -6,7 +6,7 @@ Batched rendering needs the tensors of every camera in the batch to share one si
 
 ### 1.1. Solution Constraints
 
-#### 1.1.1. Single Source of Truth of dtype and device
+#### 1.1.1. Single Source of Truth of dtype, device
 
 the dtype and device of `Cameras` are
 1. optional args default to None
@@ -19,11 +19,15 @@ i.e., the mental model is:
 3. the only exception is when dtype or device is given None, in which case you resolve it to the one the two given components share, neither component taking precedence over the other.
 4. intrinsics and extrinsics of the same camera/cameras are two parts of the same object, so must always be on same device.
 
-#### 1.1.2. Structure of Camera Intrinsics Transforms and Scaling
+#### 1.1.2. Single Source of Truth of Batch Size (Length)
+
+Each of intrinsics and extrinsics classes must support `__len__` and cameras class assert either intrinsics is an unbatched intrinsics or a batched intrinsics of size/length 1, or a batched intrinsics of same size/length as the extrinsics.
+
+#### 1.1.3. Structure of Camera Intrinsics Transforms and Scaling
 
 `transform_intrinsics` must NOT call any helper that serves convention conversion.
 
-#### 1.1.3. Hierarchical Structure between Camera/Cameras and Intrinsics/Extrinsics
+#### 1.1.4. Hierarchical Structure between Camera/Cameras and Intrinsics/Extrinsics
 
 The validation must be hierarchically implemented. Any validation of camera/cameras must rely on those of intrinsics/extrinsics, if the logic does belong to intrinsics/extrinsics. Camera/cameras validators should work on the validations at their own hierarchical levels, and must never do any job of intrinsics/extrinsics.
 
