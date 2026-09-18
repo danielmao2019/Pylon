@@ -170,7 +170,8 @@ camera_extrinsics.py
 │   │   ├── impls self._extrinsics = extrinsics
 │   │   ├── impls self._extr_convention = extr_convention
 │   │   ├── impls self._device = device
-│   │   └── impls self._dtype = dtype
+│   │   ├── impls self._dtype = dtype
+│   │   └── impls self._batch_size = extrinsics.shape[0] if extrinsics.ndim == 3 else None  # None where the matrix is a [4, 4]: an unbatched extrinsics carries no batch axis, and states one camera
 │   ├── def extrinsics(self) -> torch.Tensor  # @property
 │   │   ├── # The 4x4 camera-to-world extrinsics tensor.
 │   │   └── return self._extrinsics
@@ -183,6 +184,13 @@ camera_extrinsics.py
 │   ├── def dtype(self) -> torch.dtype  # @property
 │   │   ├── # The dtype of the extrinsics tensor.
 │   │   └── return self._dtype
+│   ├── @property def is_batched(self) -> bool
+│   │   ├── # Whether the cam2world matrix carries a batch axis, a [4, 4] being the one camera an unbatched extrinsics states.
+│   │   └── return self._batch_size is not None
+│   ├── def __len__(self) -> int
+│   │   ├── # The extent of the batch axis this extrinsics carries, which an unbatched extrinsics does not have.
+│   │   ├── assert self._batch_size is not None  # a [4, 4] matrix carries no batch axis, so it has no length
+│   │   └── return self._batch_size
 │   ├── def __getitem__(self, index: Union[int, slice, List[int], None]) -> "CameraExtrinsics"
 │   │   ├── # Index the leading batch axis the cam2world matrix carries, the way the matrix indexes its own, so None adds an axis of one and an int drops it.
 │   │   ├── impls extrinsics = CameraExtrinsics(extrinsics=self._extrinsics[index], extr_convention=self._extr_convention)  # a method constructing its own enclosing class, drawn as impls because no order puts this method above its class
