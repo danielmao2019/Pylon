@@ -99,13 +99,13 @@ test_point_cloud_loading.py
 │   ├── calls write_ply(filepath, with_rgb=True, extra_field='intensity')
 │   ├── calls _load_from_ply(filepath=filepath)
 │   ├── impls assert the result is a dict
-│   ├── impls assert its keys are xyz, rgb and intensity  # impls-node-one-step:skip — names the keys
+│   ├── impls assert its keys are xyz, rgb and intensity  # impls-node-one-step:skip; names the keys
 │   └── impls assert its xyz is an np.ndarray of dtype float64
 ├── def test_load_from_txt_returns_a_field_dict
 │   ├── # The text reader hands back a plain dict of float64 arrays.
 │   ├── calls write_txt(filepath, num_columns=7)
 │   ├── calls _load_from_txt(filepath=filepath)
-│   ├── impls assert its keys are xyz and feat  # impls-node-one-step:skip — names the keys
+│   ├── impls assert its keys are xyz and feat  # impls-node-one-step:skip; names the keys
 │   └── impls assert its xyz is float64
 ├── def test_load_from_pth_returns_a_field_dict
 │   ├── # The .pth reader hands back a dict in whatever form the file was saved in.
@@ -136,9 +136,9 @@ test_point_cloud_loading.py
 │       └── calls load_point_cloud(filepath=filepath, device='cpu')
 ├── def write_ply(filepath, num_points=8, with_rgb=False, extra_field=None, element_name='vertex')
 │   ├── # Writes a PLY whose one element carries xyz plus whichever optional columns the caller asks for.
-│   ├── impls columns = the x, y and z fields as float32  # impls-node-one-step:skip — names the three fields
+│   ├── impls columns = the x, y and z fields as float32  # impls-node-one-step:skip; names the three fields
 │   ├── if with_rgb
-│   │   └── impls append to columns red, green and blue as uint8  # impls-node-one-step:skip — names the three fields
+│   │   └── impls append to columns red, green and blue as uint8  # impls-node-one-step:skip; names the three fields
 │   ├── if extra_field is not None
 │   │   └── impls append extra_field as float32 to columns
 │   ├── calls PlyElement.describe(the rows, element_name)
@@ -153,7 +153,7 @@ test_point_cloud_loading.py
 └── def write_off(filepath, vertices, header='OFF')
     ├── # Writes an OFF file, the header being a parameter so a malformed one can be written too.
     ├── impls header line
-    ├── impls the vertex, face and edge counts  # impls-node-one-step:skip — names the three counts
+    ├── impls the vertex, face and edge counts  # impls-node-one-step:skip; names the three counts
     └── impls one line per vertex
 ```
 

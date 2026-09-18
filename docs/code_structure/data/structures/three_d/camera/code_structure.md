@@ -175,8 +175,8 @@ cameras.py
     │   │   └── return intrinsics, extrinsics, names, ids, device, dtype
     │   ├── calls _normalize_inputs(intrinsics=intrinsics, extrinsics=extrinsics, names=names, ids=ids, device=device, dtype=dtype)
     │   ├── impls intrinsics, extrinsics, names, ids, device, dtype = the returned values from _normalize_inputs
-    │   ├── impls self._intrinsics = intrinsics  # params each [B]
-    │   ├── impls self._extrinsics = extrinsics  # matrix [B, 4, 4]
+    │   ├── impls self._intrinsics = intrinsics  # params each [B], or scalars and [1] columns where the intrinsics broadcasts over the batch
+    │   ├── impls self._extrinsics = extrinsics  # matrix [B, 4, 4], or the [4, 4] it broadcasts over the batch
     │   ├── impls self._names = names
     │   ├── impls self._ids = ids
     │   ├── impls self._name_to_index = the index of each named camera, keyed by its name  # the unnamed cameras contribute no entry, and a name two cameras share is refused rather than silently resolving to one of them

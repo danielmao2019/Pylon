@@ -396,7 +396,7 @@ render_rgb_volumetric.py
 │   ├── impls render_height, render_width = resolution
 │   ├── assert both render dimensions are positive  # "Render resolution must be positive"
 │   ├── impls intrinsics = camera.intrinsics
-│   ├── impls extrinsics = camera.extrinsics
+│   ├── impls extrinsics = camera.extrinsics  # its extr_convention rides along into every training camera built from it
 │   ├── impls convention = camera.extrinsics.extr_convention
 │   ├── impls native_width = twice intrinsics.cx, rounded to an int
 │   ├── impls native_height = twice intrinsics.cy, rounded to an int
@@ -473,12 +473,12 @@ render_rgb_volumetric.py
 │   ├── impls distance = the norm of camera_position minus center
 │   ├── assert distance is positive  # a camera sitting on the centre names no direction to step away along
 │   ├── impls step = half of distance
-│   ├── impls direction_specs = the normalized float32 vectors over itertools.product of minus one, zero and one taken three at a time, the all-zero one dropped  # impls-node-one-step:skip — one step; the "and" names what it is made of
+│   ├── impls direction_specs = the normalized float32 vectors over itertools.product of minus one, zero and one taken three at a time, the all-zero one dropped  # impls-node-one-step:skip; one step; the "and" names what it is made of
 │   ├── impls auxiliary_cameras = an empty list
 │   ├── for each direction_unit in direction_specs
 │   │   ├── assert direction_unit is a 3-vector
 │   │   ├── impls position = camera_position stepped along direction_unit by step
-│   │   ├── impls aux_standard = a [4, 4] float32 block carrying the rotation of extrinsics_standard, position in its translation column, and one in its corner  # impls-node-one-step:skip — one step; the "and" names what it is made of
+│   │   ├── impls aux_standard = a [4, 4] float32 block carrying the rotation of extrinsics_standard, position in its translation column, and one in its corner  # impls-node-one-step:skip; one step; the "and" names what it is made of
 │   │   ├── calls CameraExtrinsics(extrinsics=aux_standard, extr_convention='standard', device=device)
 │   │   ├── impls aux_extrinsics = the extrinsics it built
 │   │   ├── calls Camera(intrinsics=camera.intrinsics, extrinsics=aux_extrinsics, device=device)

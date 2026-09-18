@@ -306,7 +306,7 @@ test_conventions.py
 │   └── return
 ├── def _build_pinhole_params
 │   ├── # Builds the pinhole params dict the intrinsics cases are stated with, its h and w the only thing a case varies.
-│   ├── impls build a params dict of fixed fx, fy, cx and cy under the height and width asked for  # impls-node-one-step:skip — one step; the "and" names what it is made of
+│   ├── impls build a params dict of fixed fx, fy, cx and cy under the height and width asked for  # impls-node-one-step:skip; one step; the "and" names what it is made of
 │   └── return  # that params dict
 ├── def test_an_intrinsics_without_a_resolution_is_refused
 │   ├── # A principal point in the standard frame names a location only against a resolution, so params missing h or w are refused for every camera model.
