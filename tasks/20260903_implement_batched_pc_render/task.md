@@ -23,6 +23,8 @@ i.e., the mental model is:
 
 Each of intrinsics and extrinsics classes must support `__len__` and cameras class assert either intrinsics is an unbatched intrinsics or a batched intrinsics of size/length 1, or a batched intrinsics of same size/length as the extrinsics.
 
+You must never create a second method called batch size of what ever that does the same thing as `__len__`.
+
 #### 1.1.3. Structure of Camera Intrinsics Transforms and Scaling
 
 `transform_intrinsics` must NOT call any helper that serves convention conversion.
