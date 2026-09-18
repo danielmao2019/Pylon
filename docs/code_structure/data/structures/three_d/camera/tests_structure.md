@@ -422,7 +422,7 @@ test_io.py
 │   ├── calls _make_multi_cameras
 │   ├── calls serialize_cameras(cameras=cameras, format="json")
 │   ├── impls serialized = the payload it produced
-│   ├── impls assert serialized is one dict per camera, each keyed by the json key set
+│   ├── impls assert serialized is a dict whose keys are the json key set, its name and id one entry per camera
 │   ├── calls deserialize_cameras(payload=serialized, device="cpu", format="json")
 │   ├── calls _assert_cameras_fields_equal(loaded=what it returned, original=cameras)
 │   ├── calls save_cameras(cameras=cameras, cameras_path=a .json path under tmp_path)
@@ -444,6 +444,17 @@ test_io.py
 │   ├── calls load_cameras(cameras_path=that path, device="cpu")
 │   ├── calls _assert_cameras_fields_equal(loaded=what it loaded, original=cameras)
 │   └── return
+├── def test_broadcast_intrinsics_round_trip
+│   ├── # A Cameras whose one unbatched intrinsics broadcasts over batched extrinsics comes back the same way through both formats, the payload spelling each component as it holds itself.
+│   └── for format in ("json", "npz")
+│       ├── calls build_camera_intrinsics(model="pinhole", params=that model's param set as scalars, intr_convention="standard", device="cpu")  # -> intrinsics
+│       ├── impls matrices = three float32 4x4 identities, a [3, 4, 4] stack
+│       ├── calls CameraExtrinsics(extrinsics=matrices, extr_convention="opengl", device="cpu")  # -> extrinsics
+│       ├── calls Cameras(intrinsics=intrinsics, extrinsics=extrinsics, device="cpu")  # -> cameras
+│       ├── calls serialize_cameras(cameras=cameras, format=format)  # -> serialized
+│       ├── calls deserialize_cameras(payload=serialized, device="cpu", format=format)  # -> loaded
+│       ├── assert not loaded.intrinsics.is_batched and loaded.extrinsics.is_batched
+│       └── calls _assert_cameras_fields_equal(loaded=loaded, original=cameras)
 ├── def test_round_trip_keeps_the_batch_dtype
 │   ├── # Both formats record the batch's dtype and rebuild both components in it, so a batch loads back in the dtype it was saved in rather than one the format imposes.
 │   └── for format in ("json", "npz")
