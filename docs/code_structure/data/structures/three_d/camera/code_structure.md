@@ -216,8 +216,14 @@ cameras.py
     │   ├── # Index the batch by slicing the leading axis of both components, never by selecting from stored per-camera objects.
     │   ├── if isinstance(index, str)
     │   │   └── impls index = self._name_to_index[index]
-    │   ├── impls intrinsics = self._intrinsics[index]
-    │   ├── impls extrinsics = self._extrinsics[index]
+    │   ├── if not self._intrinsics.is_batched or len(self._intrinsics) == 1  # a component that broadcasts over the batch broadcasts over any slice of it, so it is carried whole
+    │   │   └── impls intrinsics = self._intrinsics
+    │   ├── else
+    │   │   └── impls intrinsics = self._intrinsics[index]
+    │   ├── if not self._extrinsics.is_batched or len(self._extrinsics) == 1
+    │   │   └── impls extrinsics = self._extrinsics
+    │   ├── else
+    │   │   └── impls extrinsics = self._extrinsics[index]
     │   ├── if isinstance(index, int)
     │   │   ├── calls Camera(intrinsics=intrinsics, extrinsics=extrinsics, name=self._names[index], id=self._ids[index])  # -> camera
     │   │   └── return camera
