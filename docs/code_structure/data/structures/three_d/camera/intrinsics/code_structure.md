@@ -171,15 +171,15 @@ conventions.py
 │   │   └── impls unit = 2 / elementwise min(h, w), one unit per camera of the batch  # the one frame here normalizing both axes by a single side, letting the longer one reach past $1$
 │   ├── else
 │   │   └── impls unit = 2 / min(h, w)
-│   ├── calls _centre_principal_point(params=params)
-│   ├── calls _reverse_axes(params=params, axes=("x", "y"))  # standard runs x toward the right edge and y toward the bottom, PyTorch3D x toward the left and y toward the top
-│   ├── calls _rescale_intr_params(params=params, model=model, unit_x=unit, unit_y=unit)
+│   ├── calls _centre_principal_point(params=params)  # -> params
+│   ├── calls _reverse_axes(params=params, axes=("x", "y"))  # -> params; standard runs x toward the right edge and y toward the bottom, PyTorch3D x toward the left and y toward the top
+│   ├── calls _rescale_intr_params(params=params, model=model, unit_x=unit, unit_y=unit)  # -> params
 │   └── return  # params, on the pytorch3d frame
 ├── def _standard_to_vulkan(params: Dict[str, Union[int, float, torch.Tensor]], model: str) -> Dict[str, Union[int, float, torch.Tensor]]
 │   ├── # Restates pixel params on Vulkan's device frame, which agrees with standard on both axis directions and differs from OpenGL's in exactly that.
 │   ├── impls unit_x, unit_y = 2 / w, 2 / h
-│   ├── calls _centre_principal_point(params=params)
-│   ├── calls _rescale_intr_params(params=params, model=model, unit_x=unit_x, unit_y=unit_y)
+│   ├── calls _centre_principal_point(params=params)  # -> params
+│   ├── calls _rescale_intr_params(params=params, model=model, unit_x=unit_x, unit_y=unit_y)  # -> params
 │   └── return  # params, on the vulkan frame
 ├── def _centre_principal_point(params: Dict[str, Union[int, float, torch.Tensor]]) -> Dict[str, Union[int, float, torch.Tensor]]
 │   ├── # Moves the principal point off the image's top-left corner onto its centre, the separation no axis reversal can carry and the largest of the three.
@@ -209,7 +209,7 @@ conventions.py
     │   │   ├── impls params["fx"], params["fy"] = unit_x * params["fx"], unit_y * params["fy"]  # the two models carry the same focal params and take the same rule, a focal being a pixels-per-camera-unit ratio either way
     │   │   └── return params
     │   └── raise NotImplementedError  # a camera model whose focal params no rescale here has a rule for yet
-    ├── calls _rescale_focal(params=params)
+    ├── calls _rescale_focal(params=params)  # -> params
     └── return  # params, in the target unit, h and w as they came in
 ```
 
@@ -299,7 +299,7 @@ camera_intrinsics.py
 │   │   ├── impls resolution, sx, sy = the returned values from _normalize_inputs
 │   │   ├── # A rounded raster and a raw factor are not exactly consistent when the product is not whole; the gradient is what this trade keeps.
 │   │   ├── impls transform = [[sx, 0, 0], [0, sy, 0], [0, 0, 1]]                                # a resize scales both axes about the pixel frame's own origin, its top-left corner, which is what makes it diagonal
-│   │   ├── impls intrinsics = self.transform_intrinsics(transform=transform, resolution=resolution)
+│   │   ├── calls self.transform_intrinsics(transform=transform, resolution=resolution)  # -> intrinsics
 │   │   └── return intrinsics
 │   ├── def transform_intrinsics(self, transform: torch.Tensor, resolution: Tuple[Union[int, torch.Tensor], Union[int, torch.Tensor]]) -> "CameraIntrinsics"
 │   │   ├── # Return this CameraIntrinsics restated onto another image by a pixel-frame affine, the raster that image is named alongside it because a 3x3 carries no size of its own.
