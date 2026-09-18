@@ -413,7 +413,7 @@ io.py
 │   └── return
 ├── def _serialize_cameras_json(cameras: "Cameras") -> List[Dict[str, Any]]
 │   ├── # Map a Cameras to the plural json payload: one dict per camera.
-│   ├── impls per_camera_dicts — an empty accumulator the loop appends to
+│   ├── impls per_camera_dicts = an empty accumulator the loop appends to
 │   ├── for each camera in cameras
 │   │   ├── calls _serialize_intrinsics_params(params=camera.intrinsics.params)
 │   │   └── impls builds that camera's json dict from intrinsics.model, serialized_params, intrinsics.intr_convention, extrinsics.extrinsics, extrinsics.extr_convention, camera.dtype spelled by its torch name (e.g. "float64"), name, and id  # impls-node-one-step:skip; each frame is keyed for the half it came off, and the resolution rides inside serialized_params
@@ -464,7 +464,7 @@ io.py
 │   ├── calls _validate_inputs
 │   ├── impls extrinsics = payload["extrinsics"], the batched [N, 4, 4] cam2world array
 │   ├── impls batch_size = extrinsics.shape[0]
-│   ├── impls model_array, params_array, intr_convention_array, extr_convention_array, dtype_array, name_array, has_name_array, id_array, has_id_array — the nine per-camera arrays read from payload
+│   ├── impls model_array, params_array, intr_convention_array, extr_convention_array, dtype_array, name_array, has_name_array, id_array, has_id_array = the nine per-camera arrays read from payload
 │   ├── impls model, intr_convention, extr_convention = the one value model_array, intr_convention_array and extr_convention_array each hold
 │   ├── impls dtype = the torch dtype dtype_array's one entry spells
 │   ├── impls names, ids = the name and id arrays as lists, each entry taken only where its has_name / has_id flag is set  # impls-node-one-step:skip
