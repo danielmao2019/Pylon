@@ -336,21 +336,44 @@ camera_intrinsics.py
 │   │   │   │   │   └── assert resolution[0] and resolution[1] are positive integer-valued numbers
 │   │   │   │   └── return
 │   │   │   ├── if scale is not None
-│   │   │   │   ├── assert scale is a positive number, or an array-like holding one or two positive numbers
+│   │   │   │   ├── assert scale is a positive int or float, a length-2 tuple or list of positive numbers, or an np.ndarray or torch.Tensor holding one or two positive numbers
 │   │   │   │   └── return
 │   │   │   └── assert 0, "Should not reach here."
 │   │   ├── calls _validate_inputs
 │   │   ├── def _normalize_inputs [local]
-│   │   │   ├── calls _resolve_target_resolution(params=self._params, resolution=resolution, scale=scale)  # -> resolution; the target the params are restated against, whichever of the two forms named it
-│   │   │   ├── if scale is not None
-│   │   │   │   └── impls sx, sy = the caller's factor, per axis  # taken raw rather than re-derived from resolution, which _resolve_target_resolution detached and rounded to whole pixels, severing a tensor factor from the autograd graph
-│   │   │   ├── else
-│   │   │   │   └── impls sx, sy = resolution[1] / self._params["w"], resolution[0] / self._params["h"]  # the size the params are already stated against is two of those params, the one place every model states it
-│   │   │   └── return resolution, sx, sy
+│   │   │   ├── def _normalize_resolution [local]
+│   │   │   │   ├── # Restate the given resolution as the (h, w) pair of ints a rescale reads.
+│   │   │   │   ├── if resolution is a single int
+│   │   │   │   │   └── return (resolution, resolution)
+│   │   │   │   ├── if resolution is a length-2 array-like
+│   │   │   │   │   └── return (int(resolution[0]), int(resolution[1]))
+│   │   │   │   └── assert 0, "Should not reach here."
+│   │   │   ├── def _normalize_scale [local]
+│   │   │   │   ├── # Restate the given scale as the [2] (sx, sy) tensor a rescale reads, on self._device in self._dtype.
+│   │   │   │   ├── if scale is an int or a float
+│   │   │   │   │   └── return [scale, scale] as a [2] tensor on self._device in self._dtype  # one factor names the same one on both axes, in the (sx, sy) form the pair case arrives in
+│   │   │   │   ├── if scale is a tuple or list
+│   │   │   │   │   └── return scale[0] and scale[1], each as a tensor on self._device in self._dtype reshaped to a scalar, stacked to [2]
+│   │   │   │   ├── if scale is an np.ndarray or torch.Tensor holding one element
+│   │   │   │   │   └── return scale as a tensor on self._device in self._dtype, reshaped to a scalar, repeated to [2]  # one factor names the same one on both axes
+│   │   │   │   ├── if scale is an np.ndarray or torch.Tensor holding two elements
+│   │   │   │   │   └── return scale as a tensor on self._device in self._dtype, reshaped to [2]
+│   │   │   │   └── assert 0, "Should not reach here."
+│   │   │   ├── if resolution is not None  # the target named by its size, so the factor is that size over the one the params already state
+│   │   │   │   ├── calls _normalize_resolution  # -> resolution
+│   │   │   │   ├── impls scale = (resolution[1] / self._params["w"], resolution[0] / self._params["h"])  # the size the params are already stated against is two of those params, the one place every model states it
+│   │   │   │   └── return resolution, scale
+│   │   │   ├── if scale is not None  # the target named by a factor, so the size is that factor on the one the params already state
+│   │   │   │   ├── calls _normalize_scale  # -> scale, taken raw rather than re-derived from the resolution below, which is detached and rounded to whole pixels, severing a tensor factor from the autograd graph
+│   │   │   │   ├── impls height = the params' own h * scale[1], both detached and in float64 on cpu, rounded to an int64 tensor
+│   │   │   │   ├── impls width = the params' own w * scale[0], both detached and in float64 on cpu, rounded to an int64 tensor
+│   │   │   │   ├── impls resolution = (height, width)  # a factor small enough to round a side to zero names no image, which transform_intrinsics refuses
+│   │   │   │   └── return resolution, scale
+│   │   │   └── assert 0, "Should not reach here."
 │   │   ├── calls _normalize_inputs(resolution=resolution, scale=scale)
-│   │   ├── impls resolution, sx, sy = the returned values from _normalize_inputs
+│   │   ├── impls resolution, scale = the returned values from _normalize_inputs
 │   │   ├── # A rounded raster and a raw factor are not exactly consistent when the product is not whole; the gradient is what this trade keeps.
-│   │   ├── impls transform = [[sx, 0, 0], [0, sy, 0], [0, 0, 1]]                                # a resize scales both axes about the pixel frame's own origin, its top-left corner, which is what makes it diagonal
+│   │   ├── impls transform = [[scale[0], 0, 0], [0, scale[1], 0], [0, 0, 1]]                                # a resize scales both axes about the pixel frame's own origin, its top-left corner, which is what makes it diagonal
 │   │   ├── calls self.transform_intrinsics(transform=transform, resolution=resolution)  # -> intrinsics
 │   │   └── return intrinsics
 │   ├── def transform_intrinsics(self, transform: torch.Tensor, resolution: Tuple[Union[int, torch.Tensor], Union[int, torch.Tensor]]) -> "CameraIntrinsics"
