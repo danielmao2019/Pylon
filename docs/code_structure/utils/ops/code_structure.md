@@ -1,4 +1,4 @@
-# utils/ops — code structure
+# utils/ops: code structure
 
 `utils/ops/chunked_matmul.py`
 
