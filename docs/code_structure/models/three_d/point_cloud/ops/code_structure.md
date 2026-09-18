@@ -94,13 +94,15 @@ apply_transform.py
 world_to_camera_transform.py
 ├── from typing import Optional
 ├── import torch
+├── from data.structures.three_d.camera.extrinsics.validation import validate_camera_extrinsics
 ├── from models.three_d.point_cloud.ops.apply_transform import apply_transform
 └── def world_to_camera_transform(points: torch.Tensor, extrinsics: torch.Tensor, inplace: bool = False, max_divide: int = 0, num_divide: Optional[int] = None) -> torch.Tensor
     ├── # High-level API mapping world-frame points into the camera frame: inverts the camera-to-world extrinsics and applies them via apply_transform, any leading axes on the extrinsics flowing through onto the result.
     ├── def _validate_inputs [local]
-    │   ├── assert points is a [N, 3] float torch.Tensor  # the point axis is the only one this entry takes; a leading axis on the points would compose with the extrinsics' own and leave the output's axis order unstated
-    │   ├── assert extrinsics is a [..., 4, 4] float torch.Tensor on the points' device
-    │   └── assert inplace is False whenever extrinsics carries a leading axis  # [N, 3] in and [..., N, 3] out is a shape expansion, so there is no buffer to write back into
+    │   ├── assert isinstance(points, torch.Tensor)  # apply_transform hands back the type it is given, and this entry returns a torch.Tensor
+    │   ├── assert points.ndim == 2  # the point axis is the only one this entry takes, since a leading axis on the points would compose with the extrinsics' own and leave the output's axis order unstated
+    │   ├── assert isinstance(extrinsics, torch.Tensor)  # the inverse is taken in torch
+    │   └── calls validate_camera_extrinsics(extrinsics)  # the [..., 4, 4] cam2world stack, checked by the module that owns what a camera extrinsics matrix is
     ├── calls _validate_inputs()
     ├── impls world_to_camera = the inverse of the [..., 4, 4] camera-to-world extrinsics, inverted over the trailing two axes  # one op over the whole stack, a single pose and a batch of poses alike
     ├── calls apply_transform(points=points, transform=world_to_camera, inplace=inplace, max_divide=max_divide, num_divide=num_divide)
