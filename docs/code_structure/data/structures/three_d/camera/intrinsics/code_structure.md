@@ -263,12 +263,7 @@ camera_intrinsics.py
 │   ├── def __init__(self, params: Dict[str, Union[int, float, np.ndarray, torch.Tensor]], intr_convention: str, device: Optional[Union[str, torch.device]] = None, dtype: Optional[torch.dtype] = None) -> None
 │   │   ├── # Construct a CameraIntrinsics from tensor-compatible named scalar params and the image-plane frame they are stated in.
 │   │   ├── def _validate_inputs [local]
-│   │   │   ├── assert params is a dict of str to int, float, np.ndarray or torch.Tensor
-│   │   │   ├── assert every np.ndarray param has a numeric dtype  # the normalization casts every param onto one floating dtype, which would turn a bool into 0 / 1 without a word
-│   │   │   ├── assert every torch.Tensor param is real-valued  # that same cast would drop an imaginary part without a word
-│   │   │   ├── assert intr_convention is a str
-│   │   │   ├── assert device is None or a str or torch.device
-│   │   │   └── assert dtype is None or a floating torch dtype
+│   │   │   └── calls validate_camera_intrinsics_attributes(model=type(self).MODEL, intr_convention=intr_convention, params=params, device=device, dtype=dtype)
 │   │   ├── calls _validate_inputs
 │   │   ├── def _normalize_inputs [local]
 │   │   │   ├── if device is None
