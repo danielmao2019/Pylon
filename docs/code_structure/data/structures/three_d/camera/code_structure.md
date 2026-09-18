@@ -174,7 +174,7 @@ cameras.py
     │   │   │   └── impls ids = one None per camera of the batch both components share
     │   │   └── return intrinsics, extrinsics, names, ids, device, dtype
     │   ├── calls _normalize_inputs(intrinsics=intrinsics, extrinsics=extrinsics, names=names, ids=ids, device=device, dtype=dtype)
-    │   ├── impls intrinsics, extrinsics, names, ids, device, dtype = the returned values from _normalize_inputs
+    │   ├── impls intrinsics, extrinsics, names, ids, device, dtype, batch_size = the returned values from _normalize_inputs
     │   ├── impls self._intrinsics = intrinsics  # params each [B], or scalars and [1] columns where the intrinsics broadcasts over the batch
     │   ├── impls self._extrinsics = extrinsics  # matrix [B, 4, 4], or the [4, 4] it broadcasts over the batch
     │   ├── impls self._names = names
