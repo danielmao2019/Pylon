@@ -79,7 +79,7 @@ test_intrinsics.py
 │   │       └── calls validate_camera_intrinsics_params(model=this model, intr_convention="standard", params=its projection keys without h and w)
 │   └── return
 ├── def test_the_principal_point_must_lie_on_the_image_in_its_own_frames_extent
-│   ├── # A principal point is where the optical axis meets the image, so it lies on the image — and what that bound is depends on the frame, which is why the check reads the two together rather than either alone.
+│   ├── # A principal point is where the optical axis meets the image, so it lies on the image, and what that bound is depends on the frame, which is why the check reads the two together rather than either alone.
 │   ├── calls _tensor_params(params=an ortho key set whose principal point lies off the image)
 │   ├── calls validate_camera_intrinsics_invariants(model=a supported model, intr_convention=each frame in turn, params=a principal point placed against that frame's own extent)
 │   ├── impls assert a standard cx of w and cy of h pass, and either one past its own side fails                            # impls-node-one-step:skip
@@ -88,7 +88,7 @@ test_intrinsics.py
 │   ├── impls assert an ortho principal point passes anywhere finite under every frame, its cx and cy naming where the world origin lands rather than where an optical axis pierces  # impls-node-one-step:skip
 │   └── return
 ├── def test_a_centred_principal_point_survives_its_models_own_key_dispatch
-│   ├── # Every frame but standard puts the origin at the image's centre, so half of it carries a negative principal point — which the per-model key dispatch must not read as out of range, that bound belonging to the frame alone.
+│   ├── # Every frame but standard puts the origin at the image's centre, so half of it carries a negative principal point, which the per-model key dispatch must not read as out of range, that bound belonging to the frame alone.
 │   ├── calls _tensor_params(params=simple_pinhole's key set at a negative cx and cy)
 │   ├── calls _tensor_params(params=pinhole's key set at a negative cx and cy)
 │   ├── calls _tensor_params(params=ortho's key set at a negative cx and cy)
@@ -325,7 +325,7 @@ test_intrinsics.py
 │   │   └── calls intrinsics.scale_intrinsics(scale=that same unequal (sx, sy) pair)
 │   └── return
 ├── def test_a_per_axis_normalized_frames_params_do_not_move_with_the_resolution
-│   ├── # opengl and vulkan each measure an axis by its own side, so restating one against a different size — of a different aspect ratio included — moves no param and only the size it reports changes.
+│   ├── # opengl and vulkan each measure an axis by its own side, so restating one against a different size (of a different aspect ratio included) moves no param and only the size it reports changes.
 │   ├── for each of the opengl and vulkan frames
 │   │   ├── calls build_camera_intrinsics(model="pinhole", params=its own key set, intr_convention=this frame)  # a shared focal is what a change of aspect ratio has nowhere to put, so the model carrying two is the one this reads
 │   │   ├── calls intrinsics.scale_intrinsics(resolution=a target resolution of a different aspect ratio)
