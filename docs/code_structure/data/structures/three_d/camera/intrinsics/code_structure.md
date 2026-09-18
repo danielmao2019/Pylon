@@ -16,7 +16,8 @@ class ABC
 
 ```text
 validation.py
-├── from typing import Any, Dict
+├── from typing import Any, Dict, Union
+├── import numpy as np
 ├── import torch
 ├── def validate_camera_intrinsics_attributes(model: str, intr_convention: Any, params: Any, device: Any, dtype: Any) -> None
 │   ├── # Single-entry validation for CameraIntrinsics.__init__: validate the camera model, image-plane convention, named params, and optional placement request.
@@ -24,9 +25,13 @@ validation.py
 │   ├── calls validate_intr_convention(intr_convention=intr_convention)
 │   ├── calls validate_camera_intrinsics_params(model=model, intr_convention=intr_convention, params=params)  # the frame goes in ahead of the params, what they mean together depending on it
 │   ├── assert device is None or a str or torch.device
+│   ├── if device is None  # an unset device resolves to the one the tensor params share
+│   │   └── assert len({value.device for each torch.Tensor value of params.values()}) <= 1  # the params of one intrinsics are parts of one object, so they sit on one device
 │   ├── assert dtype is None or a torch.dtype
 │   ├── if dtype is not None
 │   │   └── assert dtype is a floating dtype
+│   ├── if dtype is None  # an unset dtype resolves to the one the floating params share
+│   │   └── assert len({the torch dtype of value for each floating torch.Tensor or floating np.ndarray value of params.values()}) <= 1  # the params of one intrinsics are parts of one object, so they hold one dtype
 │   └── return
 ├── def validate_camera_model(model: Any) -> str
 │   ├── # Validate a camera-model string against the supported set.
@@ -267,23 +272,24 @@ camera_intrinsics.py
 │   │   ├── calls _validate_inputs
 │   │   ├── def _normalize_inputs [local]
 │   │   │   ├── if device is None
-│   │   │   │   ├── if any param is a torch.Tensor
-│   │   │   │   │   └── impls device = the device of the first torch.Tensor param  # the one exception: an unset device resolves to the given params', so a component __getitem__ rebuilds stays where its batch is
+│   │   │   │   ├── impls param_devices = {value.device for each torch.Tensor value of params.values()}  # a set of every tensor param's device, so no param is the one read
+│   │   │   │   ├── if len(param_devices) > 0
+│   │   │   │   │   └── impls device = the single device in param_devices  # single, since validate_camera_intrinsics_attributes asserts the tensor params share one; the one exception: an unset device resolves to the given params', so a component __getitem__ rebuilds stays where its batch is
 │   │   │   │   └── else
 │   │   │   │       └── impls device = the cpu device
 │   │   │   ├── impls device = device as a torch.device
 │   │   │   ├── if device.type == "cuda" and device.index is None  # one physical device has one spelling here, so a cuda and a cuda:0 naming it never compare unequal
 │   │   │   │   └── impls device = the cuda device at the index of torch's current cuda device  # where a tensor sent to a bare cuda lands, and so the device it reports
 │   │   │   ├── if dtype is None
-│   │   │   │   ├── if any param is a floating torch.Tensor or np.ndarray
-│   │   │   │   │   └── impls dtype = the torch dtype of the first floating torch.Tensor or np.ndarray param  # the one exception: an unset dtype resolves to the given params', so a component __getitem__ rebuilds keeps the dtype its batch holds
+│   │   │   │   ├── impls param_dtypes = {the torch dtype of value for each floating torch.Tensor or floating np.ndarray value of params.values()}  # a set of every floating param's dtype, so no param is the one read
+│   │   │   │   ├── if len(param_dtypes) > 0
+│   │   │   │   │   └── impls dtype = the single dtype in param_dtypes  # single, since validate_camera_intrinsics_attributes asserts the floating params share one; the one exception: an unset dtype resolves to the given params', so a component __getitem__ rebuilds keeps the dtype its batch holds
 │   │   │   │   └── else
 │   │   │   │       └── impls dtype = torch.float32
 │   │   │   ├── impls params = each value materialized as a torch.Tensor on device and in dtype  # every param follows the resolved device and dtype, never the other way around
 │   │   │   └── return params, device, dtype
 │   │   ├── calls _normalize_inputs(params=params, device=device, dtype=dtype)
 │   │   ├── impls params, device, dtype = the returned values from _normalize_inputs
-│   │   ├── calls validate_camera_intrinsics_attributes(model=type(self).MODEL, intr_convention=intr_convention, params=params, device=device, dtype=dtype)  # the attributes, not the inputs, so it runs on the normalized params it asserts are tensors
 │   │   ├── impls self._params = params
 │   │   ├── impls self._intr_convention = intr_convention
 │   │   ├── impls self._device = device  # the resolved device the params were built on, not read back off them
