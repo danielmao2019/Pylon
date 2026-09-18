@@ -159,8 +159,8 @@ load.py
 │   ├── impls extrinsics = the batched CameraExtrinsics it built
 │   ├── impls names: List[Optional[str]] = the stem of each frame's file_path as a Path
 │   ├── for each frame in frames
-│   │   ├── if frame carries a colmap_im_id
-│   │   │   └── impls append that colmap_im_id to ids
+│   │   ├── if "colmap_im_id" in frame
+│   │   │   └── impls append frame["colmap_im_id"] to ids
 │   │   └── else
 │   │       └── impls append None to ids
 │   ├── calls Cameras(intrinsics=intrinsics, extrinsics=extrinsics, names=names, ids=ids, device=device)
