@@ -1,4 +1,4 @@
-# utils/ops — tests structure
+# utils/ops: tests structure
 
 `tests/utils/ops/test_chunked_matmul.py`
 

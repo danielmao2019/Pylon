@@ -231,7 +231,7 @@ test_conventions.py
 │   ├── for each name of functions
 │   │   └── if "_to_" in name and "standard" not in name
 │   │       └── impls append name to obliques
-│   └── assert spokes ⊆ set(functions) and obliques == []
+│   └── assert spokes <= set(functions) and obliques == []
 ├── def test_a_frame_change_comes_down_to_the_same_per_axis_rescale
 │   ├── # A frame change's only length step is the per-axis rescale the conventions module owns, which is why a shared focal is refused identically whether a caller goes through the frame change or reaches that rescale directly.
 │   ├── calls _build_pinhole_params  # -> params, a pinhole's key set
