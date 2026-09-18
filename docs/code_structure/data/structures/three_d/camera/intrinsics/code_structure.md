@@ -19,7 +19,7 @@ validation.py
 ├── from typing import Any, Dict
 ├── import torch
 ├── def validate_camera_intrinsics_attributes(model: str, intr_convention: Any, params: Any, device: Any, dtype: Any) -> None
-│   ├── # Single-entry validation for CameraIntrinsics.__init__: validate the camera model, image-plane convention, tensor named params, and optional placement request.
+│   ├── # Single-entry validation for CameraIntrinsics.__init__: validate the camera model, image-plane convention, named params, and optional placement request.
 │   ├── calls validate_camera_model(model=model)
 │   ├── calls validate_intr_convention(intr_convention=intr_convention)
 │   ├── calls validate_camera_intrinsics_params(model=model, intr_convention=intr_convention, params=params)  # the frame goes in ahead of the params, what they mean together depending on it
@@ -35,7 +35,7 @@ validation.py
 │   ├── impls asserts intr_convention is a str in {standard, opengl, pytorch3d, vulkan}
 │   └── return intr_convention
 ├── def validate_camera_intrinsics_params(model: str, intr_convention: str, params: Any) -> Dict[str, torch.Tensor]
-│   ├── # Validate the named tensor intrinsics params: the resolution keys every model carries, the projection keys that model's own dispatch owns, and the invariants holding only across those keys together.
+│   ├── # Validate the named intrinsics params: the resolution keys every model carries, the projection keys that model's own dispatch owns, and the invariants holding only across those keys together.
 │   ├── assert params is a dict whose every value is a floating torch.Tensor of at most one axis  # checked first, since every check below reads a value's shape
 │   ├── assert params carries h and w, both positive and all params sharing one leading batch shape  # impls-node-one-step:skip; the resolution, named the way every resolution in this repo is ordered: h first, and a scalar param is the empty-batch case
 │   ├── def _validate_projection_params() -> Dict[str, torch.Tensor] [local]
