@@ -94,7 +94,7 @@ load.py
 │   │   └── assert isinstance(device, (str, torch.device))
 │   ├── calls _validate_inputs
 │   ├── impls path = Path(filepath).resolve()
-│   ├── impls target_device = torch.device(device)
+│   ├── impls target_device = device as a torch.device
 │   ├── assert path.is_file()  # f"transforms.json not found: {path}"
 │   ├── with path.open("r", encoding="utf-8") as handle
 │   │   └── impls data: Dict[str, Any] = json.load(handle)
