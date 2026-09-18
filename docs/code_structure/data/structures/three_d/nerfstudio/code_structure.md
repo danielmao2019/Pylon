@@ -154,13 +154,29 @@ load.py
 ├── def load_cameras(data: Dict[str, Any], device: Union[str, torch.device] = torch.device("cpu")) -> Cameras
 │   ├── # Reads the frames of one NerfStudio transforms record as the cameras that posed them.
 │   ├── impls frames: List[Any] = the frames the record lists
-│   ├── impls intrinsics_params = the record's fl_x, fl_y, cx, cy as float fx, fy, cx, cy, its h, w as ints
-│   ├── calls build_camera_intrinsics(model="pinhole", params=each intrinsics_params value broadcast to a float32 [len(frames)] tensor on device, intr_convention="standard", device=device)  # the record's one top-level pinhole governs every frame
+│   ├── def _load_camera_intrinsics [local]
+│   │   ├── # Build the batched pinhole CameraIntrinsics the record's one top-level pinhole states for every frame.
+│   │   ├── impls intrinsics_params = the record's fl_x, fl_y, cx, cy as float fx, fy, cx, cy, its h, w as ints
+│   │   ├── impls batched_params = an empty dict  # the record's one top-level pinhole governs every frame
+│   │   ├── for each key, value of intrinsics_params
+│   │   │   └── impls batched_params[key] = value broadcast to a float32 [len(frames)] tensor on device
+│   │   ├── calls build_camera_intrinsics(model="pinhole", params=batched_params, intr_convention="standard", device=device)
+│   │   └── return  # the batched CameraIntrinsics it built
+│   ├── calls _load_camera_intrinsics
 │   ├── impls intrinsics = the batched CameraIntrinsics it built
-│   ├── calls CameraExtrinsics(extrinsics=every frame's transform_matrix stacked as a float32 [len(frames), 4, 4] tensor on device, extr_convention="opengl", device=device)
+│   ├── def _load_camera_extrinsics [local]
+│   │   ├── # Build the batched opengl CameraExtrinsics of every frame's transform_matrix.
+│   │   ├── impls transform_matrices = an empty list
+│   │   ├── for each frame in frames
+│   │   │   └── impls append frame["transform_matrix"] to transform_matrices
+│   │   ├── calls CameraExtrinsics(extrinsics=transform_matrices as a float32 [len(frames), 4, 4] tensor on device, extr_convention="opengl", device=device)
+│   │   └── return  # the batched CameraExtrinsics it built
+│   ├── calls _load_camera_extrinsics
 │   ├── impls extrinsics = the batched CameraExtrinsics it built
-│   ├── impls names: List[Optional[str]] = the stem of each frame's file_path as a Path
+│   ├── impls names: List[Optional[str]] = an empty list
+│   ├── impls ids: List[Optional[int]] = an empty list
 │   ├── for each frame in frames
+│   │   ├── impls append the stem of frame["file_path"] as a Path to names
 │   │   ├── if "colmap_im_id" in frame
 │   │   │   └── impls append frame["colmap_im_id"] to ids
 │   │   └── else
