@@ -16,7 +16,7 @@ class ABC
 
 ```text
 validation.py
-├── from typing import Any, Dict, Union
+├── from typing import Any, Dict, Tuple, Union
 ├── import numpy as np
 ├── import torch
 ├── def validate_camera_intrinsics_attributes(model: str, intr_convention: Any, params: Any, device: Any, dtype: Any) -> None
@@ -256,7 +256,8 @@ camera_intrinsics.py
 ├── import numpy as np
 ├── import torch
 ├── from data.structures.three_d.camera.intrinsics.conventions import transform_intr_convention
-├── from data.structures.three_d.camera.intrinsics.validation import validate_camera_intrinsics_attributes, validate_intr_convention
+├── from data.structures.three_d.camera.intrinsics.validation import validate_axis_aligned_affine, validate_camera_intrinsics_attributes, validate_intr_convention, validate_resolution
+├── from utils.ops.apply import apply_tensor_op
 ├── class CameraIntrinsics(ABC)   [abstract]
 │   ├── # Abstract base for a camera's intrinsics: owns tensor named params, image-plane frame, device, and dtype, with each subclass being one camera model.
 │   ├── MODEL: ClassVar[str]  # each concrete subclass sets its camera-model identifier (simple_pinhole / pinhole / ortho)
