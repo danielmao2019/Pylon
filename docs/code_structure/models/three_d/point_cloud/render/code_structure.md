@@ -265,8 +265,8 @@ render_normal.py
 │   ├── if point_size > 1.0
 │   │   ├── calls render_depth_from_rendering_points(rendering_points=rendering_points, resolution=resolution, ignore_value=float("inf"), return_mask=False)
 │   │   ├── impls depth_map = the depth map it rasterized
-│   │   ├── calls apply_point_size_postprocessing(rendered_image=depth_map, depth_map=depth_map, point_size=point_size, ignore_value=float("inf"))
-│   │   ├── impls covered = the finite pixels of the dilated depth map  # the disc each surviving point reached, which is both this renderer's mask and its background
+│   │   ├── calls apply_point_size_postprocessing(rendered_image=depth_map, depth_map=depth_map, point_size=point_size, ignore_value=float("inf"))  # -> dilated_depth
+│   │   ├── impls covered = the finite pixels of dilated_depth  # the disc each surviving point reached, which is both this renderer's mask and its background
 │   │   ├── calls apply_point_size_postprocessing(rendered_image=normal_map, depth_map=depth_map, point_size=point_size, ignore_value=float("inf"))
 │   │   ├── impls normal_map = the dilated map it returned
 │   │   ├── impls normal_map = normal_map with ignore_value written back wherever covered is False  # the helper fills with the depth sentinel it was handed, which is not this renderer's own background
