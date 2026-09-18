@@ -6,7 +6,7 @@
 utils/ops/
 ├── __init__.py
 ├── apply.py
-├── chunked_matmul.py  # large×square-small chunked matmul with an in-place option, shrinking the chunk on CUDA OOM until it fits
+├── chunked_matmul.py  # large x square-small chunked matmul with an in-place option, shrinking the chunk on CUDA OOM until it fits
 ├── dict_as_tensor.py
 ├── dict_ops.py
 └── materialize_tensor.py

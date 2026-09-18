@@ -271,11 +271,11 @@ kitti_dataset.py
         ├── impls two_pos = the two poses it built
         ├── impls fname0 = the velodyne file frame t0 names under this sequence
         ├── impls fname1 = the velodyne file frame t1 names under this sequence
-        ├── impls xyzr0 = fname0 read as float32 and reshaped to four columns  # impls-node-one-step:skip — one step; the "and" names what it is made of
-        ├── impls xyzr1 = fname1 read as float32 and reshaped to four columns  # impls-node-one-step:skip — one step; the "and" names what it is made of
+        ├── impls xyzr0 = fname0 read as float32 and reshaped to four columns  # impls-node-one-step:skip; one step; the "and" names what it is made of
+        ├── impls xyzr1 = fname1 read as float32 and reshaped to four columns  # impls-node-one-step:skip; one step; the "and" names what it is made of
         ├── impls xyz0 = the leading three columns of xyzr0
         ├── impls xyz1 = the leading three columns of xyzr1
-        ├── impls icp_cache_file = the cache file this sequence and frame pair names  # impls-node-one-step:skip — one step; the "and" names what it is made of
+        ├── impls icp_cache_file = the cache file this sequence and frame pair names  # impls-node-one-step:skip; one step; the "and" names what it is made of
         ├── if icp_cache_file does not exist
         │   ├── impls M = the odometry-implied source-to-target pose, carried through self.velo2cam at both ends
         │   ├── calls self.apply_transform(xyz0, M)
@@ -316,7 +316,7 @@ modelnet40_dataset.py
         ├── impls self.annotations = an empty list
         ├── for each file_path in off_files
         │   ├── calls self.get_category_from_path(file_path)
-        │   └── impls append to self.annotations that file as both source and target, under the category it named  # impls-node-one-step:skip — one step; the "and" names what it is made of
+        │   └── impls append to self.annotations that file as both source and target, under the category it named  # impls-node-one-step:skip; one step; the "and" names what it is made of
         └── impls the count found printed for the split
 ```
 
@@ -387,7 +387,7 @@ synthetic_transform_pcr_dataset.py
         ├── calls load_point_cloud(t2_pc_filepath, device=self.device, dtype=torch.float32)
         ├── impls t1_pc_data, t2_pc_data = the two clouds it loaded
         ├── calls self._apply_transform(t1_pc_data, t2_pc_data, transform_matrix)
-        ├── impls src_pc_transformed, tgt_pc_original = the first cloud carried by the inverse pose and the second left where it was  # impls-node-one-step:skip — one step; the "and" names what it is made of
+        ├── impls src_pc_transformed, tgt_pc_original = the first cloud carried by the inverse pose and the second left where it was  # impls-node-one-step:skip; one step; the "and" names what it is made of
         ├── calls self._apply_crop(idx, src_pc_transformed)
         ├── calls self._apply_crop(idx, tgt_pc_original)
         ├── impls src_pc, tgt_pc = the two cropped clouds
@@ -417,7 +417,7 @@ threedmatch_dataset.py
 │       ├── calls load_point_cloud(annotation['tgt_path'], device=self.device)
 │       ├── impls src_pc, tgt_pc = the two clouds it loaded
 │       ├── impls add a float32 ones column as feat to each of them
-│       ├── impls transform_tgt_to_src = the float32 [4, 4] the annotation's rotation and translation make  # impls-node-one-step:skip — one step; the "and" names what it is made of
+│       ├── impls transform_tgt_to_src = the float32 [4, 4] the annotation's rotation and translation make  # impls-node-one-step:skip; one step; the "and" names what it is made of
 │       ├── impls transform = the inverse of transform_tgt_to_src
 │       └── return  # the two clouds, transform as the label, and the paths, scene name, overlap and two frame ids as meta info
 ├── class ThreeDMatchDataset(_ThreeDMatchBaseDataset)

@@ -91,17 +91,17 @@ load_point_cloud.py
 │   │   │   └── impls nameInPly = the name of that one element
 │   │   ├── impls num_verts = the vertex count of plydata[nameInPly]
 │   │   ├── impls available_fields = the field names of plydata[nameInPly]
-│   │   ├── impls positions = a zeros array of shape [num_verts, 3] and dtype np.float64  # impls-node-one-step:skip — names the shape and the dtype
+│   │   ├── impls positions = a zeros array of shape [num_verts, 3] and dtype np.float64  # impls-node-one-step:skip; names the shape and the dtype
 │   │   ├── impls positions column 0 = the x field cast to np.float64
 │   │   ├── impls positions column 1 = the y field cast to np.float64
 │   │   ├── impls positions column 2 = the z field cast to np.float64
 │   │   ├── impls result = {'xyz': positions}
 │   │   ├── if available_fields carries red, green and blue
-│   │   │   ├── impls rgb = the red, green and blue fields column-stacked, in the dtype and range they are stored in  # impls-node-one-step:skip — names the fields
+│   │   │   ├── impls rgb = the red, green and blue fields column-stacked, in the dtype and range they are stored in  # impls-node-one-step:skip; names the fields
 │   │   │   └── impls result['rgb'] = rgb made contiguous
 │   │   ├── for each field_name in available_fields
 │   │   │   └── if field_name is none of x, y, z, red, green and blue
-│   │   │       ├── impls field_array = the field made contiguous, in the shape and dtype it is stored in  # impls-node-one-step:skip — names shape and dtype
+│   │   │       ├── impls field_array = the field made contiguous, in the shape and dtype it is stored in  # impls-node-one-step:skip; names shape and dtype
 │   │   │       ├── if field_array is two-dimensional with a trailing axis of one
 │   │   │       │   └── impls field_array = field_array with that trailing axis squeezed out
 │   │   │       └── impls result[field_name] = field_array
@@ -128,17 +128,17 @@ load_point_cloud.py
 │   ├── # Reads a LAS/LAZ file into float64 coordinates plus every dimension its point format declares.
 │   ├── calls laspy.read(filepath)
 │   ├── impls las_file = the read LAS/LAZ file
-│   ├── impls points = the x, y and z dimensions cast to np.float64  # impls-node-one-step:skip — names the three dimensions
+│   ├── impls points = the x, y and z dimensions cast to np.float64  # impls-node-one-step:skip; names the three dimensions
 │   ├── impls points = points stacked into [N, 3]
 │   ├── impls result = {'xyz': points}
 │   ├── if las_file.point_format.dimension_names carries red, green and blue
-│   │   ├── impls rgb = the red, green and blue dimensions stacked into [N, 3], in the dtype and range they are stored in  # impls-node-one-step:skip — names the dimensions
+│   │   ├── impls rgb = the red, green and blue dimensions stacked into [N, 3], in the dtype and range they are stored in  # impls-node-one-step:skip; names the dimensions
 │   │   └── impls result['rgb'] = rgb
 │   ├── for each field in las_file.point_format.dimension_names
 │   │   └── if field is none of x, y, z, red, green and blue
 │   │       ├── impls attr_value = the attribute of las_file under that name
 │   │       └── if attr_value is not None
-│   │           ├── impls attr_value = attr_value as an np.ndarray, in the shape and dtype it is stored in  # impls-node-one-step:skip — names shape and dtype
+│   │           ├── impls attr_value = attr_value as an np.ndarray, in the shape and dtype it is stored in  # impls-node-one-step:skip; names shape and dtype
 │   │           ├── if attr_value is two-dimensional with a trailing axis of one
 │   │           │   └── impls attr_value = attr_value with that trailing axis squeezed out
 │   │           └── impls result[field] = attr_value
