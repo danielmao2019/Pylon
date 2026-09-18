@@ -384,16 +384,33 @@ camera_intrinsics.py
 │   └── def to(self, device: Optional[Union[str, torch.device]] = None, dtype: Optional[torch.dtype] = None, non_blocking: bool = False, copy: bool = False, intr_convention: Optional[str] = None) -> "CameraIntrinsics"
 │       ├── # Return this CameraIntrinsics with Tensor.to-style placement / copy semantics plus optional image-plane frame conversion.
 │       ├── def _validate_inputs [local]
+│       │   ├── assert device is None or isinstance(device, (str, torch.device))
+│       │   ├── assert dtype is None or isinstance(dtype, torch.dtype)
+│       │   ├── if dtype is not None
+│       │   │   └── assert dtype is a floating dtype
+│       │   ├── assert isinstance(non_blocking, bool)
+│       │   ├── assert isinstance(copy, bool)
 │       │   └── if intr_convention is not None
-│       │       └── calls validate_intr_convention
+│       │       └── calls validate_intr_convention(intr_convention=intr_convention)
 │       ├── calls _validate_inputs
-│       ├── impls params = self._params
-│       ├── if intr_convention is not None and intr_convention != self._intr_convention
-│       │   └── calls transform_intr_convention(params=params, model=type(self).MODEL, source_intr_convention=self._intr_convention, target_intr_convention=intr_convention)  # -> params, restated on the target frame; the size that change is measured against is two of those params
-│       ├── impls params = each param moved to device and dtype, with non_blocking and copy passed through  # impls-node-one-step:skip
-│       ├── if device and dtype match self, intr_convention is unchanged, and copy is False
+│       ├── def _normalize_inputs [local]
+│       │   ├── if device is None  # an unset device keeps this intrinsics' own
+│       │   │   └── impls device = self._device
+│       │   ├── impls device = device as a torch.device
+│       │   ├── if device.type == "cuda" and device.index is None  # one physical device has one spelling here, so a cuda and a cuda:0 naming it never compare unequal
+│       │   │   └── impls device = the cuda device at the index of torch's current cuda device  # where a tensor sent to a bare cuda lands, and so the device it reports
+│       │   ├── if dtype is None  # an unset dtype keeps this intrinsics' own
+│       │   │   └── impls dtype = self._dtype
+│       │   ├── if intr_convention is None  # an unset frame keeps this intrinsics' own
+│       │   │   └── impls intr_convention = self._intr_convention
+│       │   └── return device, dtype, intr_convention
+│       ├── calls _normalize_inputs(device=device, dtype=dtype, intr_convention=intr_convention)
+│       ├── impls device, dtype, intr_convention = the returned values from _normalize_inputs
+│       ├── if device and dtype match self, intr_convention is unchanged, and copy is False  # nothing to restate, move, cast or copy
 │       │   └── return self
-│       ├── impls intrinsics = type(self)(params=params, intr_convention=intr_convention or self._intr_convention)
+│       ├── calls transform_intr_convention(params=self._params, model=type(self).MODEL, source_intr_convention=self._intr_convention, target_intr_convention=intr_convention)  # -> params, restated on the target frame, or this intrinsics' own where the frame is unchanged; the size that change is measured against is two of those params
+│       ├── calls apply_tensor_op(method="to", method_kwargs={"device": device, "dtype": dtype, "non_blocking": non_blocking, "copy": copy}, inputs=params)  # -> params, every param moved and cast with Tensor.to's own copy semantics
+│       ├── impls intrinsics = type(self)(params=params, intr_convention=intr_convention)
 │       └── return intrinsics
 ├── class CameraIntrinsicsSimplePinhole(CameraIntrinsics)
 │   ├── # Simple-pinhole intrinsics: a single shared focal length f under a perspective projection.
