@@ -118,7 +118,7 @@ conventions.py
 │   │   │   ├── calls _vulkan_to_standard(params=params, model=model)  # -> params, on the standard frame
 │   │   │   └── return params
 │   │   └── assert 0, "Should not reach here."
-│   ├── calls _to_standard(params=params)
+│   ├── calls _to_standard(params=params)  # -> params, on the standard frame
 │   ├── def _from_standard(params: Dict[str, Union[int, float, torch.Tensor]]) -> Dict[str, Union[int, float, torch.Tensor]] [local]
 │   │   ├── # Dispatches the target frame onto its own outbound spoke, the standard frame needing none.
 │   │   ├── if target_intr_convention == "standard"
@@ -133,14 +133,14 @@ conventions.py
 │   │   │   ├── calls _standard_to_vulkan(params=params, model=model)  # -> params, on the vulkan frame
 │   │   │   └── return params
 │   │   └── assert 0, "Should not reach here."
-│   ├── calls _from_standard(params=params)
+│   ├── calls _from_standard(params=params)  # -> params, on the target frame
 │   └── return  # params, restated on target_intr_convention
 ├── def _opengl_to_standard(params: Dict[str, Union[int, float, torch.Tensor]], model: str) -> Dict[str, Union[int, float, torch.Tensor]]
 │   ├── # The inbound half of the same frame, the three steps run in reverse so a round trip returns what it started as.
 │   ├── impls unit_x, unit_y = w / 2, h / 2
-│   ├── calls _rescale_intr_params(params=params, model=model, unit_x=unit_x, unit_y=unit_y)
-│   ├── calls _reverse_axes(params=params, axes=("y",))
-│   ├── calls _uncentre_principal_point(params=params)
+│   ├── calls _rescale_intr_params(params=params, model=model, unit_x=unit_x, unit_y=unit_y)  # -> params
+│   ├── calls _reverse_axes(params=params, axes=("y",))  # -> params
+│   ├── calls _uncentre_principal_point(params=params)  # -> params
 │   └── return  # params, on the standard frame
 ├── def _pytorch3d_to_standard(params: Dict[str, Union[int, float, torch.Tensor]], model: str) -> Dict[str, Union[int, float, torch.Tensor]]
 │   ├── # The inbound half of the same frame, the three steps run in reverse.
@@ -148,22 +148,22 @@ conventions.py
 │   │   └── impls unit = elementwise min(h, w) / 2, one unit per camera of the batch
 │   ├── else
 │   │   └── impls unit = min(h, w) / 2
-│   ├── calls _rescale_intr_params(params=params, model=model, unit_x=unit, unit_y=unit)
-│   ├── calls _reverse_axes(params=params, axes=("x", "y"))
-│   ├── calls _uncentre_principal_point(params=params)
+│   ├── calls _rescale_intr_params(params=params, model=model, unit_x=unit, unit_y=unit)  # -> params
+│   ├── calls _reverse_axes(params=params, axes=("x", "y"))  # -> params
+│   ├── calls _uncentre_principal_point(params=params)  # -> params
 │   └── return  # params, on the standard frame
 ├── def _vulkan_to_standard(params: Dict[str, Union[int, float, torch.Tensor]], model: str) -> Dict[str, Union[int, float, torch.Tensor]]
 │   ├── # The inbound half of the same frame, the two steps run in reverse.
 │   ├── impls unit_x, unit_y = w / 2, h / 2
-│   ├── calls _rescale_intr_params(params=params, model=model, unit_x=unit_x, unit_y=unit_y)
-│   ├── calls _uncentre_principal_point(params=params)
+│   ├── calls _rescale_intr_params(params=params, model=model, unit_x=unit_x, unit_y=unit_y)  # -> params
+│   ├── calls _uncentre_principal_point(params=params)  # -> params
 │   └── return  # params, on the standard frame
 ├── def _standard_to_opengl(params: Dict[str, Union[int, float, torch.Tensor]], model: str) -> Dict[str, Union[int, float, torch.Tensor]]
 │   ├── # Restates pixel params on OpenGL's device frame, whose origin is the image's centre, whose x runs with standard's toward the right edge and whose y runs against it toward the top, each axis spanning its own side.
 │   ├── impls unit_x, unit_y = 2 / w, 2 / h              # each axis spans [-1, 1] across its own side
 │   ├── calls _centre_principal_point(params=params)     # -> params, off the top-left corner onto the image's centre
-│   ├── calls _reverse_axes(params=params, axes=("y",))  # standard's y runs toward the bottom edge and OpenGL's toward the top
-│   ├── calls _rescale_intr_params(params=params, model=model, unit_x=unit_x, unit_y=unit_y)
+│   ├── calls _reverse_axes(params=params, axes=("y",))  # -> params; standard's y runs toward the bottom edge and OpenGL's toward the top
+│   ├── calls _rescale_intr_params(params=params, model=model, unit_x=unit_x, unit_y=unit_y)  # -> params
 │   └── return  # params, on the opengl frame
 ├── def _standard_to_pytorch3d(params: Dict[str, Union[int, float, torch.Tensor]], model: str) -> Dict[str, Union[int, float, torch.Tensor]]
 │   ├── # Restates pixel params on PyTorch3D's device frame, whose origin is the image's centre, whose x runs toward the left edge and y toward the top, and whose shorter side alone spans [-1, 1].
