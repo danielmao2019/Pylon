@@ -1,4 +1,4 @@
-# utils/ops — folder structure
+# utils/ops: folder structure
 
 ## Code folder structure
 
