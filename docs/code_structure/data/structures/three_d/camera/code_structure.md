@@ -55,18 +55,30 @@ camera.py
     ├── # One camera: a CameraIntrinsics paired with a CameraExtrinsics, plus metadata and optional tensor placement.
     ├── def __init__(self, intrinsics: CameraIntrinsics, extrinsics: CameraExtrinsics, name: Optional[str] = None, id: Optional[int] = None, device: Optional[Union[str, torch.device]] = None, dtype: Optional[torch.dtype] = None) -> None
     │   ├── # Construct a Camera from tensor-backed CameraIntrinsics and CameraExtrinsics components.
-    │   ├── calls validate_camera_attributes(intrinsics=intrinsics, extrinsics=extrinsics, name=name, id=id, device=device, dtype=dtype)
-    │   ├── if device is not None or dtype is not None
-    │   │   ├── calls intrinsics.to(device=device, dtype=dtype)  # -> intrinsics
-    │   │   └── calls extrinsics.to(device=device, dtype=dtype)  # -> extrinsics
-    │   ├── impls device = the common component device
-    │   ├── impls dtype = the common component dtype
+    │   ├── def _validate_inputs [local]
+    │   │   └── calls validate_camera_attributes(intrinsics=intrinsics, extrinsics=extrinsics, name=name, id=id, device=device, dtype=dtype)
+    │   ├── calls _validate_inputs
+    │   ├── def _normalize_inputs [local]
+    │   │   ├── if device is None
+    │   │   │   ├── impls component_devices = {intrinsics.device, extrinsics.device}  # a set of both, so neither component is the one read
+    │   │   │   └── impls device = the single device in component_devices  # single, since validate_camera_attributes asserts intrinsics.device == extrinsics.device
+    │   │   ├── impls device = device as a torch.device
+    │   │   ├── if device.type == "cuda" and device.index is None  # one physical device has one spelling here, so a cuda and a cuda:0 naming it never compare unequal
+    │   │   │   └── impls device = the cuda device at the index of torch's current cuda device  # where a tensor sent to a bare cuda lands, and so the device it reports
+    │   │   ├── if dtype is None
+    │   │   │   ├── impls component_dtypes = {intrinsics.dtype, extrinsics.dtype}  # a set of both, so neither component is the one read
+    │   │   │   └── impls dtype = the single dtype in component_dtypes  # single, since validate_camera_attributes asserts intrinsics.dtype == extrinsics.dtype
+    │   │   ├── calls intrinsics.to(device=device, dtype=dtype)  # -> intrinsics, brought to the resolved device and dtype
+    │   │   ├── calls extrinsics.to(device=device, dtype=dtype)  # -> extrinsics, brought to the resolved device and dtype, never the other way around
+    │   │   └── return intrinsics, extrinsics, device, dtype
+    │   ├── calls _normalize_inputs(intrinsics=intrinsics, extrinsics=extrinsics, device=device, dtype=dtype)
+    │   ├── impls intrinsics, extrinsics, device, dtype = the returned values from _normalize_inputs
     │   ├── impls self._intrinsics = intrinsics
     │   ├── impls self._extrinsics = extrinsics
     │   ├── impls self._name = name
     │   ├── impls self._id = id
-    │   ├── impls self._device = device
-    │   └── impls self._dtype = dtype
+    │   ├── impls self._device = device  # the resolved device the components were brought to, not read back off them
+    │   └── impls self._dtype = dtype  # the resolved dtype the components were cast to, not read back off them
     ├── def intrinsics(self) -> CameraIntrinsics  # @property
     │   ├── # The camera's CameraIntrinsics ("what the camera is").
     │   └── return self._intrinsics
