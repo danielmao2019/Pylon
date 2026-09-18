@@ -281,14 +281,20 @@ camera_intrinsics.py
 │   │   │   │   │   └── impls dtype = the single dtype in param_dtypes  # single, since validate_camera_intrinsics_attributes asserts the floating params share one; the one exception: an unset dtype resolves to the given params', so a component __getitem__ rebuilds keeps the dtype its batch holds
 │   │   │   │   └── else
 │   │   │   │       └── impls dtype = torch.float32
-│   │   │   ├── impls params = each value materialized as a torch.Tensor on device and in dtype  # every param follows the resolved device and dtype, never the other way around
-│   │   │   └── return params, device, dtype
+│   │   │   ├── impls materialized_params = an empty dict  # every param follows the resolved device and dtype, never the other way around
+│   │   │   ├── for each key, value of params.items()
+│   │   │   │   └── impls materialized_params[key] = value as a torch.Tensor on device in dtype
+│   │   │   └── return materialized_params, device, dtype
 │   │   ├── calls _normalize_inputs(params=params, device=device, dtype=dtype)
 │   │   ├── impls params, device, dtype = the returned values from _normalize_inputs
+│   │   ├── impls param_shapes = {value.shape for each value of params.values()}  # a set of every param's own shape, so no param is the one read
+│   │   ├── impls batch_shape = the single shape in param_shapes  # single, since validate_camera_intrinsics_params asserts the params share one shape
+│   │   ├── impls batch_size = batch_shape[0] if batch_shape != () else None  # None where the params are scalars: an unbatched intrinsics carries no batch axis, and states one camera
 │   │   ├── impls self._params = params
 │   │   ├── impls self._intr_convention = intr_convention
 │   │   ├── impls self._device = device  # the resolved device the params were built on, not read back off them
-│   │   └── impls self._dtype = dtype  # the resolved dtype the params were built in, not read back off them
+│   │   ├── impls self._dtype = dtype  # the resolved dtype the params were built in, not read back off them
+│   │   └── impls self._batch_size = batch_size
 │   ├── def model(self) -> str  # @property
 │   │   ├── # The camera-model identifier type(self).MODEL.
 │   │   ├── impls model = type(self).MODEL
@@ -305,6 +311,13 @@ camera_intrinsics.py
 │   ├── def dtype(self) -> torch.dtype  # @property
 │   │   ├── # The dtype shared by the intrinsics params.
 │   │   └── return self._dtype
+│   ├── @property def is_batched(self) -> bool
+│   │   ├── # Whether the params carry a batch axis, scalar params being the one camera an unbatched intrinsics states.
+│   │   └── return self._batch_size is not None
+│   ├── def __len__(self) -> int
+│   │   ├── # The extent of the batch axis these intrinsics carry, which an unbatched intrinsics does not have.
+│   │   ├── assert self._batch_size is not None  # scalar params carry no batch axis, so they have no length
+│   │   └── return self._batch_size
 │   ├── def __getitem__(self, index: Union[int, slice, List[int], None]) -> "CameraIntrinsics"
 │   │   ├── # Index the leading batch axis the params carry, the way the tensors they are index their own, so None adds an axis of one and an int drops it.
 │   │   ├── impls params = an empty dict
