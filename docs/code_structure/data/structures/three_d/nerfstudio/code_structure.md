@@ -129,8 +129,10 @@ load.py
 ├── def load_intrinsic_params(data: Dict[str, Any]) -> Dict[str, Union[float, int]]
 │   ├── # Picks the focal, principal-point and k1, k2, p1, p2 distortion entries out of a NerfStudio transforms record, keeping the record's own key names.
 │   ├── impls keys = ["fl_x", "fl_y", "cx", "cy", "k1", "k2", "p1", "p2"]
-│   ├── impls build the dict mapping each key in keys to data[key]
-│   └── return  # the dict it built
+│   ├── impls intrinsic_params = an empty dict
+│   ├── for each key of keys
+│   │   └── impls intrinsic_params[key] = data[key]
+│   └── return intrinsic_params
 ├── def load_resolution(data: Dict[str, Any]) -> Tuple[int, int]
 │   ├── # Reads the image size a NerfStudio transforms record states, height first.
 │   └── return data["h"], data["w"]
