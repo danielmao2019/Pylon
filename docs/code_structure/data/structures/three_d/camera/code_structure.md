@@ -59,12 +59,14 @@ camera.py
     │   ├── if device is not None or dtype is not None
     │   │   ├── calls intrinsics.to(device=device, dtype=dtype)  # -> intrinsics
     │   │   └── calls extrinsics.to(device=device, dtype=dtype)  # -> extrinsics
+    │   ├── impls device = the common component device
+    │   ├── impls dtype = the common component dtype
     │   ├── impls self._intrinsics = intrinsics
     │   ├── impls self._extrinsics = extrinsics
     │   ├── impls self._name = name
     │   ├── impls self._id = id
-    │   ├── impls self._device = the common component device
-    │   └── impls self._dtype = the common component dtype
+    │   ├── impls self._device = device
+    │   └── impls self._dtype = dtype
     ├── def intrinsics(self) -> CameraIntrinsics  # @property
     │   ├── # The camera's CameraIntrinsics ("what the camera is").
     │   └── return self._intrinsics
@@ -179,11 +181,17 @@ cameras.py
     │   │   └── return intrinsics, extrinsics, names, ids, device, dtype, batch_size
     │   ├── calls _normalize_inputs(intrinsics=intrinsics, extrinsics=extrinsics, names=names, ids=ids, device=device, dtype=dtype)
     │   ├── impls intrinsics, extrinsics, names, ids, device, dtype, batch_size = the returned values from _normalize_inputs
+    │   ├── impls name_to_index = an empty dict
+    │   ├── for each index, name of names, numbered from zero
+    │   │   ├── if name is None  # an unnamed camera contributes no entry
+    │   │   │   └── continue
+    │   │   ├── assert name not in name_to_index  # refused rather than silently resolving to one of them
+    │   │   └── impls name_to_index[name] = index
     │   ├── impls self._intrinsics = intrinsics  # params each [B], or scalars and [1] columns where the intrinsics broadcasts over the batch
     │   ├── impls self._extrinsics = extrinsics  # matrix [B, 4, 4], or the [4, 4] it broadcasts over the batch
     │   ├── impls self._names = names
     │   ├── impls self._ids = ids
-    │   ├── impls self._name_to_index = the index of each named camera, keyed by its name  # the unnamed cameras contribute no entry, and a name two cameras share is refused rather than silently resolving to one of them
+    │   ├── impls self._name_to_index = name_to_index
     │   ├── impls self._device = device  # the resolved device the components were brought to, not read back off them
     │   ├── impls self._dtype = dtype  # the resolved dtype the components were cast to, not read back off them
     │   └── impls self._batch_size = batch_size  # the one batch its components state between them, resolved here and not read again
