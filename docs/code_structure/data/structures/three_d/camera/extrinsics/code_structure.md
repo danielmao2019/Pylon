@@ -167,11 +167,12 @@ camera_extrinsics.py
 │   │   │   └── return extrinsics, device, dtype
 │   │   ├── calls _normalize_inputs(extrinsics=extrinsics, device=device, dtype=dtype)
 │   │   ├── impls extrinsics, device, dtype = the returned values from _normalize_inputs
+│   │   ├── impls batch_size = extrinsics.shape[0] if extrinsics.ndim == 3 else None  # None where the matrix is a [4, 4]: an unbatched extrinsics carries no batch axis, and states one camera
 │   │   ├── impls self._extrinsics = extrinsics
 │   │   ├── impls self._extr_convention = extr_convention
 │   │   ├── impls self._device = device
 │   │   ├── impls self._dtype = dtype
-│   │   └── impls self._batch_size = extrinsics.shape[0] if extrinsics.ndim == 3 else None  # None where the matrix is a [4, 4]: an unbatched extrinsics carries no batch axis, and states one camera
+│   │   └── impls self._batch_size = batch_size
 │   ├── def extrinsics(self) -> torch.Tensor  # @property
 │   │   ├── # The 4x4 camera-to-world extrinsics tensor.
 │   │   └── return self._extrinsics
@@ -259,11 +260,11 @@ camera_extrinsics.py
 │       │   ├── assert translation.device == self._device
 │       │   ├── assert translation.dtype == self._dtype
 │       │   └── return scale, rotation, translation
-│       ├── calls _normalize_inputs
+│       ├── calls _normalize_inputs(scale=scale, rotation=rotation, translation=translation)
 │       ├── impls scale, rotation, translation = the returned values from _normalize_inputs
-│       ├── impls composes the new cam2world rotation/translation from scale, rotation, translation
-│       ├── calls _stabilize_rotation_matrix
-│       ├── impls extrinsics = CameraExtrinsics(...)  # re-validates via validate_camera_extrinsics_attributes
+│       ├── impls extrinsics_new = the 4x4 with rotation block rotation @ self._extrinsics[..., :3, :3] and translation column scale * (rotation @ self._extrinsics[..., :3, 3:4]) + translation, over the last row self._extrinsics carries
+│       ├── calls _stabilize_rotation_matrix(extrinsics_new[..., :3, :3])  # -> extrinsics_new[..., :3, :3]
+│       ├── impls extrinsics = CameraExtrinsics(extrinsics=extrinsics_new, extr_convention=self._extr_convention)  # re-validates via validate_camera_extrinsics_attributes; a method constructing its own enclosing class, drawn as impls because no order puts this method above its class
 │       └── return extrinsics
 └── def _stabilize_rotation_matrix(rotation: torch.Tensor) -> torch.Tensor
     ├── # Project a near-orthogonal [..., 3, 3] rotation onto the nearest proper rotation, in the dtype it received.
@@ -276,6 +277,6 @@ camera_extrinsics.py
     ├── impls signs = a [..., 3] of ones whose last entry is the sign of det(rotation_fixed)
     ├── impls u = u with its columns scaled by signs
     ├── impls recompute rotation_fixed = u @ v_h
-    ├── calls validate_rotation_matrix
+    ├── calls validate_rotation_matrix(rotation_fixed)
     └── return rotation_fixed
 ```
