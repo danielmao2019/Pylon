@@ -16,7 +16,7 @@ class ABC
 
 ```text
 validation.py
-├── from typing import Any, Dict, Tuple, Union
+├── from typing import Any, Dict, Union
 ├── import numpy as np
 ├── import torch
 ├── def validate_camera_intrinsics_attributes(model: str, intr_convention: Any, params: Any, device: Any, dtype: Any) -> None
@@ -256,7 +256,7 @@ camera_intrinsics.py
 ├── import numpy as np
 ├── import torch
 ├── from data.structures.three_d.camera.intrinsics.conventions import transform_intr_convention
-├── from data.structures.three_d.camera.intrinsics.validation import validate_axis_aligned_affine, validate_camera_intrinsics_attributes, validate_intr_convention, validate_resolution
+├── from data.structures.three_d.camera.intrinsics.validation import validate_camera_intrinsics_attributes, validate_intr_convention
 ├── from utils.ops.apply import apply_tensor_op
 ├── class CameraIntrinsics(ABC)   [abstract]
 │   ├── # Abstract base for a camera's intrinsics: owns tensor named params, image-plane frame, device, and dtype, with each subclass being one camera model.
@@ -329,7 +329,16 @@ camera_intrinsics.py
 │   ├── def scale_intrinsics(self, resolution: Optional[Union[int, Tuple[int, int], List[int], np.ndarray, torch.Tensor]] = None, scale: Optional[Union[int, float, Tuple[Union[int, float], Union[int, float]], List[Union[int, float]], np.ndarray, torch.Tensor]] = None) -> "CameraIntrinsics"
 │   │   ├── # Return this CameraIntrinsics restated against a different resolution, the diagonal case of an intrinsics transform, so this builds that transform and the one owner applies it.
 │   │   ├── def _validate_inputs [local]
-│   │   │   └── assert exactly one of resolution and scale is given  # a target resolution and a factor are two ways to name the same thing, and giving both leaves unstated which one wins
+│   │   │   ├── assert exactly one of resolution and scale is given  # a target resolution and a factor are two ways to name the same thing, and giving both leaves unstated which one wins
+│   │   │   ├── if resolution is not None
+│   │   │   │   ├── assert resolution is a positive int or a length-2 array-like
+│   │   │   │   ├── if resolution is a length-2 array-like
+│   │   │   │   │   └── assert resolution[0] and resolution[1] are positive integer-valued numbers
+│   │   │   │   └── return
+│   │   │   ├── if scale is not None
+│   │   │   │   ├── assert scale is a positive number, or an array-like holding one or two positive numbers
+│   │   │   │   └── return
+│   │   │   └── assert 0, "Should not reach here."
 │   │   ├── calls _validate_inputs
 │   │   ├── def _normalize_inputs [local]
 │   │   │   ├── calls _resolve_target_resolution(params=self._params, resolution=resolution, scale=scale)  # -> resolution; the target the params are restated against, whichever of the two forms named it
@@ -478,49 +487,6 @@ camera_intrinsics.py
 │       ├── impls in place: out[..., 0] = fx * out[..., 0] + cx  (mul_ / add_)                                      # impls-node-one-step:skip
 │       ├── impls in place: out[..., 1] = fy * out[..., 1] + cy  (mul_ / add_)                                      # impls-node-one-step:skip
 │       └── return  # out, the [..., 2] image points (a view into points_camera when inplace)
-├── def _resolve_target_resolution(params: Dict[str, torch.Tensor], resolution: Optional[Union[int, Tuple[int, int], List[int], np.ndarray, torch.Tensor]] = None, scale: Optional[Union[int, float, Tuple[Union[int, float], Union[int, float]], List[Union[int, float]], np.ndarray, torch.Tensor]] = None) -> Tuple[Union[int, torch.Tensor], Union[int, torch.Tensor]]
-│   ├── # Resolves the two ways a caller names a target resolution (the size itself, or a factor on the size the params already carry) into the single form a rescale reads.
-│   ├── def _validate_inputs [local]
-│   │   ├── assert exactly one of resolution and scale is given  # a target resolution and a factor are two ways to name the same thing, and giving both leaves unstated which one wins
-│   │   ├── if resolution is not None
-│   │   │   ├── assert resolution is a positive int or a length-2 array-like
-│   │   │   ├── if resolution is a length-2 array-like
-│   │   │   │   └── assert resolution[0] and resolution[1] are positive integer-valued numbers
-│   │   │   └── return
-│   │   ├── if scale is not None
-│   │   │   ├── assert scale is a positive number or a length-2 array-like
-│   │   │   ├── if scale is a length-2 array-like
-│   │   │   │   └── assert scale[0] and scale[1] are positive numbers
-│   │   │   └── return
-│   │   └── assert 0, "Should not reach here."
-│   ├── calls _validate_inputs
-│   ├── def _normalize_inputs [local]
-│   │   ├── if resolution is not None
-│   │   │   ├── if resolution is a single int
-│   │   │   │   ├── impls resolution = (resolution, resolution)
-│   │   │   │   └── return resolution, scale
-│   │   │   ├── if resolution is a length-2 array-like
-│   │   │   │   ├── impls resolution = (int(resolution[0]), int(resolution[1]))
-│   │   │   │   └── return resolution, scale
-│   │   │   └── assert 0, "Should not reach here."
-│   │   ├── if scale is not None
-│   │   │   ├── if scale is a single number
-│   │   │   │   ├── impls scale = (scale, scale)  # one factor names the same one on both axes, in the (sx, sy) form the pair case already arrives in
-│   │   │   │   └── return resolution, scale
-│   │   │   ├── if scale is a length-2 array-like pair
-│   │   │   │   ├── impls scale = (scale[0], scale[1])
-│   │   │   │   └── return resolution, scale
-│   │   │   └── assert 0, "Should not reach here."
-│   │   └── assert 0, "Should not reach here."
-│   ├── calls _normalize_inputs(resolution=resolution, scale=scale)  # -> resolution, scale
-│   ├── if resolution is not None
-│   │   └── return resolution
-│   ├── if scale is not None
-│   │   ├── impls height = the params' own h * scale[1], rounded to an integer
-│   │   ├── impls width = the params' own w * scale[0], rounded to an integer
-│   │   ├── assert both height and width are positive at every entry  # a factor small enough to round a side to zero names no image
-│   │   └── return height, width
-│   └── assert 0, "Should not reach here."
 └── def build_camera_intrinsics(model: str, params: Dict[str, Union[int, float, np.ndarray, torch.Tensor]], intr_convention: str, device: Optional[Union[str, torch.device]] = None, dtype: Optional[torch.dtype] = None) -> CameraIntrinsics
     ├── # Build the CameraIntrinsics subclass for a camera-model string (the serialization-boundary factory) by dispatching on the model.
     ├── if model == "simple_pinhole"
