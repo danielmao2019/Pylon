@@ -336,11 +336,12 @@ io.py
 ├── import torch
 ├── from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
 ├── from data.structures.three_d.camera.intrinsics.camera_intrinsics import build_camera_intrinsics
+├── from utils.ops.dict_as_tensor import buffer_permute
 ├── if TYPE_CHECKING  # annotation-only imports; runtime imports of Camera / Cameras are inline in the functions that need them (camera.py and cameras.py import io.py, so a top-level import would cycle)
 │   ├── from data.structures.three_d.camera.camera import Camera
 │   └── from data.structures.three_d.camera.cameras import Cameras
 ├── _CAMERA_SERIALIZATION_FORMATS        # supported formats: {"json", "npz"}
-├── _CAMERA_JSON_KEYS, _CAMERA_NPZ_KEYS  # one camera's payload key schema (model / params / intr_convention / extrinsics / extr_convention / dtype / name / id, plus has_name / has_id for npz); a collection is just many of these
+├── _CAMERA_JSON_KEYS, _CAMERA_NPZ_KEYS  # one camera's payload key schema (model / params / intr_convention / extrinsics / extr_convention / dtype / name / id); a collection is just many of these
 ├── def save_cameras(cameras: Union["Camera", "Cameras"], cameras_path: Path) -> None
 │   ├── # Save cameras (a Cameras collection or a single Camera) to a .npz or .json file.
 │   ├── def _validate_inputs [local]
@@ -459,19 +460,16 @@ io.py
 │   │   │   └── assert per_camera_dict["dtype"] is a str naming a torch.dtype attribute of torch  # this function is what maps that name to the dtype the batch is rebuilt in
 │   │   ├── for key in ("model", "intr_convention", "extr_convention", "dtype")  # one batch rebuilds one intrinsics, one pose frame and one dtype, so the dicts share these four
 │   │   │   └── assert len({per_camera_dict[key] for each per_camera_dict of per_camera_dicts}) == 1
-│   │   ├── impls params_keys = {frozenset(per_camera_dict["params"].keys()) for each per_camera_dict of per_camera_dicts}  # a set of every dict's own param names, so no dict is the one read
-│   │   ├── assert len(params_keys) == 1  # one intrinsics is rebuilt from the dicts' params, so they spell one key set
-│   │   └── return the single key set in params_keys
+│   │   └── assert len({frozenset(per_camera_dict["params"].keys()) for each per_camera_dict of per_camera_dicts}) == 1  # one intrinsics is rebuilt from the dicts' params, so they spell one key set
 │   ├── calls _validate_inputs
-│   ├── impls params_names = the returned value from _validate_inputs
 │   ├── impls model, intr_convention, extr_convention = the one value each of those entries holds across the dicts
 │   ├── impls dtype = the torch dtype the dicts' one dtype entry spells
-│   ├── impls params_columns = each param name mapped to the [N] column gathered from that key across the dicts  # impls-node-one-step:skip; json stores a row per camera where npz stores a column per field
-│   ├── impls names, ids = the name and id columns gathered the same way  # json stores both directly, where npz needs has_name / has_id flags
+│   ├── calls buffer_permute(buffer=per_camera_dicts, axes=(1, 0))  # -> columns: each json key mapped to its value in every dict, json storing a row per camera where npz stores a column per field
+│   ├── calls buffer_permute(buffer=columns["params"], axes=(1, 0))  # -> params_columns: each param name mapped to its [N] column
 │   ├── calls _deserialize_intrinsics_params(params=params_columns, device=device, dtype=dtype)
 │   ├── calls build_camera_intrinsics(model=model, params=tensor_params, intr_convention=intr_convention, device=device)  # validates the model, its params and the image-plane frame those params name
-│   ├── calls CameraExtrinsics(extrinsics=the [N, 4, 4] stack of the dicts' extrinsics, extr_convention=extr_convention, device=device, dtype=dtype)
-│   ├── calls Cameras(intrinsics=intrinsics, extrinsics=extrinsics_batched, names=names, ids=ids, device=device)  # field-validates the batch
+│   ├── calls CameraExtrinsics(extrinsics=columns["extrinsics"] as an [N, 4, 4] tensor of dtype, extr_convention=extr_convention, device=device, dtype=dtype)
+│   ├── calls Cameras(intrinsics=intrinsics, extrinsics=extrinsics_batched, names=columns["name"], ids=columns["id"], device=device)  # field-validates the batch
 │   └── return
 ├── def _serialize_cameras_npz(cameras: "Cameras") -> Dict[str, Any]
 │   ├── # Map a Cameras to the plural batched-array npz payload.
