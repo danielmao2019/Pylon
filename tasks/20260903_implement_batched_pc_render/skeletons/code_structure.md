@@ -200,12 +200,12 @@ prove_equivalence.py
 │   │   ├── impls azimuth = [num_cameras] azimuths evenly spaced over a full turn, starting from 0.3 rad
 │   │   ├── impls elevation = [num_cameras] elevations alternating +0.35 and -0.35 rad, starting at +0.35
 │   │   ├── impls centre = [num_cameras, 3] camera centres at azimuth and elevation on a sphere about the origin of the radius popped from the scene
-│   │   ├── impls forward = the unit vectors from centre towards the origin  # +Z of each opencv look-at pose at centre aimed at the origin
-│   │   ├── impls right = forward x world +Z, normalized to unit length  # +X
+│   │   ├── impls forward = -centre / |centre|, the norm taken per row  # +Z of each opencv look-at pose at centre aimed at the origin
+│   │   ├── impls right = (forward x [0, 0, 1]) / |forward x [0, 0, 1]|  # +X
 │   │   ├── impls down = forward x right  # +Y
 │   │   ├── impls cam2world = [num_cameras, 4, 4] identity matrices
-│   │   ├── impls cam2world's rotation blocks = the columns (right, down, forward), right-multiplied by axis_changes of the scene's extr_convention  # the opencv rotations restated in the scene's convention
-│   │   ├── impls cam2world's translations = centre
+│   │   ├── impls cam2world[:, :3, :3] = [right, down, forward] as columns @ axis_changes[the scene's extr_convention]  # the opencv rotations restated in the scene's convention
+│   │   ├── impls cam2world[:, :3, 3] = centre
 │   │   ├── impls focal, stated_height, stated_width = the base focal length and the resolution the intrinsics state, both popped from the scene
 │   │   ├── impls scene["cameras"] = an empty list
 │   │   └── for each camera_index below num_cameras
@@ -354,17 +354,17 @@ prove_equivalence.py
 │   ├── impls points, valid = output as cpu tensors
 │   ├── impls reference_points, reference_indices = reference as cpu tensors  # the single camera's survivors and the points they are
 │   ├── impls reference_valid = a mask over the slice's point axis, True at reference_indices
-│   ├── impls reference_rows = an [N, 3] zero tensor like points holding reference_points at the rows reference_indices name  # each survivor at the row of the point it is
+│   ├── impls reference_rows = an [N, 3] zero tensor like points, with reference_rows[reference_indices] = reference_points  # each survivor at the row of the point it is
 │   ├── impls magnitude = the larger of the norm of camera's centre and the largest coordinate magnitude in pc  # the size of the numbers the world-to-camera transform rounds
 │   ├── calls camera.scale_intrinsics(resolution=resolution)  # -> render_camera, whose focal lengths are the ones the preparation projects with at resolution
-│   ├── impls camera_frame_tolerance = 4 times the machine epsilon of points' dtype times magnitude  # a few units in the last place of the points' dtype
-│   ├── impls depth = per point, its depth in points at the points valid keeps and its depth in reference_rows at the rest  # read off whichever side kept it
+│   ├── impls camera_frame_tolerance = 4 * eps * magnitude, eps the machine epsilon of points' dtype  # a few units in the last place of the points' dtype
+│   ├── impls depth = points[:, 2] where valid, reference_rows[:, 2] elsewhere  # read off whichever side kept it
 │   ├── impls tolerance = [N, 3] per point: camera_frame_tolerance * render_camera's fx / depth for x, camera_frame_tolerance * render_camera's fy / depth for y, and camera_frame_tolerance for depth  # the projection multiplies camera-frame rounding by focal length over depth
 │   ├── impls kept = valid & reference_valid
-│   ├── impls points_close = every kept point's (x, y, depth) row of points agrees with its row of reference_rows within its row of tolerance  # a point either side culls lands on no pixel, so its coordinates carry nothing to compare
+│   ├── impls points_close = |points[kept] - reference_rows[kept]| <= tolerance[kept] at every entry  # a point either side culls lands on no pixel, so its coordinates carry nothing to compare
 │   ├── impls flipped = the points where valid and reference_valid differ
-│   ├── impls flipped_rows = per flipped point, its row of points where valid keeps it and its row of reference_rows where valid culls it  # the side that culled it keeps no row, so which boundary it crossed is not on record
-│   ├── impls flips_explained = every flipped row has |x| or |x - W| within its x tolerance, |y| or |y - H| within its y tolerance, or |depth| within its depth tolerance, (H, W) being resolution  # some cull boundary: a depth of zero or an image edge of resolution
+│   ├── impls flipped_rows = points[flipped] where valid[flipped], reference_rows[flipped] elsewhere  # the side that culled it keeps no row, so which boundary it crossed is not on record
+│   ├── impls flips_explained = min(|x|, |x - W|) <= tolerance_x or min(|y|, |y - H|) <= tolerance_y or |depth| <= tolerance_depth for every flipped row (x, y, depth) of flipped_rows and its row (tolerance_x, tolerance_y, tolerance_depth) of tolerance, (H, W) = resolution  # some cull boundary: a depth of zero or an image edge of resolution
 │   ├── calls compare_exactly(output=the rows valid keeps with their point indices, reference=reference)  # -> exact, so the report shows how often rounding moved anything at all
 │   └── return  # {"equal": points_close and flips_explained, "exact": exact["equal"], "flipped_points": the count flipped marks, "max_abs_diff": exact["max_abs_diff"]}
 ├── def compare_exactly(output: Union[torch.Tensor, Tuple[torch.Tensor, ...]], reference: Union[torch.Tensor, Tuple[torch.Tensor, ...]]) -> Dict[str, Any]
