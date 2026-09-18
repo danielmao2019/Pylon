@@ -377,7 +377,7 @@ test_io.py
 ├── from data.structures.three_d.camera.intrinsics.camera_intrinsics import build_camera_intrinsics
 ├── from data.structures.three_d.camera.io import deserialize_cameras, load_cameras, save_cameras, serialize_cameras
 ├── _JSON_KEYS = {"model", "params", "intr_convention", "extrinsics", "extr_convention", "dtype", "name", "id"}  # set of str; the json key set the payload asserts compare against
-├── _NPZ_KEYS = {"model", "params", "extrinsics", "intr_convention", "extr_convention", "dtype", "name", "has_name", "id", "has_id"}  # set of str; the npz key set the payload asserts compare against
+├── _NPZ_KEYS = {"model", "params", "extrinsics", "intr_convention", "extr_convention", "dtype", "name", "id"}  # set of str; the npz key set the payload asserts compare against
 ├── def test_single_camera_json_round_trip
 │   ├── # A single Camera survives a save then load round trip through the json format.
 │   ├── calls _make_single_camera
