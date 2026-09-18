@@ -6,7 +6,7 @@
 
 ```text
 validation.py
-├── from typing import Any, List, Union
+├── from typing import Any, List, Tuple, Union
 ├── import numpy as np
 ├── import torch
 ├── from utils.ops.materialize_tensor import materialize_tensor
@@ -262,8 +262,8 @@ camera_extrinsics.py
 └── def _stabilize_rotation_matrix(rotation: torch.Tensor) -> torch.Tensor
     ├── # Project a near-orthogonal [..., 3, 3] rotation onto the nearest proper rotation, in the dtype it received.
     ├── assert rotation.dtype in (torch.float32, torch.float64)
-    ├── impls computes the RR^T-vs-I residual in rotation.dtype
-    ├── impls computes the |det(R) - 1| residual in rotation.dtype
+    ├── impls orthogonality_residual = max |rotation @ rotation^T - I|, I the 3x3 identity in rotation.dtype, as a Python float
+    ├── impls determinant_residual = max |det(rotation) - 1|, as a Python float
     ├── assert max(orthogonality residual, determinant residual) <= _ORTHOGONALITY_REPAIR_ATOL
     ├── impls u, _, v_h = svd(rotation) in rotation.dtype
     ├── impls rotation_fixed = u @ v_h
