@@ -244,20 +244,18 @@ camera_extrinsics.py
 │   └── def transform_extrinsics(self, scale: Union[int, float, np.ndarray, torch.Tensor], rotation: Union[np.ndarray, torch.Tensor, List[List[Union[int, float]]]], translation: Union[np.ndarray, torch.Tensor, Tuple[Union[int, float], Union[int, float], Union[int, float]], List[Union[int, float]]]) -> "CameraExtrinsics"
 │       ├── # Return this CameraExtrinsics under array-like scale, rotation, and translation inputs of its cam2world pose.
 │       ├── def _validate_inputs [local]
+│       │   ├── assert scale is an int, a float, or an np.ndarray or torch.Tensor of shape ()  # one factor for the whole pose
 │       │   ├── calls validate_rotation_matrix(rotation)
 │       │   └── calls validate_translation_vector(translation)
 │       ├── calls _validate_inputs
 │       ├── def _normalize_inputs [local]
 │       │   ├── impls scale = the given scale as a tensor on this extrinsics' device and dtype
-│       │   ├── assert scale.shape == ()
 │       │   ├── assert scale.device == self._device
 │       │   ├── assert scale.dtype == self._dtype
 │       │   ├── impls rotation = the given rotation as a tensor on this extrinsics' device and dtype
-│       │   ├── assert rotation.shape == (3, 3)
 │       │   ├── assert rotation.device == self._device
 │       │   ├── assert rotation.dtype == self._dtype
 │       │   ├── impls translation = the given translation as a tensor on this extrinsics' device and dtype
-│       │   ├── assert translation.shape == (3,)
 │       │   ├── assert translation.device == self._device
 │       │   ├── assert translation.dtype == self._dtype
 │       │   └── return scale, rotation, translation
