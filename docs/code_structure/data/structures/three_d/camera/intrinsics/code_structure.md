@@ -23,8 +23,10 @@ validation.py
 │   ├── calls validate_camera_model(model=model)
 │   ├── calls validate_intr_convention(intr_convention=intr_convention)
 │   ├── calls validate_camera_intrinsics_params(model=model, intr_convention=intr_convention, params=params)  # the frame goes in ahead of the params, what they mean together depending on it
-│   ├── impls asserts device is None or a valid torch device spec (str or torch.device)
-│   ├── impls asserts dtype is None or a floating torch dtype
+│   ├── assert device is None or a str or torch.device
+│   ├── assert dtype is None or a torch.dtype
+│   ├── if dtype is not None
+│   │   └── assert dtype is a floating dtype
 │   └── return
 ├── def validate_camera_model(model: Any) -> str
 │   ├── # Validate a camera-model string against the supported set.
@@ -34,10 +36,9 @@ validation.py
 │   ├── # Validate an image-plane convention string against the supported set, standard being the pixel raster frame the other three convert through.
 │   ├── impls asserts intr_convention is a str in {standard, opengl, pytorch3d, vulkan}
 │   └── return intr_convention
-├── def validate_camera_intrinsics_params(model: str, intr_convention: str, params: Any) -> Dict[str, torch.Tensor]
+├── def validate_camera_intrinsics_params(model: str, intr_convention: str, params: Any) -> Dict[str, Union[int, float, np.ndarray, torch.Tensor]]
 │   ├── # Validate the named intrinsics params: the resolution keys every model carries, the projection keys that model's own dispatch owns, and the invariants holding only across those keys together.
-│   ├── assert params is a dict whose every value is a floating torch.Tensor of at most one axis  # checked first, since every check below reads a value's shape
-│   ├── assert params carries h and w, both positive and all params sharing one leading batch shape  # impls-node-one-step:skip; the resolution, named the way every resolution in this repo is ordered: h first, and a scalar param is the empty-batch case
+│   ├── calls _validate_camera_intrinsics_params_shared(params=params)
 │   ├── def _validate_projection_params() -> Dict[str, torch.Tensor] [local]
 │   │   ├── # Dispatches the projection keys onto the model that owns them, every model being a structurally equivalent sibling here.
 │   │   ├── if model == "simple_pinhole"
@@ -53,22 +54,49 @@ validation.py
 │   ├── calls _validate_projection_params
 │   ├── calls validate_camera_intrinsics_invariants(model=model, intr_convention=intr_convention, params=params)
 │   └── return params
-├── def _validate_camera_intrinsics_params_simple_pinhole(params: Any) -> Dict[str, torch.Tensor]
+├── def _validate_camera_intrinsics_params_shared(params: Any) -> Dict[str, Union[int, float, np.ndarray, torch.Tensor]]
+│   ├── # Validate what the params of every model share: numbers or arrays of at most one axis and one shape, carrying a positive resolution h and w.
+│   ├── assert params is a dict  # checked first, since every check below reads a value's shape
+│   ├── for each key, value of params.items()
+│   │   ├── assert key is a str
+│   │   ├── assert value is an int, float, np.ndarray or torch.Tensor
+│   │   ├── if value is an int or a float
+│   │   │   └── continue
+│   │   ├── if value is an np.ndarray  # the normalization casts every param onto one floating dtype, which would turn a bool into 0 / 1 without a word
+│   │   │   ├── assert value.dtype is numeric
+│   │   │   ├── assert value.ndim <= 1
+│   │   │   └── continue
+│   │   ├── if value is a torch.Tensor  # that same cast would drop an imaginary part without a word
+│   │   │   ├── assert value is not complex
+│   │   │   ├── assert value.ndim <= 1
+│   │   │   └── continue
+│   │   └── assert 0, "Should not reach here."
+│   ├── impls batch_shapes = an empty dict
+│   ├── for each key, value of params.items()
+│   │   └── impls batch_shapes[key] = the shape of value, () for an int or a float
+│   ├── assert batch_shapes holds one distinct shape
+│   ├── assert params carries the keys h and w  # the resolution, named the way every resolution in this repo is ordered: h first
+│   ├── assert params["h"] and params["w"] are positive at every entry
+│   └── return params
+├── def _validate_camera_intrinsics_params_simple_pinhole(params: Any) -> Dict[str, Union[int, float, np.ndarray, torch.Tensor]]
 │   ├── # Validate simple_pinhole params: a single shared focal length f plus the principal point cx / cy.
-│   ├── assert params is a Dict[str, torch.Tensor] with exactly keys {f, cx, cy, h, w}
-│   ├── assert f > 0 and cx and cy are finite  # impls-node-one-step:skip; where on the image the principal point may fall is the frame's to say
+│   ├── assert the key set of params == {"f", "cx", "cy", "h", "w"}
+│   ├── assert params["f"] > 0 at every entry
+│   ├── assert params["cx"] and params["cy"] are finite at every entry  # where on the image the principal point may fall is the frame's to say
 │   └── return params
-├── def _validate_camera_intrinsics_params_pinhole(params: Any) -> Dict[str, torch.Tensor]
+├── def _validate_camera_intrinsics_params_pinhole(params: Any) -> Dict[str, Union[int, float, np.ndarray, torch.Tensor]]
 │   ├── # Validate pinhole params: independent focal lengths fx / fy plus the principal point cx / cy.
-│   ├── assert params is a Dict[str, torch.Tensor] with exactly keys {fx, fy, cx, cy, h, w}
-│   ├── assert fx > 0 and fy > 0 and cx and cy are finite  # impls-node-one-step:skip
+│   ├── assert the key set of params == {"fx", "fy", "cx", "cy", "h", "w"}
+│   ├── assert params["fx"] > 0 and params["fy"] > 0 at every entry
+│   ├── assert params["cx"] and params["cy"] are finite at every entry
 │   └── return params
-├── def _validate_camera_intrinsics_params_ortho(params: Any) -> Dict[str, torch.Tensor]
+├── def _validate_camera_intrinsics_params_ortho(params: Any) -> Dict[str, Union[int, float, np.ndarray, torch.Tensor]]
 │   ├── # Validate ortho (weak-perspective) params: focal scales fx / fy plus the principal-point offset cx / cy.
-│   ├── assert params is a Dict[str, torch.Tensor] with exactly keys {fx, fy, cx, cy, h, w}
-│   ├── assert fx > 0 and fy > 0 and cx and cy are finite  # impls-node-one-step:skip
+│   ├── assert the key set of params == {"fx", "fy", "cx", "cy", "h", "w"}
+│   ├── assert params["fx"] > 0 and params["fy"] > 0 at every entry
+│   ├── assert params["cx"] and params["cy"] are finite at every entry
 │   └── return params
-├── def validate_camera_intrinsics_invariants(model: str, intr_convention: str, params: Dict[str, torch.Tensor]) -> None
+├── def validate_camera_intrinsics_invariants(model: str, intr_convention: str, params: Dict[str, Union[int, float, np.ndarray, torch.Tensor]]) -> None
 │   ├── # Validate what the params state only together, the resolution having joined the dict the principal point and the focal already live in and formed a pair with each.
 │   ├── calls _validate_principal_point_within_image(model=model, intr_convention=intr_convention, params=params)
 │   ├── calls _validate_model_is_representable_in_frame(model=model, intr_convention=intr_convention, params=params)
