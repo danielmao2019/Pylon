@@ -101,10 +101,16 @@ convert.py
 │   ├── # Poses one Cameras out of the COLMAP images, every frame carrying the model's single shared intrinsic set.
 │   ├── impls intrinsics_params: Dict[str, Union[int, float]] = the fx, fy, cx, cy, h, w of intrinsic_params under the names build_camera_intrinsics takes
 │   ├── impls sorted_images = the (image_id, image) pairs of colmap_images, sorted by image_id
-│   ├── impls camera_ids: List[int] = the image_id of each of sorted_images
-│   ├── impls camera_names: List[str] = Path(image.name).stem of each of sorted_images
-│   ├── impls quaternions = the [N, 4] np stack of each image's qvec  # the whole batch's pose stack is built in one op
-│   ├── impls translations = the [N, 3] np stack of each image's tvec
+│   ├── impls camera_ids: List[int] = an empty list
+│   ├── impls camera_names: List[str] = an empty list
+│   ├── impls qvecs, tvecs = two empty lists
+│   ├── for each image_id, image of sorted_images
+│   │   ├── impls append image_id to camera_ids
+│   │   ├── impls append the stem of image.name as a Path to camera_names
+│   │   ├── impls append image.qvec to qvecs
+│   │   └── impls append image.tvec to tvecs
+│   ├── impls quaternions = the [N, 4] np stack of qvecs  # the whole batch's pose stack is built in one op
+│   ├── impls translations = the [N, 3] np stack of tvecs
 │   ├── assert quaternions is floating  # both stacks are cast to float64 next
 │   ├── assert translations is floating
 │   ├── calls quat_to_rotmat(quaternions=quaternions as a float64 torch tensor)
