@@ -465,8 +465,9 @@ io.py
 │   ├── # Map a Cameras to the plural json payload: one dict per camera.
 │   ├── impls per_camera_dicts = an empty accumulator the loop appends to
 │   ├── for each camera in cameras
-│   │   ├── calls _serialize_intrinsics_params(params=camera.intrinsics.params)
-│   │   └── impls builds that camera's json dict from intrinsics.model, serialized_params, intrinsics.intr_convention, extrinsics.extrinsics, extrinsics.extr_convention, camera.dtype spelled by its torch name (e.g. "float64"), name, and id  # impls-node-one-step:skip; each frame is keyed for the half it came off, and the resolution rides inside serialized_params
+│   │   ├── calls _serialize_camera_intrinsics(intrinsics=camera.intrinsics)  # -> model, params, intr_convention
+│   │   ├── calls _serialize_camera_extrinsics(extrinsics=camera.extrinsics)  # -> matrix, extr_convention
+│   │   └── impls builds that camera's json dict from model, params, intr_convention, matrix as a nested list, extr_convention, camera.dtype spelled by its torch name (e.g. "float64"), name, and id  # impls-node-one-step:skip; each frame is keyed for the half it came off, and the resolution rides inside params
 │   └── return
 ├── def _deserialize_cameras_json(per_camera_dicts: List[Dict[str, Any]], device: torch.device) -> "Cameras"
 │   ├── # Map the plural json per-camera dicts to a Cameras.
