@@ -214,8 +214,32 @@ cameras.py
     │   └── return  # self._extrinsics.extrinsics.shape[0]
     ├── def __getitem__(self, index: Union[int, slice, List[int], str]) -> Union["Camera", "Cameras"]
     │   ├── # Index the batch by slicing the leading axis of both components, never by selecting from stored per-camera objects.
-    │   ├── if isinstance(index, str)
-    │   │   └── impls index = self._name_to_index[index]
+    │   ├── def _validate_inputs [local]
+    │   │   ├── assert isinstance(index, (int, slice, list, str))
+    │   │   ├── if isinstance(index, int)
+    │   │   │   ├── assert -len(self) <= index < len(self)  # a component that broadcasts is never indexed, so the batch bounds the position itself
+    │   │   │   └── return
+    │   │   ├── if isinstance(index, slice)
+    │   │   │   └── return
+    │   │   ├── if isinstance(index, list)
+    │   │   │   ├── for each item of index
+    │   │   │   │   ├── assert isinstance(item, int)
+    │   │   │   │   └── assert -len(self) <= item < len(self)
+    │   │   │   └── return
+    │   │   ├── if isinstance(index, str)
+    │   │   │   ├── assert index in self._name_to_index  # only a named camera can be looked up by its name
+    │   │   │   └── return
+    │   │   └── assert 0, "Should not reach here."
+    │   ├── calls _validate_inputs
+    │   ├── def _normalize_inputs [local]
+    │   │   ├── if isinstance(index, str)  # a camera's name stands for the position it holds in the batch
+    │   │   │   ├── impls index = self._name_to_index[index]
+    │   │   │   └── return index
+    │   │   ├── if isinstance(index, (int, slice, list))
+    │   │   │   └── return index
+    │   │   └── assert 0, "Should not reach here."
+    │   ├── calls _normalize_inputs(index=index)
+    │   ├── impls index = the returned value from _normalize_inputs
     │   ├── if not self._intrinsics.is_batched or len(self._intrinsics) == 1  # a component that broadcasts over the batch broadcasts over any slice of it, so it is carried whole
     │   │   └── impls intrinsics = self._intrinsics
     │   ├── else
