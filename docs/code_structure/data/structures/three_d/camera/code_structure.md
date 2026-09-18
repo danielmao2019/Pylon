@@ -456,6 +456,7 @@ io.py
 │   │   ├── assert the dicts agree on model, intr_convention and extr_convention  # the batch shares one projection expression
 │   │   └── assert the dicts agree on dtype  # a batch holds one dtype
 │   ├── calls _validate_inputs
+│   ├── impls params_names = the returned value from _validate_inputs
 │   ├── impls model, intr_convention, extr_convention = the one value each of those entries holds across the dicts
 │   ├── impls dtype = the torch dtype the dicts' one dtype entry spells
 │   ├── impls params_columns = each param name mapped to the [N] column gathered from that key across the dicts  # impls-node-one-step:skip; json stores a row per camera where npz stores a column per field
@@ -486,6 +487,7 @@ io.py
 │   │   ├── assert every entry of payload["dtype"] spells a torch dtype
 │   │   └── assert payload["dtype"] is constant over the batch  # a batch holds one dtype
 │   ├── calls _validate_inputs
+│   ├── impls params_names = the returned value from _validate_inputs
 │   ├── impls extrinsics = payload["extrinsics"], the batched [N, 4, 4] cam2world array
 │   ├── impls batch_size = extrinsics.shape[0]
 │   ├── impls model_array, params_array, intr_convention_array, extr_convention_array, dtype_array, name_array, has_name_array, id_array, has_id_array = the nine per-camera arrays read from payload
