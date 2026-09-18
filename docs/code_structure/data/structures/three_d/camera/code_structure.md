@@ -14,9 +14,11 @@ validation.py
 ├── def validate_cameras_attributes(intrinsics: "CameraIntrinsics", extrinsics: "CameraExtrinsics", names: Optional[List[Optional[str]]], ids: Optional[List[Optional[int]]], device: Optional[Union[str, torch.device]], dtype: Optional[torch.dtype]) -> None
 │   ├── # Single-entry validation for Cameras.__init__: validate the batched component pair, the metadata parallel to its batch axis, and the optional tensor placement request.
 │   ├── calls validate_camera_attributes(intrinsics=intrinsics, extrinsics=extrinsics, name=None, id=None, device=device, dtype=dtype)  # the component checks are shape-agnostic, so the batched pair takes the same ones a single camera does
-│   ├── assert the extrinsics matrix carries exactly one leading batch axis, [B, 4, 4]  # the agreement below reads B off that axis, which an unbatched [4, 4] would also offer
-│   ├── assert the two components agree on the extent of their leading batch axis
-│   ├── assert names and ids are each None or hold one entry per camera in the batch
+│   ├── impls component_batch_sizes = {len(component) for each component of (intrinsics, extrinsics) that is_batched} without 1  # what each component states beyond a broadcast, so neither component is the one read
+│   ├── assert len(component_batch_sizes) <= 1  # the two components state one batch between them, whichever of them broadcasts over it
+│   ├── impls batch_size = the single batch size in component_batch_sizes, or 1 where it holds none  # neither component stating a batch leaves a batch of one
+│   ├── assert names is None or len(names) == batch_size
+│   ├── assert ids is None or len(ids) == batch_size
 │   └── return
 └── def validate_camera_attributes(intrinsics: "CameraIntrinsics", extrinsics: "CameraExtrinsics", name: Optional[str], id: Optional[int], device: Optional[Union[str, torch.device]], dtype: Optional[torch.dtype]) -> None
     ├── # Single-entry validation for Camera.__init__: validate component objects, metadata, and optional tensor placement request.
@@ -168,11 +170,13 @@ cameras.py
     │   │   │   └── impls dtype = the single dtype in component_dtypes  # single, since validate_camera_attributes asserts intrinsics.dtype == extrinsics.dtype
     │   │   ├── calls intrinsics.to(device=device, dtype=dtype)  # -> intrinsics, brought to the resolved device and dtype
     │   │   ├── calls extrinsics.to(device=device, dtype=dtype)  # -> extrinsics, brought to the resolved device and dtype, never the other way around
+    │   │   ├── impls component_batch_sizes = {len(component) for each component of (intrinsics, extrinsics) that is_batched} without 1  # what each component states beyond a broadcast, so neither component is the one read
+    │   │   ├── impls batch_size = the single batch size in component_batch_sizes, or 1 where it holds none  # single, since validate_cameras_attributes asserts the components state one batch between them
     │   │   ├── if names is None  # the batch named by omission
-    │   │   │   └── impls names = one None per camera of the batch both components share
+    │   │   │   └── impls names = [None] * batch_size
     │   │   ├── if ids is None  # the batch identified by omission
-    │   │   │   └── impls ids = one None per camera of the batch both components share
-    │   │   └── return intrinsics, extrinsics, names, ids, device, dtype
+    │   │   │   └── impls ids = [None] * batch_size
+    │   │   └── return intrinsics, extrinsics, names, ids, device, dtype, batch_size
     │   ├── calls _normalize_inputs(intrinsics=intrinsics, extrinsics=extrinsics, names=names, ids=ids, device=device, dtype=dtype)
     │   ├── impls intrinsics, extrinsics, names, ids, device, dtype, batch_size = the returned values from _normalize_inputs
     │   ├── impls self._intrinsics = intrinsics  # params each [B], or scalars and [1] columns where the intrinsics broadcasts over the batch
@@ -181,7 +185,8 @@ cameras.py
     │   ├── impls self._ids = ids
     │   ├── impls self._name_to_index = the index of each named camera, keyed by its name  # the unnamed cameras contribute no entry, and a name two cameras share is refused rather than silently resolving to one of them
     │   ├── impls self._device = device  # the resolved device the components were brought to, not read back off them
-    │   └── impls self._dtype = dtype  # the resolved dtype the components were cast to, not read back off them
+    │   ├── impls self._dtype = dtype  # the resolved dtype the components were cast to, not read back off them
+    │   └── impls self._batch_size = batch_size  # the one batch its components state between them, resolved here and not read again
     ├── @property def intrinsics(self) -> CameraIntrinsics
     │   ├── # The batch's intrinsics, whose params carry the batch axis, or broadcast over it, so its own project / scale_intrinsics cover every camera at once.
     │   └── return self._intrinsics
@@ -211,7 +216,7 @@ cameras.py
     │   └── return cameras
     ├── def __len__(self) -> int
     │   ├── # The number of cameras in the batch, resolved once at construction.
-    │   └── return  # self._extrinsics.extrinsics.shape[0]
+    │   └── return self._batch_size
     ├── def __getitem__(self, index: Union[int, slice, List[int], str]) -> Union["Camera", "Cameras"]
     │   ├── # Index the batch by slicing the leading axis of both components, never by selecting from stored per-camera objects.
     │   ├── def _validate_inputs [local]
@@ -446,15 +451,17 @@ io.py
 │   ├── # Map the plural json per-camera dicts to a Cameras.
 │   ├── from data.structures.three_d.camera.cameras import Cameras  # inline runtime import; cameras.py imports io.py, so this would cycle at module top
 │   ├── def _validate_inputs [local]
-│   │   ├── assert per_camera_dicts is a non-empty list
-│   │   ├── for each per-camera dict
-│   │   │   ├── assert it is a dict whose keys are exactly _CAMERA_JSON_KEYS
-│   │   │   ├── assert its params is a dict
-│   │   │   ├── assert its dtype is a str spelling a torch dtype
-│   │   │   ├── assert its name is None or a str
-│   │   │   └── assert its id is None or an int
-│   │   ├── assert the dicts agree on model, intr_convention and extr_convention  # the batch shares one projection expression
-│   │   └── assert the dicts agree on dtype  # a batch holds one dtype
+│   │   ├── assert isinstance(per_camera_dicts, list)
+│   │   ├── assert len(per_camera_dicts) > 0
+│   │   ├── for each per_camera_dict of per_camera_dicts
+│   │   │   ├── assert isinstance(per_camera_dict, dict)
+│   │   │   ├── assert set(per_camera_dict.keys()) == _CAMERA_JSON_KEYS  # the payload schema this function reads; what each entry holds is for the component rebuilt from it to check
+│   │   │   └── assert per_camera_dict["dtype"] is a str naming a torch.dtype attribute of torch  # this function is what maps that name to the dtype the batch is rebuilt in
+│   │   ├── for key in ("model", "intr_convention", "extr_convention", "dtype")  # one batch rebuilds one intrinsics, one pose frame and one dtype, so the dicts share these four
+│   │   │   └── assert len({per_camera_dict[key] for each per_camera_dict of per_camera_dicts}) == 1
+│   │   ├── impls params_keys = {frozenset(per_camera_dict["params"].keys()) for each per_camera_dict of per_camera_dicts}  # a set of every dict's own param names, so no dict is the one read
+│   │   ├── assert len(params_keys) == 1  # one intrinsics is rebuilt from the dicts' params, so they spell one key set
+│   │   └── return the single key set in params_keys
 │   ├── calls _validate_inputs
 │   ├── impls params_names = the returned value from _validate_inputs
 │   ├── impls model, intr_convention, extr_convention = the one value each of those entries holds across the dicts
@@ -479,13 +486,21 @@ io.py
 │   ├── # Map the plural batched-array npz payload to a Cameras.
 │   ├── from data.structures.three_d.camera.cameras import Cameras  # inline runtime import; cameras.py imports io.py, so this would cycle at module top
 │   ├── def _validate_inputs [local]
-│   │   ├── assert payload's keys are exactly _CAMERA_NPZ_KEYS
-│   │   ├── assert payload["extrinsics"] is an ndarray carrying a leading batch axis  # batch_size is read off it
-│   │   ├── for each of the nine per-camera keys
-│   │   │   └── assert its array is an ndarray of shape (batch_size,)
-│   │   ├── assert payload["model"], payload["intr_convention"] and payload["extr_convention"] are each constant over the batch  # one model and one frame pair is what lets the batch share a single projection expression
-│   │   ├── assert every entry of payload["dtype"] spells a torch dtype
-│   │   └── assert payload["dtype"] is constant over the batch  # a batch holds one dtype
+│   │   ├── assert set(payload.keys()) == _CAMERA_NPZ_KEYS  # the payload schema this function reads; what each entry holds is for the component rebuilt from it to check
+│   │   ├── for each key of _CAMERA_NPZ_KEYS
+│   │   │   ├── assert isinstance(payload[key], np.ndarray)
+│   │   │   └── if key != "extrinsics"  # the [B, 4, 4] pose stack is the one array carrying an axis beyond the batch
+│   │   │       └── assert payload[key].ndim == 1
+│   │   ├── assert payload["extrinsics"].ndim == 3
+│   │   ├── impls payload_batch_sizes = {payload[key].shape[0] for each key of _CAMERA_NPZ_KEYS}  # a set of every array's own leading extent, so no array is the one read
+│   │   ├── assert len(payload_batch_sizes) == 1  # every array of the payload carries one entry per camera of the one batch
+│   │   ├── for each entry of payload["dtype"]
+│   │   │   └── assert entry is a str naming a torch.dtype attribute of torch  # this function is what maps that name to the dtype the batch is rebuilt in
+│   │   ├── for key in ("model", "intr_convention", "extr_convention", "dtype")  # one batch rebuilds one intrinsics, one pose frame and one dtype, so the arrays share these four
+│   │   │   └── assert len(set(payload[key])) == 1
+│   │   ├── impls params_keys = {frozenset(the keys of entry decoded from json) for each entry of payload["params"]}  # a set of every row's own param names, so no row is the one read
+│   │   ├── assert len(params_keys) == 1  # one intrinsics is rebuilt from the rows' params, so they spell one key set
+│   │   └── return the single key set in params_keys
 │   ├── calls _validate_inputs
 │   ├── impls params_names = the returned value from _validate_inputs
 │   ├── impls extrinsics = payload["extrinsics"], the batched [N, 4, 4] cam2world array
