@@ -5,6 +5,7 @@
 ```text
 data/viewer/utils/displays/videos/
 ├── dash/
+│   ├── __init__.py
 │   └── video_display.py
 └── ts/
     ├── backend/

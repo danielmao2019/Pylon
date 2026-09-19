@@ -6,6 +6,7 @@
 data/viewer/utils/displays/mesh/
 ├── dash/
 │   ├── core_mesh_display.py  # Dash mesh display object core
+│   ├── mesh_display_textured_viewer.js  # the three.js viewer source the Dash UV-textured mesh display embeds
 │   └── apis.py               # Dash mesh-display APIs
 └── ts/
     ├── backend/

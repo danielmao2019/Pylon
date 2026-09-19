@@ -89,68 +89,150 @@ display_response.ts
 ```text
 scene_graph_display.ts
 ├── import * as THREE from "three";
-├── import type { LeafVNode } from "web/reconcile/reconcile";
+├── import { createTrackballCameraControls, type ThreeTrackballCameraControls } from "data/viewer/utils/controls/camera/camera_controls/ts/frontend/trackball_camera_controls";
 ├── import type { CameraState } from "data/viewer/utils/controls/camera/camera_state/ts/frontend/types";
-├── import type { SceneGraphDisplayResponse } from "./types/display_response";
-├── import { createTrackballCameraControls } from "data/viewer/utils/controls/camera/camera_controls/ts/frontend/trackball_camera_controls";
 ├── import { createSpatialDisplayScene, startThreeSceneRenderLoop } from "data/viewer/utils/displays/utils/ts/frontend/three_scene_helpers";
-├── const DEFAULT_NODE_SIZE = 0.02         # number — heuristic default size for node markers when the caller does not supply nodeSize; lib-owned default, overridable
-├── const DEFAULT_EDGE_COLOR = "#888888"   # hex color — neutral gray fallback for edge lines when the payload does not carry an edge color AND the caller does not supply edgeColor; lib-owned default, overridable
-├── const DEFAULT_EDGE_WIDTH = 1.0         # number — line width fallback for edges when the caller does not supply edgeWidth; lib-owned default, overridable
-├── const DEFAULT_LABEL_FONT_SIZE = 12     # px — font size fallback for overlay labels when the caller does not supply labelFontSize; lib-owned default, overridable
-├── const DEFAULT_LABEL_COLOR = "#000000"  # hex color — text color fallback for overlay labels when the caller does not supply labelColor; lib-owned default, overridable
-├── function renderSceneGraphDisplay({ displayResponse, initialCameraState, nodeSize, edgeColor, edgeWidth, labelFontSize, labelColor }: { displayResponse: SceneGraphDisplayResponse; initialCameraState?: CameraState | null; nodeSize?: number; edgeColor?: string; edgeWidth?: number; labelFontSize?: number; labelColor?: string }): LeafVNode
-│   ├── # Renders a self-contained scene-graph display: baked node/edge geometry plus HTML label overlay projected per frame.
-│   ├── calls createSpatialDisplayScene({ initialCameraState })
-│   ├── calls createSceneGraphObject({ container, displayResponse, nodeSize, edgeColor, edgeWidth, labelFontSize, labelColor })   → { object, labels, labelOverlay }
-│   ├── impls scene.add(object)
-│   ├── calls createTrackballCameraControls({ container, camera, renderer, initialCameraState })
-│   ├── calls renderSceneGraphScene({ scene, camera, renderer, controls, labels, labelOverlay, labelFontSize, labelColor })
-│   └── return LeafVNode keyed by displayResponse.url
-├── function createSceneGraphObject({ container, displayResponse, nodeSize, edgeColor, edgeWidth, labelFontSize, labelColor }: { container: HTMLDivElement; displayResponse: SceneGraphDisplayResponse; nodeSize?: number; edgeColor?: string; edgeWidth?: number; labelFontSize?: number; labelColor?: string }): { object: THREE.Object3D; labels: object[]; labelOverlay: HTMLDivElement }
-│   ├── # Part-B: builds the HTML label overlay and returns a THREE.Group + mutable labels array, both populated from the THREE.Points + label data once the async payload load resolves.
-│   ├── calls createThreeSceneGraphLabelOverlay({ container, labelFontSize, labelColor })   → labelOverlay
-│   ├── impls group = new THREE.Group(); labels: object[] = []
-│   ├── impls loadSceneGraphPayload({ displayResponse }).then(payload => { const built = createThreeSceneGraphPoints({ payload, nodeSize, edgeColor, edgeWidth }); group.add(built.points); labels.push(...built.labels); })
+├── import type { LeafVNode } from "web/reconcile/reconcile";
+├── import type { SceneGraphDisplayResponse } from "./types/display_response";
+├── export const DEFAULT_NODE_SIZE = 0.02         # heuristic world-space size for node markers when the caller supplies no nodeSize; lib-owned default, overridable
+├── export const DEFAULT_EDGE_COLOR = "#888888"   # neutral gray for edge lines when neither the payload nor the caller carries an edge color; lib-owned default, overridable
+├── export const DEFAULT_EDGE_WIDTH = 1.0         # line width for edges when the caller supplies no edgeWidth; lib-owned default, overridable
+├── export const DEFAULT_LABEL_FONT_SIZE = 12     # px font size for overlay labels when the caller supplies no labelFontSize; lib-owned default, overridable
+├── export const DEFAULT_LABEL_COLOR = "#000000"  # text color for overlay labels when the caller supplies no labelColor; lib-owned default, overridable
+├── interface SceneGraphLabelEntry
+│   ├── # One per-node label of the payload: the text and the world position the per-frame projection drives it from.
+│   ├── text: string
+│   └── position: { x: number; y: number; z: number; }
+├── interface SceneGraphPayload
+│   ├── # Minimal payload the scene-graph display consumes: node and edge positions with optional colors, plus the label entries.
+│   ├── nodePositions: number[]
+│   ├── nodeColors?: number[]
+│   ├── edgePositions: number[]
+│   ├── edgeColors?: number[]
+│   └── labels: SceneGraphLabelEntry[]
+├── export function renderSceneGraphDisplay({ displayResponse, initialCameraState = null, nodeSize, edgeColor, edgeWidth, labelFontSize, labelColor, }: { displayResponse: SceneGraphDisplayResponse; initialCameraState?: CameraState | null; nodeSize?: number; edgeColor?: string; edgeWidth?: number; labelFontSize?: number; labelColor?: string; }): LeafVNode
+│   ├── # Renders a self-contained scene-graph display: baked node and edge geometry plus an HTML label overlay projected per frame.
+│   ├── () => [local]
+│   │   ├── # The leaf's render: mounts the scene-graph scene and returns its container.
+│   │   ├── calls createSpatialDisplayScene({ initialCameraState })  # -> { container, scene, camera, renderer }
+│   │   ├── calls createSceneGraphObject({ container, displayResponse, nodeSize, edgeColor, edgeWidth, labelFontSize, labelColor })  # -> { object, labels, labelOverlay }
+│   │   ├── impls scene.add(object)
+│   │   ├── calls createTrackballCameraControls({ container, camera, renderer, initialCameraState })  # -> controls
+│   │   ├── calls renderSceneGraphScene({ scene, camera, renderer, controls, labels, labelOverlay, labelFontSize, labelColor })
+│   │   └── return container
+│   ├── impls leaf = the LeafVNode keyed by displayResponse.url or `scene_graph:${displayResponse.slot_id}`, with empty props and that render
+│   └── return leaf
+├── function createSceneGraphObject({ container, displayResponse, nodeSize, edgeColor, edgeWidth, labelFontSize, labelColor, }: { container: HTMLDivElement; displayResponse: SceneGraphDisplayResponse; nodeSize?: number; edgeColor?: string; edgeWidth?: number; labelFontSize?: number; labelColor?: string; }): { object: THREE.Object3D; labels: object[]; labelOverlay: HTMLDivElement }
+│   ├── # Part-B: builds the HTML label overlay and returns a THREE.Group and mutable labels array, both filled once the async payload load resolves.
+│   ├── calls createThreeSceneGraphLabelOverlay({ container, labelFontSize, labelColor })  # -> labelOverlay
+│   ├── impls group = new THREE.Group()
+│   ├── impls labels = []  # initially empty, mutated on async resolve so the per-frame projection sees the filled list
+│   ├── calls loadSceneGraphPayload({ displayResponse })
+│   ├── (payload) => [local]
+│   │   ├── # On resolve: builds the points and labels from the payload into the already-returned group and array.
+│   │   ├── calls createThreeSceneGraphPoints({ payload, nodeSize, edgeColor, edgeWidth })  # -> built
+│   │   ├── impls group.add(built.points)
+│   │   └── impls labels.push(...built.labels)
+│   ├── (error) => [local]
+│   │   ├── # On rejection: throws a new Error carrying the underlying message.
+│   │   ├── if error is an Error
+│   │   │   └── impls error.message
+│   │   ├── else
+│   │   │   └── impls String(error)
+│   │   ├── impls message = that text
+│   │   └── throw unable to load scene graph: ${message}
+│   ├── impls the payload load, chained through that resolve step and that rejection step
 │   └── return { object: group, labels, labelOverlay }
-├── function createThreeSceneGraphLabelOverlay({ container, labelFontSize, labelColor }: { container: HTMLDivElement; labelFontSize?: number; labelColor?: string }): HTMLDivElement
-│   ├── # Builds the absolutely-positioned HTML overlay container layered above the canvas; labelFontSize / labelColor apply as the overlay's default font-size and color (per-label inline styles still take precedence).
+├── function createThreeSceneGraphLabelOverlay({ container, labelFontSize, labelColor, }: { container: HTMLDivElement; labelFontSize?: number; labelColor?: string; }): HTMLDivElement
+│   ├── # Builds the absolutely-positioned HTML overlay layered above the canvas, carrying the label font size and color as its defaults.
 │   ├── impls effectiveLabelFontSize = labelFontSize ?? DEFAULT_LABEL_FONT_SIZE
 │   ├── impls effectiveLabelColor = labelColor ?? DEFAULT_LABEL_COLOR
-│   ├── impls create the absolutely-positioned HTML overlay container layered above the canvas (default font-size = effectiveLabelFontSize px, color = effectiveLabelColor)
-│   ├── impls mount the container inside the display container
-│   └── return  # the overlay container
-├── async function loadSceneGraphPayload({ displayResponse }: { displayResponse: SceneGraphDisplayResponse }): Promise<SceneGraphPayload>
-│   ├── # Async-loads the scene-graph payload from displayResponse.url and returns the parsed payload (node/edge positions + colors + label entries).
-│   ├── if displayResponse.url === null
+│   ├── impls overlay = document.createElement("div")
+│   ├── impls overlay.style.position = "absolute"
+│   ├── impls overlay.style.inset = "0"
+│   ├── impls overlay.style.width = "100%"
+│   ├── impls overlay.style.height = "100%"
+│   ├── impls overlay.style.overflow = "hidden"
+│   ├── impls overlay.style.pointerEvents = "none"
+│   ├── impls overlay.style.fontSize = `${effectiveLabelFontSize}px`
+│   ├── impls overlay.style.color = effectiveLabelColor
+│   ├── impls container.append(overlay)
+│   └── return overlay
+├── async function loadSceneGraphPayload({ displayResponse, }: { displayResponse: SceneGraphDisplayResponse; }): Promise<SceneGraphPayload>
+│   ├── # Async-loads the scene-graph payload served at displayResponse.url.
+│   ├── if displayResponse.url is null
 │   │   └── throw new Error("scene graph display response url is null")
 │   ├── impls response = await fetch(displayResponse.url)
-│   ├── if !response.ok
+│   ├── if the response is not ok
 │   │   └── throw new Error(`unable to load scene graph: HTTP ${response.status}`)
-│   ├── impls payload = (await response.json()) as SceneGraphPayload  # cast unchecked
-│   └── return payload
-├── function createThreeSceneGraphPoints({ payload, nodeSize, edgeColor, edgeWidth }: { payload: SceneGraphPayload; nodeSize?: number; edgeColor?: string; edgeWidth?: number }): { points: THREE.Points; labels: object[] }
-│   ├── # Sync-builds THREE.Points + per-frame label data from a pre-loaded payload.
+│   └── return  # the awaited response body parsed as JSON, cast unchecked to SceneGraphPayload
+├── function createThreeSceneGraphPoints({ payload, nodeSize, edgeColor, edgeWidth, }: { payload: SceneGraphPayload; nodeSize?: number; edgeColor?: string; edgeWidth?: number; }): { points: THREE.Points; labels: object[] }
+│   ├── # Sync-builds the THREE.Points, its edge line set, and the per-frame label data from a loaded payload.
 │   ├── impls effectiveNodeSize = nodeSize ?? DEFAULT_NODE_SIZE
 │   ├── impls effectiveEdgeWidth = edgeWidth ?? DEFAULT_EDGE_WIDTH
-│   ├── if edgeColor !== undefined
-│   │   └── impls useEdgeVertexColors = false; effectiveEdgeColor = edgeColor
-│   ├── else if payload has per-edge colors
-│   │   └── impls useEdgeVertexColors = true; effectiveEdgeColor = undefined
+│   ├── impls let useEdgeVertexColors: boolean
+│   ├── impls let effectiveEdgeColor: string | undefined
+│   ├── if edgeColor is supplied
+│   │   ├── impls useEdgeVertexColors = false
+│   │   └── impls effectiveEdgeColor = edgeColor
+│   ├── else if the payload carries per-edge colors
+│   │   ├── impls useEdgeVertexColors = true
+│   │   └── impls effectiveEdgeColor = undefined
 │   ├── else
-│   │   └── impls useEdgeVertexColors = false; effectiveEdgeColor = DEFAULT_EDGE_COLOR
-│   └── return
-├── function renderSceneGraphScene({ scene, camera, renderer, controls, labels, labelOverlay, labelFontSize, labelColor }: { scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; controls: ReturnType<typeof createTrackballCameraControls>; labels: object[]; labelOverlay: HTMLDivElement; labelFontSize?: number; labelColor?: string }): void
-│   ├── # Drives the render + label-projection loop by wrapping the shared startThreeSceneRenderLoop with an onAfterRender step that projects labels each frame.
-│   ├── calls startThreeSceneRenderLoop({ scene, camera, renderer, controls, onAfterRender: () => _projectLabelsOntoOverlay({ camera, labels, labelOverlay, labelFontSize, labelColor }) })
-│   └── return
-└── function _projectLabelsOntoOverlay({ camera, labels, labelOverlay, labelFontSize, labelColor }: { camera: THREE.PerspectiveCamera; labels: object[]; labelOverlay: HTMLDivElement; labelFontSize?: number; labelColor?: string }): void
-    ├── # Per-frame step: projects each label's world position into overlay-pixel coordinates, updates the HTML node positions and per-label font-size/color, and culls offscreen labels.
+│   │   ├── impls useEdgeVertexColors = false
+│   │   └── impls effectiveEdgeColor = DEFAULT_EDGE_COLOR
+│   ├── impls nodeGeometry = new THREE.BufferGeometry()
+│   ├── impls nodeGeometry.setAttribute("position", the 3-component buffer over payload.nodePositions)
+│   ├── impls useNodeVertexColors = whether the payload carries per-node colors
+│   ├── if useNodeVertexColors
+│   │   └── impls nodeGeometry.setAttribute("color", the 3-component buffer over payload.nodeColors)
+│   ├── impls nodeMaterial = new THREE.PointsMaterial(vertexColors useNodeVertexColors, size effectiveNodeSize)
+│   ├── impls points = new THREE.Points(nodeGeometry, nodeMaterial)
+│   ├── impls edgeGeometry = new THREE.BufferGeometry()
+│   ├── impls edgeGeometry.setAttribute("position", the 3-component buffer over payload.edgePositions)
+│   ├── if useEdgeVertexColors
+│   │   └── impls edgeGeometry.setAttribute("color", the 3-component buffer over payload.edgeColors)
+│   ├── if effectiveEdgeColor is supplied
+│   │   └── impls { color: effectiveEdgeColor }
+│   ├── else
+│   │   └── impls {}
+│   ├── impls edgeMaterial = new THREE.LineBasicMaterial(vertexColors useEdgeVertexColors, linewidth effectiveEdgeWidth, spread with that color entry)
+│   ├── impls points.add(new THREE.LineSegments(edgeGeometry, edgeMaterial))
+│   ├── (entry) => [local]
+│   │   ├── # Per label entry: builds its absolutely-positioned overlay node and pairs it with its world position.
+│   │   ├── impls node = document.createElement("div")
+│   │   ├── impls node.style.position = "absolute"
+│   │   ├── impls node.style.whiteSpace = "nowrap"
+│   │   ├── impls node.textContent = entry.text
+│   │   └── return  # { node, position: new THREE.Vector3(entry.position.x, entry.position.y, entry.position.z) }
+│   ├── impls labels = payload.labels mapped through that step
+│   └── return { points, labels }
+├── function renderSceneGraphScene({ scene, camera, renderer, controls, labels, labelOverlay, labelFontSize, labelColor, }: { scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; controls: ThreeTrackballCameraControls; labels: object[]; labelOverlay: HTMLDivElement; labelFontSize?: number; labelColor?: string; }): void
+│   ├── # Drives the render loop, projecting the labels onto the overlay after each frame.
+│   ├── () => [local]
+│   │   ├── # The loop's onAfterRender step.
+│   │   └── calls _projectLabelsOntoOverlay({ camera, labels, labelOverlay, labelFontSize, labelColor })
+│   └── calls startThreeSceneRenderLoop({ scene, camera, renderer, controls, onAfterRender: that step })
+└── function _projectLabelsOntoOverlay({ camera, labels, labelOverlay, labelFontSize, labelColor, }: { camera: THREE.PerspectiveCamera; labels: object[]; labelOverlay: HTMLDivElement; labelFontSize?: number; labelColor?: string; }): void
+    ├── # Per-frame step: projects each label's world position into overlay-pixel coordinates and culls the offscreen ones.
     ├── impls effectiveLabelFontSize = labelFontSize ?? DEFAULT_LABEL_FONT_SIZE
     ├── impls effectiveLabelColor = labelColor ?? DEFAULT_LABEL_COLOR
-    ├── impls projects each label's world position to NDC via camera
-    ├── impls converts the NDC position to overlay-pixel coordinates
-    ├── impls updates each label's HTML node position (left/top), font-size = effectiveLabelFontSize px, color = effectiveLabelColor
-    ├── impls culls labels behind the camera or outside the viewport
-    └── return
+    ├── impls width = max(1, labelOverlay.clientWidth or 1)
+    ├── impls height = max(1, labelOverlay.clientHeight or 1)
+    └── for each label in labels
+        ├── impls (node, position) = the label, read as its overlay node and world position
+        ├── if node.parentElement is not labelOverlay
+        │   └── impls labelOverlay.append(node)
+        ├── impls projected = position.clone().project(camera)
+        ├── impls offscreen = projected.z > 1 or projected.x outside [-1, 1] or projected.y outside [-1, 1]
+        ├── if offscreen
+        │   ├── impls node.style.display = "none"
+        │   └── continue
+        ├── impls left = ((projected.x + 1) / 2) * width
+        ├── impls top = ((1 - projected.y) / 2) * height
+        ├── impls node.style.display = "block"
+        ├── impls node.style.left = `${left}px`
+        ├── impls node.style.top = `${top}px`
+        ├── impls node.style.fontSize = `${effectiveLabelFontSize}px`
+        └── impls node.style.color = effectiveLabelColor
 ```
