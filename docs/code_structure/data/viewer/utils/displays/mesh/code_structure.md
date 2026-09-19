@@ -75,6 +75,14 @@ core_mesh_display.py
 ├── TEXTURED_MESH_IFRAME_STYLE: Dict[str, str] = {"width": "100%", "height": "100%", "minHeight": "0", "border": "1px solid #dce5f0", "borderRadius": "12px", "overflow": "hidden", "backgroundColor": "#f7fafc"}
 ├── def create_mesh_display(mesh: Mesh, title: str, component_id: Optional[str] = None, camera_sync_group: Optional[str] = None) -> Union[go.Figure, html.Iframe]
 │   ├── # Creates one display component from a generic mesh container, routing on the texture it carries.
+│   ├── def _normalize_inputs() -> Tuple[str, str, Optional[str]] [local]
+│   │   ├── impls normalized_title = title.strip()
+│   │   ├── calls _normalize_component_id(component_id=component_id, title=normalized_title)  # -> normalized_component_id
+│   │   ├── impls normalized_camera_sync_group = None
+│   │   ├── if camera_sync_group is not None
+│   │   │   └── impls normalized_camera_sync_group = camera_sync_group.strip()
+│   │   └── return (normalized_title, normalized_component_id, normalized_camera_sync_group)
+│   ├── calls _normalize_inputs()  # -> (normalized_title, normalized_component_id, normalized_camera_sync_group)
 │   ├── if mesh.texture is a MeshTextureVertexColor
 │   │   ├── calls _create_vertex_color_mesh_display(mesh=mesh, title=normalized_title)
 │   │   └── return
@@ -89,6 +97,18 @@ core_mesh_display.py
 │   └── return figure
 ├── def _create_uv_texture_mesh_display(mesh: Mesh, title: str, component_id: str, camera_sync_group: Optional[str]) -> html.Iframe
 │   ├── # Creates one Three.js iframe from a UV texture map.
+│   ├── def _normalize_inputs() -> Tuple[List[float], List[float], str, Dict[str, object]] [local]
+│   │   ├── calls mesh.to(uv_convention="obj")  # -> display_mesh, in the OBJ UV convention the viewer reads
+│   │   ├── impls normalized_verts = display_mesh.verts.detach().cpu().numpy()
+│   │   ├── impls normalized_faces = display_mesh.faces.detach().cpu().numpy()
+│   │   ├── impls normalized_verts_uvs = display_mesh.texture.verts_uvs.detach().cpu().numpy()
+│   │   ├── impls normalized_faces_uvs = display_mesh.texture.faces_uvs.detach().cpu().numpy()
+│   │   ├── calls build_mesh_view_bounds(verts=display_mesh.verts)  # -> normalized_mesh_view_bounds
+│   │   ├── calls _build_textured_triangle_buffers(verts=normalized_verts, faces=normalized_faces, verts_uvs=normalized_verts_uvs, faces_uvs=normalized_faces_uvs)  # -> (normalized_triangle_positions, normalized_triangle_uvs)
+│   │   ├── calls _normalize_texture_map_to_uint8(texture_map=display_mesh.texture.uv_texture_map)  # -> normalized_texture_map
+│   │   ├── calls _build_texture_data_url(texture_map=normalized_texture_map)                       # -> normalized_texture_data_url
+│   │   └── return  # (the triangle positions and uvs as lists, normalized_texture_data_url, normalized_mesh_view_bounds)
+│   ├── calls _normalize_inputs()  # -> (triangle_position_values, triangle_uv_values, texture_data_url, mesh_view_bounds)
 │   ├── calls _build_textured_mesh_html(title=title, position_values=triangle_position_values, uv_values=triangle_uv_values, texture_data_url=texture_data_url, mesh_view_bounds=mesh_view_bounds, viewer_id=component_id, camera_sync_group=camera_sync_group)  # -> iframe_html
 │   ├── impls iframe_attributes = {}
 │   ├── if camera_sync_group is not None
@@ -134,6 +154,20 @@ core_mesh_display.py
 │   └── return
 ├── def build_mesh_view_bounds(verts: torch.Tensor) -> Dict[str, object]
 │   ├── # Builds one renderer framing summary from raw mesh verts.
+│   ├── def _normalize_inputs() -> Dict[str, object] [local]
+│   │   ├── impls min_corner = the per-axis minimum of verts, keeping the dim
+│   │   ├── impls max_corner = the per-axis maximum of verts, keeping the dim
+│   │   ├── impls bounds_center = the midpoint of min_corner and max_corner
+│   │   ├── impls bounds_extent = max_corner - min_corner
+│   │   ├── impls max_extent = the largest axis extent, as a float
+│   │   ├── assert max_extent > 0.0  # "Expected mesh bounds to have a positive extent before building view bounds", reporting bounds_extent
+│   │   ├── calls _compute_camera_coordinate_scale(bounds_extent=bounds_extent)  # -> camera_coordinate_scale
+│   │   ├── impls half_span = max_extent / 2.0
+│   │   ├── impls center_values = bounds_center flattened onto the cpu as a list
+│   │   ├── impls min_corner_values = min_corner flattened onto the cpu as a list
+│   │   ├── impls max_corner_values = max_corner flattened onto the cpu as a list
+│   │   └── return  # { center, camera_coordinate_scale, half_span, max_span: max_extent, axis_ranges: the per-axis [min, max] }
+│   ├── calls _normalize_inputs()
 │   └── return
 ├── def _compute_camera_coordinate_scale(bounds_extent: torch.Tensor) -> float
 │   ├── # Computes one shared camera-coordinate scale from a mesh's axis extents.
