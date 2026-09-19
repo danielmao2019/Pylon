@@ -14,11 +14,10 @@ validation.py
 ├── def validate_cameras_attributes(intrinsics: "CameraIntrinsics", extrinsics: "CameraExtrinsics", names: Optional[List[Optional[str]]], ids: Optional[List[Optional[int]]], device: Optional[Union[str, torch.device]], dtype: Optional[torch.dtype]) -> None
 │   ├── # Single-entry validation for Cameras.__init__: validate the batched component pair, the metadata parallel to its batch axis, and the optional tensor placement request.
 │   ├── calls validate_camera_attributes(intrinsics=intrinsics, extrinsics=extrinsics, name=None, id=None, device=device, dtype=dtype)  # the component checks are shape-agnostic, so the batched pair takes the same ones a single camera does
-│   ├── impls component_batch_sizes = {len(component) for each component of (intrinsics, extrinsics) that is_batched} without 1  # what each component states beyond a broadcast, so neither component is the one read
-│   ├── assert len(component_batch_sizes) <= 1  # the two components state one batch between them, whichever of them broadcasts over it
-│   ├── impls batch_size = the single batch size in component_batch_sizes, or 1 where it holds none  # neither component stating a batch leaves a batch of one
-│   ├── assert names is None or len(names) == batch_size
-│   ├── assert ids is None or len(ids) == batch_size
+│   ├── assert extrinsics.is_batched  # the poses count the cameras
+│   ├── assert not intrinsics.is_batched or len(intrinsics) == 1 or len(intrinsics) == len(extrinsics)
+│   ├── assert names is None or len(names) == len(extrinsics)
+│   ├── assert ids is None or len(ids) == len(extrinsics)
 │   └── return
 └── def validate_camera_attributes(intrinsics: "CameraIntrinsics", extrinsics: "CameraExtrinsics", name: Optional[str], id: Optional[int], device: Optional[Union[str, torch.device]], dtype: Optional[torch.dtype]) -> None
     ├── # Single-entry validation for Camera.__init__: validate component objects, metadata, and optional tensor placement request.
