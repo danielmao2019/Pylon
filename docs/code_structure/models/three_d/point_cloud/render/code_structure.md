@@ -74,30 +74,59 @@ prepare_points_for_rendering.py
 ├── from models.three_d.point_cloud.ops.world_to_camera_transform import world_to_camera_transform
 ├── def prepare_points_for_rendering(pc: PointCloud, camera: Camera, resolution: Tuple[int, int], max_divide: int = 0, num_divide: Optional[int] = None, cull_func: Callable[[torch.Tensor, torch.Tensor, int, int], None] = _frustum_cull) -> Tuple[torch.Tensor, torch.Tensor]
 │   ├── # Public entry that prepares the camera (opencv extr_convention + resolution-scaled intrinsics) and adaptively batches point preprocessing to mitigate CUDA OOM.
+│   ├── assert isinstance(pc, PointCloud)  # f"{type(pc)=}"
+│   ├── assert isinstance(camera, Camera)  # f"{type(camera)=}"
 │   ├── impls points = pc.xyz  # the [N, 3] world-space point tensor
-│   ├── impls camera_prepared = camera.to(device=points.device, extr_convention="opencv").scale_intrinsics(resolution=resolution)
+│   ├── calls camera.to(device=points.device, extr_convention="opencv")  # the opencv-convention copy on the points device
+│   ├── calls camera.to(device=points.device, extr_convention="opencv").scale_intrinsics(resolution=resolution)  # -> camera_prepared
 │   ├── impls N = points.shape[0]
 │   ├── if num_divide is not None
-│   │   ├── impls batch_size = max(1, math.ceil(N / 2 ** num_divide))
-│   │   ├── calls _prepare_points_for_rendering_batched(points=points, camera=camera_prepared, batch_size=batch_size)
+│   │   ├── impls bs = max(1, math.ceil(N / 2 ** num_divide))
+│   │   ├── calls _prepare_points_for_rendering_batched(points=points, camera=camera_prepared, resolution=resolution, batch_size=bs, cull_func=cull_func)
 │   │   └── return  # the batched, depth-sorted result
+│   ├── impls n = 0
 │   ├── while n <= max_divide
+│   │   ├── impls bs = max(1, math.ceil(N / 2 ** n))
 │   │   ├── try
-│   │   │   ├── calls _prepare_points_for_rendering_batched(points=points, camera=camera_prepared, batch_size=ceil(N / 2 ** n))
+│   │   │   ├── calls _prepare_points_for_rendering_batched(points=points, camera=camera_prepared, resolution=resolution, batch_size=bs, cull_func=cull_func)
 │   │   │   └── return  # the batched, depth-sorted result
-│   │   └── except torch.cuda.OutOfMemoryError
-│   │       └── impls increment n to retry with a halved batch
-│   └── raise  # torch.cuda.OutOfMemoryError once max_divide halvings are exhausted
+│   │   ├── except torch.cuda.OutOfMemoryError
+│   │   │   ├── impls increment n to retry with a halved batch
+│   │   │   ├── impls release the cached CUDA memory
+│   │   │   └── continue
+│   │   └── except Exception
+│   │       └── raise
+│   └── raise torch.cuda.OutOfMemoryError  # f"CUDA OOM after {max_divide} divisions in prepare_points_for_rendering."
 ├── def _prepare_points_for_rendering_batched(points: torch.Tensor, camera: Camera, resolution: Tuple[int, int], batch_size: int = 2048, cull_func: Callable[[torch.Tensor, torch.Tensor, int, int], None] = _frustum_cull) -> Tuple[torch.Tensor, torch.Tensor]
 │   ├── # Runs _prepare_points_for_rendering over fixed-size point batches, then concatenates and globally back-to-front depth-sorts the survivors.
 │   ├── impls render_intrinsics = camera.intrinsics      # the CameraIntrinsics carries the camera-to-image projection
 │   ├── impls extrinsics = camera.extrinsics.extrinsics  # the [4, 4] cam2world tensor
-│   ├── for each batch [i:j] of points
-│   │   └── calls _prepare_points_for_rendering(render_intrinsics=render_intrinsics, extrinsics=extrinsics, cull_func=cull_func)
-│   ├── if no batch produced survivors
-│   │   └── raise AssertionError  # no points remained after culling in all batches
-│   ├── impls concatenate the per-batch survivors and their global indices  # impls-node-one-step:skip
-│   └── impls globally depth-sort the concatenated points back-to-front by column 2
+│   ├── impls N = points.shape[0]
+│   ├── impls outputs = an empty list
+│   ├── impls idx_outputs = an empty list
+│   ├── for each batch start i of range(0, N, batch_size)
+│   │   ├── impls j = min(N, i + batch_size)
+│   │   ├── calls _prepare_points_for_rendering(points=points[i:j], render_intrinsics=render_intrinsics, extrinsics=extrinsics, resolution=resolution, cull_func=cull_func)  # -> pts, idx
+│   │   ├── if pts has no elements  # the batch had no survivors
+│   │   │   └── continue
+│   │   ├── impls append pts to outputs
+│   │   └── impls append idx + i to idx_outputs  # the batch's indices offset by its start, global into points
+│   ├── if outputs is empty  # no batch produced survivors
+│   │   └── raise AssertionError  # "No points remained after culling in all batches"
+│   ├── impls pts_all = outputs concatenated along dim 0
+│   ├── impls idx_all = idx_outputs concatenated along dim 0
+│   ├── impls outputs = None  # drops the per-batch tensors so the allocator can reclaim them
+│   ├── impls idx_outputs = None
+│   ├── impls release the cached CUDA memory
+│   ├── impls valid_count = pts_all.shape[0]
+│   ├── impls sort_values = an empty [valid_count] tensor of pts_all's dtype on its device
+│   ├── impls sort_indices = an empty [valid_count] int64 tensor on pts_all's device
+│   ├── impls sort pts_all's column 2 descending along dim 0, out into sort_values, sort_indices  # the back-to-front depth order
+│   ├── impls points_sorted = an empty tensor like pts_all
+│   ├── impls indices_sorted = an empty tensor like idx_all
+│   ├── impls index-select pts_all's rows at sort_indices, out into points_sorted
+│   ├── impls index-select idx_all's entries at sort_indices, out into indices_sorted
+│   └── return (points_sorted, indices_sorted)
 ├── def _prepare_points_for_rendering(points: torch.Tensor, render_intrinsics: CameraIntrinsics, extrinsics: torch.Tensor, resolution: Tuple[int, int], cull_func: Callable[[torch.Tensor, torch.Tensor, int, int], None] = _frustum_cull) -> Tuple[torch.Tensor, torch.Tensor]
 │   ├── # Preprocesses one chunk of world-space points: world-to-camera transform, positive-depth filter, camera-to-image projection, then image-bounds cull.
 │   ├── calls world_to_camera_transform(points=points, extrinsics=extrinsics, inplace=True)  # the world-to-camera step
@@ -356,28 +385,33 @@ render_rgb_volumetric.py
 │   ├── impls downscale_ratio_h = native_height / render_height
 │   ├── impls downscale_estimate = the mean of the two ratios
 │   ├── impls valid_factors = [1, 2, 4, 8]
-│   ├── impls downscale_factor = the valid factor nearest downscale_estimate
+│   ├── lambda factor [local]
+│   │   ├── # The key the nearest valid factor is picked by.
+│   │   └── impls the absolute difference between downscale_estimate and factor
+│   ├── impls downscale_factor = the entry of valid_factors the lambda above keys smallest, the earlier one on a tie
 │   ├── assert math.isfinite(downscale_estimate) with both ratios within 0.01 of downscale_factor  # "Render resolution does not correspond to a supported downscale factor"
 │   ├── impls stage_start = time.time()
-│   ├── calls prepare_points_for_rendering(pc=pc, camera=camera, resolution=resolution)
-│   ├── impls image_plane_points_indices = the second of the pair it returned
+│   ├── calls prepare_points_for_rendering(pc=pc, camera=camera, resolution=resolution)  # -> _, image_plane_points_indices
 │   ├── calls Select(indices=image_plane_points_indices)
-│   ├── impls pc = that selector applied to pc, keeping only the points that projected into the image
-│   ├── calls gen_auxiliary_cameras(points=pc.xyz, camera=camera)
-│   ├── impls aux_cameras = the shell of offset cameras it built
-│   ├── impls train_extrinsics = the primary extrinsics followed by each auxiliary camera's extrinsics
+│   ├── calls Select(indices=image_plane_points_indices)(pc)  # -> pc: only the points that projected into the image
+│   ├── calls gen_auxiliary_cameras(points=pc.xyz, camera=camera)  # -> aux_cameras: the shell of offset cameras it built
+│   ├── for each aux_camera of aux_cameras
+│   │   └── impls the extrinsics of aux_camera
+│   ├── impls train_extrinsics = a list holding extrinsics, followed by the extrinsics the comprehension above collects  # the primary extrinsics first, each auxiliary camera's following
 │   ├── impls log the culling stage duration with the training-camera count
 │   ├── impls stage_start = time.time()
-│   ├── impls images, masks = two empty lists
+│   ├── impls images = an empty List[torch.Tensor]
+│   ├── impls masks = an empty List[torch.Tensor]
 │   ├── for each _extrinsics in train_extrinsics
-│   │   ├── calls Camera(intrinsics=intrinsics, extrinsics=_extrinsics, device=pc.device)
-│   │   ├── impls render_camera = the camera it built
-│   │   ├── calls render_rgb_from_point_cloud(pc=pc, camera=render_camera, resolution=resolution, return_mask=True)
-│   │   └── impls images, masks each gain the image, mask pair it returned
+│   │   ├── calls Camera(intrinsics=intrinsics, extrinsics=_extrinsics, device=pc.device)  # -> render_camera
+│   │   ├── calls render_rgb_from_point_cloud(pc=pc, camera=render_camera, resolution=resolution, return_mask=True)  # -> image, mask
+│   │   ├── impls append image to images
+│   │   └── impls append mask to masks
 │   ├── impls log the base-render stage duration with the image count
 │   ├── impls target_device = pc.xyz.device
 │   ├── if debug
-│   │   ├── impls tempdir = ./test_volumetric_rendering, created with its parents
+│   │   ├── impls tempdir = the path ./test_volumetric_rendering
+│   │   ├── impls create tempdir with its parents, an existing one kept
 │   │   ├── impls cleanup_fn = None
 │   │   └── impls log the retained workspace path
 │   ├── else
@@ -394,24 +428,20 @@ render_rgb_volumetric.py
 │   │   ├── impls log the dataset-write stage duration
 │   │   ├── impls dataset_root = Path(tempdir)
 │   │   ├── impls stage_start = time.time()
-│   │   ├── calls _run_ns_train_splatfacto(dataset_root=dataset_root, downscale_factor=downscale_factor)
-│   │   ├── impls model_dir = the run directory it returned
+│   │   ├── calls _run_ns_train_splatfacto(dataset_root=dataset_root, downscale_factor=downscale_factor)  # -> model_dir: the run directory it returned
 │   │   ├── impls log the ns-train stage duration
 │   │   ├── impls stage_start = time.time()
 │   │   ├── calls _assert_checkpoint_exists(model_dir=model_dir)
-│   │   ├── calls load_splatfacto_model(model_dir=str(model_dir), device=target_device)
-│   │   ├── impls pipeline = the model it loaded
+│   │   ├── impls pipeline = the model load_splatfacto_model loads from str(model_dir) onto target_device  # its import path models.three_d.splatfacto resolves to no module in this repo
 │   │   ├── impls log the model-load stage duration
 │   │   ├── impls stage_start = time.time()
-│   │   ├── calls render_rgb_from_splatfacto(model=pipeline, camera=camera, resolution=resolution)
-│   │   ├── impls rendered_image = the image it rendered
+│   │   ├── impls rendered_image = the image render_rgb_from_splatfacto renders of pipeline through camera at resolution  # its import path models.three_d.splatfacto resolves to no module in this repo
 │   │   └── impls log the evaluation-render stage duration
 │   ├── finally
 │   │   └── if cleanup_fn is not None
 │   │       └── impls invoke cleanup_fn to drop the temporary workspace
 │   ├── impls log the total pipeline duration
-│   ├── impls rendered_image = rendered_image moved onto target_device
-│   └── return rendered_image
+│   └── return  # rendered_image moved onto target_device
 ├── def gen_auxiliary_cameras(points: torch.Tensor, camera: Camera) -> List[Camera]
 │   ├── # Rings the primary view with offset cameras, so one input view still gives a volumetric fit a spread of poses to train against.
 │   ├── impls device = points.device
