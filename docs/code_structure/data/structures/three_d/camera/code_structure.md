@@ -166,7 +166,7 @@ cameras.py
 ├── from data.structures.three_d.camera.intrinsics.camera_intrinsics import CameraIntrinsics
 ├── from data.structures.three_d.camera.validation import validate_cameras_attributes
 └── class Cameras
-    ├── # A batch of cameras: one CameraIntrinsics and one CameraExtrinsics, each either carrying the leading batch axis or broadcasting over it, so every method they already have operates on the whole batch.
+    ├── # A batch of cameras: one CameraExtrinsics carrying the leading batch axis and one CameraIntrinsics either carrying it too or shared by every camera, so every method they already have operates on the whole batch.
     ├── def __init__(self, intrinsics: CameraIntrinsics, extrinsics: CameraExtrinsics, names: Optional[List[Optional[str]]] = None, ids: Optional[List[Optional[int]]] = None, device: Optional[Union[str, torch.device]] = None, dtype: Optional[torch.dtype] = None) -> None
     │   ├── # Construct a Cameras from a batched CameraIntrinsics whose params are [B] and a batched CameraExtrinsics whose matrix is [B, 4, 4].
     │   ├── def _validate_inputs [local]
@@ -200,7 +200,7 @@ cameras.py
     │   │   ├── assert name not in name_to_index  # refused rather than silently resolving to one of them
     │   │   └── impls name_to_index[name] = index
     │   ├── impls self._intrinsics = intrinsics  # params each [B], or scalars and [1] columns where the intrinsics broadcasts over the batch
-    │   ├── impls self._extrinsics = extrinsics  # matrix [B, 4, 4], or the [4, 4] it broadcasts over the batch
+    │   ├── impls self._extrinsics = extrinsics  # matrix [B, 4, 4], or one [4, 4] for a batch of one camera
     │   ├── impls self._names = names
     │   ├── impls self._ids = ids
     │   ├── impls self._name_to_index = name_to_index
@@ -211,7 +211,7 @@ cameras.py
     │   ├── # The batch's intrinsics, whose params carry the batch axis, or broadcast over it, so its own project / scale_intrinsics cover every camera at once.
     │   └── return self._intrinsics
     ├── @property def extrinsics(self) -> CameraExtrinsics
-    │   ├── # The batch's extrinsics, whose [B, 4, 4] matrix, or the [4, 4] it broadcasts over the batch, every pose op runs over.
+    │   ├── # The batch's extrinsics, whose [B, 4, 4] matrix, or one [4, 4] for a batch of one camera, every pose op runs over.
     │   └── return self._extrinsics
     ├── def to(self, device: Optional[Union[str, torch.device]] = None, dtype: Optional[torch.dtype] = None, non_blocking: bool = False, copy: bool = False, intr_convention: Optional[str] = None, extr_convention: Optional[str] = None) -> "Cameras"
     │   ├── # Return this batch with Tensor.to-style placement / copy semantics plus optional frame conversions, each delegated to the component that owns it.
