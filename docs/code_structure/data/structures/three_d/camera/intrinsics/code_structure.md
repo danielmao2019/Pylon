@@ -379,9 +379,14 @@ camera_intrinsics.py
 │   ├── def transform_intrinsics(self, transform: torch.Tensor, resolution: Tuple[Union[int, torch.Tensor], Union[int, torch.Tensor]]) -> "CameraIntrinsics"
 │   │   ├── # Return this CameraIntrinsics restated onto another image by a pixel-frame affine, the raster that image is named alongside it because a 3x3 carries no size of its own.
 │   │   ├── def _validate_inputs [local]
-│   │   │   ├── assert transform is a [..., 3, 3] floating tensor whose last row is [0, 0, 1]
-│   │   │   ├── assert transform's off-diagonal entries [..., 0, 1] and [..., 1, 0] are zero  # an axis-aligned affine is the only kind that keeps a skew-free K skew-free
-│   │   │   └── assert resolution is an (h, w) pair of positive integer-valued scalars or [B] tensors  # a batch scales each camera's own raster, so the sides differ per camera
+│   │   │   ├── assert transform is a torch.Tensor
+│   │   │   ├── assert transform.ndim in (2, 3) and transform.shape[-2:] == (3, 3)  # one affine, or one per camera of a batch
+│   │   │   ├── assert transform is a floating tensor
+│   │   │   ├── assert transform[..., 2, :] equals [0.0, 0.0, 1.0] in transform.dtype at every entry  # an affine's last row
+│   │   │   ├── assert transform[..., 0, 1] and transform[..., 1, 0] are zero at every entry  # an axis-aligned affine is the only kind that keeps a skew-free K skew-free
+│   │   │   ├── assert resolution is a tuple of length 2
+│   │   │   ├── assert resolution[0] and resolution[1] are each a positive int, or a torch.Tensor of at most one axis whose entries are positive whole numbers  # a batch scales each camera's own raster, so the sides differ per camera
+│   │   │   └── assert transform.ndim == 2 or not self.is_batched or transform.shape[0] == len(self)  # one affine for every camera, or one per camera of this batch
 │   │   ├── calls _validate_inputs
 │   │   ├── def _normalize_inputs [local]
 │   │   │   ├── impls transform = transform moved to self._device and self._dtype
@@ -393,7 +398,7 @@ camera_intrinsics.py
 │   │   ├── impls K = transform @ the [..., 3, 3] assembled from standard.fx, standard.fy, standard.cx and standard.cy  # impls-node-one-step:skip; the subclass accessors, so every model hands over its focals through the one API
 │   │   ├── calls self._focal_params(fx=K[..., 0, 0], fy=K[..., 1, 1])  # -> params, this model's own focal keys for the transformed pair
 │   │   ├── impls params cx, cy = K[..., 0, 2], K[..., 1, 2]
-│   │   ├── impls params h, w = resolution's h, w broadcast to K's leading batch shape  # a single raster names the same sides for every camera of a batch
+│   │   ├── impls params h, w = resolution's h, w, an int side broadcast to K's leading batch shape and a [B] side kept as it is  # a single raster names the same sides for every camera; the rebuilt intrinsics' own validation asserts every param shares one shape
 │   │   ├── impls transformed = type(self)(params=params, intr_convention="standard")
 │   │   ├── calls transformed.to(intr_convention=self._intr_convention)  # -> intrinsics, back on the frame this camera states its params in
 │   │   └── return intrinsics
