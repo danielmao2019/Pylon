@@ -358,7 +358,7 @@ io.py
 │   ├── from data.structures.three_d.camera.camera import Camera
 │   └── from data.structures.three_d.camera.cameras import Cameras
 ├── _CAMERA_SERIALIZATION_FORMATS        # supported formats: {"json", "npz"}
-├── _CAMERA_JSON_KEYS, _CAMERA_NPZ_KEYS  # the payload key schema (model / params / intr_convention / extrinsics / extr_convention / dtype / name / id); the intrinsics and extrinsics fields spell each component as it holds itself, batched or unbatched
+├── _CAMERA_JSON_KEYS, _CAMERA_NPZ_KEYS  # the payload key schema (model / params / intr_convention / extrinsics / extr_convention / dtype / name / id); the intrinsics fields spell the intrinsics as it holds itself, batched or unbatched, and the extrinsics field one [4, 4] per camera
 ├── def save_cameras(cameras: Union["Camera", "Cameras"], cameras_path: Path) -> None
 │   ├── # Save cameras (a Cameras collection or a single Camera) to a .npz or .json file.
 │   ├── def _validate_inputs [local]
@@ -406,7 +406,7 @@ io.py
 │   ├── def _normalize_inputs [local]
 │   │   ├── impls was_single = isinstance(cameras, Camera)
 │   │   ├── if was_single
-│   │   │   └── calls Cameras(intrinsics=cameras.intrinsics, extrinsics=cameras.extrinsics, names=[cameras.name], ids=[cameras.id], device=cameras.device)  # the camera's own components broadcast over a batch of one, so the payload spells them as the camera holds them
+│   │   │   └── calls Cameras(intrinsics=cameras.intrinsics, extrinsics=cameras.extrinsics[None], names=[cameras.name], ids=[cameras.id], device=cameras.device)  # the pose given a leading axis of one, since a Cameras' extrinsics always carry the batch; the intrinsics shared by that one camera as it holds them
 │   │   └── return cameras, was_single
 │   ├── calls _normalize_inputs(cameras=cameras)
 │   ├── def _serialize [local]
