@@ -183,8 +183,7 @@ cameras.py
     │   │   │   └── impls dtype = the single dtype in component_dtypes  # single, since validate_camera_attributes asserts intrinsics.dtype == extrinsics.dtype
     │   │   ├── calls intrinsics.to(device=device, dtype=dtype)  # -> intrinsics, brought to the resolved device and dtype
     │   │   ├── calls extrinsics.to(device=device, dtype=dtype)  # -> extrinsics, brought to the resolved device and dtype, never the other way around
-    │   │   ├── impls component_batch_sizes = {len(component) for each component of (intrinsics, extrinsics) that is_batched} without 1  # what each component states beyond a broadcast, so neither component is the one read
-    │   │   ├── impls batch_size = the single batch size in component_batch_sizes, or 1 where it holds none  # single, since validate_cameras_attributes asserts the components state one batch between them
+    │   │   ├── impls batch_size = len(extrinsics)  # the poses count the cameras
     │   │   ├── if names is None  # the batch named by omission
     │   │   │   └── impls names = [None] * batch_size
     │   │   ├── if ids is None  # the batch identified by omission
@@ -199,7 +198,7 @@ cameras.py
     │   │   ├── assert name not in name_to_index  # refused rather than silently resolving to one of them
     │   │   └── impls name_to_index[name] = index
     │   ├── impls self._intrinsics = intrinsics  # params each [B], or scalars and [1] columns where the intrinsics broadcasts over the batch
-    │   ├── impls self._extrinsics = extrinsics  # matrix [B, 4, 4], or one [4, 4] for a batch of one camera
+    │   ├── impls self._extrinsics = extrinsics  # matrix [B, 4, 4]
     │   ├── impls self._names = names
     │   ├── impls self._ids = ids
     │   ├── impls self._name_to_index = name_to_index
@@ -210,7 +209,7 @@ cameras.py
     │   ├── # The batch's intrinsics, whose params carry the batch axis, or broadcast over it, so its own project / scale_intrinsics cover every camera at once.
     │   └── return self._intrinsics
     ├── @property def extrinsics(self) -> CameraExtrinsics
-    │   ├── # The batch's extrinsics, whose [B, 4, 4] matrix, or one [4, 4] for a batch of one camera, every pose op runs over.
+    │   ├── # The batch's extrinsics, whose [B, 4, 4] matrix every pose op runs over.
     │   └── return self._extrinsics
     ├── def to(self, device: Optional[Union[str, torch.device]] = None, dtype: Optional[torch.dtype] = None, non_blocking: bool = False, copy: bool = False, intr_convention: Optional[str] = None, extr_convention: Optional[str] = None) -> "Cameras"
     │   ├── # Return this batch with Tensor.to-style placement / copy semantics plus optional frame conversions, each delegated to the component that owns it.
