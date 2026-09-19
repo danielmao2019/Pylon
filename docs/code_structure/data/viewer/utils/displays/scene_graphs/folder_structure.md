@@ -17,3 +17,5 @@ data/viewer/utils/displays/scene_graphs/
         ├── __init__.py
         └── scene_graph_display.ts
 ```
+
+## Tests folder structure

@@ -29,3 +29,9 @@ data/viewer/utils/controls/camera/
             ├── types.ts        # CameraSyncState interface
             └── camera_sync.ts  # generic CameraSyncState store with camera-sync-specific additional APIs
 ```
+
+## Tests folder structure
+
+```text
+tests/data/viewer/utils/controls/camera/
+```

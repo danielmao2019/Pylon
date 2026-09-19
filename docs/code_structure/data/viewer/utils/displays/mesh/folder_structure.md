@@ -20,3 +20,9 @@ data/viewer/utils/displays/mesh/
         ├── core_mesh_display.ts  # TS mesh UI core
         └── apis.ts               # TS frontend mesh-display APIs
 ```
+
+## Tests folder structure
+
+```text
+tests/data/viewer/utils/displays/mesh_display/
+```
