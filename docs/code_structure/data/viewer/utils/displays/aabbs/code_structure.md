@@ -69,7 +69,7 @@ apis.ts
 │   ├── () => [local]
 │   │   ├── # The leaf's render: mounts the spatial box overlay and returns its container.
 │   │   ├── calls createSpatialDisplayScene({ initialCameraState })  # -> { container, scene, camera, renderer }
-│   │   ├── calls createAabb3dObject({ displayResponse })  # -> object
+│   │   ├── calls createAabb3dObject({ displayResponse })            # -> object
 │   │   ├── impls scene.add(object)
 │   │   ├── calls createTrackballCameraControls({ container, camera, renderer, initialCameraState })  # -> controls
 │   │   ├── calls renderAabb3dScene({ scene, camera, renderer, controls })

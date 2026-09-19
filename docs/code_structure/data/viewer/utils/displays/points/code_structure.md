@@ -45,17 +45,17 @@ core_points_display.py
 ├── DEFAULT_POINT_COLOR = "#cccccc"   # uniform fallback used when the point cloud has no per-point colors and the caller supplies no point_color; lib-owned default, overridable
 ├── def build_point_cloud_id(datapoint: Dict[str, Any], component: str) -> Tuple[str, int, str]
 │   ├── # Builds the structured point-cloud id of one datapoint component from the viewer context.
-│   ├── assert datapoint is a dict                     # reporting its type
-│   ├── assert component is a str                      # reporting its type
-│   ├── assert datapoint carries 'meta_info'           # reporting the datapoint's keys
+│   ├── assert datapoint is a dict            # reporting its type
+│   ├── assert component is a str             # reporting its type
+│   ├── assert datapoint carries 'meta_info'  # reporting the datapoint's keys
 │   ├── impls meta_info = datapoint['meta_info']
-│   ├── assert meta_info is a dict                     # reporting its type
-│   ├── assert meta_info carries 'idx'                 # reporting meta_info's keys
+│   ├── assert meta_info is a dict      # reporting its type
+│   ├── assert meta_info carries 'idx'  # reporting meta_info's keys
 │   ├── impls datapoint_idx = meta_info['idx']
-│   ├── assert datapoint_idx is an int                 # reporting its type
+│   ├── assert datapoint_idx is an int  # reporting its type
 │   ├── calls get_viewer_context()
 │   ├── impls dataset_name = that context's backend.current_dataset
-│   ├── assert dataset_name is a str                   # reporting its type
+│   ├── assert dataset_name is a str  # reporting its type
 │   └── return (dataset_name, datapoint_idx, component)
 ├── def create_point_cloud_display(pc: PointCloud, title: str, color_key: Optional[str] = None, color_type: Optional[str] = None, highlight_indices: Optional[torch.Tensor] = None, point_size: float = 2, point_opacity: float = 0.8, camera_state: Optional[Dict[str, Any]] = None, lod_type: str = "none", lod_config: Optional[Dict[str, Any]] = None, point_cloud_id: Optional[Union[str, Tuple[str, int, str]]] = None, axis_ranges: Optional[Dict[str, Tuple[float, float]]] = None, **kwargs: Any) -> go.Figure
 │   ├── # Creates the Plotly point-cloud display, LOD-processed and browser-downsampled, under a camera-synced layout.
@@ -69,25 +69,25 @@ core_points_display.py
 │   ├── impls labels = that value
 │   ├── assert points is a torch.Tensor  # reporting its type
 │   ├── impls logger.info(the call's point shape, lod_type and point_cloud_id)
-│   ├── assert points is 2D                    # reporting its shape
-│   ├── assert points holds 3 coordinates      # reporting its second dimension
+│   ├── assert points is 2D                # reporting its shape
+│   ├── assert points holds 3 coordinates  # reporting its second dimension
 │   ├── assert points is non-empty
 │   ├── assert title is a str                  # reporting its type
 │   ├── assert point_size is numeric           # reporting its type
 │   ├── assert point_opacity is numeric        # reporting its type
 │   ├── assert point_opacity is within [0, 1]  # reporting point_opacity
 │   ├── if colors is not None
-│   │   ├── assert colors is a torch.Tensor                   # reporting its type
-│   │   └── assert colors has one row per point               # reporting both lengths
+│   │   ├── assert colors is a torch.Tensor      # reporting its type
+│   │   └── assert colors has one row per point  # reporting both lengths
 │   ├── if labels is not None
-│   │   ├── assert labels is a torch.Tensor                   # reporting its type
-│   │   └── assert labels has one row per point               # reporting both lengths
+│   │   ├── assert labels is a torch.Tensor      # reporting its type
+│   │   └── assert labels has one row per point  # reporting both lengths
 │   ├── if camera_state is not None
-│   │   └── assert camera_state is a dict                     # reporting its type
+│   │   └── assert camera_state is a dict  # reporting its type
 │   ├── if lod_config is not None
-│   │   └── assert lod_config is a dict                       # reporting its type
+│   │   └── assert lod_config is a dict  # reporting its type
 │   ├── if axis_ranges is not None
-│   │   └── assert axis_ranges is a dict                      # reporting its type
+│   │   └── assert axis_ranges is a dict  # reporting its type
 │   ├── impls original_count = len(points)
 │   ├── calls _apply_lod_processing(point_cloud=pc, key=color_key, lod_type=lod_type, lod_config=lod_config, camera_state=camera_state, point_cloud_id=point_cloud_id, point_size=point_size, point_opacity=point_opacity, axis_ranges=axis_ranges, original_count=original_count, title=title)  # -> (processed_pc, title)
 │   ├── calls _apply_browser_downsampling(processed_pc=processed_pc, highlight_indices=highlight_indices, original_count=original_count, title=title)  # -> (processed_pc, highlight_indices, title)
@@ -157,7 +157,7 @@ core_points_display.py
 │   ├── if points_tensor holds at most MAX_BROWSER_POINTS points
 │   │   └── return (processed_pc, highlight_indices, title)
 │   ├── impls logger.info(the downsampling, with both counts)
-│   ├── calls RandomSelect(count=MAX_BROWSER_POINTS)  # -> browser_downsample
+│   ├── calls RandomSelect(count=MAX_BROWSER_POINTS)     # -> browser_downsample
 │   ├── calls browser_downsample(processed_pc, seed=42)  # -> downsampled_pc, one fixed seed for reproducibility
 │   ├── impls final_indices = downsampled_pc.indices, or None when it carries none
 │   ├── impls updated_highlight_indices = highlight_indices
@@ -178,15 +178,15 @@ core_points_display.py
 │   ├── # Builds the Plotly figure of one point cloud, its highlighted points carried in their own trace.
 │   ├── assert pc is a PointCloud  # reporting its type
 │   ├── impls points = pc.xyz
-│   ├── assert points is a torch.Tensor      # reporting its type
-│   ├── assert points is 2D                  # reporting its shape
-│   ├── assert points holds 3 coordinates    # reporting its second dimension
+│   ├── assert points is a torch.Tensor    # reporting its type
+│   ├── assert points is 2D                # reporting its shape
+│   ├── assert points holds 3 coordinates  # reporting its second dimension
 │   ├── assert points is non-empty
 │   ├── if color_key is not None
 │   │   ├── assert pc carries the color_key field  # reporting color_key
 │   │   ├── impls labels = getattr(pc, color_key)
-│   │   ├── assert labels is a torch.Tensor        # reporting its type
-│   │   ├── assert labels has one row per point    # reporting both lengths
+│   │   ├── assert labels is a torch.Tensor      # reporting its type
+│   │   ├── assert labels has one row per point  # reporting both lengths
 │   │   ├── if color_type is None
 │   │   │   ├── if color_key is 'classification' or 'change_map'
 │   │   │   │   └── impls color_type = 'classification'
@@ -194,8 +194,8 @@ core_points_display.py
 │   │   │   │   └── impls color_type = 'regression'
 │   │   │   └── else
 │   │   │       └── raise ValueError  # color_type cannot be inferred from this color_key
-│   │   ├── assert color_type is a str                                # reporting its type
-│   │   ├── assert color_type is 'classification' or 'regression'     # reporting color_type
+│   │   ├── assert color_type is a str                             # reporting its type
+│   │   ├── assert color_type is 'classification' or 'regression'  # reporting color_type
 │   │   ├── if color_type is 'classification'
 │   │   │   ├── calls _convert_labels_to_colors_torch(labels)  # -> colors
 │   │   │   ├── impls colors_np = colors.cpu().numpy()
@@ -273,15 +273,15 @@ core_points_display.py
 │   └── return colors
 ├── def apply_lod_to_point_cloud(points: torch.Tensor, colors: Optional[torch.Tensor] = None, labels: Optional[torch.Tensor] = None, camera_state: Optional[Dict[str, Any]] = None, lod_type: str = "none", density_percentage: int = 100, point_cloud_id: Optional[Union[str, Tuple[str, ...]]] = None) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[torch.Tensor]]
 │   ├── # Selects a level-of-detail subset of the points, carrying their colors and labels along.
-│   ├── assert points is a torch.Tensor                            # reporting its type
-│   ├── assert points is $N \times 3$                              # reporting its shape
-│   ├── assert colors is None or a torch.Tensor                    # reporting its type
-│   ├── assert labels is None or a torch.Tensor                    # reporting its type
-│   ├── assert colors is None or has one row per point             # reporting both shapes
-│   ├── assert labels is None or has one row per point             # reporting both shapes
-│   ├── assert density_percentage is within [1, 100]               # reporting density_percentage
-│   ├── assert lod_type is a str                                   # reporting lod_type
-│   ├── assert point_cloud_id is None, a str, or a tuple           # reporting point_cloud_id
+│   ├── assert points is a torch.Tensor                   # reporting its type
+│   ├── assert points is $N \times 3$                     # reporting its shape
+│   ├── assert colors is None or a torch.Tensor           # reporting its type
+│   ├── assert labels is None or a torch.Tensor           # reporting its type
+│   ├── assert colors is None or has one row per point    # reporting both shapes
+│   ├── assert labels is None or has one row per point    # reporting both shapes
+│   ├── assert density_percentage is within [1, 100]      # reporting density_percentage
+│   ├── assert lod_type is a str                          # reporting lod_type
+│   ├── assert point_cloud_id is None, a str, or a tuple  # reporting point_cloud_id
 │   ├── impls target_count = that percentage of the point count, at least 1
 │   ├── impls target_count = min(target_count, the point count)
 │   ├── if lod_type is 'none' or 'density'
@@ -306,18 +306,18 @@ core_points_display.py
 │   └── return (points[indices], selected_colors, selected_labels)
 ├── def create_dash_points_display(point_cloud: PointCloud, point_size: Optional[float] = None, point_color: Optional[str] = None) -> dcc.Graph
 │   ├── # Renders a Dash point-cloud display element; the point_size and point_color overrides are opt-in.
-│   ├── assert point_cloud is a PointCloud                     # reporting its type
-│   ├── assert point_size is None or numeric                   # reporting its type
-│   ├── assert point_color is None or a str                    # reporting its type
+│   ├── assert point_cloud is a PointCloud    # reporting its type
+│   ├── assert point_size is None or numeric  # reporting its type
+│   ├── assert point_color is None or a str   # reporting its type
 │   ├── calls create_dash_points_scene(point_cloud=point_cloud, point_size=point_size, point_color=point_color)  # -> scene
 │   ├── impls controls = create_dash_trackball_camera_controls
 │   ├── calls create_dash_points_component(scene=scene, controls=controls)
 │   └── return
 ├── def create_dash_points_scene(point_cloud: PointCloud, point_size: Optional[float] = None, point_color: Optional[str] = None) -> go.Scatter3d
 │   ├── # Sync-builds the Plotly Scatter3d marker trace from the point cloud.
-│   ├── assert point_cloud is a PointCloud                     # reporting its type
-│   ├── assert point_size is None or numeric                   # reporting its type
-│   ├── assert point_color is None or a str                    # reporting its type
+│   ├── assert point_cloud is a PointCloud    # reporting its type
+│   ├── assert point_size is None or numeric  # reporting its type
+│   ├── assert point_color is None or a str   # reporting its type
 │   ├── impls points_np = point_cloud.xyz.detach().cpu().numpy()
 │   ├── impls center = points_np.mean(axis=0)
 │   ├── impls bounding_radius = the largest distance from center to a point
@@ -342,17 +342,17 @@ core_points_display.py
 │   └── return  # the dcc.Graph over the figure holding that scene
 └── def get_point_cloud_display_stats(point_cloud: PointCloud, change_map: Optional[torch.Tensor] = None, class_names: Optional[Dict[int, str]] = None) -> Dict[str, Any]
     ├── # Reports one point cloud's display statistics, with its change classes' distribution when a change map is given.
-    ├── assert point_cloud is a PointCloud      # reporting its type
+    ├── assert point_cloud is a PointCloud  # reporting its type
     ├── impls points = point_cloud.xyz
-    ├── assert points is a torch.Tensor         # reporting its type
-    ├── assert points is 2D                     # reporting its shape
+    ├── assert points is a torch.Tensor            # reporting its type
+    ├── assert points is 2D                        # reporting its shape
     ├── assert points holds 3 coordinates or more  # reporting its second dimension
     ├── assert points is non-empty
     ├── if change_map is not None
-    │   ├── assert change_map is a torch.Tensor           # reporting its type
-    │   └── assert change_map has one entry per point     # reporting both lengths
+    │   ├── assert change_map is a torch.Tensor        # reporting its type
+    │   └── assert change_map has one entry per point  # reporting both lengths
     ├── if class_names is not None
-    │   └── assert class_names is a dict                  # reporting its type
+    │   └── assert class_names is a dict  # reporting its type
     ├── impls points_np = points.detach().cpu().numpy()
     ├── calls point_cloud.field_names()
     ├── impls stats = those field names, the point count, the dimension count, the per-axis ranges, and the center
@@ -559,7 +559,7 @@ core_points_display.ts
 │   ├── # Renders a self-contained point-cloud display element initialized at initialCameraState.
 │   ├── () => [local]
 │   │   ├── # The leaf's render: mounts the points display and returns its container.
-│   │   ├── calls createSpatialDisplayScene({ initialCameraState })  # -> { container, scene, camera, renderer }
+│   │   ├── calls createSpatialDisplayScene({ initialCameraState })               # -> { container, scene, camera, renderer }
 │   │   ├── calls createPointsObject({ displayResponse, pointSize, pointColor })  # -> object
 │   │   ├── impls scene.add(object)
 │   │   ├── calls createTrackballCameraControls({ container, camera, renderer, initialCameraState })  # -> controls
@@ -737,9 +737,9 @@ core_points_display.ts
 │   ├── impls positions[positionOffset] = x
 │   ├── impls positions[positionOffset + 1] = y
 │   ├── impls positions[positionOffset + 2] = z
-│   ├── calls normalizeColorComponent({ value: red })  # -> colors[positionOffset]
+│   ├── calls normalizeColorComponent({ value: red })    # -> colors[positionOffset]
 │   ├── calls normalizeColorComponent({ value: green })  # -> colors[positionOffset + 1]
-│   └── calls normalizeColorComponent({ value: blue })  # -> colors[positionOffset + 2]
+│   └── calls normalizeColorComponent({ value: blue })   # -> colors[positionOffset + 2]
 ├── function normalizeColorComponent({ value }: { value: number }): number
 │   ├── # Normalizes one raw color component into the unit range, reading a non-finite one as 0.7.
 │   ├── if value is not finite

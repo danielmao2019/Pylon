@@ -33,36 +33,36 @@ test_dash_points_style_args.py
 │   └── return  # those eight cube corners as a float32 tensor
 ├── def test_scene_explicit_point_size_used(large_radius_xyz)
 │   ├── # An explicit point_size sets marker.size verbatim.
-│   ├── calls PointCloud(xyz=large_radius_xyz)  # -> pc
+│   ├── calls PointCloud(xyz=large_radius_xyz)                          # -> pc
 │   ├── calls create_dash_points_scene(point_cloud=pc, point_size=7.5)  # -> trace
 │   ├── assert the trace is a go.Scatter3d
 │   └── assert its marker size is 7.5
 ├── def test_scene_point_size_falls_back_to_radius_heuristic(large_radius_xyz)
 │   ├── # With no point_size, the radius-relative size is used where it beats the floor.
-│   ├── calls PointCloud(xyz=large_radius_xyz)  # -> pc
+│   ├── calls PointCloud(xyz=large_radius_xyz)    # -> pc
 │   ├── calls _expected_radius(large_radius_xyz)  # -> radius
 │   ├── impls expected = max(DEFAULT_POINT_SIZE_FLOOR, radius * DEFAULT_POINT_SIZE_RATIO)
-│   ├── assert expected beats the floor  # guards this test's own premise
+│   ├── assert expected beats the floor                                  # guards this test's own premise
 │   ├── calls create_dash_points_scene(point_cloud=pc, point_size=None)  # -> trace
 │   ├── assert its marker size is approximately expected
 │   └── assert its marker size is approximately radius * DEFAULT_POINT_SIZE_RATIO
 ├── def test_scene_point_size_falls_back_to_floor(tiny_radius_xyz)
 │   ├── # With no point_size, the floor is used where the radius-relative size falls below it.
-│   ├── calls PointCloud(xyz=tiny_radius_xyz)  # -> pc
-│   ├── calls _expected_radius(tiny_radius_xyz)  # -> radius
-│   ├── assert radius * DEFAULT_POINT_SIZE_RATIO falls below the floor  # guards this test's own premise
+│   ├── calls PointCloud(xyz=tiny_radius_xyz)                            # -> pc
+│   ├── calls _expected_radius(tiny_radius_xyz)                          # -> radius
+│   ├── assert radius * DEFAULT_POINT_SIZE_RATIO falls below the floor   # guards this test's own premise
 │   ├── calls create_dash_points_scene(point_cloud=pc, point_size=None)  # -> trace
 │   └── assert its marker size is approximately DEFAULT_POINT_SIZE_FLOOR
 ├── def test_scene_explicit_point_color_uniform(large_radius_xyz)
 │   ├── # An explicit point_color sets one uniform marker color, over the point cloud's own rgb.
 │   ├── impls rgb = eight random uint8 triplets
-│   ├── calls PointCloud(xyz=large_radius_xyz, data={"rgb": rgb})  # -> pc
+│   ├── calls PointCloud(xyz=large_radius_xyz, data={"rgb": rgb})              # -> pc
 │   ├── calls create_dash_points_scene(point_cloud=pc, point_color="#ff0000")  # -> trace
 │   └── assert its marker color is "#ff0000"
 ├── def test_scene_point_color_none_uses_per_point_rgb(large_radius_xyz)
 │   ├── # With no point_color, the point cloud's own per-point rgb is used.
 │   ├── impls rgb = eight consecutive uint8 triplets
-│   ├── calls PointCloud(xyz=large_radius_xyz, data={"rgb": rgb})  # -> pc
+│   ├── calls PointCloud(xyz=large_radius_xyz, data={"rgb": rgb})         # -> pc
 │   ├── calls create_dash_points_scene(point_cloud=pc, point_color=None)  # -> trace
 │   ├── impls color = trace.marker.color
 │   ├── assert color is a numpy array
@@ -77,7 +77,7 @@ test_dash_points_style_args.py
 │   └── assert its marker color is DEFAULT_POINT_COLOR
 ├── def test_create_dash_points_display_returns_graph(large_radius_xyz)
 │   ├── # create_dash_points_display returns a dcc.Graph wrapping the one scene trace.
-│   ├── calls PointCloud(xyz=large_radius_xyz)  # -> pc
+│   ├── calls PointCloud(xyz=large_radius_xyz)            # -> pc
 │   ├── calls create_dash_points_display(point_cloud=pc)  # -> graph
 │   ├── assert the graph is a dcc.Graph
 │   ├── assert its figure is a go.Figure
@@ -92,7 +92,7 @@ test_dash_points_style_args.py
 │   └── assert its marker color is "#00ff00"
 ├── def test_create_dash_points_component_wraps_scene(large_radius_xyz)
 │   ├── # create_dash_points_component wraps a Scatter3d into a single-trace Graph.
-│   ├── calls PointCloud(xyz=large_radius_xyz)  # -> pc
+│   ├── calls PointCloud(xyz=large_radius_xyz)                          # -> pc
 │   ├── calls create_dash_points_scene(point_cloud=pc, point_size=3.0)  # -> scene
 │   ├── lambda *args, **kwargs [local]
 │   │   └── impls None

@@ -149,7 +149,7 @@ layered_display_container.ts
 │   ├── () => [local]
 │   │   ├── # The leaf's render: mounts the shared spatial context and returns its container.
 │   │   ├── calls createSpatialDisplayScene({ initialCameraState })  # -> { container, scene, camera, renderer }
-│   │   ├── calls createLayerObjects({ layeredDisplayResponse })  # -> layerObjects
+│   │   ├── calls createLayerObjects({ layeredDisplayResponse })     # -> layerObjects
 │   │   ├── (object) => [local]
 │   │   │   ├── # Per layer object: adds it to the one shared scene.
 │   │   │   └── impls scene.add(object)

@@ -181,20 +181,20 @@ core_mesh_display.py
 │   └── assert its keys are exactly MESH_VIEW_BOUNDS_KEYS  # reporting mesh_view_bounds
 ├── def create_dash_mesh_display(mesh: Any, mesh_color: Optional[str] = None, mesh_opacity: Optional[float] = None, mesh_side: Optional[str] = None) -> dcc.Graph
 │   ├── # Renders a Dash mesh display element; the mesh_color, mesh_opacity and mesh_side overrides are opt-in.
-│   ├── assert mesh is a Mesh                            # reporting its type
-│   ├── assert mesh_color is None or a str               # reporting its type
-│   ├── assert mesh_opacity is None or numeric           # reporting its type
-│   ├── assert mesh_side is None or a str                # reporting its type
+│   ├── assert mesh is a Mesh                   # reporting its type
+│   ├── assert mesh_color is None or a str      # reporting its type
+│   ├── assert mesh_opacity is None or numeric  # reporting its type
+│   ├── assert mesh_side is None or a str       # reporting its type
 │   ├── calls create_dash_mesh_scene(mesh=mesh, mesh_color=mesh_color, mesh_opacity=mesh_opacity, mesh_side=mesh_side)  # -> scene
 │   ├── impls controls = create_dash_trackball_camera_controls
 │   ├── calls create_dash_mesh_component(scene=scene, controls=controls)
 │   └── return
 ├── def create_dash_mesh_scene(mesh: Any, mesh_color: Optional[str] = None, mesh_opacity: Optional[float] = None, mesh_side: Optional[str] = None) -> go.Mesh3d
 │   ├── # Sync-builds the Plotly Mesh3d trace from the mesh, routing on the texture it carries.
-│   ├── assert mesh is a Mesh                            # reporting its type
-│   ├── assert mesh_color is None or a str               # reporting its type
-│   ├── assert mesh_opacity is None or numeric           # reporting its type
-│   ├── assert mesh_side is None or a str                # reporting its type
+│   ├── assert mesh is a Mesh                   # reporting its type
+│   ├── assert mesh_color is None or a str      # reporting its type
+│   ├── assert mesh_opacity is None or numeric  # reporting its type
+│   ├── assert mesh_side is None or a str       # reporting its type
 │   ├── if mesh_opacity is not None
 │   │   └── impls mesh_opacity
 │   ├── else
