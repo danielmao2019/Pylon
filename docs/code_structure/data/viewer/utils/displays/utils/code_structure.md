@@ -201,7 +201,7 @@ layered_display_container.ts
 │   │   ├── impls baseCell = container.firstElementChild
 │   │   ├── impls baseImage = baseCell.querySelector("img")
 │   │   ├── if baseImage is not null
-│   │   │   ├── const alignAuxOverlays = (): void => [local]
+│   │   │   ├── function alignAuxOverlays(): void [local]
 │   │   │   │   ├── # Gives every aux overlay's svg the base image's natural pixel extent as its viewBox, then reveals it.
 │   │   │   │   ├── calls _alignRasterFrustum({ baseImage })  # -> { width, height }
 │   │   │   │   └── for each cell in auxCells

@@ -191,15 +191,15 @@ trackball_camera_controls.ts
 │   ├── impls let currentCameraState = initialCameraState
 │   ├── impls let internallyWrittenCameraStateToken: string | null | undefined = undefined
 │   ├── impls const listeners: CameraStateListener[] = []
-│   ├── const setInternallyWrittenCameraStateToken = ( token: string | null, ): void => [local]
+│   ├── function setInternallyWrittenCameraStateToken( token: string | null, ): void [local]
 │   │   ├── # Records the token these controls last wrote onto the element, so the observer skips their own write.
 │   │   └── impls internallyWrittenCameraStateToken = token
-│   ├── const applyCameraState = (cameraState: CameraState | null): void => [local]
+│   ├── function applyCameraState(cameraState: CameraState | null): void [local]
 │   │   ├── # Applies a caller-given camera state: keeps it, writes it onto the element, and posts it to the embedded renderer.
 │   │   ├── impls currentCameraState = cameraState
 │   │   ├── calls writeInternalCameraStateToTargetElement({ targetElement, cameraState, setInternallyWrittenCameraStateToken, })
 │   │   └── calls postCameraStateToEmbeddedRenderer({ targetElement, cameraState, })
-│   ├── const emitCameraStateChange = (cameraState: CameraState): void => [local]
+│   ├── function emitCameraStateChange(cameraState: CameraState): void [local]
 │   │   ├── # Publishes a renderer-reported camera state: keeps it, writes it onto the element, hands it to every listener, and dispatches a bubbling camera-pose-change event.
 │   │   ├── impls currentCameraState = cameraState
 │   │   ├── calls writeInternalCameraStateToTargetElement({ targetElement, cameraState, setInternallyWrittenCameraStateToken, })
