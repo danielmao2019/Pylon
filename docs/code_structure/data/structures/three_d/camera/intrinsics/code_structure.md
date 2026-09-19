@@ -367,7 +367,7 @@ camera_intrinsics.py
 │   │   │   │   ├── calls _normalize_scale  # -> scale, taken raw rather than re-derived from the resolution below, which is detached and rounded to whole pixels, severing a tensor factor from the autograd graph
 │   │   │   │   ├── impls height = the params' own h * scale[1], both detached and in float64 on cpu, rounded to an int64 tensor
 │   │   │   │   ├── impls width = the params' own w * scale[0], both detached and in float64 on cpu, rounded to an int64 tensor
-│   │   │   │   ├── impls resolution = (height, width)  # a factor small enough to round a side to zero names no image, which transform_intrinsics refuses
+│   │   │   │   ├── impls resolution = (height, width)  # a factor small enough to round a side to zero names no image, which the rebuilt intrinsics' own validation refuses
 │   │   │   │   └── return resolution, scale
 │   │   │   └── assert 0, "Should not reach here."
 │   │   ├── calls _normalize_inputs(resolution=resolution, scale=scale)
@@ -381,12 +381,12 @@ camera_intrinsics.py
 │   │   ├── def _validate_inputs [local]
 │   │   │   ├── assert transform is a torch.Tensor
 │   │   │   ├── assert transform.ndim in (2, 3) and transform.shape[-2:] == (3, 3)  # one affine, or one per camera of a batch
+│   │   │   ├── assert transform.ndim == 2 or not self.is_batched or transform.shape[0] == len(self)  # one affine for every camera, or one per camera of this batch
 │   │   │   ├── assert transform is a floating tensor
 │   │   │   ├── assert transform[..., 2, :] equals [0.0, 0.0, 1.0] in transform.dtype at every entry  # an affine's last row
 │   │   │   ├── assert transform[..., 0, 1] and transform[..., 1, 0] are zero at every entry  # an axis-aligned affine is the only kind that keeps a skew-free K skew-free
 │   │   │   ├── assert resolution is a tuple of length 2
-│   │   │   ├── assert resolution[0] and resolution[1] are each a positive int, or a torch.Tensor of at most one axis whose entries are positive whole numbers  # a batch scales each camera's own raster, so the sides differ per camera
-│   │   │   └── assert transform.ndim == 2 or not self.is_batched or transform.shape[0] == len(self)  # one affine for every camera, or one per camera of this batch
+│   │   │   └── assert resolution[0] and resolution[1] are each an int, or a torch.Tensor equal to its own rounding  # a batch scales each camera's own raster, so a side may differ per camera; positive sides of at most one axis are the rebuilt intrinsics' own validation of its h and w
 │   │   ├── calls _validate_inputs
 │   │   ├── def _normalize_inputs [local]
 │   │   │   ├── impls transform = transform moved to self._device and self._dtype
