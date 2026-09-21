@@ -101,7 +101,7 @@ def apply_transform(
         if was_batched:
             transformed = np.expand_dims(transformed, axis=0)
         return transformed
-    else:
+    if isinstance(points, torch.Tensor):
         points_h = torch.cat(
             [
                 points,
@@ -125,6 +125,7 @@ def apply_transform(
         if was_batched:
             transformed = transformed.unsqueeze(0)
         return transformed
+    assert 0, "Should not reach here."
 
 
 def _normalize_points(

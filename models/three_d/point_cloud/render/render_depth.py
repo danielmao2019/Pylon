@@ -64,12 +64,12 @@ def render_depth_from_point_cloud(
 
     _validate_inputs()
 
-    # Prepare points for rendering; a single camera's validity is None, its culled points already dropped
-    rendered_points, valid, _ = prepare_points_for_rendering(
+    # Prepare points for rendering, keeping the first two of the three it returns; a single camera's validity is None, its culled points already dropped
+    rendered_points, valid = prepare_points_for_rendering(
         pc=pc,
         camera=camera,
         resolution=resolution,
-    )
+    )[:2]
 
     if point_size > 1.0:
         # Render depth map, positive infinity wherever no point landed
@@ -195,15 +195,17 @@ def render_depth_from_rendering_points(
         nearest_point_index == num_points, -1
     ).reshape(rendering_points.shape[:-2] + (render_height, render_width))
 
-    # Read the depth of the point that owns each pixel
-    depth_map = torch.gather(
-        rendering_points[..., 2],
-        dim=-1,
-        index=nearest_point_index.clamp(min=0).reshape(
-            nearest_point_index.shape[:-2] + (-1,)
-        ),
-    ).reshape(nearest_point_index.shape)
-    depth_map = depth_map.float().masked_fill(nearest_point_index < 0, ignore_value)
+    # Read the depth of the point that owns each pixel, float32, blanking the pixels no point owns
+    depth_map = (
+        torch.gather(
+            rendering_points[..., 2],
+            dim=-1,
+            index=nearest_point_index.clamp(min=0).flatten(start_dim=-2),
+        )
+        .reshape(nearest_point_index.shape)
+        .float()
+        .masked_fill(nearest_point_index < 0, ignore_value)
+    )
 
     # Handle mask creation if requested
     if return_mask:

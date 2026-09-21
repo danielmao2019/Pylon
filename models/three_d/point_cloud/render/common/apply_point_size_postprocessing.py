@@ -32,47 +32,47 @@ def apply_point_size_postprocessing(
     kernel_offsets = create_circular_kernel_offsets(
         point_size=point_size, device=rendered_image.device
     )
-    num_offsets = kernel_offsets.shape[0]
 
     # A background pixel carries positive infinity, so it is never a source nearer than a rendered one.
     source_depth = depth_map.masked_fill(depth_map == ignore_value, float('inf'))
 
-    # Every pixel's disc of source pixels, out-of-image sources clamped back in and marked so their depth becomes positive infinity.
-    y_coords, x_coords = torch.meshgrid(
-        torch.arange(render_height, device=rendered_image.device),
-        torch.arange(render_width, device=rendered_image.device),
-        indexing='ij',
-    )
-    neighbor_y = y_coords + kernel_offsets[:, 0].reshape(num_offsets, 1, 1)
-    neighbor_x = x_coords + kernel_offsets[:, 1].reshape(num_offsets, 1, 1)
-    in_bounds = (
-        (neighbor_y >= 0)
-        & (neighbor_y < render_height)
-        & (neighbor_x >= 0)
-        & (neighbor_x < render_width)
-    ).reshape(num_offsets, -1)
-    source_index = (
-        neighbor_y.clamp(min=0, max=render_height - 1) * render_width
-        + neighbor_x.clamp(min=0, max=render_width - 1)
-    ).reshape(num_offsets, -1)
-    neighbor_depth = source_depth.reshape(source_depth.shape[:-2] + (-1,))[
-        ..., source_index
-    ].masked_fill(~in_bounds, float('inf'))
-
-    # The offset axis' argmin names, for each pixel, which shifted source is nearest.
-    nearest_depth, source_offset = neighbor_depth.min(dim=-2)
-    source_flat = source_index[
-        source_offset,
-        torch.arange(render_height * render_width, device=rendered_image.device),
+    # The [..., num_offsets, H, W] stack of source_depth shifted by every kernel offset, read off a positive-infinity border as wide as the kernel's reach, so a shift leaving the image reads positive infinity.
+    reach = int(kernel_offsets.abs().max())
+    neighbor_depth = torch.nn.functional.pad(
+        source_depth, pad=(reach, reach, reach, reach), value=float('inf')
+    )[
+        ...,
+        kernel_offsets[:, 0].reshape(-1, 1, 1)
+        + reach
+        + torch.arange(render_height, device=rendered_image.device).reshape(-1, 1),
+        kernel_offsets[:, 1].reshape(-1, 1, 1)
+        + reach
+        + torch.arange(render_width, device=rendered_image.device),
     ]
 
-    image_flat = rendered_image.reshape(rendered_image.shape[:-2] + (-1,))
-    if channel_axis:
-        source_flat = source_flat.unsqueeze(-2).expand(image_flat.shape)
-        nearest_depth = nearest_depth.unsqueeze(-2)
-    dilated_image = torch.gather(image_flat, dim=-1, index=source_flat)
-    dilated_image = dilated_image.masked_fill(
-        torch.isinf(nearest_depth), ignore_value
+    # The offset axis' argmin names, for each pixel, which shifted source is nearest.
+    source_offset = neighbor_depth.min(dim=-3).indices
+
+    # Each pixel reads the value at its own flat index shifted by the offset source_offset names, one index broadcast across the channel axis when there is one; a pixel no disc reached may shift out of the image, so its index is clamped back in and its value blanked below.
+    dilated_image = torch.take_along_dim(
+        rendered_image.flatten(start_dim=-2),
+        (
+            torch.arange(render_height * render_width, device=rendered_image.device)
+            + (kernel_offsets[:, 0] * render_width + kernel_offsets[:, 1])[
+                source_offset
+            ].flatten(start_dim=-2)
+        )
+        .clamp(min=0, max=render_height * render_width - 1)
+        .reshape(source_offset.shape[:-2] + (1,) * channel_axis + (-1,)),
+        dim=-1,
     ).reshape(rendered_image.shape)
+
+    # A pixel whose nearest source is still positive infinity was reached by no disc, so it keeps the background.
+    dilated_image = dilated_image.masked_fill(
+        torch.isinf(neighbor_depth.amin(dim=-3)).reshape(
+            depth_map.shape[:-2] + (1,) * channel_axis + depth_map.shape[-2:]
+        ),
+        ignore_value,
+    )
 
     return dilated_image

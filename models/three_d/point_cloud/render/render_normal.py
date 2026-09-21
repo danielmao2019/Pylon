@@ -137,12 +137,12 @@ def render_normal_from_point_cloud_3d(
 
     _validate_inputs()
 
-    # Prepare points for rendering; a single camera's validity is None, its culled points already dropped
-    rendering_points, _, original_data_indices = prepare_points_for_rendering(
+    # Prepare points for rendering, keeping the first and third of the three it returns; a single camera's validity is None, its culled points already dropped
+    rendering_points, original_data_indices = prepare_points_for_rendering(
         pc=pc,
         camera=camera,
         resolution=resolution,
-    )
+    )[::2]
 
     # Render normal map
     normal_map = render_normal_from_rendering_points_3d(

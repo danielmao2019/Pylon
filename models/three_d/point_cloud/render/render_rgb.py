@@ -70,12 +70,12 @@ def render_rgb_from_point_cloud(
 
     _validate_inputs()
 
-    # Prepare points for rendering; a single camera's validity is None, its culled points already dropped
-    rendering_points, _, original_data_indices = prepare_points_for_rendering(
+    # Prepare points for rendering, keeping the first and third of the three it returns; a single camera's validity is None, its culled points already dropped
+    rendering_points, original_data_indices = prepare_points_for_rendering(
         pc=pc,
         camera=camera,
         resolution=resolution,
-    )
+    )[::2]
 
     # Render RGB image
     rgb_image = render_rgb_from_rendering_points(

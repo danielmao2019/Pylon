@@ -2,6 +2,9 @@ from typing import Optional
 
 import torch
 
+from data.structures.three_d.camera.extrinsics.validation import (
+    validate_camera_extrinsics,
+)
 from models.three_d.point_cloud.ops.apply_transform import apply_transform
 
 
@@ -28,36 +31,27 @@ def world_to_camera_transform(
     """
 
     def _validate_inputs() -> None:
+        # apply_transform hands back the type it is given, and this entry returns a torch.Tensor
         assert isinstance(points, torch.Tensor), (
             "Expected points to be a torch.Tensor. " f"{type(points)=}"
         )
-        assert points.ndim == 2 and points.shape[1] == 3, (
-            "Expected points to be a [N, 3] tensor. " f"{points.shape=}"
+        # the point axis is the only one this entry takes, since a leading axis on the points would compose with the extrinsics' own and leave the output's axis order unstated
+        assert points.ndim == 2, (
+            "Expected points to be a 2D [N, 3] tensor. " f"{points.shape=}"
         )
         assert points.dtype.is_floating_point, (
             "Expected points to be a float tensor. " f"{points.dtype=}"
         )
+        # the inverse is taken in torch
         assert isinstance(extrinsics, torch.Tensor), (
             "Expected extrinsics to be a torch.Tensor. " f"{type(extrinsics)=}"
         )
-        assert extrinsics.ndim >= 2 and tuple(extrinsics.shape[-2:]) == (4, 4), (
-            "Expected extrinsics to be a [..., 4, 4] stack of matrices. "
-            f"{extrinsics.shape=}"
-        )
-        assert extrinsics.dtype.is_floating_point, (
-            "Expected extrinsics to be a float tensor. " f"{extrinsics.dtype=}"
-        )
+        # the [..., 4, 4] cam2world stack, checked by the module that owns what a camera extrinsics matrix is
+        validate_camera_extrinsics(extrinsics)
         assert points.device == extrinsics.device, (
             "Expected points and extrinsics on the same device. "
             f"{points.device=} {extrinsics.device=}"
         )
-        if inplace:
-            assert extrinsics.ndim == 2, (
-                "Expected inplace=True only with extrinsics carrying no leading axis: "
-                "[N, 3] points in and [..., N, 3] out is a shape expansion, leaving no "
-                "buffer to write back into. "
-                f"{points.shape=} {extrinsics.shape=}"
-            )
 
     _validate_inputs()
 

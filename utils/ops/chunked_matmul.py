@@ -74,16 +74,18 @@ def chunked_matmul(
 
     N = large.shape[0]
     M = small.shape[-1]
-    out = (
-        large
-        if inplace
-        else torch.empty(
+    if inplace:
+        out = large
+    else:
+        out = torch.empty(
             tuple(small.shape[:-2]) + (N, M), dtype=large.dtype, device=large.device
         )
-    )
     direct = not inplace and not large.requires_grad and not small.requires_grad
 
-    bs = max(1, math.ceil(N / 2**num_divide)) if num_divide is not None else N
+    if num_divide is not None:
+        bs = max(1, math.ceil(N / 2**num_divide))
+    else:
+        bs = N
     i = 0
     divides = 0
     while i < N:

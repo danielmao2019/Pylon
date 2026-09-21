@@ -29,13 +29,11 @@ def _frustum_cull(
     Returns:
         None.
     """
-    torch.ge(current_points[..., 0], 0, out=bounds_mask)
-    torch.bitwise_and(
-        bounds_mask, torch.lt(current_points[..., 0], render_width), out=bounds_mask
-    )
-    torch.bitwise_and(bounds_mask, torch.ge(current_points[..., 1], 0), out=bounds_mask)
-    torch.bitwise_and(
-        bounds_mask, torch.lt(current_points[..., 1], render_height), out=bounds_mask
+    bounds_mask[...] = (
+        (current_points[..., 0] >= 0)
+        & (current_points[..., 0] < render_width)
+        & (current_points[..., 1] >= 0)
+        & (current_points[..., 1] < render_height)
     )
 
 
@@ -68,17 +66,10 @@ def prepare_points_for_rendering(
     Raises:
         torch.cuda.OutOfMemoryError: If the chunk is still too large after max_divide halvings.
     """
-
-    def _validate_inputs() -> None:
-        assert isinstance(pc, PointCloud), (
-            "Expected pc to be a PointCloud. " f"{type(pc)=}"
-        )
-        assert isinstance(camera, (Camera, Cameras)), (
-            "Expected camera to be a Camera or a Cameras. " f"{type(camera)=}"
-        )
-
-    _validate_inputs()
-
+    assert isinstance(pc, PointCloud), "Expected pc to be a PointCloud. " f"{type(pc)=}"
+    assert isinstance(camera, (Camera, Cameras)), (
+        "Expected camera to be a Camera or a Cameras. " f"{type(camera)=}"
+    )
     points = pc.xyz
 
     camera_prepared = camera.to(
@@ -112,6 +103,9 @@ def prepare_points_for_rendering(
         except torch.cuda.OutOfMemoryError:
             n += 1
             torch.cuda.empty_cache()
+            continue
+        except Exception:
+            raise
 
     raise torch.cuda.OutOfMemoryError(
         f"CUDA OOM after {max_divide} divisions in prepare_points_for_rendering."
@@ -149,26 +143,24 @@ def _prepare_points_for_rendering_chunked(
     extrinsics = camera.extrinsics.extrinsics
     N = points.shape[0]
 
-    points_chunks = []
-    valid_chunks = []
-    indices_chunks = []
+    # The per-chunk (points_2d, valid, original_data_indices) triples, the chunking over points for memory while the camera batch axis passes through whole.
+    chunks = []
     for i in range(0, N, chunk_size):
         j = min(N, i + chunk_size)
-        chunk_points, chunk_valid, chunk_indices = _prepare_points_for_rendering(
-            points=points[i:j],
-            render_intrinsics=render_intrinsics,
-            extrinsics=extrinsics,
-            resolution=resolution,
-            cull_func=cull_func,
+        chunks.append(
+            _prepare_points_for_rendering(
+                points=points[i:j],
+                render_intrinsics=render_intrinsics,
+                extrinsics=extrinsics,
+                resolution=resolution,
+                cull_func=cull_func,
+            )
         )
-        points_chunks.append(chunk_points)
-        valid_chunks.append(chunk_valid)
-        indices_chunks.append(chunk_indices)
+    points_chunks, valid_chunks, indices_chunks = zip(*chunks, strict=True)
 
     # A batch marks its survivors in its validity, while a single camera's chunks carry nothing but their survivors.
-    if not any(
-        chunk_indices.numel() > 0 if chunk_valid is None else bool(chunk_valid.any())
-        for chunk_valid, chunk_indices in zip(valid_chunks, indices_chunks, strict=True)
+    if not any(map(torch.any, filter(torch.is_tensor, valid_chunks))) and not any(
+        map(torch.numel, filter(torch.is_tensor, indices_chunks))
     ):
         raise AssertionError(
             "No points remained after culling in all chunks. "
@@ -181,18 +173,12 @@ def _prepare_points_for_rendering_chunked(
         valid = torch.cat(valid_chunks, dim=-1)
         original_data_indices = None
     else:
-        # A single camera, whose chunks carry only their survivors.
+        # A single camera, whose chunks carry only their survivors, each offset by its chunk's start.
         valid = None
         original_data_indices = torch.cat(
-            [
-                chunk_indices + chunk_start
-                for chunk_start, chunk_indices in zip(
-                    range(0, N, chunk_size), indices_chunks, strict=True
-                )
-            ]
+            list(map(torch.add, indices_chunks, range(0, N, chunk_size)))
         )
-    prepared_result = (points_2d, valid, original_data_indices)
-    return prepared_result
+    return points_2d, valid, original_data_indices
 
 
 def _prepare_points_for_rendering(

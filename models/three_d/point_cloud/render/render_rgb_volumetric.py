@@ -21,14 +21,15 @@ from data.structures.three_d.nerfstudio.nerfstudio_data import NerfStudio_Data
 from data.structures.three_d.point_cloud.io.save_point_cloud import save_point_cloud
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 from data.structures.three_d.point_cloud.select import Select
+from models.three_d.nerfstudio.splatfacto.load_splatfacto import load_splatfacto_model
+from models.three_d.nerfstudio.splatfacto.render import render_rgb_from_splatfacto
 from models.three_d.point_cloud.render.common.prepare_points_for_rendering import (
     prepare_points_for_rendering,
 )
 from models.three_d.point_cloud.render.render_rgb import (
     render_rgb_from_point_cloud,
 )
-from models.three_d.splatfacto.load_splatfacto import load_splatfacto_model
-from models.three_d.splatfacto.render import render_rgb_from_splatfacto
+from utils.ops.dict_as_tensor import buffer_permute
 
 
 def render_rgb_from_point_cloud_volumetric(
@@ -58,8 +59,8 @@ def render_rgb_from_point_cloud_volumetric(
     assert render_height > 0 and render_width > 0, "Render resolution must be positive"
 
     intrinsics = camera.intrinsics
+    # Its extr_convention rides along into every training camera built from it.
     extrinsics = camera.extrinsics
-    convention = camera.extrinsics.extr_convention
 
     native_width = int(round(float(intrinsics.cx * 2.0)))
     native_height = int(round(float(intrinsics.cy * 2.0)))
@@ -157,13 +158,18 @@ def render_rgb_from_point_cloud_volumetric(
             downscale_factor=downscale_factor,
         )
         _create_ply(pc=pc, output_root=tempdir)
-        _create_nerfstudio(
-            intrinsics=intrinsics,
-            train_extrinsics=train_extrinsics,
-            eval_extrinsics=extrinsics,
-            convention=convention,
-            output_root=tempdir,
-        )
+        train_cameras: List[Camera] = []
+        for index, _extrinsics in enumerate(train_extrinsics):
+            # Named after the image _create_images writes for the same index.
+            train_camera = Camera(
+                intrinsics=intrinsics,
+                extrinsics=_extrinsics,
+                name=f"image_{index:02d}",
+                id=index,
+                device=pc.device,
+            )
+            train_cameras.append(train_camera)
+        _create_nerfstudio(cameras=train_cameras, output_root=tempdir)
         logging.info(
             "[volumetric] Dataset artifacts written in %.2fs",
             time.time() - stage_start,
@@ -347,45 +353,77 @@ def _create_nerfstudio(cameras: List[Camera], output_root: Path) -> None:
     """Write the transforms.json a nerfstudio dataset is read through, carrying the shared intrinsics beside every training pose.
 
     Args:
-        cameras: Non-empty list of named Camera instances, one per training pose, whose intrinsics the first camera's intrinsics stand for.
+        cameras: Non-empty list of named Camera instances, one per training pose, sharing one intrinsics model, one intrinsics frame, one params key set, one pose frame and one device; the whole capture is stated with the one value each intrinsics param holds across them.
         output_root: Dataset root directory the transforms.json file is written into.
 
     Returns:
         None.
     """
+
+    def _validate_inputs() -> None:
+        assert len(cameras) > 0, (
+            "At least one camera required to write transforms.json. " f"{len(cameras)=}"
+        )
+        for camera in cameras:
+            # every frame's image is named after its camera
+            assert camera.name is not None, (
+                "Expected every camera to carry a name. " f"{camera.id=}"
+            )
+        # the record states one intrinsics for the whole capture
+        assert len(models := {camera.intrinsics.model for camera in cameras}) == 1, (
+            "Expected every camera to share one intrinsics model. " f"{models=}"
+        )
+        assert (
+            len(
+                intr_conventions := {
+                    camera.intrinsics.intr_convention for camera in cameras
+                }
+            )
+            == 1
+        ), (
+            "Expected every camera to share one intrinsics convention. "
+            f"{intr_conventions=}"
+        )
+        assert (
+            len(
+                key_sets := {
+                    frozenset(camera.intrinsics.params.keys()) for camera in cameras
+                }
+            )
+            == 1
+        ), (
+            "Expected every camera to share one intrinsics params key set. "
+            f"{key_sets=}"
+        )
+        # and one pose frame
+        assert (
+            len(
+                extr_conventions := {
+                    camera.extrinsics.extr_convention for camera in cameras
+                }
+            )
+            == 1
+        ), (
+            "Expected every camera to share one extrinsics convention. "
+            f"{extr_conventions=}"
+        )
+        assert len(devices := {camera.device for camera in cameras}) == 1, (
+            "Expected every camera to share one device. " f"{devices=}"
+        )
+
+    _validate_inputs()
+
     root = Path(output_root)
-    assert cameras, "At least one camera required to write transforms.json"
     nerfstudio_path = root / "transforms.json"
     nerfstudio_path.parent.mkdir(parents=True, exist_ok=True)
 
     camera_names = [camera.name for camera in cameras]
-    assert all(name is not None for name in camera_names), f"{camera_names=}"
-
-    camera_intrinsics = cameras[0].intrinsics
-    intrinsic_params = {
-        "fl_x": float(camera_intrinsics.fx),
-        "fl_y": float(camera_intrinsics.fy),
-        "cx": float(camera_intrinsics.cx),
-        "cy": float(camera_intrinsics.cy),
-        "k1": 0.0,
-        "k2": 0.0,
-        "p1": 0.0,
-        "p2": 0.0,
-    }
-    resolution = (
-        int(round(float(camera_intrinsics.cy * 2.0))),
-        int(round(float(camera_intrinsics.cx * 2.0))),
-    )
+    # A set of every camera's own model, so no camera is the one read; _validate_inputs asserts each set below holds one entry.
+    camera_models = {camera.intrinsics.model for camera in cameras}
+    camera_intr_conventions = {camera.intrinsics.intr_convention for camera in cameras}
+    camera_extr_conventions = {camera.extrinsics.extr_convention for camera in cameras}
+    camera_devices = {camera.device for camera in cameras}
     camera_model = "OPENCV"
-    intrinsics = torch.tensor(
-        [
-            [camera_intrinsics.fx, 0.0, camera_intrinsics.cx],
-            [0.0, camera_intrinsics.fy, camera_intrinsics.cy],
-            [0.0, 0.0, 1.0],
-        ],
-        dtype=torch.float32,
-        device=cameras[0].device,
-    )
     applied_transform = np.array(
         [
             [1.0, 0.0, 0.0, 0.0],
@@ -394,34 +432,67 @@ def _create_nerfstudio(cameras: List[Camera], output_root: Path) -> None:
         ],
         dtype=np.float32,
     )
+
+    # Each param name mapped to every camera's own value of it.
+    param_columns = buffer_permute(
+        buffer=[camera.intrinsics.params for camera in cameras], axes=(1, 0)
+    )
+    batched_params = {
+        key: torch.stack(column, dim=0) for key, column in param_columns.items()
+    }
     batched_intrinsics = build_camera_intrinsics(
-        model=camera_intrinsics.model,
-        params={
-            key: torch.stack(
-                [camera.intrinsics.params[key] for camera in cameras], dim=0
-            )
-            for key in camera_intrinsics.params
-        },
-        intr_convention=camera_intrinsics.intr_convention,
+        model=next(iter(camera_models)),
+        params=batched_params,
+        intr_convention=next(iter(camera_intr_conventions)),
+    )
+    # Single, since the record states one intrinsics for the whole capture; read through the fx, fy, cx, cy properties every intrinsics model defines, whatever its own params keys.
+    capture_params = {
+        "fx": batched_intrinsics.fx.unique().item(),
+        "fy": batched_intrinsics.fy.unique().item(),
+        "cx": batched_intrinsics.cx.unique().item(),
+        "cy": batched_intrinsics.cy.unique().item(),
+    }
+    intrinsic_params = {
+        "fl_x": capture_params["fx"],
+        "fl_y": capture_params["fy"],
+        "cx": capture_params["cx"],
+        "cy": capture_params["cy"],
+        "k1": 0.0,
+        "k2": 0.0,
+        "p1": 0.0,
+        "p2": 0.0,
+    }
+    resolution = (
+        int(round(2.0 * capture_params["cy"])),
+        int(round(2.0 * capture_params["cx"])),
+    )
+    intrinsics = torch.tensor(
+        [
+            [capture_params["fx"], 0.0, capture_params["cx"]],
+            [0.0, capture_params["fy"], capture_params["cy"]],
+            [0.0, 0.0, 1.0],
+        ],
+        dtype=torch.float32,
+        device=next(iter(camera_devices)),
     )
     batched_extrinsics = CameraExtrinsics(
         extrinsics=torch.stack(
             [camera.extrinsics.extrinsics for camera in cameras], dim=0
         ),
-        extr_convention=cameras[0].extrinsics.extr_convention,
+        extr_convention=next(iter(camera_extr_conventions)),
     )
     nerfstudio_cameras = Cameras(
         intrinsics=batched_intrinsics,
         extrinsics=batched_extrinsics,
         names=camera_names,
         ids=[camera.id for camera in cameras],
-        device=cameras[0].device,
+        device=next(iter(camera_devices)),
     )
     modalities = ["image"]
     payload: Dict[str, Any] = {}
     nerfstudio_data = NerfStudio_Data(
         data=payload,
-        device=cameras[0].device,
+        device=next(iter(camera_devices)),
         intrinsic_params=intrinsic_params,
         resolution=resolution,
         camera_model=camera_model,
