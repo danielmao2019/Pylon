@@ -36,9 +36,7 @@ _NPZ_KEYS = {
     "extr_convention",
     "dtype",
     "name",
-    "has_name",
     "id",
-    "has_id",
 }
 
 
@@ -61,10 +59,9 @@ def test_single_camera_json_round_trip(tmp_path: Path) -> None:
         "Expected the json payload to carry exactly the json key set. "
         f"{set(serialized.keys())=} {_JSON_KEYS=}"
     )
-    method_serialized = camera.serialize(format="json")
-    assert serialized == method_serialized, (
+    assert serialized == camera.serialize(format="json"), (
         "Expected serialize_cameras to produce the payload Camera.serialize produces. "
-        f"{serialized=} {method_serialized=}"
+        f"{serialized=}"
     )
 
     deserialized = deserialize_cameras(payload=serialized, device="cpu", format="json")
@@ -173,17 +170,16 @@ def test_multi_cameras_json_round_trip(tmp_path: Path) -> None:
     cameras = _make_multi_cameras()
 
     serialized = serialize_cameras(cameras=cameras, format="json")
-    assert isinstance(
-        serialized, list
-    ), f"Expected a Cameras collection to serialize to a json list. {type(serialized)=}"
-    assert len(serialized) == len(
-        cameras
-    ), f"Expected one json dict per camera. {len(serialized)=} {len(cameras)=}"
-    for per_camera_dict in serialized:
-        assert set(per_camera_dict.keys()) == _JSON_KEYS, (
-            "Expected every per-camera json dict to carry exactly the json key set. "
-            f"{set(per_camera_dict.keys())=} {_JSON_KEYS=}"
-        )
+    assert (
+        isinstance(serialized, dict)
+        and set(serialized.keys()) == _JSON_KEYS
+        and len(serialized["name"]) == len(cameras)
+        and len(serialized["id"]) == len(cameras)
+    ), (
+        "Expected a Cameras collection to serialize to one json dict carrying "
+        "exactly the json key set, its name and id one entry per camera. "
+        f"{serialized=} {len(cameras)=}"
+    )
 
     deserialized = deserialize_cameras(payload=serialized, device="cpu", format="json")
     _assert_cameras_fields_equal(loaded=deserialized, original=cameras)
@@ -235,6 +231,44 @@ def test_multi_cameras_npz_round_trip(tmp_path: Path) -> None:
         )
     loaded = load_cameras(cameras_path=npz_path, device="cpu")
     _assert_cameras_fields_equal(loaded=loaded, original=cameras)
+
+
+def test_broadcast_intrinsics_round_trip() -> None:
+    """A Cameras whose one unbatched intrinsics broadcasts over batched extrinsics comes back the same way through both formats, the payload spelling each component as it holds itself.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
+    for format in ("json", "npz"):
+        intrinsics = build_camera_intrinsics(
+            model="pinhole",
+            params={
+                "fx": 400.0,
+                "fy": 410.0,
+                "cx": 160.0,
+                "cy": 120.0,
+                "h": 240,
+                "w": 320,
+            },
+            intr_convention="standard",
+            device="cpu",
+        )
+        matrices = torch.eye(4, dtype=torch.float32).repeat(3, 1, 1)
+        extrinsics = CameraExtrinsics(
+            extrinsics=matrices, extr_convention="opengl", device="cpu"
+        )
+        cameras = Cameras(intrinsics=intrinsics, extrinsics=extrinsics, device="cpu")
+        serialized = serialize_cameras(cameras=cameras, format=format)
+        loaded = deserialize_cameras(payload=serialized, device="cpu", format=format)
+        assert not loaded.intrinsics.is_batched and loaded.extrinsics.is_batched, (
+            "Expected the unbatched intrinsics and the batched extrinsics to come back "
+            "as they were saved. "
+            f"{format=} {loaded.intrinsics.is_batched=} {loaded.extrinsics.is_batched=}"
+        )
+        _assert_cameras_fields_equal(loaded=loaded, original=cameras)
 
 
 def test_round_trip_keeps_the_batch_dtype(tmp_path: Path) -> None:
@@ -330,7 +364,7 @@ def _make_multi_cameras() -> Cameras:
         None.
 
     Returns:
-        A Cameras of three CPU cameras carrying one batched CameraIntrinsics and one batched CameraExtrinsics, so the batch names one model and one pose frame while every projection param, pose, name (one absent) and id (one absent) still varies per camera, exercising the has_name / has_id / sentinel paths.
+        A Cameras of three CPU cameras carrying one batched CameraIntrinsics and one batched CameraExtrinsics, so the batch names one model and one pose frame while every projection param, pose, name (one absent) and id (one absent) still varies per camera.
     """
     intrinsics = build_camera_intrinsics(
         model="pinhole",

@@ -1,7 +1,7 @@
 import os
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Tuple
 
 import numpy as np
 import torch
@@ -12,6 +12,7 @@ from data.structures.three_d.camera.extrinsics.rotation.quaternion import (
     quat_to_rotmat,
 )
 from data.structures.three_d.camera.intrinsics.camera_intrinsics import (
+    CameraIntrinsics,
     build_camera_intrinsics,
 )
 from data.structures.three_d.colmap.load import ColmapCamera, ColmapImage
@@ -75,52 +76,95 @@ def convert_colmap_to_nerfstudio(
         point_track_filter=point_track_filter,
     )
 
-    intrinsic_params = _extract_intrinsics_from_colmap(colmap_cameras=colmap_cameras)
-    cameras = _extract_cameras_from_colmap(
-        colmap_images=colmap_images,
-        intrinsic_params=intrinsic_params,
-    )
-    modalities = _determine_modalities(cameras=cameras, output_dir=Path(output_dir))
+    def _colmap_to_pylon() -> Cameras:
+        """Read the COLMAP cameras and images as the one posed Cameras Pylon holds them in, every image sharing the model's one intrinsics.
 
-    nerfstudio_intrinsic_params = {
-        "fl_x": intrinsic_params["fl_x"],
-        "fl_y": intrinsic_params["fl_y"],
-        "cx": intrinsic_params["cx"],
-        "cy": intrinsic_params["cy"],
-        "k1": intrinsic_params["k1"],
-        "k2": intrinsic_params["k2"],
-        "p1": intrinsic_params["p1"],
-        "p2": intrinsic_params["p2"],
-    }
-    resolution = (intrinsic_params["h"], intrinsic_params["w"])
-    camera_model = intrinsic_params["camera_model"]
-    camera_intrinsics = cameras[0].intrinsics
-    intrinsics = torch.tensor(
-        [
-            [camera_intrinsics.fx, 0.0, camera_intrinsics.cx],
-            [0.0, camera_intrinsics.fy, camera_intrinsics.cy],
-            [0.0, 0.0, 1.0],
-        ],
-        dtype=torch.float32,
-        device=cameras[0].device,
-    )
-    payload: Dict[str, Any] = {}
-    nerfstudio_data = NerfStudio_Data(
-        data=payload,
-        device=cameras[0].device,
-        intrinsic_params=nerfstudio_intrinsic_params,
-        resolution=resolution,
-        camera_model=camera_model,
-        intrinsics=intrinsics,
-        applied_transform=DEFAULT_APPLIED_TRANSFORM,
-        ply_file_path=ply_filename,
-        cameras=cameras,
-        modalities=modalities,
-        train_filenames=None,
-        val_filenames=None,
-        test_filenames=None,
-    )
-    nerfstudio_data.save(output_path=output_path)
+        Args:
+            None; reads the `colmap_cameras` and `colmap_images` of the enclosing call.
+
+        Returns:
+            A Cameras batch of one camera per image in ascending image-id order, named by image-file stem and identified by image id, its one unbatched float32 standard-convention pinhole intrinsics broadcast over the images and its camera-to-world extrinsics in the OpenGL convention.
+        """
+        sorted_images = sorted(colmap_images.items())
+        camera_ids: List[int] = []
+        camera_names: List[str] = []
+        images: List[ColmapImage] = []
+        for image_id, image in sorted_images:
+            camera_ids.append(image_id)
+            camera_names.append(Path(image.name).stem)
+            images.append(image)
+        # Broadcast over every image, since one COLMAP camera governs them all.
+        intrinsics = _extract_intrinsics_from_colmap(colmap_cameras=colmap_cameras)
+        extrinsics = _extract_extrinsics_from_colmap(images=images)
+        cameras = Cameras(
+            intrinsics=intrinsics,
+            extrinsics=extrinsics,
+            names=camera_names,
+            ids=camera_ids,
+            device=extrinsics.device,
+        )
+        return cameras.to(extr_convention="opengl")
+
+    cameras = _colmap_to_pylon()
+
+    def _pylon_to_nerfstudio() -> None:
+        """Write the posed Cameras as the NerfStudio transforms record at output_path, the ply beside it.
+
+        Args:
+            None; reads the `cameras`, `output_dir`, `output_path` and `ply_filename` of the enclosing call.
+
+        Returns:
+            None.
+        """
+        modalities = _determine_modalities(cameras=cameras, output_dir=Path(output_dir))
+        # The batch's one intrinsics, no camera of it being the one read.
+        camera_intrinsics = cameras.intrinsics
+        # One, since the unbatched intrinsics is shared by every image.
+        capture_params = {
+            key: value.item() for key, value in camera_intrinsics.params.items()
+        }
+        # The undistorted OPENCV form NerfStudio writes.
+        nerfstudio_intrinsic_params = {
+            "fl_x": capture_params["fx"],
+            "fl_y": capture_params["fy"],
+            "cx": capture_params["cx"],
+            "cy": capture_params["cy"],
+            "k1": 0.0,
+            "k2": 0.0,
+            "p1": 0.0,
+            "p2": 0.0,
+        }
+        resolution = (int(capture_params["h"]), int(capture_params["w"]))
+        camera_model = "OPENCV"
+        intrinsics = torch.tensor(
+            [
+                [capture_params["fx"], 0.0, capture_params["cx"]],
+                [0.0, capture_params["fy"], capture_params["cy"]],
+                [0.0, 0.0, 1.0],
+            ],
+            dtype=torch.float32,
+            device=cameras.device,
+        )
+        payload: Dict[str, Any] = {}
+        nerfstudio_data = NerfStudio_Data(
+            data=payload,
+            device=cameras.device,
+            intrinsic_params=nerfstudio_intrinsic_params,
+            resolution=resolution,
+            camera_model=camera_model,
+            intrinsics=intrinsics,
+            applied_transform=DEFAULT_APPLIED_TRANSFORM,
+            ply_file_path=ply_filename,
+            cameras=cameras,
+            modalities=modalities,
+            train_filenames=None,
+            val_filenames=None,
+            test_filenames=None,
+        )
+        nerfstudio_data.save(output_path=output_path)
+        return
+
+    _pylon_to_nerfstudio()
     return output_path, ply_path
 
 
@@ -226,14 +270,14 @@ def create_ply_from_colmap(
 
 def _extract_intrinsics_from_colmap(
     colmap_cameras: Dict[int, ColmapCamera],
-) -> Dict[str, Any]:
-    """Read the one shared intrinsic set a COLMAP model records, restated in the undistorted OPENCV form NerfStudio writes.
+) -> CameraIntrinsics:
+    """Read the one pinhole a COLMAP model records as the unbatched CameraIntrinsics every image shares.
 
     Args:
-        colmap_cameras: COLMAP camera records keyed by camera id, holding exactly one camera whose model is SIMPLE_PINHOLE, PINHOLE, or distortion-free OPENCV.
+        colmap_cameras: COLMAP camera records keyed by camera id, holding exactly one camera whose model is SIMPLE_PINHOLE, PINHOLE, or distortion-free OPENCV, its width and height Python ints.
 
     Returns:
-        The intrinsic set keyed `w`, `h`, `fl_x`, `fl_y`, `cx`, `cy`, `k1`, `k2`, `p1`, `p2` (the four distortion entries all zero) and `camera_model` (`"OPENCV"`).
+        The unbatched standard-convention pinhole CameraIntrinsics carrying the camera's `fx`, `fy`, `cx`, `cy` and its `h`, `w` resolution, its params 0-d tensors in the default float32 dtype.
     """
 
     def _validate_inputs() -> None:
@@ -243,10 +287,10 @@ def _extract_intrinsics_from_colmap(
             len(colmap_cameras) == 1
         ), f"Expected exactly one camera, got {len(colmap_cameras)}"
         assert isinstance(
-            next(iter(colmap_cameras.values())).width, (int, np.integer)
+            next(iter(colmap_cameras.values())).width, int
         ), f"{type(next(iter(colmap_cameras.values())).width)=}"
         assert isinstance(
-            next(iter(colmap_cameras.values())).height, (int, np.integer)
+            next(iter(colmap_cameras.values())).height, int
         ), f"{type(next(iter(colmap_cameras.values())).height)=}"
         assert (
             next(iter(colmap_cameras.values())).width > 0
@@ -285,58 +329,37 @@ def _extract_intrinsics_from_colmap(
             f"{camera.model=}"
         )
     width, height = camera.width, camera.height
-    intrinsic_params: Dict[str, Any] = {
-        "w": int(width),
-        "h": int(height),
-        "fl_x": fl_x,
-        "fl_y": fl_y,
-        "cx": cx,
-        "cy": cy,
-        "k1": 0.0,
-        "k2": 0.0,
-        "p1": 0.0,
-        "p2": 0.0,
-        "camera_model": "OPENCV",
-    }
-    return intrinsic_params
+    return build_camera_intrinsics(
+        model="pinhole",
+        params={"fx": fl_x, "fy": fl_y, "cx": cx, "cy": cy, "h": height, "w": width},
+        intr_convention="standard",
+    )
 
 
-def _extract_cameras_from_colmap(
-    colmap_images: Dict[int, ColmapImage],
-    intrinsic_params: Dict[str, Any],
-) -> Cameras:
-    """Pose one Cameras out of the COLMAP images, every frame carrying the model's single shared intrinsic set.
+def _extract_extrinsics_from_colmap(images: List[ColmapImage]) -> CameraExtrinsics:
+    """Pose the COLMAP images, in the order given, as one batched opencv CameraExtrinsics.
 
     Args:
-        colmap_images: COLMAP image records keyed by image id, each posed world-to-camera in the OpenCV convention by its `qvec` (w, x, y, z) and `tvec`.
-        intrinsic_params: The shared intrinsic set `_extract_intrinsics_from_colmap` read, carrying `fl_x`, `fl_y`, `cx`, `cy`, `h`, `w`.
+        images: Non-empty list of COLMAP image records, each posed world-to-camera in the OpenCV convention by its floating `qvec` (w, x, y, z) and `tvec`.
 
     Returns:
-        A Cameras batch of one camera per image in ascending image-id order, named by image-file stem and identified by image id, with float32 standard-convention pinhole intrinsics and camera-to-world extrinsics in the OpenGL convention.
+        The batched CameraExtrinsics holding one float32 `[N, 4, 4]` camera-to-world matrix per image, in the order given, in the OpenCV convention.
     """
 
     def _validate_inputs() -> None:
-        assert isinstance(colmap_images, dict), f"{type(colmap_images)=}"
-        assert colmap_images, "No images available in COLMAP model"
-        assert isinstance(intrinsic_params, dict), f"{type(intrinsic_params)=}"
+        assert isinstance(images, list), f"{type(images)=}"
+        assert len(images) > 0, "No images available in COLMAP model"
 
     _validate_inputs()
 
-    intrinsics_params: Dict[str, Union[int, float]] = {
-        "fx": intrinsic_params["fl_x"],
-        "fy": intrinsic_params["fl_y"],
-        "cx": intrinsic_params["cx"],
-        "cy": intrinsic_params["cy"],
-        "h": int(intrinsic_params["h"]),
-        "w": int(intrinsic_params["w"]),
-    }
-    sorted_images = sorted(colmap_images.items())
-    camera_ids: List[int] = [image_id for image_id, _ in sorted_images]
-    camera_names: List[str] = [Path(image.name).stem for _, image in sorted_images]
-
+    qvecs, tvecs = [], []
+    for image in images:
+        qvecs.append(image.qvec)
+        tvecs.append(image.tvec)
     # The whole batch's pose stack is built in one op.
-    quaternions = np.stack([image.qvec for _, image in sorted_images], axis=0)
-    translations = np.stack([image.tvec for _, image in sorted_images], axis=0)
+    quaternions = np.stack(qvecs, axis=0)
+    translations = np.stack(tvecs, axis=0)
+    # Both stacks are cast to float64 next.
     assert np.issubdtype(quaternions.dtype, np.floating), (
         "Expected the COLMAP quaternions to be floating point before the float64 "
         f"cast. {quaternions.dtype=}"
@@ -345,44 +368,21 @@ def _extract_cameras_from_colmap(
         "Expected the COLMAP translations to be floating point before the float64 "
         f"cast. {translations.dtype=}"
     )
-    # COLMAP states the pose world-to-camera, so cam2world is its rigid inverse: the transposed rotation, and that rotation applied to the negated translation.
+    # COLMAP states the pose world-to-camera, so cam2world is its rigid inverse.
     rotation = quat_to_rotmat(
         quaternions=torch.from_numpy(quaternions).to(torch.float64)
     ).transpose(-2, -1)
     translation = torch.from_numpy(translations).to(torch.float64)
-    camera_to_world = torch.eye(4, dtype=torch.float64).repeat(len(sorted_images), 1, 1)
+    camera_to_world = torch.eye(4, dtype=torch.float64).repeat(len(images), 1, 1)
     camera_to_world[:, :3, :3] = rotation
+    # The rigid inverse's translation: the transposed rotation applied to the negated translation.
     camera_to_world[:, :3, 3] = -(rotation @ translation.unsqueeze(-1)).squeeze(-1)
     extrinsics_opencv = camera_to_world.to(torch.float32)
-
-    # One COLMAP camera governs every image, so its params broadcast to the batch.
-    intrinsics = build_camera_intrinsics(
-        model="pinhole",
-        params={
-            key: torch.full(
-                (len(sorted_images),),
-                value,
-                dtype=torch.float32,
-                device=extrinsics_opencv.device,
-            )
-            for key, value in intrinsics_params.items()
-        },
-        intr_convention="standard",
-        device=extrinsics_opencv.device,
-    )
-    extrinsics = CameraExtrinsics(
+    return CameraExtrinsics(
         extrinsics=extrinsics_opencv,
         extr_convention="opencv",
         device=extrinsics_opencv.device,
     )
-    cameras = Cameras(
-        intrinsics=intrinsics,
-        extrinsics=extrinsics,
-        names=camera_names,
-        ids=camera_ids,
-        device=extrinsics_opencv.device,
-    )
-    return cameras.to(extr_convention="opengl")
 
 
 def _determine_modalities(cameras: Cameras, output_dir: Path) -> List[str]:

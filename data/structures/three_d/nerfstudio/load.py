@@ -8,6 +8,7 @@ import torch
 from data.structures.three_d.camera.cameras import Cameras
 from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
 from data.structures.three_d.camera.intrinsics.camera_intrinsics import (
+    CameraIntrinsics,
     build_camera_intrinsics,
 )
 from data.structures.three_d.camera.intrinsics.validation import (
@@ -112,7 +113,9 @@ def load_intrinsic_params(data: Dict[str, Any]) -> Dict[str, Union[float, int]]:
         The `fl_x`, `fl_y`, `cx`, `cy`, `k1`, `k2`, `p1`, `p2` entries of the record.
     """
     keys = ["fl_x", "fl_y", "cx", "cy", "k1", "k2", "p1", "p2"]
-    intrinsic_params = {key: data[key] for key in keys}
+    intrinsic_params: Dict[str, Union[float, int]] = {}
+    for key in keys:
+        intrinsic_params[key] = data[key]
     return intrinsic_params
 
 
@@ -222,36 +225,65 @@ def load_cameras(
         A Cameras batch of one camera per frame in record order, named by the stem of the frame's `file_path` and identified by its `colmap_im_id` (None when absent), with float32 standard-convention pinhole intrinsics and each frame's `transform_matrix` as camera-to-world extrinsics in the OpenGL convention.
     """
     frames: List[Any] = data["frames"]
-    intrinsics_params = {
-        "fx": float(data["fl_x"]),
-        "fy": float(data["fl_y"]),
-        "cx": float(data["cx"]),
-        "cy": float(data["cy"]),
-        "h": int(data["h"]),
-        "w": int(data["w"]),
-    }
-    # The record's one top-level pinhole governs every frame, so its params broadcast to the batch.
-    intrinsics = build_camera_intrinsics(
-        model="pinhole",
-        params={
-            key: torch.full((len(frames),), value, dtype=torch.float32, device=device)
-            for key, value in intrinsics_params.items()
-        },
-        intr_convention="standard",
-        device=device,
-    )
-    extrinsics = CameraExtrinsics(
-        extrinsics=torch.tensor(
-            [frame["transform_matrix"] for frame in frames],
-            dtype=torch.float32,
+
+    def _load_camera_intrinsics() -> CameraIntrinsics:
+        """Build the batched pinhole CameraIntrinsics the record's one top-level pinhole states for every frame.
+
+        Args:
+            None; reads the `data`, `frames` and `device` of the enclosing call.
+
+        Returns:
+            The batched standard-convention pinhole CameraIntrinsics, every param a float32 `[len(frames)]` tensor on `device`.
+        """
+        intrinsics_params = {
+            "fx": float(data["fl_x"]),
+            "fy": float(data["fl_y"]),
+            "cx": float(data["cx"]),
+            "cy": float(data["cy"]),
+            "h": int(data["h"]),
+            "w": int(data["w"]),
+        }
+        # The record's one top-level pinhole governs every frame.
+        batched_params: Dict[str, torch.Tensor] = {}
+        for key, value in intrinsics_params.items():
+            batched_params[key] = torch.full(
+                (len(frames),), value, dtype=torch.float32, device=device
+            )
+        return build_camera_intrinsics(
+            model="pinhole",
+            params=batched_params,
+            intr_convention="standard",
             device=device,
-        ),
-        extr_convention="opengl",
-        device=device,
-    )
-    names: List[Optional[str]] = [Path(frame["file_path"]).stem for frame in frames]
+        )
+
+    intrinsics = _load_camera_intrinsics()
+
+    def _load_camera_extrinsics() -> CameraExtrinsics:
+        """Build the batched opengl CameraExtrinsics of every frame's transform_matrix.
+
+        Args:
+            None; reads the `frames` and `device` of the enclosing call.
+
+        Returns:
+            The batched OpenGL-convention CameraExtrinsics holding every frame's camera-to-world `transform_matrix` as one float32 `[len(frames), 4, 4]` tensor on `device`.
+        """
+        transform_matrices = []
+        for frame in frames:
+            transform_matrices.append(frame["transform_matrix"])
+        return CameraExtrinsics(
+            extrinsics=torch.tensor(
+                transform_matrices, dtype=torch.float32, device=device
+            ),
+            extr_convention="opengl",
+            device=device,
+        )
+
+    extrinsics = _load_camera_extrinsics()
+
+    names: List[Optional[str]] = []
     ids: List[Optional[int]] = []
     for frame in frames:
+        names.append(Path(frame["file_path"]).stem)
         if "colmap_im_id" in frame:
             ids.append(frame["colmap_im_id"])
         else:
