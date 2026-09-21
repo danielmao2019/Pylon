@@ -290,5 +290,6 @@ function _alignRasterFrustum({
 }: {
   baseImage: HTMLImageElement;
 }): { width: number; height: number } {
-  return { width: baseImage.naturalWidth, height: baseImage.naturalHeight };
+  const frustum = { width: baseImage.naturalWidth, height: baseImage.naturalHeight };
+  return frustum;
 }

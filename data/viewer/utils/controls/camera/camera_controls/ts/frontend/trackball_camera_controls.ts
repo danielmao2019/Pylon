@@ -142,7 +142,7 @@ function buildThreeTrackballCameraState({
   camera: THREE.PerspectiveCamera;
   controls: ThreeTrackballControlsImpl;
 }): CameraState {
-  return {
+  const cameraState: CameraState = {
     intrinsics: {
       aspect: camera.aspect,
       far: camera.far,
@@ -161,6 +161,7 @@ function buildThreeTrackballCameraState({
     name: null,
     id: null,
   };
+  return cameraState;
 }
 
 function applyThreeTrackballCameraState({
@@ -208,22 +209,24 @@ function applyThreeTrackballCameraState({
 }
 
 function vectorToRecord(vector: THREE.Vector3): Record<string, number> {
-  return {
+  const vectorRecord = {
     x: vector.x,
     y: vector.y,
     z: vector.z,
   };
+  return vectorRecord;
 }
 
 function quaternionToRecord(
   quaternion: THREE.Quaternion,
 ): Record<string, number> {
-  return {
+  const quaternionRecord = {
     x: quaternion.x,
     y: quaternion.y,
     z: quaternion.z,
     w: quaternion.w,
   };
+  return quaternionRecord;
 }
 
 function isVectorRecord(value: unknown): value is {
@@ -231,13 +234,14 @@ function isVectorRecord(value: unknown): value is {
   y: number;
   z: number;
 } {
-  return (
+  const isVector = (
     typeof value === "object" &&
     value !== null &&
     typeof (value as { x?: unknown }).x === "number" &&
     typeof (value as { y?: unknown }).y === "number" &&
     typeof (value as { z?: unknown }).z === "number"
   );
+  return isVector;
 }
 
 function isQuaternionRecord(value: unknown): value is {
@@ -246,10 +250,11 @@ function isQuaternionRecord(value: unknown): value is {
   z: number;
   w: number;
 } {
-  return (
+  const isQuaternion = (
     isVectorRecord(value) &&
     typeof (value as { w?: unknown }).w === "number"
   );
+  return isQuaternion;
 }
 
 function createRendererTrackballCameraControls(args: {
@@ -354,7 +359,7 @@ function createRendererTrackballCameraControls(args: {
     });
   }
 
-  return {
+  const controls: RendererTrackballCameraControls = {
     targetElement,
     getCameraState: () => currentCameraState,
     applyCameraState,
@@ -371,6 +376,7 @@ function createRendererTrackballCameraControls(args: {
       };
     },
   };
+  return controls;
 }
 
 function assertTrackballCameraControls(
@@ -443,14 +449,16 @@ function readCameraStateFromTargetElement(
 function readCameraStateTokenFromTargetElement(
   targetElement: HTMLElement,
 ): string | null {
-  return targetElement.dataset.cameraState ?? null;
+  const cameraStateToken = targetElement.dataset.cameraState ?? null;
+  return cameraStateToken;
 }
 
 function serializeCameraState(cameraState: CameraState | null): string | null {
   if (cameraState === null) {
     return null;
   }
-  return JSON.stringify(cameraState);
+  const cameraStateToken = JSON.stringify(cameraState);
+  return cameraStateToken;
 }
 
 function writeInternalCameraStateToTargetElement(args: {
@@ -524,25 +532,27 @@ function isEmbeddedRendererMessageSource(args: {
   source: MessageEventSource | null;
 }): boolean {
   const { targetElement, source } = args;
-  return (
+  const isEmbeddedRendererSource = (
     targetElement instanceof HTMLIFrameElement &&
     source !== null &&
     source === targetElement.contentWindow
   );
+  return isEmbeddedRendererSource;
 }
 
 function isTrackballCameraStateChangeMessage(
   value: unknown,
 ): value is { type: "trackball-camera-state-change"; cameraState: CameraState } {
-  return (
+  const isStateChangeMessage = (
     isRecord(value) &&
     value.type === "trackball-camera-state-change" &&
     isCameraState(value.cameraState)
   );
+  return isStateChangeMessage;
 }
 
 function isCameraState(value: unknown): value is CameraState {
-  return (
+  const isCameraStateValue = (
     isRecord(value) &&
     isRecord(value.intrinsics) &&
     isRecord(value.extrinsics) &&
@@ -551,8 +561,10 @@ function isCameraState(value: unknown): value is CameraState {
     (value.name === null || typeof value.name === "string") &&
     (value.id === null || typeof value.id === "string")
   );
+  return isCameraStateValue;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object";
+  const isObjectRecord = value !== null && typeof value === "object";
+  return isObjectRecord;
 }

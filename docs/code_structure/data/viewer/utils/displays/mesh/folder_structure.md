@@ -5,8 +5,9 @@
 ```text
 data/viewer/utils/displays/mesh/
 ├── dash/
-│   ├── core_mesh_display.py  # Dash mesh display object core
-│   └── apis.py               # Dash mesh-display APIs
+│   ├── core_mesh_display.py             # Dash mesh display object core
+│   ├── mesh_display_textured_viewer.js  # the three.js viewer source the Dash UV-textured mesh display embeds
+│   └── apis.py  # Dash mesh-display APIs
 └── ts/
     ├── backend/
     │   ├── schemas/
@@ -18,4 +19,10 @@ data/viewer/utils/displays/mesh/
         │   └── display_response.ts  # TS mesh-display response interfaces: url + meta_info
         ├── core_mesh_display.ts  # TS mesh UI core
         └── apis.ts               # TS frontend mesh-display APIs
+```
+
+## Tests folder structure
+
+```text
+tests/data/viewer/utils/displays/mesh_display/
 ```

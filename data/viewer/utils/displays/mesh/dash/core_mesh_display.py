@@ -132,11 +132,12 @@ def create_mesh_display(
         if camera_sync_group is not None:
             normalized_camera_sync_group = camera_sync_group.strip()
 
-        return (
+        normalized_inputs = (
             normalized_title,
             normalized_component_id,
             normalized_camera_sync_group,
         )
+        return normalized_inputs
 
     normalized_title, normalized_component_id, normalized_camera_sync_group = (
         _normalize_inputs()
@@ -314,12 +315,13 @@ def _create_uv_texture_mesh_display(
         normalized_texture_data_url = _build_texture_data_url(
             texture_map=normalized_texture_map,
         )
-        return (
+        normalized_inputs = (
             normalized_triangle_positions.tolist(),
             normalized_triangle_uvs.tolist(),
             normalized_texture_data_url,
             normalized_mesh_view_bounds,
         )
+        return normalized_inputs
 
     (
         triangle_position_values,
@@ -343,12 +345,13 @@ def _create_uv_texture_mesh_display(
             "data-camera-sync-group": camera_sync_group,
             "data-camera-sync-viewer-id": component_id,
         }
-    return html.Iframe(
+    iframe = html.Iframe(
         id=component_id,
         srcDoc=iframe_html,
         style=TEXTURED_MESH_IFRAME_STYLE,
         **iframe_attributes,
     )
+    return iframe
 
 
 def _normalize_component_id(
@@ -442,7 +445,7 @@ def build_mesh_view_bounds(
         center_values = bounds_center.reshape(-1).detach().cpu().tolist()
         min_corner_values = min_corner.reshape(-1).detach().cpu().tolist()
         max_corner_values = max_corner.reshape(-1).detach().cpu().tolist()
-        return {
+        mesh_view_bounds = {
             "center": {
                 "x": float(center_values[0]),
                 "y": float(center_values[1]),
@@ -457,6 +460,7 @@ def build_mesh_view_bounds(
                 "z": [float(min_corner_values[2]), float(max_corner_values[2])],
             },
         }
+        return mesh_view_bounds
 
     return _normalize_inputs()
 
@@ -491,7 +495,8 @@ def _compute_camera_coordinate_scale(
         "Expected at least one positive axis extent when computing the camera "
         f"coordinate scale. {flattened_extent=}"
     )
-    return float(torch.exp(torch.log(positive_extent).mean()).item())
+    camera_coordinate_scale = float(torch.exp(torch.log(positive_extent).mean()).item())
+    return camera_coordinate_scale
 
 
 def validate_mesh_view_bounds(
@@ -631,7 +636,8 @@ def _rgb_to_css_color(
         return np.clip(rgb_values, a_min=0, a_max=255).astype(np.uint8)
 
     rgb_uint8 = _normalize_inputs()
-    return f"rgb({int(rgb_uint8[0])},{int(rgb_uint8[1])},{int(rgb_uint8[2])})"
+    css_color = f"rgb({int(rgb_uint8[0])},{int(rgb_uint8[1])},{int(rgb_uint8[2])})"
+    return css_color
 
 
 def _build_textured_triangle_buffers(
@@ -751,7 +757,8 @@ def _build_texture_data_url(
     texture_buffer = io.BytesIO()
     texture_image.save(texture_buffer, format="PNG")
     texture_base64 = base64.b64encode(texture_buffer.getvalue()).decode("ascii")
-    return f"data:image/png;base64,{texture_base64}"
+    texture_data_url = f"data:image/png;base64,{texture_base64}"
+    return texture_data_url
 
 
 def _build_textured_mesh_html(
@@ -849,7 +856,7 @@ def _build_textured_mesh_html(
             "Expected `camera_sync_script` to be a string. "
             f"{type(camera_sync_script)=}"
         )
-        return (
+        filled_viewer_script = (
             viewer_script_template.replace(
                 "__POSITION_VALUES_JSON__",
                 json.dumps(position_values),
@@ -879,6 +886,7 @@ def _build_textured_mesh_html(
                 json.dumps(viewer_id),
             )
         )
+        return filled_viewer_script
 
     viewer_script_without_camera_sync = _build_viewer_script(camera_sync_script="")
     create_dash_trackball_camera_controls(
@@ -955,7 +963,7 @@ def build_threejs_viewer_html(
     if extra_script_tags != "":
         extra_script_tags_block = f"\n{extra_script_tags}"
 
-    return f"""<!doctype html>
+    viewer_html = f"""<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
@@ -987,6 +995,7 @@ def build_threejs_viewer_html(
   </body>
 </html>
 """
+    return viewer_html
 
 
 @lru_cache(maxsize=None)
@@ -1022,7 +1031,8 @@ def _load_javascript_template(
 
     normalized_template_path = _normalize_inputs()
 
-    return normalized_template_path.read_text(encoding="utf-8")
+    template_text = normalized_template_path.read_text(encoding="utf-8")
+    return template_text
 
 
 def _apply_mesh_layout(
@@ -1256,7 +1266,8 @@ def _create_dash_vertex_color_mesh_scene(
         trace_kwargs["vertexcolor"] = effective_color
     else:
         trace_kwargs["color"] = effective_color
-    return go.Mesh3d(**trace_kwargs)
+    scene = go.Mesh3d(**trace_kwargs)
+    return scene
 
 
 def _create_dash_uv_texture_map_mesh_scene(
@@ -1340,7 +1351,8 @@ def _create_dash_uv_texture_map_mesh_scene(
         trace_kwargs["vertexcolor"] = effective_color
     else:
         trace_kwargs["color"] = effective_color
-    return go.Mesh3d(**trace_kwargs)
+    scene = go.Mesh3d(**trace_kwargs)
+    return scene
 
 
 def create_dash_mesh_component(
@@ -1359,4 +1371,5 @@ def create_dash_mesh_component(
     assert isinstance(scene, go.Mesh3d), (
         "Expected `scene` to be a Plotly `go.Mesh3d` trace. " f"{type(scene)=}"
     )
-    return dcc.Graph(figure=go.Figure(data=[scene]))
+    component = dcc.Graph(figure=go.Figure(data=[scene]))
+    return component

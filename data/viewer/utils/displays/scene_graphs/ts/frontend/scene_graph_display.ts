@@ -127,7 +127,8 @@ function createSceneGraphObject({
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(`unable to load scene graph: ${message}`);
     });
-  return { object: group, labels, labelOverlay };
+  const sceneGraphObject = { object: group, labels, labelOverlay };
+  return sceneGraphObject;
 }
 
 async function loadSceneGraphPayload({
@@ -142,7 +143,8 @@ async function loadSceneGraphPayload({
   if (!response.ok) {
     throw new Error(`unable to load scene graph: HTTP ${response.status}`);
   }
-  return (await response.json()) as SceneGraphPayload;
+  const payload = (await response.json()) as SceneGraphPayload;
+  return payload;
 }
 
 function createThreeSceneGraphPoints({
@@ -221,12 +223,14 @@ function createThreeSceneGraphPoints({
     node.style.position = "absolute";
     node.style.whiteSpace = "nowrap";
     node.textContent = entry.text;
-    return {
+    const label = {
       node,
       position: new THREE.Vector3(entry.position.x, entry.position.y, entry.position.z),
     };
+    return label;
   });
-  return { points, labels };
+  const sceneGraphPoints = { points, labels };
+  return sceneGraphPoints;
 }
 
 function createThreeSceneGraphLabelOverlay({

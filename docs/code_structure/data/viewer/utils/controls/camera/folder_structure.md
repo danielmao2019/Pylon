@@ -16,6 +16,7 @@ data/viewer/utils/controls/camera/
 │           └── types.ts  # CameraState interface
 ├── camera_controls/  # generic trackball 3D viewer camera controls
 │   ├── dash/
+│   │   ├── __init__.py
 │   │   └── trackball_camera_controls.py  # trackball controls; left-drag rotate, right-drag pan, wheel zoom
 │   └── ts/
 │       └── frontend/
@@ -27,4 +28,10 @@ data/viewer/utils/controls/camera/
         └── frontend/
             ├── types.ts        # CameraSyncState interface
             └── camera_sync.ts  # generic CameraSyncState store with camera-sync-specific additional APIs
+```
+
+## Tests folder structure
+
+```text
+tests/data/viewer/utils/controls/camera/
 ```

@@ -41,7 +41,8 @@ def large_radius_xyz():
         for sy in (-1.0, 1.0):
             for sz in (-1.0, 1.0):
                 coords.append([sx * corner, sy * corner, sz * corner])
-    return torch.tensor(coords, dtype=torch.float32)
+    xyz = torch.tensor(coords, dtype=torch.float32)
+    return xyz
 
 
 @pytest.fixture
@@ -54,14 +55,16 @@ def tiny_radius_xyz():
         for sy in (-1.0, 1.0):
             for sz in (-1.0, 1.0):
                 coords.append([sx * corner, sy * corner, sz * corner])
-    return torch.tensor(coords, dtype=torch.float32)
+    xyz = torch.tensor(coords, dtype=torch.float32)
+    return xyz
 
 
 def _expected_radius(xyz: torch.Tensor) -> float:
     """Reproduce the source's bounding-radius computation for assertions."""
     points_np = xyz.detach().cpu().numpy()
     center = points_np.mean(axis=0)
-    return float(np.linalg.norm(points_np - center, axis=1).max())
+    radius = float(np.linalg.norm(points_np - center, axis=1).max())
+    return radius
 
 
 # ================================================================================

@@ -5,6 +5,7 @@
 ```text
 data/viewer/utils/displays/videos/
 ├── dash/
+│   ├── __init__.py
 │   └── video_display.py
 └── ts/
     ├── backend/
@@ -16,3 +17,5 @@ data/viewer/utils/displays/videos/
         │   └── display_response.ts  # TS video-display response interface: url + empty meta_info
         └── video_display.ts
 ```
+
+## Tests folder structure

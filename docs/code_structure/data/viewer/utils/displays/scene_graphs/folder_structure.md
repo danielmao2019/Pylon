@@ -14,5 +14,8 @@ data/viewer/utils/displays/scene_graphs/
     └── frontend/
         ├── types/
         │   └── display_response.ts  # TS scene-graph-display response interface: url + empty meta_info
+        ├── __init__.py
         └── scene_graph_display.ts
 ```
+
+## Tests folder structure

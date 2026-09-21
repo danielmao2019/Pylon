@@ -9,14 +9,13 @@ video_display.py
 ├── from dash import html
 └── def create_video_display(src: str | None, title: str) -> html.Div
     ├── # Builds the Dash video display from an optional video source url and a title.
-    ├── impls assert src is None or isinstance(src, str)
-    ├── impls assert isinstance(title, str)
+    ├── assert src is None or isinstance(src, str)  # "Source must be None or a string", reporting src
+    ├── assert isinstance(title, str)               # "Title must be a string", reporting title
     ├── if src is None
-    │   ├── impls placeholder = html.Div("Placeholder for missing video.", className="placeholder-surface")
+    │   ├── impls placeholder = the placeholder-surface html.Div standing in for the missing video
     │   └── return placeholder
-    ├── impls video = html.Video(src=src, controls=True, title=title)
-    ├── impls display = html.Div(video)
-    └── return display
+    ├── impls video_display = the html.Div holding the html.Video built from src, controls enabled, and title  # impls-node-one-step:skip — one constructor call's arguments
+    └── return video_display
 ```
 
 ### Backend schemas

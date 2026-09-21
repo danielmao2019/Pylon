@@ -80,7 +80,8 @@ def build_point_cloud_id(
         dataset_name, str
     ), f"current_dataset must be str, got {type(dataset_name)}"
 
-    return (dataset_name, datapoint_idx, component)
+    point_cloud_id = (dataset_name, datapoint_idx, component)
+    return point_cloud_id
 
 
 def normalize_point_cloud_id(point_cloud_id: Union[str, Tuple[str, ...]]) -> str:
@@ -101,7 +102,8 @@ def normalize_point_cloud_id(point_cloud_id: Union[str, Tuple[str, ...]]) -> str
         return point_cloud_id
     else:
         # Convert tuple to colon-separated string
-        return ":".join(str(part) for part in point_cloud_id)
+        normalized_point_cloud_id = ":".join(str(part) for part in point_cloud_id)
+        return normalized_point_cloud_id
 
 
 def apply_lod_to_point_cloud(
@@ -193,7 +195,8 @@ def apply_lod_to_point_cloud(
     if labels is not None:
         selected_labels = labels[indices]
 
-    return points[indices], selected_colors, selected_labels
+    selection = (points[indices], selected_colors, selected_labels)
+    return selection
 
 
 def _convert_labels_to_colors_torch(labels: torch.Tensor) -> torch.Tensor:
@@ -383,7 +386,8 @@ def _apply_lod_processing(
             [[0, 0, 0]], dtype=torch.float32, device=processed_pc.device
         )
 
-    return processed_pc, updated_title
+    lod_result = (processed_pc, updated_title)
+    return lod_result
 
 
 def _apply_browser_downsampling(
@@ -409,7 +413,8 @@ def _apply_browser_downsampling(
     points_tensor = processed_pc.xyz
 
     if len(points_tensor) <= MAX_BROWSER_POINTS:
-        return processed_pc, highlight_indices, title
+        downsampling_result = (processed_pc, highlight_indices, title)
+        return downsampling_result
 
     logger.info(
         f"Applying browser downsampling: {len(points_tensor)} -> {MAX_BROWSER_POINTS} points"
@@ -457,7 +462,8 @@ def _apply_browser_downsampling(
         f"{title} (Browser limit: {MAX_BROWSER_POINTS:,}/{original_count:,})"
     )
 
-    return downsampled_pc, updated_highlight_indices, updated_title
+    downsampling_result = (downsampled_pc, updated_highlight_indices, updated_title)
+    return downsampling_result
 
 
 def _create_point_cloud_figure(
@@ -971,7 +977,8 @@ def create_dash_points_component(
     assert isinstance(scene, go.Scatter3d), (
         "Expected `scene` to be a Plotly `go.Scatter3d` trace. " f"{type(scene)=}"
     )
-    return dcc.Graph(figure=go.Figure(data=[scene]))
+    component = dcc.Graph(figure=go.Figure(data=[scene]))
+    return component
 
 
 def get_point_cloud_display_stats(

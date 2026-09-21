@@ -185,7 +185,8 @@ export function createThreePoints({
     size: effectiveSize,
     ...(effectiveColor !== undefined ? { color: effectiveColor } : {}),
   });
-  return new THREE.Points(geometry, material);
+  const points = new THREE.Points(geometry, material);
+  return points;
 }
 
 function parsePlyBuffer({
@@ -260,7 +261,8 @@ function readPlyHeader({ headerText }: { headerText: string }): PlyHeader {
   if (!Number.isFinite(vertexCount) || vertexCount < 1) {
     throw new Error(`PLY vertex count is invalid: ${vertexCount}`);
   }
-  return { format, vertexCount, properties };
+  const header: PlyHeader = { format, vertexCount, properties };
+  return header;
 }
 
 function parseAsciiPlyGeometry({
@@ -351,7 +353,7 @@ function plyPropertyIndices({
   if (x < 0 || y < 0 || z < 0) {
     throw new Error("PLY vertex coordinates are missing");
   }
-  return {
+  const indices: PlyPropertyIndices = {
     x,
     y,
     z,
@@ -359,6 +361,7 @@ function plyPropertyIndices({
     green: names.indexOf("green"),
     blue: names.indexOf("blue"),
   };
+  return indices;
 }
 
 function plyPropertyOffsets({
@@ -379,7 +382,7 @@ function plyPropertyOffsets({
   ) {
     throw new Error("PLY vertex coordinates are missing");
   }
-  return {
+  const propertyOffsets: PlyPropertyOffsets = {
     stride: offset,
     x: offsets.x,
     y: offsets.y,
@@ -388,6 +391,7 @@ function plyPropertyOffsets({
     green: offsets.green,
     blue: offsets.blue,
   };
+  return propertyOffsets;
 }
 
 function writeGeometryVertex({
@@ -445,7 +449,8 @@ function readAsciiColorComponent({
   if (index < 0) {
     return 180;
   }
-  return Number(parts[index]);
+  const component = Number(parts[index]);
+  return component;
 }
 
 function readBinaryColorComponent({
@@ -472,9 +477,11 @@ function normalizeColorComponent({ value }: { value: number }): number {
     return 0.7;
   }
   if (value <= 1) {
-    return Math.min(Math.max(value, 0), 1);
+    const component = Math.min(Math.max(value, 0), 1);
+    return component;
   }
-  return Math.min(Math.max(value / 255, 0), 1);
+  const component = Math.min(Math.max(value / 255, 0), 1);
+  return component;
 }
 
 function plyScalarTypeSize({ type }: { type: string }): number {
@@ -513,28 +520,36 @@ function readBinaryScalar({
   type: string;
 }): number {
   if (type === "char" || type === "int8") {
-    return view.getInt8(offset);
+    const scalar = view.getInt8(offset);
+    return scalar;
   }
   if (type === "uchar" || type === "uint8") {
-    return view.getUint8(offset);
+    const scalar = view.getUint8(offset);
+    return scalar;
   }
   if (type === "short" || type === "int16") {
-    return view.getInt16(offset, true);
+    const scalar = view.getInt16(offset, true);
+    return scalar;
   }
   if (type === "ushort" || type === "uint16") {
-    return view.getUint16(offset, true);
+    const scalar = view.getUint16(offset, true);
+    return scalar;
   }
   if (type === "int" || type === "int32") {
-    return view.getInt32(offset, true);
+    const scalar = view.getInt32(offset, true);
+    return scalar;
   }
   if (type === "uint" || type === "uint32") {
-    return view.getUint32(offset, true);
+    const scalar = view.getUint32(offset, true);
+    return scalar;
   }
   if (type === "float" || type === "float32") {
-    return view.getFloat32(offset, true);
+    const scalar = view.getFloat32(offset, true);
+    return scalar;
   }
   if (type === "double" || type === "float64") {
-    return view.getFloat64(offset, true);
+    const scalar = view.getFloat64(offset, true);
+    return scalar;
   }
   throw new Error(`unsupported PLY scalar type ${type}`);
 }

@@ -220,7 +220,8 @@ function _createScoreLabelSprite({ score }: { score: number }): THREE.Sprite {
     depthTest: false,
     transparent: true,
   });
-  return new THREE.Sprite(spriteMaterial);
+  const sprite = new THREE.Sprite(spriteMaterial);
+  return sprite;
 }
 
 // Compute the shared bounding-sphere radius of every box's corners so score

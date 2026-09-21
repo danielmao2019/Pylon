@@ -147,11 +147,12 @@ export async function loadMeshPayload({
   }
   const parsed = await _fetchObj(displayResponse.url);
   const texture = await _resolveMeshTexture({ parsed, primaryUrl: displayResponse.url });
-  return {
+  const payload: MeshPayload = {
     verts: parsed.verts,
     faces: parsed.faces,
     texture,
   };
+  return payload;
 }
 
 // Sync-build THREE.BufferGeometry + THREE.MeshBasicMaterial + THREE.Mesh from a
@@ -249,7 +250,8 @@ export function createThreeMesh({
     ...(useTexture ? { map: textureMap } : {}),
     ...(effectiveColor !== undefined ? { color: effectiveColor } : {}),
   });
-  return new THREE.Mesh(geometry, material);
+  const mesh = new THREE.Mesh(geometry, material);
+  return mesh;
 }
 
 // Mount the render loop for the composed mesh scene.
@@ -294,11 +296,12 @@ function _resolveSparseHeatmapPayload({
     vertexColor[vertexIndex * 4 + 2] = rgb[i * 3 + 2] / 255;
     vertexColor[vertexIndex * 4 + 3] = 1.0;
   }
-  return {
+  const payload: MeshPayload = {
     verts: parsed.verts,
     faces: parsed.faces,
     texture: { kind: "vertex_color", vertexColor },
   };
+  return payload;
 }
 
 // Fetch and parse a Wavefront OBJ url once; subsequent callers share the promise.
@@ -395,7 +398,8 @@ function _parseObj(text: string): ParsedObj {
       facesUvs[corner] = vtIndex;
     }
   }
-  return { verts, faces, vertexColor, vertsUvs, facesUvs, mtllibName };
+  const parsed: ParsedObj = { verts, faces, vertexColor, vertsUvs, facesUvs, mtllibName };
+  return parsed;
 }
 
 // Parse one OBJ face token (`v`, `v/vt`, `v//vn`, or `v/vt/vn`) into 0-based indices.
@@ -403,7 +407,8 @@ function _parseFaceCorner(token: string): { v: number; vt: number } {
   const fields = token.split("/");
   const v = parseInt(fields[0], 10) - 1;
   const vt = fields.length >= 2 && fields[1].length > 0 ? parseInt(fields[1], 10) - 1 : -1;
-  return { v, vt };
+  const corner = { v, vt };
+  return corner;
 }
 
 // Resolve the parsed OBJ into a MeshTexture: a MeshTextureUVTextureMap when the
@@ -423,15 +428,17 @@ async function _resolveMeshTexture({
       throw new Error(`mesh OBJ declares UVs but its MTL has no map_Kd: ${primaryUrl}`);
     }
     const uvTextureMap = await _fetchTexture(_siblingUrl(primaryUrl, textureName));
-    return {
+    const texture: MeshTextureUVTextureMap = {
       kind: "uv_texture_map",
       uvTextureMap,
       vertsUvs: parsed.vertsUvs,
       facesUvs: parsed.facesUvs,
     };
+    return texture;
   }
   if (parsed.vertexColor !== null) {
-    return { kind: "vertex_color", vertexColor: parsed.vertexColor };
+    const texture: MeshTextureVertexColor = { kind: "vertex_color", vertexColor: parsed.vertexColor };
+    return texture;
   }
   return null;
 }
@@ -448,7 +455,8 @@ async function _fetchMtlTextureName(mtlUrl: string): Promise<string | null> {
     if (line.startsWith("map_Kd")) {
       const parts = line.split(/\s+/);
       if (parts.length >= 2) {
-        return parts.slice(1).join(" ");
+        const textureName = parts.slice(1).join(" ");
+        return textureName;
       }
     }
   }
@@ -485,7 +493,8 @@ function _siblingUrl(primaryUrl: string, siblingName: string): string {
   if (slash < 0) {
     return siblingName;
   }
-  return primaryUrl.slice(0, slash + 1) + siblingName;
+  const siblingUrl = primaryUrl.slice(0, slash + 1) + siblingName;
+  return siblingUrl;
 }
 
 // Fetch and decode a sparse heatmap wire resource: geometry reference + delta.
@@ -505,11 +514,12 @@ async function _fetchSparseHeatmapResource(url: string): Promise<SparseHeatmapRe
   if (!Array.isArray(raw.indices) || !Array.isArray(raw.values)) {
     throw new Error(`sparse heatmap resource is missing indices/values arrays: ${url}`);
   }
-  return {
+  const resource: SparseHeatmapResource = {
     geometryUrl: raw.geometry_url,
     indices: Int32Array.from(raw.indices as number[]),
     values: Float32Array.from(raw.values as number[]),
   };
+  return resource;
 }
 
 const _HEATMAP_PALETTE_STOPS: ReadonlyArray<number> = [0.0, 0.25, 0.5, 0.75, 1.0];
