@@ -182,10 +182,9 @@ def test_create_dash_points_component_wraps_scene(large_radius_xyz):
     """create_dash_points_component wraps a Scatter3d into a single-trace Graph."""
     pc = PointCloud(xyz=large_radius_xyz)
     scene = create_dash_points_scene(point_cloud=pc, point_size=3.0)
+    controls = create_dash_trackball_camera_controls()
 
-    graph = create_dash_points_component(
-        scene=scene, controls=create_dash_trackball_camera_controls()
-    )
+    graph = create_dash_points_component(scene=scene, controls=controls)
 
     assert isinstance(
         graph, dcc.Graph
