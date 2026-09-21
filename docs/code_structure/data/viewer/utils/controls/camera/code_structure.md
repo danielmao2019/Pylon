@@ -492,7 +492,39 @@ trackball_camera_controls.ts
 │   └── return controls
 ├── function createRendererTrackballCameraControls({ camera, renderer, lockRoll }: { camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; lockRoll: THREE.Vector3 | null }): ThreeTrackballCameraControls
 │   ├── # Constructs the renderer-specific trackball controls wiring left-drag rotate, right-drag pan, wheel zoom, and context-menu suppression.
-│   ├── impls renderer-specific trackball camera controls with left-button rotation, right-button panning, mouse-wheel zoom, and suppressed canvas context menu  # impls-node-one-step:skip
+│   ├── impls threeControls = new ThreeTrackballControlsImpl(camera, renderer.domElement), three's trackball with its left-drag rotate, right-drag pan, and wheel zoom
+│   ├── impls listeners = new Set<(cameraState: CameraState) => void>(), the camera-state listeners subscribeCameraStateChange registers
+│   ├── impls threeControls.rotateSpeed = 3
+│   ├── impls threeControls.zoomSpeed = 1.5
+│   ├── impls threeControls.panSpeed = 0.8
+│   ├── impls threeControls.staticMoving = true
+│   ├── (event: MouseEvent) => [local]
+│   │   ├── # The canvas contextmenu listener: suppresses the browser menu so right-drag pans.
+│   │   └── impls event.preventDefault()
+│   ├── impls renderer.domElement.addEventListener("contextmenu", that listener)
+│   ├── () => [local]
+│   │   ├── # The controls change listener: serializes the camera and hands the state to every subscribed listener.
+│   │   ├── calls buildThreeTrackballCameraState({ camera, controls: threeControls })   → cameraState
+│   │   └── for each listener in listeners
+│   │       └── calls listener(cameraState)  # each listener subscribeCameraStateChange registered
+│   ├── impls threeControls.addEventListener("change", that listener)
+│   ├── function getCameraState(): CameraState [local]
+│   │   ├── # Serializes the camera and its controls into the camera state the controls report.
+│   │   ├── calls buildThreeTrackballCameraState({ camera, controls: threeControls })
+│   │   └── return
+│   ├── function applyCameraState(cameraState: CameraState | null): void [local]
+│   │   ├── # Applies a camera state onto the camera and its controls, the free trackball's own camera-state write.
+│   │   └── calls applyThreeTrackballCameraState({ camera, controls: threeControls, cameraState })
+│   ├── function subscribeCameraStateChange(listener: (cameraState: CameraState) => void): () => void [local]
+│   │   ├── # Registers a camera-state listener the change listener above hands each state to, and returns its unsubscribe.
+│   │   ├── if listener is not a function
+│   │   │   └── throw camera state listener must be a function
+│   │   ├── impls listeners.add(listener)
+│   │   ├── () => [local]
+│   │   │   ├── # The unsubscribe: removes the listener.
+│   │   │   └── impls listeners.delete(listener)
+│   │   └── return  # the unsubscribe above
+│   ├── impls controls: ThreeTrackballCameraControls = Object.assign(threeControls, { rollLockAxis: null, rollLockPolarAngleEpsilon: null, getCameraState, applyCameraState, subscribeCameraStateChange })
 │   ├── if lockRoll is not null
 │   │   ├── impls rollLockAxis = lockRoll normalized to unit length
 │   │   ├── impls controls.rollLockAxis = rollLockAxis
