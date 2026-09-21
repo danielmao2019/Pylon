@@ -346,15 +346,15 @@ def build_scenes() -> List[Dict[str, Any]]:
 def load_or_render_on_main(
     main_repo: Path, output_dir: Path, force: bool
 ) -> Dict[str, Any]:
-    """Returns main's renders of the scenes, from output_dir / "main_renders.pt" unless it is missing, was rendered at another main commit or from other scenes, or force asks for a rerender.
+    """Returns main's renders of the scenes, from output_dir / "main_renders.pt" unless it is missing, was rendered at another main commit, from other scenes or by other rendering code, or force asks for a rerender.
 
     Args:
-        main_repo: Absolute path of a checkout of this repo's main branch.
+        main_repo: Absolute path of a clean checkout of this repo's main branch, carrying no local change.
         output_dir: This task's outputs/ directory, already holding "scenes.pt".
-        force: Whether to rerender even when "main_renders.pt" exists at main's commit and from these scenes.
+        force: Whether to rerender even when "main_renders.pt" exists at main's commit, from these scenes and by this rendering code.
 
     Returns:
-        The dict of "renders", mapping (device name, scene name, camera index, renderer, point size, return_mask) to main's cpu render (the map, or the (map, [H, W] bool mask) tuple when return_mask is True); "kernels", mapping each point size to main's [K, 2] int64 (y, x) kernel offsets; "dilations", mapping (device name, scene name, camera index, point size) at every point size above one to main's [H, W] float32 cpu dilation of its depth render at point size one without a mask, background set to positive infinity; "main_commit", the main commit that rendered them; and "scenes_digest", the hex sha256 of the "scenes.pt" bytes they were rendered from.
+        The dict of "renders", mapping (device name, scene name, camera index, renderer, point size, return_mask) to main's cpu render (the map, or the (map, [H, W] bool mask) tuple when return_mask is True); "kernels", mapping each point size to main's [K, 2] int64 (y, x) kernel offsets; "dilations", mapping (device name, scene name, camera index, point size) at every point size above one to main's [H, W] float32 cpu dilation of its depth render at point size one without a mask, background set to positive infinity; "main_commit", the main commit that rendered them; "scenes_digest", the hex sha256 of the "scenes.pt" bytes they were rendered from; and "renderer_digest", the hex sha256 of the bytes of this task's "render_on_main.py" followed by its "scene_rendering.py", the code that rendered them.
     """
     main_commit = subprocess.run(
         args=["git", "rev-parse", "HEAD"],
@@ -363,7 +363,24 @@ def load_or_render_on_main(
         text=True,
         check=True,
     ).stdout.strip()
+    main_status = subprocess.run(
+        args=["git", "status", "--porcelain"],
+        cwd=main_repo,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    # main's renders are main's only when its checkout carries no local change.
+    assert main_status == "", (
+        "Expected the main checkout to carry no local change. "
+        f"{main_repo=} {main_status=}"
+    )
     scenes_digest = hashlib.sha256((output_dir / "scenes.pt").read_bytes()).hexdigest()
+    # The code that produces the renders.
+    renderer_digest = hashlib.sha256(
+        (Path(__file__).resolve().parent / "render_on_main.py").read_bytes()
+        + (Path(__file__).resolve().parent / "scene_rendering.py").read_bytes()
+    ).hexdigest()
     main_branch_commit = subprocess.run(
         args=["git", "rev-parse", "main"],
         cwd=REPO_ROOT,
@@ -382,6 +399,7 @@ def load_or_render_on_main(
         if (
             cached["main_commit"] == main_commit
             and cached["scenes_digest"] == scenes_digest
+            and cached["renderer_digest"] == renderer_digest
         ):
             return cached
     subprocess.run(
@@ -402,7 +420,11 @@ def load_or_render_on_main(
         check=True,
     )
     main_renders = torch.load(output_dir / "main_renders.pt")
-    main_renders.update(main_commit=main_commit, scenes_digest=scenes_digest)
+    main_renders.update(
+        main_commit=main_commit,
+        scenes_digest=scenes_digest,
+        renderer_digest=renderer_digest,
+    )
     torch.save(main_renders, output_dir / "main_renders.pt")
     return main_renders
 
@@ -502,7 +524,7 @@ def compare_single_camera_to_main(
                                     }
                                 )
 
-    # Above one pixel this branch's dilation grows a centred disc taking the nearest neighbour, and its depth entry applies it, where main did neither; at a tied depth this branch keeps the lowest point index, where main keeps the last point in order on cpu and the first on cuda.
+    # Above one pixel this branch's dilation grows a centred disc taking the nearest neighbour, and its depth entry applies it, where main did neither; at a tied depth this branch keeps the lowest point index, where main keeps whichever tied point comes last in its own depth-sorted order, since it sorts depths descending and then scatters, the last write standing: on cpu that is the last in point order, and on cuda, whose sort does not keep tied points in order, which one it keeps varies pair by pair.
     for record in records:
         record["required"] = record["point_size"] == 1.0 and record["scene"] != "ties"
     return records
@@ -557,7 +579,7 @@ def compare_batch_to_one_by_one(scenes: List[Dict[str, Any]]) -> List[Dict[str, 
                             reference=(points, original_data_indices),
                         )
                     else:
-                        # CUDA's batched inverse and product round unlike a single camera's.
+                        # CUDA's batched inverse rounds unlike a single camera's.
                         comparison = compare_preparations(
                             output=(
                                 batch_points[camera_index],
@@ -820,7 +842,7 @@ def summarize_point_size_changes(main_renders: Dict[str, Any]) -> Dict[str, Any]
 def summarize_tie_changes(
     single_camera_records: List[Dict[str, Any]],
 ) -> Dict[str, Any]:
-    """Records, per device and renderer, how many of the ties scene's point-size-one renders come out equal to main's, the one regime where main's choice between tied points depends on the device.
+    """Records, per device and renderer, how many of the ties scene's point-size-one renders come out equal to main's, the one regime where main keeps a different point of a tied pair than the lowest point index this branch keeps.
 
     Args:
         single_camera_records: The records compare_single_camera_to_main returns, each carrying its "device" name, "scene" name, "renderer", "point_size" and "equal".
@@ -905,7 +927,9 @@ def compare_preparations(
         0, reference_indices, reference_points
     )
     # The size of the numbers the world-to-camera transform rounds.
-    magnitude = max(float(camera.extrinsics.center.norm()), float(pc.xyz.abs().max()))
+    magnitude = max(
+        float(camera.extrinsics.center.norm()), float(pc.xyz.norm(dim=1).max())
+    )
     # Its focal lengths are the ones the preparation projects with at resolution.
     render_camera = camera.scale_intrinsics(resolution=resolution)
     camera_frame_tolerance = 4 * torch.finfo(points.dtype).eps * magnitude

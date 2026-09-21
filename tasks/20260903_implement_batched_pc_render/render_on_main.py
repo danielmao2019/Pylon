@@ -38,7 +38,7 @@ def main() -> None:
         "--output_path", type=str, required=True, help="Path the renders are saved to."
     )
     args = parser.parse_args()
-    # main resolves a shared pixel by which write lands last, and deterministic mode makes that the last write in point order on cpu and cuda alike.
+    # main resolves a shared pixel by which write lands last, and deterministic mode makes that outcome reproducible run to run.
     torch.use_deterministic_algorithms(True)
     scenes = torch.load(args.scenes_path)
 
