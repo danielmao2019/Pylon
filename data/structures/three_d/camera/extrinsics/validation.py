@@ -1,4 +1,4 @@
-from typing import Any, List, Union
+from typing import Any, List, Tuple, Union
 
 import numpy as np
 import torch
@@ -369,4 +369,97 @@ def _validate_rotation_matrix_torch_against_threshold(
         rtol=0.0,
     ), f"Rotation matrix must have determinant +1. det(R) = {det} (threshold={threshold})"
 
+    return obj
+
+
+def validate_translation_vector(
+    obj: Any,
+) -> Union[
+    np.ndarray,
+    torch.Tensor,
+    Tuple[Union[int, float], Union[int, float], Union[int, float]],
+    List[Union[int, float]],
+]:
+    """Dispatch translation-vector validation on the input representation.
+
+    Args:
+        obj: Candidate translation-vector input, a numpy array, torch tensor, or numeric tuple or list.
+
+    Returns:
+        The validated translation vector, in the representation it was given.
+    """
+    if isinstance(obj, np.ndarray):
+        obj = _validate_translation_vector_numpy(obj)
+        return obj
+    if isinstance(obj, torch.Tensor):
+        obj = _validate_translation_vector_torch(obj)
+        return obj
+    if isinstance(obj, (tuple, list)):
+        obj = _validate_translation_vector_list(obj)
+        return obj
+    raise TypeError(
+        "Translation vector must be a numpy array, torch tensor, or numeric tuple "
+        f"or list, got {type(obj)}"
+    )
+
+
+def _validate_translation_vector_numpy(obj: np.ndarray) -> np.ndarray:
+    """Validate a (3,) numpy translation vector.
+
+    Args:
+        obj: Candidate numpy translation vector.
+
+    Returns:
+        The validated numpy translation vector.
+    """
+    assert obj.shape == (3,), (
+        "Expected the numpy translation vector to have shape (3,). " f"{obj.shape=}"
+    )
+    assert np.issubdtype(obj.dtype, np.number), (
+        "Expected the numpy translation vector to be numeric. " f"{obj.dtype=}"
+    )
+    return obj
+
+
+def _validate_translation_vector_torch(obj: torch.Tensor) -> torch.Tensor:
+    """Validate a (3,) torch translation vector.
+
+    Args:
+        obj: Candidate torch translation vector.
+
+    Returns:
+        The validated torch translation vector.
+    """
+    assert obj.shape == (3,), (
+        "Expected the torch translation vector to have shape (3,). " f"{obj.shape=}"
+    )
+    return obj
+
+
+def _validate_translation_vector_list(
+    obj: Union[
+        Tuple[Union[int, float], Union[int, float], Union[int, float]],
+        List[Union[int, float]],
+    ],
+) -> Union[
+    Tuple[Union[int, float], Union[int, float], Union[int, float]],
+    List[Union[int, float]],
+]:
+    """Validate a length-3 numeric tuple or list translation vector.
+
+    Args:
+        obj: Candidate tuple or list translation vector.
+
+    Returns:
+        The validated tuple or list translation vector.
+    """
+    assert len(obj) == 3, (
+        "Expected the tuple or list translation vector to have length 3. "
+        f"{len(obj)=} {obj=}"
+    )
+    for value in obj:
+        assert isinstance(value, (int, float)), (
+            "Expected every translation vector entry to be an int or a float. "
+            f"{type(value)=} {obj=}"
+        )
     return obj

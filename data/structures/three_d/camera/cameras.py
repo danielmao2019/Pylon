@@ -29,7 +29,7 @@ class Cameras:
         """Construct a Cameras from a batched CameraIntrinsics and a batched CameraExtrinsics.
 
         Args:
-            intrinsics: Batched CameraIntrinsics whose params are each a ``[B]`` torch.Tensor.
+            intrinsics: CameraIntrinsics whose params are each a ``[B]`` torch.Tensor, or an unbatched one (scalar params) or a batched one of length 1 broadcast over the batch.
             extrinsics: Batched CameraExtrinsics whose camera-to-world matrix is a ``[B, 4, 4]`` torch.Tensor.
             names: Optional per-camera list of optional names, parallel to the batch axis.
             ids: Optional per-camera list of optional ids, parallel to the batch axis.
@@ -66,6 +66,7 @@ class Cameras:
             List[Optional[int]],
             torch.device,
             torch.dtype,
+            int,
         ]:
             if device is None:
                 # A set of both, so neither component is the one read.
@@ -85,39 +86,52 @@ class Cameras:
             # Both components are brought to the resolved device and dtype, never the other way around.
             intrinsics = intrinsics.to(device=device, dtype=dtype)
             extrinsics = extrinsics.to(device=device, dtype=dtype)
+            # The poses count the cameras.
+            batch_size = len(extrinsics)
             # The batch named by omission.
             if names is None:
-                names = [None] * extrinsics.extrinsics.shape[0]
+                names = [None] * batch_size
             # The batch identified by omission.
             if ids is None:
-                ids = [None] * extrinsics.extrinsics.shape[0]
-            return intrinsics, extrinsics, names, ids, device, dtype
+                ids = [None] * batch_size
+            return intrinsics, extrinsics, names, ids, device, dtype, batch_size
 
-        intrinsics, extrinsics, names, ids, device, dtype = _normalize_inputs(
-            intrinsics=intrinsics,
-            extrinsics=extrinsics,
-            names=names,
-            ids=ids,
-            device=device,
-            dtype=dtype,
+        intrinsics, extrinsics, names, ids, device, dtype, batch_size = (
+            _normalize_inputs(
+                intrinsics=intrinsics,
+                extrinsics=extrinsics,
+                names=names,
+                ids=ids,
+                device=device,
+                dtype=dtype,
+            )
         )
 
+        name_to_index = {}
+        for index, name in enumerate(names):
+            # An unnamed camera contributes no entry.
+            if name is None:
+                continue
+            # Refused rather than silently resolving to one of them.
+            assert name not in name_to_index, (
+                "Expected every Cameras name to be unique, since a name two cameras "
+                "share cannot resolve to one of them. "
+                f"{name=} {name_to_index[name]=} {index=} {names=}"
+            )
+            name_to_index[name] = index
+        # Params each [B], or scalars and [1] columns where the intrinsics broadcasts over the batch.
         self._intrinsics: CameraIntrinsics = intrinsics
+        # Matrix [B, 4, 4].
         self._extrinsics: CameraExtrinsics = extrinsics
         self._names: List[Optional[str]] = names
         self._ids: List[Optional[int]] = ids
-        self._name_to_index = {}
-        for index, name in enumerate(names):
-            if name is None:
-                continue
-            assert name not in self._name_to_index, (
-                "Expected every Cameras name to be unique, since a name two cameras "
-                "share cannot resolve to one of them. "
-                f"{name=} {self._name_to_index[name]=} {index=} {names=}"
-            )
-            self._name_to_index[name] = index
+        self._name_to_index = name_to_index
+        # The resolved device the components were brought to, not read back off them.
         self._device: torch.device = device
+        # The resolved dtype the components were cast to, not read back off them.
         self._dtype: torch.dtype = dtype
+        # The one batch its components state between them, resolved here and not read again.
+        self._batch_size: int = batch_size
 
     @property
     def intrinsics(self) -> CameraIntrinsics:
@@ -294,15 +308,15 @@ class Cameras:
         return cameras
 
     def __len__(self) -> int:
-        """The number of cameras in the batch.
+        """The number of cameras in the batch, resolved once at construction.
 
         Args:
             None.
 
         Returns:
-            The extent of the components' leading batch axis.
+            The number ``B`` of cameras the poses count.
         """
-        return self._extrinsics.extrinsics.shape[0]
+        return self._batch_size
 
     def __getitem__(
         self, index: Union[int, slice, List[int], str]
@@ -317,33 +331,97 @@ class Cameras:
         Returns:
             A single Camera or a sub-Cameras batch.
         """
-        if isinstance(index, str):
-            index = self._name_to_index[index]
-        intrinsics = self._intrinsics[index]
-        extrinsics = self._extrinsics[index]
+
+        def _validate_inputs() -> None:
+            assert isinstance(index, (int, slice, list, str)), (
+                "Expected the Cameras index to be an int, a slice, a list of ints, "
+                f"or a name. {type(index)=}"
+            )
+            if isinstance(index, int):
+                # A component that broadcasts is never indexed, so the batch bounds the position itself.
+                assert -len(self) <= index < len(self), (
+                    "Expected the Cameras index to fall within the batch. "
+                    f"{index=} {len(self)=}"
+                )
+                return
+            if isinstance(index, slice):
+                return
+            if isinstance(index, list):
+                for item in index:
+                    assert isinstance(item, int), (
+                        "Expected every Cameras list index entry to be an int. "
+                        f"{type(item)=} {index=}"
+                    )
+                    assert -len(self) <= item < len(self), (
+                        "Expected every Cameras list index entry to fall within the "
+                        f"batch. {item=} {len(self)=}"
+                    )
+                return
+            if isinstance(index, str):
+                # Only a named camera can be looked up by its name.
+                assert index in self._name_to_index, (
+                    "Expected the Cameras name index to name a camera of the batch. "
+                    f"{index=} {self._names=}"
+                )
+                return
+            assert 0, "Should not reach here."
+
+        _validate_inputs()
+
+        def _normalize_inputs(
+            index: Union[int, slice, List[int], str],
+        ) -> Union[int, slice, List[int]]:
+            # A camera's name stands for the position it holds in the batch.
+            if isinstance(index, str):
+                index = self._name_to_index[index]
+                return index
+            if isinstance(index, (int, slice, list)):
+                return index
+            assert 0, "Should not reach here."
+
+        index = _normalize_inputs(index=index)
+
+        # A component that broadcasts over the batch broadcasts over any slice of it, so it is carried whole; a length-1 component of a length-1 batch is that batch rather than a broadcast, so it is indexed.
+        if not self._intrinsics.is_batched or len(self._intrinsics) < len(self):
+            intrinsics = self._intrinsics
+        else:
+            intrinsics = self._intrinsics[index]
+        if not self._extrinsics.is_batched or len(self._extrinsics) < len(self):
+            extrinsics = self._extrinsics
+        else:
+            extrinsics = self._extrinsics[index]
         if isinstance(index, int):
-            return Camera(
+            camera = Camera(
                 intrinsics=intrinsics,
                 extrinsics=extrinsics,
                 name=self._names[index],
                 id=self._ids[index],
             )
-        names = (
-            self._names[index]
-            if isinstance(index, slice)
-            else [self._names[item] for item in index]
-        )
-        ids = (
-            self._ids[index]
-            if isinstance(index, slice)
-            else [self._ids[item] for item in index]
-        )
-        return Cameras(
-            intrinsics=intrinsics,
-            extrinsics=extrinsics,
-            names=names,
-            ids=ids,
-        )
+            return camera
+        if isinstance(index, slice):
+            names = self._names[index]
+            ids = self._ids[index]
+            cameras = Cameras(
+                intrinsics=intrinsics,
+                extrinsics=extrinsics,
+                names=names,
+                ids=ids,
+            )
+            return cameras
+        if isinstance(index, list):
+            names = []
+            ids = []
+            for item in index:
+                names.append(self._names[item])
+                ids.append(self._ids[item])
+            cameras = Cameras(
+                intrinsics=intrinsics,
+                extrinsics=extrinsics,
+                names=names,
+                ids=ids,
+            )
+            return cameras
+        assert 0, "Should not reach here."
 
     def __iter__(self) -> Iterator["Camera"]:
         """Iterate one Camera at a time.

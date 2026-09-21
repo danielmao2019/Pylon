@@ -21,10 +21,10 @@ def validate_cameras_attributes(
 ) -> None:
     """Validate the batched component pair, its parallel metadata, device, and dtype for Cameras.
 
-    Single-entry validation for ``Cameras.__init__``; the component checks are shape-agnostic, so the batched pair takes the same ones a single camera does, plus the cross-component agreement on the leading batch axis.
+    Single-entry validation for ``Cameras.__init__``; the component checks are shape-agnostic, so the batched pair takes the same ones a single camera does, plus the cross-component agreement on the batch the poses count.
 
     Args:
-        intrinsics: Candidate batched CameraIntrinsics whose params are each ``[B]`` torch.Tensor.
+        intrinsics: Candidate CameraIntrinsics, unbatched (scalar params broadcast over the batch), batched of length 1, or batched with ``[B]`` params.
         extrinsics: Candidate batched CameraExtrinsics whose cam2world matrix is a ``[B, 4, 4]`` torch.Tensor.
         names: None, or a per-camera list of optional names parallel to the batch axis.
         ids: None, or a per-camera list of optional ids parallel to the batch axis.
@@ -43,25 +43,27 @@ def validate_cameras_attributes(
         dtype=dtype,
     )
 
-    assert extrinsics.extrinsics.ndim == 3, (
-        "Expected the batched CameraExtrinsics cam2world matrix to carry exactly one "
-        f"leading batch axis, i.e. shape [B, 4, 4]. {extrinsics.extrinsics.shape=}"
+    # The poses count the cameras.
+    assert extrinsics.is_batched, (
+        "Expected the Cameras extrinsics to be batched, its cam2world matrix a "
+        f"[B, 4, 4], since the poses count the cameras. {extrinsics.extrinsics.shape=}"
     )
-    batch_size = extrinsics.extrinsics.shape[0]
-    for key, value in intrinsics.params.items():
-        assert value.shape == (batch_size,), (
-            "Expected every batched CameraIntrinsics param to carry the same leading "
-            f"batch axis as the CameraExtrinsics. {key=} {value.shape=} {batch_size=}"
-        )
-
-    assert names is None or len(names) == batch_size, (
+    assert (
+        not intrinsics.is_batched
+        or len(intrinsics) == 1
+        or len(intrinsics) == len(extrinsics)
+    ), (
+        "Expected the Cameras intrinsics to be unbatched, batched of length 1, or "
+        "batched of the extrinsics' length. "
+        f"{intrinsics.is_batched=} {len(extrinsics)=} {intrinsics.params=}"
+    )
+    assert names is None or len(names) == len(extrinsics), (
         "Expected the per-camera names to be None or parallel to the batch axis. "
-        f"{names=} {batch_size=}"
+        f"{names=} {len(extrinsics)=}"
     )
-
-    assert ids is None or len(ids) == batch_size, (
+    assert ids is None or len(ids) == len(extrinsics), (
         "Expected the per-camera ids to be None or parallel to the batch axis. "
-        f"{ids=} {batch_size=}"
+        f"{ids=} {len(extrinsics)=}"
     )
     return
 

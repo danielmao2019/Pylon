@@ -10,6 +10,7 @@ from data.structures.three_d.camera.extrinsics.validation import (
     validate_camera_extrinsics_attributes,
     validate_extr_convention,
     validate_rotation_matrix,
+    validate_translation_vector,
 )
 
 _ORTHOGONALITY_REPAIR_ATOL = 1.0e-05
@@ -28,7 +29,7 @@ class CameraExtrinsics:
         """Construct a CameraExtrinsics from a 4x4 cam2world matrix and its pose frame.
 
         Args:
-            extrinsics: 4x4 camera-to-world extrinsics matrix as a numpy array, torch.Tensor, or nested numeric list.
+            extrinsics: Camera-to-world extrinsics matrix as a numpy array, torch.Tensor, or nested numeric list, a ``[4, 4]`` for one camera or a ``[B, 4, 4]`` for a batch of them.
             extr_convention: Coordinate-frame convention string.
             device: Optional target device for the extrinsics tensor; ``None`` resolves to the given matrix's own device, cpu for a numpy array or nested list.
             dtype: Optional target floating dtype for the extrinsics tensor; ``None`` resolves to the given matrix's own dtype, float32 for a nested list.
@@ -74,10 +75,14 @@ class CameraExtrinsics:
             device=device,
             dtype=dtype,
         )
+
+        # None where the matrix is a [4, 4]: an unbatched extrinsics carries no batch axis, and states one camera.
+        batch_size = extrinsics.shape[0] if extrinsics.ndim == 3 else None
         self._extrinsics: torch.Tensor = extrinsics
         self._extr_convention: str = extr_convention
         self._device: torch.device = device
         self._dtype: torch.dtype = dtype
+        self._batch_size: Optional[int] = batch_size
 
     @property
     def extrinsics(self) -> torch.Tensor:
@@ -126,6 +131,34 @@ class CameraExtrinsics:
             The torch dtype of the camera-to-world matrix.
         """
         return self._dtype
+
+    @property
+    def is_batched(self) -> bool:
+        """Whether the cam2world matrix carries a batch axis.
+
+        Args:
+            None.
+
+        Returns:
+            True for a ``[B, 4, 4]`` matrix, False for the ``[4, 4]`` of the one camera an unbatched extrinsics states.
+        """
+        return self._batch_size is not None
+
+    def __len__(self) -> int:
+        """The extent of the batch axis this extrinsics carries.
+
+        Args:
+            None.
+
+        Returns:
+            The number ``B`` of cameras a batched ``[B, 4, 4]`` matrix carries; an unbatched extrinsics has no length.
+        """
+        # A [4, 4] matrix carries no batch axis, so it has no length.
+        assert self._batch_size is not None, (
+            "Expected a batched CameraExtrinsics, since an unbatched [4, 4] matrix "
+            f"carries no batch axis and so has no length. {self._extrinsics.shape=}"
+        )
+        return self._batch_size
 
     def __getitem__(
         self, index: Union[int, slice, List[int], None]
@@ -381,35 +414,16 @@ class CameraExtrinsics:
         """
 
         def _validate_inputs() -> None:
-            validate_rotation_matrix(rotation)
-            assert isinstance(translation, (np.ndarray, torch.Tensor, tuple, list)), (
-                "Expected transform translation to be a numpy array, torch.Tensor, "
-                "tuple, or list. "
-                f"{type(translation)=}"
+            # One factor for the whole pose.
+            assert isinstance(scale, (int, float)) or (
+                isinstance(scale, (np.ndarray, torch.Tensor)) and scale.shape == ()
+            ), (
+                "Expected transform scale to be an int, a float, or a numpy array or "
+                "torch.Tensor of shape (). "
+                f"{type(scale)=} {scale=}"
             )
-            if isinstance(translation, np.ndarray):
-                assert translation.shape == (3,), (
-                    "Expected transform translation shape to be length 3. "
-                    f"{translation.shape=}"
-                )
-                assert np.issubdtype(translation.dtype, np.number), (
-                    "Expected transform translation array to be numeric. "
-                    f"{translation.dtype=}"
-                )
-            if isinstance(translation, torch.Tensor):
-                assert translation.shape == (3,), (
-                    "Expected transform translation shape to be length 3. "
-                    f"{translation.shape=}"
-                )
-            if isinstance(translation, (tuple, list)):
-                assert len(translation) == 3, (
-                    "Expected transform translation to have length 3. "
-                    f"{translation=}"
-                )
-                assert all(isinstance(value, (int, float)) for value in translation), (
-                    "Expected transform translation values to be numeric. "
-                    f"{translation=}"
-                )
+            validate_rotation_matrix(rotation)
+            validate_translation_vector(translation)
 
         _validate_inputs()
 
@@ -424,10 +438,6 @@ class CameraExtrinsics:
             ],
         ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
             scale = torch.as_tensor(scale, device=self._device, dtype=self._dtype)
-            assert scale.shape == (), (
-                "Expected the normalized transform scale to be a scalar tensor. "
-                f"{scale.shape=}"
-            )
             assert scale.device == self._device, (
                 "Expected the normalized transform scale on the extrinsics device. "
                 f"{scale.device=} {self._device=}"
@@ -437,10 +447,6 @@ class CameraExtrinsics:
                 f"{scale.dtype=} {self._dtype=}"
             )
             rotation = torch.as_tensor(rotation, device=self._device, dtype=self._dtype)
-            assert rotation.shape == (3, 3), (
-                "Expected the normalized transform rotation to be one 3x3 matrix. "
-                f"{rotation.shape=}"
-            )
             assert rotation.device == self._device, (
                 "Expected the normalized transform rotation on the extrinsics device. "
                 f"{rotation.device=} {self._device=}"
@@ -451,10 +457,6 @@ class CameraExtrinsics:
             )
             translation = torch.as_tensor(
                 translation, device=self._device, dtype=self._dtype
-            )
-            assert translation.shape == (3,), (
-                "Expected the normalized transform translation to be a length-3 "
-                f"vector. {translation.shape=}"
             )
             assert translation.device == self._device, (
                 "Expected the normalized transform translation on the extrinsics "

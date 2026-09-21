@@ -326,7 +326,6 @@ def test_extrinsics_constructor_and_to_apply_dtype_and_copy() -> None:
         "Expected an extrinsics moved to float32 to report float32 and hold its matrix in float32. "
         f"{moved.dtype=} {moved.extrinsics.dtype=}"
     )
-    return
 
 
 def test_transform_extrinsics_accepts_array_like_inputs_and_keeps_gradients() -> None:
@@ -375,7 +374,6 @@ def test_transform_extrinsics_accepts_array_like_inputs_and_keeps_gradients() ->
         "Expected an array-like similarity to return a float64 extrinsics. "
         f"{list_transformed.dtype=}"
     )
-    return
 
 
 def test_camera_and_cameras_to_keep_tensor_state_on_the_autograd_path() -> None:
@@ -438,7 +436,6 @@ def test_camera_and_cameras_to_keep_tensor_state_on_the_autograd_path() -> None:
         "Expected the source cam2world matrix to receive a gradient through the moved collection. "
         f"{matrix.grad=}"
     )
-    return
 
 
 def test_cameras_device_and_dtype_follow_the_given_placement() -> None:
@@ -840,11 +837,10 @@ def test_intr_convention_module_has_one_main_api_and_six_spoke_helpers() -> None
     for name in functions:
         if "_to_" in name and "standard" not in name:
             obliques.append(name)
-    assert spokes.issubset(set(functions)) and obliques == [], (
+    assert spokes <= set(functions) and obliques == [], (
         "Expected a to-standard and a from-standard helper for opengl, pytorch3d and vulkan, "
         f"and no helper between two non-standard frames. {functions=} {obliques=}"
     )
-    return
 
 
 def test_a_frame_change_comes_down_to_the_same_per_axis_rescale() -> None:
@@ -895,7 +891,6 @@ def test_a_frame_change_comes_down_to_the_same_per_axis_rescale() -> None:
             unit_x=2.0,
             unit_y=0.5,
         )
-    return
 
 
 def test_three_separations_stand_between_standard_and_a_device_frame() -> None:
@@ -1225,20 +1220,18 @@ def test_a_frame_change_is_measured_against_the_intrinsics_own_resolution() -> N
     Returns:
         None.
     """
-    narrow_standard = build_camera_intrinsics(
+    narrow = build_camera_intrinsics(
         model="pinhole",
         params=_build_pinhole_params(height=240, width=320),
         intr_convention="standard",
         device="cpu",
-    )
-    narrow = narrow_standard.to(intr_convention="opengl")
-    wide_standard = build_camera_intrinsics(
+    ).to(intr_convention="opengl")
+    wide = build_camera_intrinsics(
         model="pinhole",
         params=_build_pinhole_params(height=240, width=640),
         intr_convention="standard",
         device="cpu",
-    )
-    wide = wide_standard.to(intr_convention="opengl")
+    ).to(intr_convention="opengl")
     assert narrow.params["cx"] != pytest.approx(wide.params["cx"]), (
         "Expected two intrinsics whose h and w differ to convert to different results. "
         f"{narrow.params=} {wide.params=}"
@@ -1510,4 +1503,3 @@ def test_camera_and_cameras_to_preserve_tensor_parameter_graphs() -> None:
         "Expected the source extrinsics tensor to receive a gradient. "
         f"{translation.grad=}"
     )
-    return

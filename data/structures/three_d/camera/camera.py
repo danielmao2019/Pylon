@@ -40,29 +40,66 @@ class Camera:
             extrinsics: The camera's CameraExtrinsics ("where the camera is").
             name: Optional camera name.
             id: Optional camera id.
-            device: Optional target device for the camera tensors.
-            dtype: Optional target floating dtype for the camera tensors.
+            device: Optional target device for the camera tensors, both components brought to it; ``None`` resolves to the device the given intrinsics and extrinsics share.
+            dtype: Optional target floating dtype for the camera tensors, both components cast to it; ``None`` resolves to the dtype the given intrinsics and extrinsics share.
 
         Returns:
             None.
         """
-        validate_camera_attributes(
+
+        def _validate_inputs() -> None:
+            validate_camera_attributes(
+                intrinsics=intrinsics,
+                extrinsics=extrinsics,
+                name=name,
+                id=id,
+                device=device,
+                dtype=dtype,
+            )
+
+        _validate_inputs()
+
+        def _normalize_inputs(
+            intrinsics: CameraIntrinsics,
+            extrinsics: CameraExtrinsics,
+            device: Optional[Union[str, torch.device]],
+            dtype: Optional[torch.dtype],
+        ) -> Tuple[CameraIntrinsics, CameraExtrinsics, torch.device, torch.dtype]:
+            if device is None:
+                # A set of both, so neither component is the one read.
+                component_devices = {intrinsics.device, extrinsics.device}
+                # Single, since validate_camera_attributes asserts intrinsics.device == extrinsics.device.
+                (device,) = component_devices
+            device = torch.device(device)
+            # One physical device has one spelling here, so a cuda and a cuda:0 naming it never compare unequal.
+            if device.type == "cuda" and device.index is None:
+                # Where a tensor sent to a bare cuda lands, and so the device it reports.
+                device = torch.device("cuda", torch.cuda.current_device())
+            if dtype is None:
+                # A set of both, so neither component is the one read.
+                component_dtypes = {intrinsics.dtype, extrinsics.dtype}
+                # Single, since validate_camera_attributes asserts intrinsics.dtype == extrinsics.dtype.
+                (dtype,) = component_dtypes
+            # Both components are brought to the resolved device and dtype, never the other way around.
+            intrinsics = intrinsics.to(device=device, dtype=dtype)
+            extrinsics = extrinsics.to(device=device, dtype=dtype)
+            return intrinsics, extrinsics, device, dtype
+
+        intrinsics, extrinsics, device, dtype = _normalize_inputs(
             intrinsics=intrinsics,
             extrinsics=extrinsics,
-            name=name,
-            id=id,
             device=device,
             dtype=dtype,
         )
-        if device is not None or dtype is not None:
-            intrinsics = intrinsics.to(device=device, dtype=dtype)
-            extrinsics = extrinsics.to(device=device, dtype=dtype)
+
         self._intrinsics: CameraIntrinsics = intrinsics
         self._extrinsics: CameraExtrinsics = extrinsics
         self._name: Optional[str] = name
         self._id: Optional[int] = id
-        self._device: torch.device = intrinsics.device
-        self._dtype: torch.dtype = intrinsics.dtype
+        # The resolved device the components were brought to, not read back off them.
+        self._device: torch.device = device
+        # The resolved dtype the components were cast to, not read back off them.
+        self._dtype: torch.dtype = dtype
 
     @property
     def intrinsics(self) -> CameraIntrinsics:
