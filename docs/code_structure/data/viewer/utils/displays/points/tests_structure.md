@@ -12,6 +12,7 @@ test_dash_points_style_args.py
 ├── import torch
 ├── from dash import dcc
 ├── from data.structures.three_d.point_cloud.point_cloud import PointCloud
+├── from data.viewer.utils.controls.camera.camera_controls.dash.trackball_camera_controls import create_dash_trackball_camera_controls
 ├── from data.viewer.utils.displays.points.dash.core_points_display import DEFAULT_POINT_COLOR, DEFAULT_POINT_SIZE_FLOOR, DEFAULT_POINT_SIZE_RATIO, create_dash_points_component, create_dash_points_display, create_dash_points_scene
 ├── @pytest.fixture def large_radius_xyz()
 │   ├── # Synthetic xyz whose bounding-sphere radius is large enough that the size heuristic beats the floor.
@@ -93,12 +94,11 @@ test_dash_points_style_args.py
 │   ├── assert its marker size is 4.0
 │   └── assert its marker color is "#00ff00"
 ├── def test_create_dash_points_component_wraps_scene(large_radius_xyz)
-│   ├── # create_dash_points_component wraps a Scatter3d into a single-trace Graph.
-│   ├── calls PointCloud(xyz=large_radius_xyz)                          # -> pc
-│   ├── calls create_dash_points_scene(point_cloud=pc, point_size=3.0)  # -> scene
-│   ├── lambda *args, **kwargs [local]
-│   │   └── impls None
-│   ├── calls create_dash_points_component(scene=scene, controls=that lambda)  # -> graph
+│   ├── # create_dash_points_component wraps a Scatter3d into a single-trace Graph under the free trackball its caller builds.
+│   ├── calls PointCloud(xyz=large_radius_xyz)                              # -> pc
+│   ├── calls create_dash_points_scene(point_cloud=pc, point_size=3.0)      # -> scene
+│   ├── calls create_dash_trackball_camera_controls()                       # -> controls
+│   ├── calls create_dash_points_component(scene=scene, controls=controls)  # -> graph
 │   ├── assert the graph is a dcc.Graph
 │   ├── assert its figure is a go.Figure
 │   ├── assert that figure holds one trace
