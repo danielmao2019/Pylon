@@ -387,6 +387,7 @@ render_rgb_volumetric.py
 ├── from models.three_d.point_cloud.render.render_rgb import render_rgb_from_point_cloud
 ├── from models.three_d.nerfstudio.splatfacto.load_splatfacto import load_splatfacto_model
 ├── from models.three_d.nerfstudio.splatfacto.render import render_rgb_from_splatfacto
+├── from utils.ops.dict_as_tensor import buffer_permute
 ├── def render_rgb_from_point_cloud_volumetric(pc: PointCloud, camera: Camera, resolution: Tuple[int, int], debug: bool = False) -> torch.Tensor
 │   ├── # Renders one view volumetrically: cull to the points that project, ring the view with auxiliary cameras, train a splatfacto model on that tiny dataset, evaluate it back at the original camera.
 │   ├── impls total_start = time.time()
@@ -397,7 +398,6 @@ render_rgb_volumetric.py
 │   ├── assert both render dimensions are positive  # "Render resolution must be positive"
 │   ├── impls intrinsics = camera.intrinsics
 │   ├── impls extrinsics = camera.extrinsics  # its extr_convention rides along into every training camera built from it
-│   ├── impls convention = camera.extrinsics.extr_convention
 │   ├── impls native_width = twice intrinsics.cx, rounded to an int
 │   ├── impls native_height = twice intrinsics.cy, rounded to an int
 │   ├── assert both native dimensions are positive  # "Invalid image dimensions inferred from intrinsics"
@@ -444,7 +444,11 @@ render_rgb_volumetric.py
 │   │   ├── calls _create_images(images=images, output_root=tempdir, downscale_factor=downscale_factor)
 │   │   ├── calls _create_masks(masks=masks, output_root=tempdir, downscale_factor=downscale_factor)
 │   │   ├── calls _create_ply(pc=pc, output_root=tempdir)
-│   │   ├── calls _create_nerfstudio(intrinsics=intrinsics, train_extrinsics=train_extrinsics, eval_extrinsics=extrinsics, convention=convention, output_root=tempdir)
+│   │   ├── impls train_cameras = an empty list
+│   │   ├── for each index, _extrinsics of train_extrinsics, numbered from zero
+│   │   │   ├── calls Camera(intrinsics=intrinsics, extrinsics=_extrinsics, name="image_" followed by index as two zero-padded digits, id=index, device=pc.device)  # -> train_camera: named after the image _create_images writes for the same index
+│   │   │   └── impls append train_camera to train_cameras
+│   │   ├── calls _create_nerfstudio(cameras=train_cameras, output_root=tempdir)
 │   │   ├── impls log the dataset-write stage duration
 │   │   ├── impls dataset_root = Path(tempdir)
 │   │   ├── impls stage_start = time.time()
@@ -514,8 +518,17 @@ render_rgb_volumetric.py
 │   └── calls save_point_cloud(pc, str(ply_path))
 ├── def _create_nerfstudio(cameras: List[Camera], output_root: Path) -> None
 │   ├── # Writes the transforms.json a nerfstudio dataset is read through, carrying the shared intrinsics beside every training pose.
+│   ├── def _validate_inputs [local]
+│   │   ├── assert cameras is non-empty  # "At least one camera required to write transforms.json"
+│   │   ├── for each camera of cameras
+│   │   │   └── assert camera.name is not None  # every frame's image is named after its camera
+│   │   ├── assert len({camera.intrinsics.model for each camera of cameras}) == 1  # the record states one intrinsics for the whole capture
+│   │   ├── assert len({camera.intrinsics.intr_convention for each camera of cameras}) == 1
+│   │   ├── assert len({frozenset(camera.intrinsics.params.keys()) for each camera of cameras}) == 1
+│   │   ├── assert len({camera.extrinsics.extr_convention for each camera of cameras}) == 1  # and one pose frame
+│   │   └── assert len({camera.device for each camera of cameras}) == 1
+│   ├── calls _validate_inputs
 │   ├── impls root = Path(output_root)
-│   ├── assert cameras is non-empty  # "At least one camera required to write transforms.json"
 │   ├── impls nerfstudio_path = root / "transforms.json"
 │   ├── impls create the parent directory of nerfstudio_path
 │   ├── impls camera_names = the name of each camera
