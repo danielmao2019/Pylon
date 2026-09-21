@@ -532,22 +532,27 @@ render_rgb_volumetric.py
 │   ├── impls nerfstudio_path = root / "transforms.json"
 │   ├── impls create the parent directory of nerfstudio_path
 │   ├── impls camera_names = the name of each camera
-│   ├── assert no entry of camera_names is None
-│   ├── impls camera_intrinsics = the intrinsics of the first camera
-│   ├── impls intrinsic_params = a dict of fl_x, fl_y, cx, cy off camera_intrinsics, its four distortion terms zeroed
-│   ├── impls resolution = twice camera_intrinsics.cy by twice camera_intrinsics.cx, each rounded to an int
+│   ├── impls camera_models = {camera.intrinsics.model for each camera of cameras}  # a set of every camera's own model, so no camera is the one read; _validate_inputs asserts each set below holds one entry
+│   ├── impls camera_intr_conventions = {camera.intrinsics.intr_convention for each camera of cameras}  # a set of every camera's own image-plane frame
+│   ├── impls camera_extr_conventions = {camera.extrinsics.extr_convention for each camera of cameras}  # a set of every camera's own pose frame
+│   ├── impls camera_devices = {camera.device for each camera of cameras}  # a set of every camera's own device
 │   ├── impls camera_model = "OPENCV"
-│   ├── impls intrinsics = the [3, 3] float32 pinhole matrix of camera_intrinsics on the first camera's device
 │   ├── impls applied_transform = the [3, 4] float32 array sending (x, y, z) to (x, z, -y)
-│   ├── calls build_camera_intrinsics(model=camera_intrinsics.model, params=each of camera_intrinsics' params stacked over cameras, intr_convention=camera_intrinsics.intr_convention)
+│   ├── calls buffer_permute(buffer=[camera.intrinsics.params for each camera of cameras], axes=(1, 0))  # -> param_columns: each param name mapped to every camera's own value of it
+│   ├── impls batched_params = each column of param_columns stacked along a new axis 0
+│   ├── calls build_camera_intrinsics(model=the single model in camera_models, params=batched_params, intr_convention=the single frame in camera_intr_conventions)
 │   ├── impls batched_intrinsics = the intrinsics it built, one entry per camera along its leading axis
-│   ├── calls CameraExtrinsics(extrinsics=every camera's extrinsics matrix stacked to [B, 4, 4], extr_convention=the first camera's extr_convention)
+│   ├── impls capture_params = {key: the single value the column batched_intrinsics.params[key] holds for each key of batched_params}  # single, since the record states one intrinsics for the whole capture
+│   ├── impls intrinsic_params = a dict of fl_x, fl_y, cx, cy off capture_params, its four distortion terms zeroed
+│   ├── impls resolution = twice capture_params["cy"] by twice capture_params["cx"], each rounded to an int
+│   ├── impls intrinsics = the [3, 3] float32 pinhole matrix of capture_params on the single device in camera_devices
+│   ├── calls CameraExtrinsics(extrinsics=every camera's extrinsics matrix stacked to [B, 4, 4], extr_convention=the single frame in camera_extr_conventions)
 │   ├── impls batched_extrinsics = the [B, 4, 4] extrinsics it built
-│   ├── calls Cameras(intrinsics=batched_intrinsics, extrinsics=batched_extrinsics, names=camera_names, ids=[camera.id for camera in cameras], device=cameras[0].device)
+│   ├── calls Cameras(intrinsics=batched_intrinsics, extrinsics=batched_extrinsics, names=camera_names, ids=[camera.id for camera in cameras], device=the single device in camera_devices)
 │   ├── impls nerfstudio_cameras = the Cameras it built
 │   ├── impls modalities = ["image"]
 │   ├── impls payload = an empty Dict[str, Any]
-│   ├── calls NerfStudio_Data(data=payload, device=cameras[0].device, intrinsic_params=intrinsic_params, resolution=resolution, camera_model=camera_model, intrinsics=intrinsics, applied_transform=applied_transform, ply_file_path="point_cloud.ply", cameras=nerfstudio_cameras, modalities=modalities, train_filenames=None, val_filenames=None, test_filenames=None)
+│   ├── calls NerfStudio_Data(data=payload, device=the single device in camera_devices, intrinsic_params=intrinsic_params, resolution=resolution, camera_model=camera_model, intrinsics=intrinsics, applied_transform=applied_transform, ply_file_path="point_cloud.ply", cameras=nerfstudio_cameras, modalities=modalities, train_filenames=None, val_filenames=None, test_filenames=None)
 │   ├── impls nerfstudio_data = the NerfStudio_Data it built
 │   └── calls nerfstudio_data.save(output_path=nerfstudio_path)
 ├── def _run_ns_train_splatfacto(dataset_root: Path, downscale_factor: int) -> Path
