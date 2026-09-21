@@ -179,7 +179,7 @@ def test_create_dash_points_display_passes_style_args(large_radius_xyz):
 
 
 def test_create_dash_points_component_wraps_scene(large_radius_xyz):
-    """create_dash_points_component wraps a Scatter3d into a single-trace Graph."""
+    """create_dash_points_component wraps a Scatter3d into a single-trace Graph under the free trackball its caller builds."""
     pc = PointCloud(xyz=large_radius_xyz)
     scene = create_dash_points_scene(point_cloud=pc, point_size=3.0)
     controls = create_dash_trackball_camera_controls()

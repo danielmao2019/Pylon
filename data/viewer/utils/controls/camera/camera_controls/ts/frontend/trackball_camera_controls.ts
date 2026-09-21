@@ -134,30 +134,59 @@ function createRendererTrackballCameraControls({
       listener(cameraState);
     }
   });
+
+  // Serializes the camera and its controls into the camera state the controls report.
+  //
+  // Args:
+  //   None.
+  //
+  // Returns:
+  //   The camera state (camera-to-world extrinsics + intrinsics) of the camera and its controls.
+  function getCameraState(): CameraState {
+    return buildThreeTrackballCameraState({
+      camera,
+      controls: threeControls,
+    });
+  }
+
+  // Applies a camera state onto the camera and its controls, the free trackball's own camera-state write.
+  //
+  // Args:
+  //   cameraState: the camera state (camera-to-world extrinsics + intrinsics) to apply; null, or a state in another convention, leaves the camera as it was.
+  //
+  // Returns:
+  //   void.
+  function applyCameraState(cameraState: CameraState | null): void {
+    applyThreeTrackballCameraState({
+      camera,
+      controls: threeControls,
+      cameraState,
+    });
+  }
+
+  // Registers a camera-state listener the change listener above hands each state to, and returns its unsubscribe.
+  //
+  // Args:
+  //   listener: the function called with each camera state the controls change to.
+  //
+  // Returns:
+  //   The unsubscribe, which removes the listener.
+  function subscribeCameraStateChange(listener: (cameraState: CameraState) => void): () => void {
+    if (typeof listener !== "function") {
+      throw new Error("camera state listener must be a function");
+    }
+    listeners.add(listener);
+    return () => {
+      listeners.delete(listener);
+    };
+  }
+
   const controls: ThreeTrackballCameraControls = Object.assign(threeControls, {
     rollLockAxis: null,
     rollLockPolarAngleEpsilon: null,
-    getCameraState: () =>
-      buildThreeTrackballCameraState({
-        camera,
-        controls: threeControls,
-      }),
-    applyCameraState: (cameraState: CameraState | null): void => {
-      applyThreeTrackballCameraState({
-        camera,
-        controls: threeControls,
-        cameraState,
-      });
-    },
-    subscribeCameraStateChange: (listener: (cameraState: CameraState) => void) => {
-      if (typeof listener !== "function") {
-        throw new Error("camera state listener must be a function");
-      }
-      listeners.add(listener);
-      return () => {
-        listeners.delete(listener);
-      };
-    },
+    getCameraState,
+    applyCameraState,
+    subscribeCameraStateChange,
   });
 
   if (lockRoll !== null) {
