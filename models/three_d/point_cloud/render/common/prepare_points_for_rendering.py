@@ -186,7 +186,8 @@ def _prepare_points_for_rendering_batched(
     indices_sorted = torch.empty_like(idx_all)
     torch.index_select(pts_all, 0, sort_indices, out=points_sorted)
     torch.index_select(idx_all, 0, sort_indices, out=indices_sorted)
-    return points_sorted, indices_sorted
+    sorted_result = (points_sorted, indices_sorted)
+    return sorted_result
 
 
 def prepare_points_for_rendering(

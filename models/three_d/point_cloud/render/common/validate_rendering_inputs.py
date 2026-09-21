@@ -1,7 +1,5 @@
 from typing import Optional, Tuple, Union
 
-import torch
-
 from data.structures.three_d.camera.camera import Camera
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
 

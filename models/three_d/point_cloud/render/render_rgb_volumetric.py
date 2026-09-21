@@ -1,5 +1,4 @@
 import itertools
-import json
 import logging
 import math
 import subprocess
@@ -424,4 +423,5 @@ def render_rgb_from_point_cloud_volumetric(
         "[volumetric] Pipeline finished in %.2fs",
         time.time() - total_start,
     )
-    return rendered_image.to(device=target_device)
+    rendered_image = rendered_image.to(device=target_device)
+    return rendered_image
