@@ -84,6 +84,7 @@ def main() -> None:
     )
     batch_records = compare_batch_to_one_by_one(scenes=scenes)
     point_size_summary = summarize_point_size_changes(main_renders=main_renders)
+    tie_summary = summarize_tie_changes(single_camera_records=single_camera_records)
     # A report is evidence only for the commit it names.
     branch_worktree_clean = (
         subprocess.run(
@@ -115,7 +116,7 @@ def main() -> None:
             "records": records,
         }
 
-    # --- Report: the commits, whether the branch worktree was clean, the devices, both comparisons and the point-size summary
+    # --- Report: the commits, whether the branch worktree was clean, the devices, both comparisons, the point-size summary and the tie summary
     report = {
         "main_commit": main_renders["main_commit"],
         "branch_commit": subprocess.run(
@@ -131,6 +132,7 @@ def main() -> None:
         "main_deterministic_algorithms": True,
         **comparisons,
         "point_size_summary": point_size_summary,
+        "tie_summary": tie_summary,
     }
     (output_dir / "equivalence_report.json").write_text(json.dumps(report, indent=2))
 
@@ -149,6 +151,8 @@ def main() -> None:
         )
     for label, entry in point_size_summary.items():
         print(f"point-size summary, {label}: {entry}")
+    for label, entry in tie_summary.items():
+        print(f"tie summary, {label}: {entry}")
 
     # --- Exit non-zero when any required check failed
     any_failed = False
@@ -177,7 +181,7 @@ def load_or_build_scenes(output_dir: Path, force: bool) -> List[Dict[str, Any]]:
 
 
 def build_scenes() -> List[Dict[str, Any]]:
-    """Builds scenes that reach every regime the batching changes: many points per pixel, few enough points for CUDA's small-matrix kernels, points culled by some cameras only, rescaled intrinsics, and all three pose conventions.
+    """Builds scenes that reach every regime the batching changes: many points per pixel, few enough points for CUDA's small-matrix kernels, points culled by some cameras only, rescaled intrinsics, all three pose conventions, and points that tie in depth on one pixel.
 
     Args:
         None.
@@ -187,7 +191,7 @@ def build_scenes() -> List[Dict[str, Any]]:
     """
     generator = torch.Generator().manual_seed(0)
 
-    # --- The four scenes: a seeded cloud about the origin, how many cameras sit on a sphere of what radius around it, their base focal length, and the resolution the intrinsics state versus the one rendered
+    # --- The five scenes: a seeded cloud about the origin, how many cameras sit on a sphere of what radius around it, their base focal length, and the resolution the intrinsics state versus the one rendered
     collisions = {
         "name": "collisions",
         "xyz": torch.rand(20000, 3, generator=generator) * 2.0 - 1.0,
@@ -242,6 +246,22 @@ def build_scenes() -> List[Dict[str, Any]]:
         "stated_resolution": (30, 40),
         "resolution": (30, 40),
     }
+    # The two points of a pair share a depth and a pixel from every camera.
+    ties = {
+        "name": "ties",
+        "xyz": (torch.rand(6, 3, generator=generator) * 2.0 - 1.0).repeat_interleave(
+            2, dim=0
+        ),
+        "rgb_dtype": torch.float32,
+        "model": "pinhole",
+        "intr_convention": "standard",
+        "extr_convention": "opencv",
+        "num_cameras": 3,
+        "radius": 4.0,
+        "focal": 60.0,
+        "stated_resolution": (48, 64),
+        "resolution": (48, 64),
+    }
 
     # The fixed axis change per pose convention: an opencv camera-to-world rotation right-multiplied by it is the same pose in that convention.
     axis_changes = {
@@ -249,7 +269,8 @@ def build_scenes() -> List[Dict[str, Any]]:
         "opengl": torch.diag(torch.tensor([1.0, -1.0, -1.0])),
         "standard": torch.tensor([[1.0, 0.0, 0.0], [0.0, 0.0, -1.0], [0.0, 1.0, 0.0]]),
     }
-    for scene in (collisions, culling, sparse, few_points):
+    # Each point draws its own colour, label and normal, the two points of a tied pair included, so a render shows which point of a pair it kept.
+    for scene in (collisions, culling, sparse, few_points, ties):
         # --- Per-point colours, labels and normals
         num_points, rgb_dtype = scene["xyz"].shape[0], scene.pop("rgb_dtype")
         if rgb_dtype == torch.uint8:
@@ -319,7 +340,7 @@ def build_scenes() -> List[Dict[str, Any]]:
                     "extrinsics": cam2world[camera_index].clone(),
                 }
             )
-    return [collisions, culling, sparse, few_points]
+    return [collisions, culling, sparse, few_points, ties]
 
 
 def load_or_render_on_main(
@@ -396,7 +417,7 @@ def compare_single_camera_to_main(
         main_renders: The dict load_or_render_on_main returns, whose "renders" maps (device name, scene name, camera index, renderer, point size, return_mask) to main's cpu render.
 
     Returns:
-        One JSON-ready record per comparison: its "kind" ("camera", or "batch_of_one" for the depth entry handed a Cameras of one), "device", "scene", "camera" index, "renderer", "point_size" and "return_mask"; the "equal", "differing_elements", "nan_elements" and "max_abs_diff" compare_exactly returns against main's render; and "required", True at point size one.
+        One JSON-ready record per comparison: its "kind" ("camera", or "batch_of_one" for the depth entry handed a Cameras of one), "device", "scene", "camera" index, "renderer", "point_size" and "return_mask"; the "equal", "differing_elements", "nan_elements" and "max_abs_diff" compare_exactly returns against main's render; and "required", True at point size one on a scene other than "ties".
     """
     records = []
     for device in DEVICES:
@@ -481,9 +502,9 @@ def compare_single_camera_to_main(
                                     }
                                 )
 
-    # Above one pixel this branch's dilation grows a centred disc taking the nearest neighbour, and its depth entry applies it, where main did neither.
+    # Above one pixel this branch's dilation grows a centred disc taking the nearest neighbour, and its depth entry applies it, where main did neither; at a tied depth this branch keeps the lowest point index, where main keeps the last point in order on cpu and the first on cuda.
     for record in records:
-        record["required"] = record["point_size"] == 1.0
+        record["required"] = record["point_size"] == 1.0 and record["scene"] != "ties"
     return records
 
 
@@ -793,6 +814,27 @@ def summarize_point_size_changes(main_renders: Dict[str, Any]) -> Dict[str, Any]
             f"branch dilation of main's depth at point_size {point_size} equal to main's dilation",
             {True: 0, False: 0},
         )[comparison["equal"]] += 1
+    return summary
+
+
+def summarize_tie_changes(
+    single_camera_records: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Records, per device and renderer, how many of the ties scene's point-size-one renders come out equal to main's, the one regime where main's choice between tied points depends on the device.
+
+    Args:
+        single_camera_records: The records compare_single_camera_to_main returns, each carrying its "device" name, "scene" name, "renderer", "point_size" and "equal".
+
+    Returns:
+        The JSON-ready summary: per device name and renderer, the tally {True: equal count, False: unequal count} of the ties scene's records at point size one, the "camera" and "batch_of_one" ones alike.
+    """
+    summary = {}
+    for record in single_camera_records:
+        if record["scene"] == "ties" and record["point_size"] == 1.0:
+            summary.setdefault(
+                f"ties on {record['device']}, {record['renderer']} at point_size 1.0 equal to main's",
+                {True: 0, False: 0},
+            )[record["equal"]] += 1
     return summary
 
 

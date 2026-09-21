@@ -116,7 +116,7 @@ def render_single_camera(
             return_mask=return_mask,
             point_size=point_size,
         )
-    elif renderer == "rgb":
+    if renderer == "rgb":
         return render_rgb_from_point_cloud(
             pc=pc,
             camera=camera,
@@ -124,7 +124,7 @@ def render_single_camera(
             return_mask=return_mask,
             point_size=point_size,
         )
-    elif renderer == "segmentation":
+    if renderer == "segmentation":
         return render_segmentation_from_point_cloud(
             pc=pc,
             key="labels",
@@ -133,7 +133,7 @@ def render_single_camera(
             return_mask=return_mask,
             point_size=point_size,
         )
-    elif renderer == "normal_3d":
+    if renderer == "normal_3d":
         return render_normal_from_point_cloud_3d(
             pc=pc,
             camera=camera,
@@ -141,7 +141,7 @@ def render_single_camera(
             return_mask=return_mask,
             point_size=point_size,
         )
-    else:
+    if renderer == "normal_2d":
         return render_normal_from_point_cloud_2d(
             pc=pc,
             camera=camera,
@@ -149,3 +149,4 @@ def render_single_camera(
             return_mask=return_mask,
             point_size=point_size,
         )
+    assert 0, "Should not reach here."
