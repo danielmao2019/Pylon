@@ -1379,8 +1379,8 @@ def test_extrinsics_tensor_matrix_stays_differentiable_through_pose_accessors() 
     )
 
 
-def test_extrinsics_constructor_applies_requested_device_dtype_through_to() -> None:
-    """CameraExtrinsics.__init__ delegates requested device / dtype movement to to.
+def test_extrinsics_constructor_applies_requested_device_dtype() -> None:
+    """CameraExtrinsics.__init__ builds its tensors on the requested device and dtype.
 
     Args:
         None.

@@ -633,8 +633,8 @@ def test_build_camera_intrinsics_dispatches_to_model_subclass() -> None:
     return
 
 
-def test_intrinsics_constructor_applies_requested_device_dtype_through_to() -> None:
-    """CameraIntrinsics.__init__ delegates requested device / dtype movement to the object's to method.
+def test_intrinsics_constructor_applies_requested_device_dtype() -> None:
+    """CameraIntrinsics.__init__ builds its tensors on the requested device and dtype.
 
     Args:
         None.

@@ -386,10 +386,8 @@ class Cameras:
             intrinsics = self._intrinsics
         else:
             intrinsics = self._intrinsics[index]
-        if not self._extrinsics.is_batched or len(self._extrinsics) < len(self):
-            extrinsics = self._extrinsics
-        else:
-            extrinsics = self._extrinsics[index]
+        # The poses count the cameras, so the extrinsics are always indexed.
+        extrinsics = self._extrinsics[index]
         if isinstance(index, int):
             camera = Camera(
                 intrinsics=intrinsics,

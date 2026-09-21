@@ -367,7 +367,7 @@ def validate_camera_intrinsics_invariants(
 def _validate_principal_point_within_image(
     model: str,
     intr_convention: str,
-    params: Dict[str, torch.Tensor],
+    params: Dict[str, Union[int, float, np.ndarray, torch.Tensor]],
 ) -> None:
     """Bound a perspective camera's principal point the way its own frame measures it.
 
@@ -440,7 +440,7 @@ def _validate_principal_point_within_image(
 def _validate_model_is_representable_in_frame(
     model: str,
     intr_convention: str,
-    params: Dict[str, torch.Tensor],
+    params: Dict[str, Union[int, float, np.ndarray, torch.Tensor]],
 ) -> None:
     """Reject a model that states fewer focal params than its frame scales axes.
 
