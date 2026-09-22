@@ -26,12 +26,20 @@ validation.py
 │   ├── calls validate_camera_intrinsics_params(model=model, intr_convention=intr_convention, params=params)  # the frame goes in ahead of the params, what they mean together depending on it
 │   ├── assert device is None or a str or torch.device
 │   ├── if device is None  # an unset device resolves to the one the tensor params share
-│   │   └── assert len({value.device for each torch.Tensor value of params.values()}) <= 1  # the params of one intrinsics are parts of one object, so they sit on one device
+│   │   ├── impls param_devices = an empty set
+│   │   ├── for each value of params.values()
+│   │   │   └── if value is a torch.Tensor
+│   │   │       └── impls add value.device to param_devices
+│   │   └── assert len(param_devices) <= 1  # the params of one intrinsics are parts of one object, so they sit on one device
 │   ├── assert dtype is None or a torch.dtype
 │   ├── if dtype is not None
 │   │   └── assert dtype is a floating dtype
 │   ├── if dtype is None  # an unset dtype resolves to the one the floating params share
-│   │   └── assert len({the torch dtype of value for each floating torch.Tensor or floating np.ndarray value of params.values()}) <= 1  # the params of one intrinsics are parts of one object, so they hold one dtype
+│   │   ├── impls param_dtypes = an empty set
+│   │   ├── for each value of params.values()
+│   │   │   └── if value is a floating torch.Tensor or a floating np.ndarray
+│   │   │       └── impls add the torch dtype of value to param_dtypes
+│   │   └── assert len(param_dtypes) <= 1  # the params of one intrinsics are parts of one object, so they hold one dtype
 │   └── return
 ├── def validate_camera_model(model: Any) -> str
 │   ├── # Validate a camera-model string against the supported set.
@@ -111,19 +119,19 @@ validation.py
 │   ├── if model == "ortho"
 │   │   └── return  # a weak-perspective cx / cy is where the world origin lands rather than where an axis pierces, and a fit drives that off the frame while the camera stays valid
 │   ├── if intr_convention == "standard"
-│   │   ├── impls assert cx in [0, w] and cy in [0, h]  # impls-node-one-step:skip; the pixel frame running corner to corner
+│   │   ├── assert cx in [0, w] and cy in [0, h]  # the pixel frame running corner to corner
 │   │   └── return
 │   ├── if intr_convention in {"opengl", "vulkan"}
-│   │   ├── impls assert cx in [-1, +1] and cy in [-1, +1]  # impls-node-one-step:skip; each axis normalized by its own side, so both bounds are the same
+│   │   ├── assert cx in [-1, +1] and cy in [-1, +1]  # each axis normalized by its own side, so both bounds are the same
 │   │   └── return
 │   ├── if intr_convention == "pytorch3d"
-│   │   ├── impls assert abs(cx) <= w / min(h, w) and abs(cy) <= h / min(h, w)  # impls-node-one-step:skip; the shorter side alone reaches 1, so the longer axis's bound is the larger
+│   │   ├── assert abs(cx) <= w / min(h, w) and abs(cy) <= h / min(h, w)  # the shorter side alone reaches 1, so the longer axis's bound is the larger
 │   │   └── return
 │   └── assert 0, "Should not reach here."
 └── def _validate_model_is_representable_in_frame(model: str, intr_convention: str, params: Dict[str, Union[int, float, np.ndarray, torch.Tensor]]) -> None
     ├── # A model states as many focal params as it has axes to scale independently, so a frame that scales the two axes differently can hold only the models carrying two of them.
     ├── if model == "simple_pinhole" and intr_convention in {"opengl", "vulkan"}
-    │   └── impls assert h == w  # these frames normalize each axis by its own side, and one shared f cannot carry two different units, so a non-square image has no simple_pinhole in them
+    │   └── assert h == w  # these frames normalize each axis by its own side, and one shared f cannot carry two different units, so a non-square image has no simple_pinhole in them
     └── return
 ```
 
@@ -268,7 +276,10 @@ camera_intrinsics.py
 │   │   ├── calls _validate_inputs
 │   │   ├── def _normalize_inputs [local]
 │   │   │   ├── if device is None
-│   │   │   │   ├── impls param_devices = {value.device for each torch.Tensor value of params.values()}  # a set of every tensor param's device, so no param is the one read
+│   │   │   │   ├── impls param_devices = an empty set  # a set of every tensor param's device, so no param is the one read
+│   │   │   │   ├── for each value of params.values()
+│   │   │   │   │   └── if value is a torch.Tensor
+│   │   │   │   │       └── impls add value.device to param_devices
 │   │   │   │   ├── if len(param_devices) > 0
 │   │   │   │   │   └── impls device = the single device in param_devices  # single, since validate_camera_intrinsics_attributes asserts the tensor params share one; the one exception: an unset device resolves to the given params', so a component __getitem__ rebuilds stays where its batch is
 │   │   │   │   └── else
@@ -277,7 +288,10 @@ camera_intrinsics.py
 │   │   │   ├── if device.type == "cuda" and device.index is None  # one physical device has one spelling here, so a cuda and a cuda:0 naming it never compare unequal
 │   │   │   │   └── impls device = the cuda device at the index of torch's current cuda device  # where a tensor sent to a bare cuda lands, and so the device it reports
 │   │   │   ├── if dtype is None
-│   │   │   │   ├── impls param_dtypes = {the torch dtype of value for each floating torch.Tensor or floating np.ndarray value of params.values()}  # a set of every floating param's dtype, so no param is the one read
+│   │   │   │   ├── impls param_dtypes = an empty set  # a set of every floating param's dtype, so no param is the one read
+│   │   │   │   ├── for each value of params.values()
+│   │   │   │   │   └── if value is a floating torch.Tensor or a floating np.ndarray
+│   │   │   │   │       └── impls add the torch dtype of value to param_dtypes
 │   │   │   │   ├── if len(param_dtypes) > 0
 │   │   │   │   │   └── impls dtype = the single dtype in param_dtypes  # single, since validate_camera_intrinsics_attributes asserts the floating params share one; the one exception: an unset dtype resolves to the given params', so a component __getitem__ rebuilds keeps the dtype its batch holds
 │   │   │   │   └── else
@@ -288,9 +302,14 @@ camera_intrinsics.py
 │   │   │   └── return materialized_params, device, dtype
 │   │   ├── calls _normalize_inputs(params=params, device=device, dtype=dtype)
 │   │   ├── impls params, device, dtype = the returned values from _normalize_inputs
-│   │   ├── impls param_shapes = {value.shape for each value of params.values()}  # a set of every param's own shape, so no param is the one read
+│   │   ├── impls param_shapes = an empty set  # a set of every param's own shape, so no param is the one read
+│   │   ├── for each value of params.values()
+│   │   │   └── impls add value.shape to param_shapes
 │   │   ├── impls batch_shape = the single shape in param_shapes  # single, since validate_camera_intrinsics_params asserts the params share one shape
-│   │   ├── impls batch_size = batch_shape[0] if batch_shape != () else None  # None where the params are scalars: an unbatched intrinsics carries no batch axis, and states one camera
+│   │   ├── if batch_shape != ()
+│   │   │   └── impls batch_size = batch_shape[0]
+│   │   ├── else
+│   │   │   └── impls batch_size = None  # None where the params are scalars: an unbatched intrinsics carries no batch axis, and states one camera
 │   │   ├── impls self._params = params
 │   │   ├── impls self._intr_convention = intr_convention
 │   │   ├── impls self._device = device  # the resolved device the params were built on, not read back off them
