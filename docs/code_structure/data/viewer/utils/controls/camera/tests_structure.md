@@ -188,6 +188,7 @@ frontend roll-lock expectations  # agent-conducted manual procedures, each condu
 ├── A camera or rotation target written directly onto a roll-locked display — a Plotly.relayout, a Dash figure update with or without a projection switch in it, a Dash figure update that drops the 3D trace and adds it back, a modebar reset-camera, a rotation-mode switch in either direction, or a projection switch on Dash; a controls.target or camera.position write on TS — renders no frame off the lock, and on Dash leaves the camera the layout stores on the lock.
 ├── A camera written onto a roll-locked display with its up on the far side of the axis keeps the eye it was written with, turned upright about its own view direction.
 ├── A roll-locked display right-drag-pans and wheel-zooms over the same range its free counterpart reaches.
+├── A roll-locked TS display pinched with two touch contacts zooms and pans as its free counterpart does, its camera turning by no pointer move made while both contacts are down.
 ├── Two camera-synced displays built with the same lockRoll setting end every left-drag on either one in the same pose, both roll-locked throughout.
 ├── A roll-locked TS display whose camera is written with its eye on its target keeps the pose it last held, renders no frame off the lock, and answers the next drag and wheel normally.
 ├── A roll-locked Dash display whose camera is written with its eye on its center keeps the pose it last held, renders no frame off the lock, and answers the next drag and wheel normally.
