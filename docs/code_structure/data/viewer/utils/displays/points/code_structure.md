@@ -310,13 +310,10 @@ core_points_display.py
 │   │   └── impls selected_labels = labels[indices]
 │   ├── impls selection = (points[indices], selected_colors, selected_labels)
 │   └── return selection
-├── def create_dash_points_display(point_cloud: PointCloud, point_size: Optional[float] = None, point_color: Optional[str] = None) -> dcc.Graph
+├── def create_dash_points_display(point_cloud: PointCloud, point_size: Optional[float] = None, point_color: Optional[str] = None, lock_roll: Optional[Tuple[float, float, float]] = None) -> dcc.Graph
 │   ├── # Renders a Dash point-cloud display element; the point_size and point_color overrides are opt-in.
-│   ├── assert point_cloud is a PointCloud    # reporting its type
-│   ├── assert point_size is None or numeric  # reporting its type
-│   ├── assert point_color is None or a str   # reporting its type
 │   ├── calls create_dash_points_scene(point_cloud=point_cloud, point_size=point_size, point_color=point_color)  # -> scene
-│   ├── impls controls = create_dash_trackball_camera_controls
+│   ├── calls create_dash_trackball_camera_controls(lock_roll=lock_roll)  # -> controls
 │   ├── calls create_dash_points_component(scene=scene, controls=controls)
 │   └── return
 ├── def create_dash_points_scene(point_cloud: PointCloud, point_size: Optional[float] = None, point_color: Optional[str] = None) -> go.Scatter3d
@@ -342,11 +339,15 @@ core_points_display.py
 │   │   └── impls effective_color = DEFAULT_POINT_COLOR
 │   ├── impls trace = the points' x, y and z as markers, sized effective_size and colored effective_color  # impls-node-one-step:skip — one trace's arguments
 │   └── return trace
-├── def create_dash_points_component(scene: go.Scatter3d, controls: Any) -> dcc.Graph
-│   ├── # Wraps the point-cloud scene into a Dash graph over a one-trace figure.
-│   ├── assert scene is a go.Scatter3d  # reporting its type
-│   ├── impls component = the dcc.Graph over the figure holding that scene
-│   └── return component
+├── def create_dash_points_component(scene: go.Scatter3d, controls: Dict[str, Any]) -> dcc.Graph  # controls: the Plotly gl3d controls create_dash_trackball_camera_controls built
+│   ├── # Assembles the Dash component that hosts the point-cloud scene under its trackball camera controls.
+│   ├── def _validate_inputs [local]
+│   │   └── assert isinstance(scene, go.Scatter3d), "..."
+│   ├── calls _validate_inputs()
+│   ├── impls display = dcc.Graph(figure=go.Figure(data=[scene], layout={"scene": controls["scene"]}))
+│   ├── if controls["graph_id"] is not None
+│   │   └── impls display.id = controls["graph_id"]  # the pattern-matching id the roll-lock callback holds this graph by
+│   └── return display  # the point-cloud display element
 └── def get_point_cloud_display_stats(point_cloud: PointCloud, change_map: Optional[torch.Tensor] = None, class_names: Optional[Dict[int, str]] = None) -> Dict[str, Any]
     ├── # Reports one point cloud's display statistics, with its change classes' distribution when a change map is given.
     ├── assert point_cloud is a PointCloud  # reporting its type
@@ -562,14 +563,14 @@ core_points_display.ts
 │   ├── red?: PlyPropertyOffset
 │   ├── green?: PlyPropertyOffset
 │   └── blue?: PlyPropertyOffset
-├── export function renderPointsDisplay({ displayResponse, initialCameraState = null, pointSize, pointColor, }: { displayResponse: PointDisplayResponse; initialCameraState?: CameraState | null; pointSize?: number; pointColor?: string; }): LeafVNode
+├── export function renderPointsDisplay({ displayResponse, initialCameraState = null, pointSize, pointColor, lockRoll = null }: { displayResponse: PointDisplayResponse; initialCameraState?: CameraState | null; pointSize?: number; pointColor?: string; lockRoll?: THREE.Vector3 | null }): LeafVNode
 │   ├── # Renders a self-contained point-cloud display element initialized at initialCameraState.
 │   ├── () => [local]
 │   │   ├── # The leaf's render: mounts the points display and returns its container.
 │   │   ├── calls createSpatialDisplayScene({ initialCameraState })               # -> { container, scene, camera, renderer }
 │   │   ├── calls createPointsObject({ displayResponse, pointSize, pointColor })  # -> object
 │   │   ├── impls scene.add(object)
-│   │   ├── calls createTrackballCameraControls({ container, camera, renderer, initialCameraState })  # -> controls
+│   │   ├── calls createTrackballCameraControls({ container, camera, renderer, initialCameraState, lockRoll })  # -> controls
 │   │   ├── calls renderPointsScene({ scene, camera, renderer, controls })
 │   │   └── return container
 │   ├── impls leaf = the LeafVNode keyed by displayResponse.url or `points:${displayResponse.slot_id}`, with empty props and that render  # impls-node-one-step:skip — one constructor's fields

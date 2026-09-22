@@ -17,7 +17,8 @@ data/viewer/utils/controls/camera/
 ├── camera_controls/  # generic trackball 3D viewer camera controls
 │   ├── dash/
 │   │   ├── __init__.py
-│   │   └── trackball_camera_controls.py  # trackball controls; left-drag rotate, right-drag pan, wheel zoom
+│   │   ├── trackball_camera_controls.py  # trackball controls; left-drag rotate, right-drag pan, wheel zoom
+│   │   └── roll_lock.js                  # clientside callback source holding a Plotly gl3d graph's camera roll about a caller-supplied axis
 │   └── ts/
 │       └── frontend/
 │           └── trackball_camera_controls.ts  # trackball controls; left-drag rotate, right-drag pan, wheel zoom
@@ -34,4 +35,7 @@ data/viewer/utils/controls/camera/
 
 ```text
 tests/data/viewer/utils/controls/camera/
+└── camera_controls/
+    └── dash/
+        └── test_trackball_camera_controls.py  # Dash trackball roll-lock tests: the free-roll and roll-locked Plotly controls, the one pattern-matched roll-lock callback, the three.js viewer source's untouched guard, and the assert_dash_roll_lock and assert_dash_no_camera_pose_clamps rejections
 ```

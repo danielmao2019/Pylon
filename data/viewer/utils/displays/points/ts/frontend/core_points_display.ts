@@ -60,30 +60,29 @@ interface PlyPropertyOffsets {
   blue?: PlyPropertyOffset;
 }
 
-// Renders a self-contained point-cloud display element initialized at
-// initialCameraState.
+// Renders a self-contained point-cloud display element initialized at initialCameraState.
 //
 // Args:
-//   displayResponse: the point display response carrying the loadable point
-//     resource url.
-//   initialCameraState: initial framing for the camera (camera-to-world extrinsics
-//     + intrinsics); null uses the camera's default framing.
+//   displayResponse: the point display response carrying the loadable point resource url.
+//   initialCameraState: initial framing for the camera (camera-to-world extrinsics + intrinsics); null uses the camera's default framing.
 //   pointSize: opt-in world-space point size override.
 //   pointColor: opt-in uniform color override replacing per-point colors.
+//   lockRoll: world-space axis the trackball holds the camera's roll about (a non-zero THREE.Vector3 of any length), handed to createTrackballCameraControls unchanged; null leaves the trackball free.
 //
 // Returns:
-//   A LeafVNode keyed by displayResponse.url whose render() mounts the points
-//   display.
+//   A LeafVNode keyed by displayResponse.url whose render() mounts the points display.
 export function renderPointsDisplay({
   displayResponse,
   initialCameraState = null,
   pointSize,
   pointColor,
+  lockRoll = null
 }: {
   displayResponse: PointDisplayResponse;
   initialCameraState?: CameraState | null;
   pointSize?: number;
   pointColor?: string;
+  lockRoll?: THREE.Vector3 | null
 }): LeafVNode {
   const leaf: LeafVNode = {
     kind: "leaf",
@@ -95,7 +94,7 @@ export function renderPointsDisplay({
       });
       const object = createPointsObject({ displayResponse, pointSize, pointColor });
       scene.add(object);
-      const controls = createTrackballCameraControls({ container, camera, renderer, initialCameraState });
+      const controls = createTrackballCameraControls({ container, camera, renderer, initialCameraState, lockRoll });
       renderPointsScene({ scene, camera, renderer, controls });
       return container;
     },

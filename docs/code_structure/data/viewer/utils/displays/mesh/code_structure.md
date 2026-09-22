@@ -187,14 +187,10 @@ core_mesh_display.py
 │   ├── # Validates one shared mesh-view-bounds payload against the contract.
 │   ├── assert mesh_view_bounds is a dict                  # reporting its type
 │   └── assert its keys are exactly MESH_VIEW_BOUNDS_KEYS  # reporting mesh_view_bounds
-├── def create_dash_mesh_display(mesh: Any, mesh_color: Optional[str] = None, mesh_opacity: Optional[float] = None, mesh_side: Optional[str] = None) -> dcc.Graph
+├── def create_dash_mesh_display(mesh: Any, mesh_color: Optional[str] = None, mesh_opacity: Optional[float] = None, mesh_side: Optional[str] = None, lock_roll: Optional[Tuple[float, float, float]] = None) -> dcc.Graph
 │   ├── # Renders a Dash mesh display element; the mesh_color, mesh_opacity and mesh_side overrides are opt-in.
-│   ├── assert mesh is a Mesh                   # reporting its type
-│   ├── assert mesh_color is None or a str      # reporting its type
-│   ├── assert mesh_opacity is None or numeric  # reporting its type
-│   ├── assert mesh_side is None or a str       # reporting its type
 │   ├── calls create_dash_mesh_scene(mesh=mesh, mesh_color=mesh_color, mesh_opacity=mesh_opacity, mesh_side=mesh_side)  # -> scene
-│   ├── impls controls = create_dash_trackball_camera_controls
+│   ├── calls create_dash_trackball_camera_controls(lock_roll=lock_roll)  # -> controls
 │   ├── calls create_dash_mesh_component(scene=scene, controls=controls)
 │   └── return
 ├── def create_dash_mesh_scene(mesh: Any, mesh_color: Optional[str] = None, mesh_opacity: Optional[float] = None, mesh_side: Optional[str] = None) -> go.Mesh3d
@@ -295,11 +291,15 @@ core_mesh_display.py
 │   ├── impls texture_base64 = that buffer, base64-encoded as ascii
 │   ├── impls texture_data_url = that base64 under the PNG data-url prefix
 │   └── return texture_data_url
-└── def create_dash_mesh_component(scene: go.Mesh3d, controls: Any) -> dcc.Graph
-    ├── # Wraps the mesh scene into a Dash graph over a one-trace figure.
-    ├── assert scene is a go.Mesh3d  # reporting its type
-    ├── impls component = the dcc.Graph over the figure holding that scene
-    └── return component
+└── def create_dash_mesh_component(scene: go.Mesh3d, controls: Dict[str, Any]) -> dcc.Graph  # controls: the Plotly gl3d controls create_dash_trackball_camera_controls built
+    ├── # Assembles the Dash component that hosts the Mesh3d scene under its trackball camera controls.
+    ├── def _validate_inputs [local]
+    │   └── assert isinstance(scene, go.Mesh3d), "..."
+    ├── calls _validate_inputs()
+    ├── impls display = dcc.Graph(figure=go.Figure(data=[scene], layout={"scene": controls["scene"]}))
+    ├── if controls["graph_id"] is not None
+    │   └── impls display.id = controls["graph_id"]  # the pattern-matching id the roll-lock callback holds this graph by
+    └── return display  # the mesh display element
 ```
 
 
@@ -536,14 +536,14 @@ core_mesh_display.ts
 │   ├── verts: Float32Array
 │   ├── faces: Uint32Array
 │   └── texture: MeshTextureVertexColor | MeshTextureUVTextureMap | null
-├── export function renderMeshDisplay({ displayResponse, initialCameraState = null, meshColor, meshOpacity, meshSide, }: { displayResponse: MeshDisplayResponse; initialCameraState?: CameraState | null; meshColor?: string; meshOpacity?: number; meshSide?: THREE.Side; }): LeafVNode
+├── export function renderMeshDisplay({ displayResponse, initialCameraState = null, meshColor, meshOpacity, meshSide, lockRoll = null }: { displayResponse: MeshDisplayResponse; initialCameraState?: CameraState | null; meshColor?: string; meshOpacity?: number; meshSide?: THREE.Side; lockRoll?: THREE.Vector3 | null }): LeafVNode
 │   ├── # Renders a self-contained mesh display element initialized at initialCameraState.
 │   ├── () => [local]
 │   │   ├── # The leaf's render: mounts the mesh display and returns its container.
 │   │   ├── calls createSpatialDisplayScene({ initialCameraState })                        # -> { container, scene, camera, renderer }
 │   │   ├── calls createMeshObject({ displayResponse, meshColor, meshOpacity, meshSide })  # -> object
 │   │   ├── impls scene.add(object)
-│   │   ├── calls createTrackballCameraControls({ container, camera, renderer, initialCameraState })  # -> controls
+│   │   ├── calls createTrackballCameraControls({ container, camera, renderer, initialCameraState, lockRoll })  # -> controls
 │   │   ├── calls renderMeshScene({ scene, camera, renderer, controls })
 │   │   └── return container
 │   ├── impls leaf = the LeafVNode keyed by displayResponse.url or `mesh:${displayResponse.slot_id}`, with empty props and that render  # impls-node-one-step:skip — one constructor's fields

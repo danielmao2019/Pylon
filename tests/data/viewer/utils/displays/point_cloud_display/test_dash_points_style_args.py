@@ -13,6 +13,9 @@ import torch
 from dash import dcc
 
 from data.structures.three_d.point_cloud.point_cloud import PointCloud
+from data.viewer.utils.controls.camera.camera_controls.dash.trackball_camera_controls import (
+    create_dash_trackball_camera_controls,
+)
 from data.viewer.utils.displays.points.dash.core_points_display import (
     DEFAULT_POINT_COLOR,
     DEFAULT_POINT_SIZE_FLOOR,
@@ -176,15 +179,22 @@ def test_create_dash_points_display_passes_style_args(large_radius_xyz):
 
 
 def test_create_dash_points_component_wraps_scene(large_radius_xyz):
-    """create_dash_points_component wraps a Scatter3d into a single-trace Graph."""
+    """create_dash_points_component wraps a Scatter3d into a single-trace Graph under the free trackball its caller builds."""
     pc = PointCloud(xyz=large_radius_xyz)
     scene = create_dash_points_scene(point_cloud=pc, point_size=3.0)
+    controls = create_dash_trackball_camera_controls()
 
-    graph = create_dash_points_component(
-        scene=scene, controls=lambda *args, **kwargs: None
-    )
+    graph = create_dash_points_component(scene=scene, controls=controls)
 
-    assert isinstance(graph, dcc.Graph)
-    assert isinstance(graph.figure, go.Figure)
-    assert len(graph.figure.data) == 1
-    assert graph.figure.data[0].marker.size == 3.0
+    assert isinstance(
+        graph, dcc.Graph
+    ), f"component is not a dcc.Graph: type={type(graph)}"
+    assert isinstance(
+        graph.figure, go.Figure
+    ), f"graph figure is not a go.Figure: type={type(graph.figure)}"
+    assert (
+        len(graph.figure.data) == 1
+    ), f"graph figure does not hold exactly one trace: len={len(graph.figure.data)}"
+    assert (
+        graph.figure.data[0].marker.size == 3.0
+    ), f"trace marker size is not the requested point size: size={graph.figure.data[0].marker.size}"

@@ -30,20 +30,20 @@ const AABB_3D_LABEL_ASPECT = 4;
 // Renders a self-contained 3D-box display initialized at initialCameraState.
 //
 // Args:
-//   displayResponse: the 3D box overlay response carrying the inline boxes (each
-//     [min_x, min_y, min_z, max_x, max_y, max_z], world coordinates) and the
-//     optional per-box scores.
-//   initialCameraState: initial framing for the camera (camera-to-world extrinsics
-//     + intrinsics); null uses the camera's default framing.
+//   displayResponse: the 3D box overlay response carrying the inline boxes (each [min_x, min_y, min_z, max_x, max_y, max_z], world coordinates) and the optional per-box scores.
+//   initialCameraState: initial framing for the camera (camera-to-world extrinsics + intrinsics); null uses the camera's default framing.
+//   lockRoll: world-space axis the trackball holds the camera's roll about (a non-zero THREE.Vector3 of any length), handed to createTrackballCameraControls unchanged; null leaves the trackball free.
 //
 // Returns:
 //   A LeafVNode whose render() mounts the spatial box overlay.
 export function renderAabb3dDisplay({
   displayResponse,
   initialCameraState = null,
+  lockRoll = null
 }: {
   displayResponse: Aabb3dDisplayResponse;
   initialCameraState?: CameraState | null;
+  lockRoll?: THREE.Vector3 | null
 }): LeafVNode {
   const leaf: LeafVNode = {
     kind: "leaf",
@@ -60,6 +60,7 @@ export function renderAabb3dDisplay({
         camera,
         renderer,
         initialCameraState,
+        lockRoll,
       });
       renderAabb3dScene({ scene, camera, renderer, controls });
       return container;

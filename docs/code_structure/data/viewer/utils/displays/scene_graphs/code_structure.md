@@ -110,14 +110,14 @@ scene_graph_display.ts
 │   ├── edgePositions: number[]
 │   ├── edgeColors?: number[]
 │   └── labels: SceneGraphLabelEntry[]
-├── export function renderSceneGraphDisplay({ displayResponse, initialCameraState = null, nodeSize, edgeColor, edgeWidth, labelFontSize, labelColor, }: { displayResponse: SceneGraphDisplayResponse; initialCameraState?: CameraState | null; nodeSize?: number; edgeColor?: string; edgeWidth?: number; labelFontSize?: number; labelColor?: string; }): LeafVNode
+├── export function renderSceneGraphDisplay({ displayResponse, initialCameraState = null, nodeSize, edgeColor, edgeWidth, labelFontSize, labelColor, lockRoll = null }: { displayResponse: SceneGraphDisplayResponse; initialCameraState?: CameraState | null; nodeSize?: number; edgeColor?: string; edgeWidth?: number; labelFontSize?: number; labelColor?: string; lockRoll?: THREE.Vector3 | null }): LeafVNode
 │   ├── # Renders a self-contained scene-graph display: baked node and edge geometry plus an HTML label overlay projected per frame.
 │   ├── () => [local]
 │   │   ├── # The leaf's render: mounts the scene-graph scene and returns its container.
 │   │   ├── calls createSpatialDisplayScene({ initialCameraState })  # -> { container, scene, camera, renderer }
 │   │   ├── calls createSceneGraphObject({ container, displayResponse, nodeSize, edgeColor, edgeWidth, labelFontSize, labelColor })  # -> { object, labels, labelOverlay }
 │   │   ├── impls scene.add(object)
-│   │   ├── calls createTrackballCameraControls({ container, camera, renderer, initialCameraState })  # -> controls
+│   │   ├── calls createTrackballCameraControls({ container, camera, renderer, initialCameraState, lockRoll })  # -> controls
 │   │   ├── calls renderSceneGraphScene({ scene, camera, renderer, controls, labels, labelOverlay, labelFontSize, labelColor })
 │   │   └── return container
 │   ├── impls leaf = the LeafVNode keyed by displayResponse.url or `scene_graph:${displayResponse.slot_id}`, with empty props and that render  # impls-node-one-step:skip — one constructor's fields

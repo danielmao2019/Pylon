@@ -64,14 +64,14 @@ apis.ts
 ├── const AABB_3D_BOX_LINEWIDTH = 2          # screen-pixel edge width, which only LineMaterial honours since WebGL ignores LineBasicMaterial.linewidth
 ├── const AABB_3D_LABEL_HEIGHT_RATIO = 0.04  # label world height as a fraction of the boxes' bounding-sphere radius, so labels track scene scale under zoom
 ├── const AABB_3D_LABEL_ASPECT = 4           # label width-to-height ratio, matching the 256x64 label canvas
-├── export function renderAabb3dDisplay({ displayResponse, initialCameraState = null, }: { displayResponse: Aabb3dDisplayResponse; initialCameraState?: CameraState | null; }): LeafVNode
+├── export function renderAabb3dDisplay({ displayResponse, initialCameraState = null, lockRoll = null }: { displayResponse: Aabb3dDisplayResponse; initialCameraState?: CameraState | null; lockRoll?: THREE.Vector3 | null }): LeafVNode
 │   ├── # Renders a self-contained 3D-box display initialized at initialCameraState.
 │   ├── () => [local]
 │   │   ├── # The leaf's render: mounts the spatial box overlay and returns its container.
 │   │   ├── calls createSpatialDisplayScene({ initialCameraState })  # -> { container, scene, camera, renderer }
 │   │   ├── calls createAabb3dObject({ displayResponse })            # -> object
 │   │   ├── impls scene.add(object)
-│   │   ├── calls createTrackballCameraControls({ container, camera, renderer, initialCameraState })  # -> controls
+│   │   ├── calls createTrackballCameraControls({ container, camera, renderer, initialCameraState, lockRoll })  # -> controls
 │   │   ├── calls renderAabb3dScene({ scene, camera, renderer, controls })
 │   │   └── return container
 │   ├── impls leaf = the LeafVNode keyed by displayResponse.url or `aabb_3d:${displayResponse.slot_id}`, with empty props and that render  # impls-node-one-step:skip — one constructor's fields
