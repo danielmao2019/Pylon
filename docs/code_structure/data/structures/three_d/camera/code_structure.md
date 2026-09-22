@@ -267,10 +267,7 @@ cameras.py
     │   │   └── impls intrinsics = self._intrinsics
     │   ├── else
     │   │   └── impls intrinsics = self._intrinsics[index]
-    │   ├── if not self._extrinsics.is_batched or len(self._extrinsics) == 1
-    │   │   └── impls extrinsics = self._extrinsics
-    │   ├── else
-    │   │   └── impls extrinsics = self._extrinsics[index]
+    │   ├── impls extrinsics = self._extrinsics[index]  # the poses count the cameras, so the extrinsics are always indexed
     │   ├── if isinstance(index, int)
     │   │   ├── calls Camera(intrinsics=intrinsics, extrinsics=extrinsics, name=self._names[index], id=self._ids[index])  # -> camera
     │   │   └── return camera
