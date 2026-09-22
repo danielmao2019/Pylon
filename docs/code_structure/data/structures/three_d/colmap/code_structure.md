@@ -50,7 +50,9 @@ convert.py
 │   │   ├── calls _determine_modalities(cameras=cameras, output_dir=Path(output_dir))
 │   │   ├── impls modalities = the modalities it found beside the images
 │   │   ├── impls camera_intrinsics = cameras.intrinsics  # the batch's one intrinsics, no camera of it being the one read
-│   │   ├── impls capture_params = {key: the one value camera_intrinsics.params[key] holds for each key of camera_intrinsics.params}  # one, since the unbatched intrinsics is shared by every image
+│   │   ├── impls capture_params = an empty dict
+│   │   ├── for each key of camera_intrinsics.params
+│   │   │   └── impls capture_params[key] = the one value camera_intrinsics.params[key] holds  # one, since the unbatched intrinsics is shared by every image
 │   │   ├── impls nerfstudio_intrinsic_params = the fl_x, fl_y, cx, cy of capture_params, its k1, k2, p1, p2 all zero  # the undistorted OPENCV form NerfStudio writes
 │   │   ├── impls resolution = the h, w pair of capture_params
 │   │   ├── impls camera_model = "OPENCV"
@@ -143,17 +145,23 @@ convert.py
     ├── impls modalities = a list holding "image"
     ├── impls depths_dir = the depths subdirectory of output_dir
     ├── if depths_dir is a directory
-    │   ├── impls depth_names = the stems of its .npy files
+    │   ├── impls depth_names = an empty set
+    │   ├── for each path of the .npy files in depths_dir
+    │   │   └── impls add path.stem to depth_names
     │   └── if every camera name is among depth_names
     │       └── impls append "depth" to modalities
     ├── impls normals_dir = the normals subdirectory of output_dir
     ├── if normals_dir is a directory
-    │   ├── impls normal_names = the stems of its .png files
+    │   ├── impls normal_names = an empty set
+    │   ├── for each path of the .png files in normals_dir
+    │   │   └── impls add path.stem to normal_names
     │   └── if every camera name is among normal_names
     │       └── impls append "normal" to modalities
     ├── impls masks_dir = the masks subdirectory of output_dir
     ├── if masks_dir is a directory
-    │   ├── impls mask_names = the stems of its .png files
+    │   ├── impls mask_names = an empty set
+    │   ├── for each path of the .png files in masks_dir
+    │   │   └── impls add path.stem to mask_names
     │   └── if every camera name is among mask_names
     │       └── impls append "mask" to modalities
     └── return modalities
