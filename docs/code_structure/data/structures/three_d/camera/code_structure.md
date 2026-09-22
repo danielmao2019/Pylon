@@ -263,7 +263,7 @@ cameras.py
     │   │   └── assert 0, "Should not reach here."
     │   ├── calls _normalize_inputs(index=index)
     │   ├── impls index = the returned value from _normalize_inputs
-    │   ├── if not self._intrinsics.is_batched or len(self._intrinsics) == 1  # a component that broadcasts over the batch broadcasts over any slice of it, so it is carried whole
+    │   ├── if not self._intrinsics.is_batched or (len(self._intrinsics) == 1 and len(self) > 1)  # an intrinsics that broadcasts over the batch broadcasts over any slice of it, so it is carried whole; a length-1 intrinsics of a length-1 batch is that batch, so it is indexed
     │   │   └── impls intrinsics = self._intrinsics
     │   ├── else
     │   │   └── impls intrinsics = self._intrinsics[index]
