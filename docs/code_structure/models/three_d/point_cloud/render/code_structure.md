@@ -9,7 +9,8 @@ __init__.py
 ├── from models.three_d.point_cloud.render.common.apply_point_size_postprocessing import apply_point_size_postprocessing
 ├── from models.three_d.point_cloud.render.common.create_circular_kernel_offsets import create_circular_kernel_offsets
 ├── from models.three_d.point_cloud.render.common.prepare_points_for_rendering import prepare_points_for_rendering
-└── from models.three_d.point_cloud.render.common.validate_rendering_inputs import validate_rendering_inputs
+├── from models.three_d.point_cloud.render.common.validate_rendering_inputs import validate_rendering_inputs
+└── __all__  # Tuple[str, ...] = the four names imported above, the package API surface
 ```
 
 `models/three_d/point_cloud/render/common/apply_point_size_postprocessing.py`
@@ -89,7 +90,7 @@ prepare_points_for_rendering.py
 │   │   └── except Exception
 │   │       └── raise
 │   └── raise torch.cuda.OutOfMemoryError  # f"CUDA OOM after {max_divide} divisions in prepare_points_for_rendering."
-├── def _prepare_points_for_rendering_chunked(points: torch.Tensor, camera: Union[Camera, Cameras], resolution: Tuple[int, int], chunk_size: int = 2048, cull_func: Callable[[torch.Tensor, torch.Tensor, int, int], None] = _frustum_cull) -> Tuple[torch.Tensor, torch.Tensor]
+├── def _prepare_points_for_rendering_chunked(points: torch.Tensor, camera: Union[Camera, Cameras], resolution: Tuple[int, int], chunk_size: int = 2048, cull_func: Callable[[torch.Tensor, torch.Tensor, int, int], None] = _frustum_cull) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[torch.Tensor]]
 │   ├── # Runs _prepare_points_for_rendering over fixed-size point chunks and concatenates them along the point axis, with a batch's validity or a single camera's original_data_indices.
 │   ├── impls render_intrinsics = camera.intrinsics      # the CameraIntrinsics carries the camera-to-image projection
 │   ├── impls extrinsics = camera.extrinsics.extrinsics  # the [..., 4, 4] cam2world matrix, one per camera the batch carries
@@ -542,7 +543,7 @@ render_rgb_volumetric.py
 │   ├── impls batched_params = each column of param_columns stacked along a new axis 0
 │   ├── calls build_camera_intrinsics(model=the single model in camera_models, params=batched_params, intr_convention=the single frame in camera_intr_conventions)
 │   ├── impls batched_intrinsics = the intrinsics it built, one entry per camera along its leading axis
-│   ├── impls capture_params = {key: the single value the column batched_intrinsics.params[key] holds for each key of batched_params}  # single, since the record states one intrinsics for the whole capture
+│   ├── impls capture_params = {name: the single value batched_intrinsics.<name> holds for each name of fx, fy, cx, cy}  # single, since the record states one intrinsics for the whole capture; read through the properties every intrinsics model defines, whatever its own params keys
 │   ├── impls intrinsic_params = a dict of fl_x, fl_y, cx, cy off capture_params, its four distortion terms zeroed
 │   ├── impls resolution = twice capture_params["cy"] by twice capture_params["cx"], each rounded to an int
 │   ├── impls intrinsics = the [3, 3] float32 pinhole matrix of capture_params on the single device in camera_devices

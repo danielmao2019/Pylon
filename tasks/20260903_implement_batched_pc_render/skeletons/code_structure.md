@@ -72,7 +72,7 @@ render_on_main.py
 │   ├── impls add to parser a required str --scenes_path, the path of the saved scenes
 │   ├── impls add to parser a required str --output_path, the path the renders are saved to
 │   ├── impls args = the arguments parser parses
-│   ├── impls enable torch's deterministic algorithms  # main resolves a shared pixel by which write lands last, and deterministic mode makes that the last write in point order on cpu and cuda alike
+│   ├── impls enable torch's deterministic algorithms  # main resolves a shared pixel by which write lands last, and deterministic mode makes that outcome reproducible run to run
 │   ├── impls scenes = the scenes deserialized from args.scenes_path
 │   ├── impls renders = an empty dict keyed by (device name, scene name, camera index, renderer, point size, return_mask)
 │   ├── for each device of DEVICES
@@ -212,18 +212,21 @@ prove_equivalence.py
 │   │       └── impls append to scene["cameras"] {"params": 0-dim tensors fx = focal * (1 + 0.1 * camera_index), fy = focal * (1.05 + 0.1 * camera_index), cx = stated_width / 2 + camera_index, cy = stated_height / 2 - camera_index, h = stated_height, w = stated_width; "extrinsics": a copy of cam2world[camera_index]}
 │   └── return  # [collisions, culling, sparse, few_points, ties], each now a dict of its name, model, conventions, resolution and cpu tensors
 ├── def load_or_render_on_main(main_repo: Path, output_dir: Path, force: bool) -> Dict[str, Any]
-│   ├── # Returns main's renders of the scenes, from output_dir / "main_renders.pt" unless it is missing, was rendered at another main commit or from other scenes, or force asks for a rerender.
+│   ├── # Returns main's renders of the scenes, from output_dir / "main_renders.pt" unless it is missing, was rendered at another main commit, from other scenes or by other rendering code, or force asks for a rerender.
 │   ├── impls main_commit = the HEAD of main_repo, read through git
+│   ├── impls main_status = what git status --porcelain prints in main_repo
+│   ├── assert main_status is empty  # main's renders are main's only when its checkout carries no local change
 │   ├── impls scenes_digest = the hex sha256 of the scenes file's bytes
+│   ├── impls renderer_digest = the hex sha256 of the bytes of render_on_main.py followed by scene_rendering.py  # the code that produces the renders
 │   ├── impls main_branch_commit = the commit this repo's main branch points at, read through git in REPO_ROOT
 │   ├── assert main_commit == main_branch_commit  # the proof is against main as it stands, not an older checkout of it
 │   ├── if the renders file exists and not force
 │   │   ├── impls cached = the renders torch's load reads from it
-│   │   └── if cached carries main_commit and scenes_digest
+│   │   └── if cached carries main_commit, scenes_digest and renderer_digest
 │   │       └── return cached
 │   ├── impls run render_on_main.py by path under this interpreter with cwd main_repo and the current environment plus PYTHONPATH=main_repo and CUBLAS_WORKSPACE_CONFIG=:4096:8, handing it the scenes path and the renders path, checked
 │   ├── impls main_renders = the renders torch's load reads from the renders file
-│   ├── impls add main_commit and scenes_digest to main_renders
+│   ├── impls add main_commit, scenes_digest and renderer_digest to main_renders
 │   ├── impls save main_renders back to the renders file through torch's save
 │   └── return main_renders
 ├── def compare_single_camera_to_main(scenes: List[Dict[str, Any]], main_renders: Dict[str, Any]) -> List[Dict[str, Any]]
@@ -250,7 +253,7 @@ prove_equivalence.py
 │   │                           │   └── impls batch_slice = batch_output[0]
 │   │                           ├── calls compare_exactly(output=batch_slice, reference=main_output)  # -> comparison
 │   │                           └── impls append to records a "batch_of_one" record of the device name, scene name, camera_index, renderer, point_size and return_mask, merged with comparison
-│   ├── for each record of records  # above one pixel this branch's dilation grows a centred disc taking the nearest neighbour, and its depth entry applies it, where main did neither; at a tied depth this branch keeps the lowest point index, where main keeps the last point in order on cpu and the first on cuda
+│   ├── for each record of records  # above one pixel this branch's dilation grows a centred disc taking the nearest neighbour, and its depth entry applies it, where main did neither; at a tied depth this branch keeps the lowest point index, where main keeps whichever tied point its descending depth sort puts last, the last in point order on cpu and varying pair by pair on cuda
 │   │   └── impls mark the record required when its point size is one and its scene is not "ties"
 │   └── return records
 ├── def compare_batch_to_one_by_one(scenes: List[Dict[str, Any]]) -> List[Dict[str, Any]]
@@ -270,7 +273,7 @@ prove_equivalence.py
 │   │       │       ├── if device is cpu
 │   │       │       │   └── calls compare_exactly(output=the rows batch_valid keeps in that camera's slice of batch_points, with those rows' point indices, reference=(points, original_data_indices))  # -> comparison
 │   │       │       ├── else
-│   │       │       │   └── calls compare_preparations(output=(batch_points[camera_index], batch_valid[camera_index]), reference=(points, original_data_indices), pc=pc, camera=camera, resolution=scene["resolution"])  # -> comparison; CUDA's batched inverse and product round unlike a single camera's
+│   │       │       │   └── calls compare_preparations(output=(batch_points[camera_index], batch_valid[camera_index]), reference=(points, original_data_indices), pc=pc, camera=camera, resolution=scene["resolution"])  # -> comparison; CUDA's batched inverse rounds unlike a single camera's
 │   │       │       └── impls append to records a "prepare" record of the device name, scene name, camera_index and num_divide, merged with comparison
 │   │       ├── impls rendering_points, valid = the points and valid mask of batch_preparations[None], the unchunked one  # one input handed to both sides, so the rasterizing stage is measured apart from the rounding before it
 │   │       ├── for each return_mask of RETURN_MASK_OPTIONS
@@ -343,7 +346,7 @@ prove_equivalence.py
 │   │   └── impls summary tallies, under point_size, whether comparison came out equal  # main keeps the last nearer neighbour in kernel order, this branch the nearest
 │   └── return summary
 ├── def summarize_tie_changes(single_camera_records: List[Dict[str, Any]]) -> Dict[str, Any]
-│   ├── # Records, per device and renderer, how many of the ties scene's point-size-one renders come out equal to main's, the one regime where main's choice between tied points depends on the device.
+│   ├── # Records, per device and renderer, how many of the ties scene's point-size-one renders come out equal to main's, the one regime where main keeps a different point of a tied pair than the lowest point index this branch keeps.
 │   ├── impls summary = an empty dict
 │   ├── for each record of single_camera_records
 │   │   └── if the record's scene name is "ties" and its point size is 1.0
@@ -355,7 +358,7 @@ prove_equivalence.py
 │   ├── impls reference_points, reference_indices = reference as cpu tensors  # the single camera's survivors and the points they are
 │   ├── impls reference_valid = a mask over the slice's point axis, True at reference_indices
 │   ├── impls reference_rows = an [N, 3] zero tensor like points, with reference_rows[reference_indices] = reference_points  # each survivor at the row of the point it is
-│   ├── impls magnitude = the larger of the norm of camera's centre and the largest coordinate magnitude in pc  # the size of the numbers the world-to-camera transform rounds
+│   ├── impls magnitude = the larger of the norm of camera's centre and the largest point norm in pc  # the size of the numbers the world-to-camera transform rounds
 │   ├── calls camera.scale_intrinsics(resolution=resolution)  # -> render_camera, whose focal lengths are the ones the preparation projects with at resolution
 │   ├── impls camera_frame_tolerance = 4 * eps * magnitude, eps the machine epsilon of points' dtype  # a few units in the last place of the points' dtype
 │   ├── impls depth = points[:, 2] where valid, reference_rows[:, 2] elsewhere  # read off whichever side kept it
