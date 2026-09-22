@@ -208,9 +208,10 @@ function createRendererTrackballCameraControls({
       heldEyeOffset,
     });
 
-    let leftDrag: { clientX: number; clientY: number } | null = null;
+    let leftDrag: { pointerId: number; clientX: number; clientY: number } | null =
+      null;
 
-    // Starts a roll-locked left drag at the pointer a left-button press lands on.
+    // Starts a roll-locked left drag at the pointer a left-button press lands on, and ends it when a second pointer presses mid-drag.
     //
     // Args:
     //   event: a pointer press on renderer.domElement.
@@ -218,24 +219,37 @@ function createRendererTrackballCameraControls({
     // Returns:
     //   void.
     function startRollLockedLeftDrag(event: PointerEvent): void {
+      // A second touch contact turns the gesture into three's two-pointer zoom and pan.
+      if (leftDrag !== null) {
+        leftDrag = null;
+        return;
+      }
       if (event.button !== 0) {
         return;
       }
-      leftDrag = { clientX: event.clientX, clientY: event.clientY };
+      leftDrag = {
+        pointerId: event.pointerId,
+        clientX: event.clientX,
+        clientY: event.clientY,
+      };
     }
     renderer.domElement.addEventListener("pointerdown", startRollLockedLeftDrag);
 
-    // Ends the roll-locked left drag wherever the pointer is released.
+    // Ends the roll-locked left drag when the pointer driving it is released or cancelled.
     //
     // Args:
-    //   None.
+    //   event: a pointer release or cancel anywhere on the page.
     //
     // Returns:
     //   void.
-    function endRollLockedLeftDrag(): void {
+    function endRollLockedLeftDrag(event: PointerEvent): void {
+      if (leftDrag === null || event.pointerId !== leftDrag.pointerId) {
+        return;
+      }
       leftDrag = null;
     }
     window.addEventListener("pointerup", endRollLockedLeftDrag);
+    window.addEventListener("pointercancel", endRollLockedLeftDrag);
 
     // Turns the camera by one left-drag pointer move, as yaw about rollLockAxis plus pitch about the camera right axis.
     //
@@ -245,7 +259,7 @@ function createRendererTrackballCameraControls({
     // Returns:
     //   void.
     function turnRollLockedLeftDrag(event: PointerEvent): void {
-      if (leftDrag === null) {
+      if (leftDrag === null || event.pointerId !== leftDrag.pointerId) {
         return;
       }
       // Three's trackball turns by rotateSpeed per half canvas width of pointer travel, so the locked drag turns exactly as far per pixel as the free one.
@@ -271,7 +285,11 @@ function createRendererTrackballCameraControls({
         Math.PI - ROLL_LOCKED_POLAR_ANGLE_EPSILON - polarAngle,
       );
       bandedOffset.applyAxisAngle(cameraRightAxis, pitchAngle);
-      leftDrag = { clientX: event.clientX, clientY: event.clientY };
+      leftDrag = {
+        pointerId: leftDrag.pointerId,
+        clientX: event.clientX,
+        clientY: event.clientY,
+      };
       camera.position.addVectors(threeControls.target, bandedOffset);
       holdRollLockedCameraPose({
         camera,
