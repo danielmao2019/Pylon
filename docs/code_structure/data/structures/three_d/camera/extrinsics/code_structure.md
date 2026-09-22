@@ -167,7 +167,10 @@ camera_extrinsics.py
 │   │   │   └── return extrinsics, device, dtype
 │   │   ├── calls _normalize_inputs(extrinsics=extrinsics, device=device, dtype=dtype)
 │   │   ├── impls extrinsics, device, dtype = the returned values from _normalize_inputs
-│   │   ├── impls batch_size = extrinsics.shape[0] if extrinsics.ndim == 3 else None  # None where the matrix is a [4, 4]: an unbatched extrinsics carries no batch axis, and states one camera
+│   │   ├── if extrinsics.ndim == 3
+│   │   │   └── impls batch_size = extrinsics.shape[0]
+│   │   ├── else
+│   │   │   └── impls batch_size = None  # None where the matrix is a [4, 4]: an unbatched extrinsics carries no batch axis, and states one camera
 │   │   ├── impls self._extrinsics = extrinsics
 │   │   ├── impls self._extr_convention = extr_convention
 │   │   ├── impls self._device = device
