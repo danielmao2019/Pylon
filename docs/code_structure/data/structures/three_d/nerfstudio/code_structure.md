@@ -84,7 +84,7 @@ load.py
 ├── import torch
 ├── from data.structures.three_d.camera.cameras import Cameras
 ├── from data.structures.three_d.camera.extrinsics.camera_extrinsics import CameraExtrinsics
-├── from data.structures.three_d.camera.intrinsics.camera_intrinsics import build_camera_intrinsics
+├── from data.structures.three_d.camera.intrinsics.camera_intrinsics import CameraIntrinsics, build_camera_intrinsics
 ├── from data.structures.three_d.camera.intrinsics.validation import validate_camera_intrinsics_params
 ├── from data.structures.three_d.nerfstudio.validate import MODALITY_SPECS, validate_applied_transform_data, validate_camera_model_data, validate_data, validate_frames_data, validate_intrinsic_params, validate_intrinsics_data, validate_ply_file_path_data, validate_resolution_data, validate_split_filenames_data
 ├── def load_nerfstudio_data(filepath: Union[str, Path], device: Union[str, torch.device] = torch.device("cuda")) -> Tuple[Dict[str, Any], Dict[str, Union[float, int]], Tuple[int, int], str, torch.Tensor, np.ndarray, str, Cameras, List[str], Optional[List[str]], Optional[List[str]], Optional[List[str]]]
