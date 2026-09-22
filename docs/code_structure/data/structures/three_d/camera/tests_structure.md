@@ -327,8 +327,8 @@ test_conventions.py
 │   ├── impls loss = extrinsics.w2c.sum() + extrinsics.center.sum()
 │   ├── calls loss.backward
 │   └── impls assert the source extrinsics tensor receives a gradient
-├── def test_extrinsics_constructor_applies_requested_device_dtype_through_to
-│   ├── # CameraExtrinsics.__init__ delegates requested device / dtype movement to the object's to method.
+├── def test_extrinsics_constructor_applies_requested_device_dtype
+│   ├── # CameraExtrinsics.__init__ builds its tensors on the requested device and dtype.
 │   ├── calls CameraExtrinsics(extrinsics=a valid cam2world tensor, extr_convention="standard", device=a valid device, dtype=a floating torch dtype)
 │   ├── impls assert extrinsics.extrinsics has the requested device
 │   ├── impls assert extrinsics.extrinsics has the requested dtype

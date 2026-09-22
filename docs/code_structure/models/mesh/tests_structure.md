@@ -79,11 +79,11 @@ test_extract.py
 │   ├── with pytest.raises(AssertionError)
 │   │   └── calls _fuse_vertex_color_observations(observations=an observation carrying a negative weight)
 │   └── return
-├── def test_extract_uv_texture_map_from_single_image_returns_image_row_order(monkeypatch: pytest.MonkeyPatch) -> None
+├── def test_extract_uv_texture_map_from_single_image_returns_image_row_order() -> None
 │   ├── # _extract_uv_texture_map_from_single_image returns one-view UV observations in image row order.
 │   ├── calls _build_texel_face_map_stub
 │   ├── calls _extract_uv_texture_map_from_single_image(texel_face_map=texel_face_map)
-│   ├── impls assert the observation's first row carries the texel at the smallest v
+│   ├── impls assert the observation's last row carries the texel at the smallest v  # obj UVs put v = 0 at the image bottom
 │   └── return
 ├── def test_extract_texture_from_images_keeps_uv_texture_row_order(monkeypatch: pytest.MonkeyPatch) -> None
 │   ├── # extract_texture_from_images keeps one-view UV extraction coherent through the public API.

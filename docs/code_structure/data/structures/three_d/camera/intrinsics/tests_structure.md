@@ -114,12 +114,6 @@ test_intrinsics.py
 │   │       │   └── calls _tensor_params(params=a simple_pinhole key set)
 │   │       └── calls validate_camera_intrinsics_attributes
 │   └── return
-├── def test_validate_intrinsics_params_rejects_python_scalars
-│   ├── # validate_camera_intrinsics_params rejects Python numeric params because live camera state is tensor-only.
-│   ├── for each supported model
-│   │   └── with pytest.raises(AssertionError)
-│   │       └── calls validate_camera_intrinsics_params(model=model, intr_convention="standard", params=matching Python scalar params)
-│   └── return
 ├── def test_intrinsics_constructor_normalizes_scalar_compatible_params_to_tensors
 │   ├── # build_camera_intrinsics turns Python, numpy 0-d and tensor scalar params into 0-d tensors of the requested dtype, the intrinsics landing on the requested device and a tensor param keeping its autograd path through project.
 │   ├── impls fx = a float64 scalar tensor of 400.0 requiring grad
@@ -142,8 +136,8 @@ test_intrinsics.py
 │   │   ├── impls assert the built instance's type is that subclass
 │   │   └── impls assert the built instance's model property equals the model string
 │   └── return
-├── def test_intrinsics_constructor_applies_requested_device_dtype_through_to
-│   ├── # CameraIntrinsics.__init__ delegates requested device / dtype movement to the object's to method.
+├── def test_intrinsics_constructor_applies_requested_device_dtype
+│   ├── # CameraIntrinsics.__init__ builds its tensors on the requested device and dtype.
 │   ├── calls _tensor_params(params=a pinhole key set)
 │   ├── calls build_camera_intrinsics(model=a supported model, params=tensor scalar params, device=a valid device, dtype=a floating torch dtype)
 │   ├── impls assert every param tensor has the requested device
