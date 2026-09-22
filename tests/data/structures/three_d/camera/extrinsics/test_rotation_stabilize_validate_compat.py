@@ -29,6 +29,7 @@ def test_stabilize_accepts_float32_and_float64() -> None:
             f"{out.dtype=} {dtype=}"
         )
         validate_rotation_matrix(obj=out)
+    return
 
 
 def test_stabilize_rejects_unsupported_dtype() -> None:
@@ -42,6 +43,7 @@ def test_stabilize_rejects_unsupported_dtype() -> None:
     """
     with pytest.raises(AssertionError):
         _stabilize_rotation_matrix(rotation=torch.eye(3, dtype=torch.float16))
+    return
 
 
 def test_stabilized_batch_passes_validator() -> None:
@@ -111,6 +113,7 @@ def test_validator_threshold_is_dtype_aware() -> None:
 
     with pytest.raises(AssertionError):
         validate_rotation_matrix(obj=m)
+    return
 
 
 def test_validator_requires_determinant_plus_one() -> None:

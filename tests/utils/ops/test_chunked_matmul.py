@@ -30,6 +30,7 @@ def test_matches_plain_matmul() -> None:
         assert (
             result is not large
         ), f"not-inplace must return a new tensor, {N=} {K=} {num_divide=}"
+    return
 
 
 def test_supports_autograd() -> None:
@@ -59,6 +60,7 @@ def test_supports_autograd() -> None:
         assert torch.allclose(
             small.grad, ref_small.grad
         ), f"small.grad differs from plain-matmul grad, {num_divide=}"
+    return
 
 
 def test_inplace_overwrites_large() -> None:
@@ -83,6 +85,7 @@ def test_inplace_overwrites_large() -> None:
         assert torch.allclose(
             large, expected
         ), f"in-place product differs from plain matmul, {num_divide=}"
+    return
 
 
 def test_not_inplace_shrinks_and_resumes_on_oom(
@@ -127,6 +130,7 @@ def test_not_inplace_shrinks_and_resumes_on_oom(
         result, large @ small
     ), "result after shrink-and-resume differs from plain matmul"
     assert state["calls"] >= 2, f"expected a retry after OOM, got {state['calls']=}"
+    return
 
 
 def test_inplace_shrinks_without_double_transform(
@@ -171,6 +175,7 @@ def test_inplace_shrinks_without_double_transform(
     assert torch.allclose(
         large, expected
     ), "in-place resume re-transformed an already-written chunk"
+    return
 
 
 def test_raises_after_max_divide_exhausted(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -204,6 +209,7 @@ def test_raises_after_max_divide_exhausted(monkeypatch: pytest.MonkeyPatch) -> N
     monkeypatch.setitem(chunked_matmul.__globals__, "_matmul_chunk", always_oom)
     with pytest.raises(torch.cuda.OutOfMemoryError):
         chunked_matmul(large=large, small=small, max_divide=2)
+    return
 
 
 def test_rejects_non_2d_large() -> None:
@@ -318,6 +324,7 @@ def test_rejects_mismatched_dtype() -> None:
     small = torch.randn(5, 5, dtype=torch.float32)
     with pytest.raises(AssertionError):
         chunked_matmul(large=large, small=small)
+    return
 
 
 def test_inplace_rejects_grad() -> None:
@@ -333,3 +340,4 @@ def test_inplace_rejects_grad() -> None:
     small = torch.randn(5, 5, dtype=torch.float64)
     with pytest.raises(AssertionError):
         chunked_matmul(large=large, small=small, inplace=True)
+    return

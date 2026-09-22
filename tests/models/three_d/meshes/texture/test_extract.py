@@ -119,6 +119,7 @@ def test_compute_f_visibility_mask_keeps_uv_channel_dimension() -> None:
     )
 
     assert visibility_mask.shape == (1, 2, 2, 1), f"{visibility_mask.shape=}"
+    return
 
 
 def test_compute_f_visibility_mask_uses_exact_camera_pixel_footprints() -> None:
@@ -187,6 +188,7 @@ def test_compute_f_visibility_mask_uses_exact_camera_pixel_footprints() -> None:
         "including the face-covered texels the pixel does not reach. "
         f"{visibility_mask[0, :, :, 0]=}"
     )
+    return
 
 
 def test_map_visible_screen_space_polygon_regions_to_uv_preserves_identity_face() -> (
@@ -260,6 +262,7 @@ def test_map_visible_screen_space_polygon_regions_to_uv_preserves_identity_face(
         visible_screen_polygon_verts[0, :4],
         atol=1.0e-6,
     ), f"{uv_polygon_verts=} {visible_screen_polygon_verts=}"
+    return
 
 
 def test_break_visible_uv_polygon_regions_into_triangles_triangulates_quad_fan() -> (
@@ -312,6 +315,7 @@ def test_break_visible_uv_polygon_regions_into_triangles_triangulates_quad_fan()
         expected_uv_triangles,
         atol=1.0e-6,
     ), f"{uv_triangles=} {expected_uv_triangles=}"
+    return
 
 
 def test_compute_visible_uv_texels_from_uv_polygon_regions_uses_top_down_v_convention() -> (
@@ -355,6 +359,7 @@ def test_compute_visible_uv_texels_from_uv_polygon_regions_uses_top_down_v_conve
         "of the texel raster. "
         f"{int(covered_rows.max().item())=} {texture_size=}"
     )
+    return
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="Requires CUDA.")
@@ -437,6 +442,7 @@ def test_compute_f_visibility_mask_recovers_standard_uv_face_near_v_zero() -> No
     )
 
     assert coverage_fraction > 0.9, f"{coverage_fraction=}"
+    return
 
 
 def test_extract_texture_from_images_reuses_single_mesh_across_views(
@@ -525,6 +531,7 @@ def test_extract_texture_from_images_reuses_single_mesh_across_views(
     assert torch.allclose(
         extracted_vertex_color, expected_vertex_color
     ), f"{extracted_vertex_color=} {expected_vertex_color=}"
+    return
 
 
 def test_extract_texture_from_images_uses_per_view_mesh_geometry(
@@ -614,6 +621,7 @@ def test_extract_texture_from_images_uses_per_view_mesh_geometry(
     assert torch.allclose(
         extracted_vertex_color, expected_vertex_color
     ), f"{extracted_vertex_color=} {expected_vertex_color=}"
+    return
 
 
 def test_extract_texture_from_images_rejects_per_view_mesh_count_mismatch() -> None:
@@ -663,6 +671,7 @@ def test_extract_texture_from_images_rejects_per_view_mesh_count_mismatch() -> N
             cameras=cameras,
             weights_cfg={"weights": "visible"},
         )
+    return
 
 
 def test_fuse_uv_texture_observations_returns_image_row_order() -> None:
@@ -732,6 +741,7 @@ def test_fuse_uv_texture_observations_returns_image_row_order() -> None:
         fused_outputs["valid_mask"],
         expected_valid_mask,
     ), f"{fused_outputs['valid_mask']=} {expected_valid_mask=}"
+    return
 
 
 def test_fuse_uv_texture_observations_rejects_out_of_range_default_color() -> None:
@@ -766,6 +776,7 @@ def test_fuse_uv_texture_observations_rejects_out_of_range_default_color() -> No
             weights_cfg={"weights": "visible"},
             default_color=1.2,
         )
+    return
 
 
 def test_fuse_vertex_color_observations_rejects_negative_weights() -> None:
@@ -800,6 +811,7 @@ def test_fuse_vertex_color_observations_rejects_negative_weights() -> None:
             weights_cfg={"weights": "visible"},
             default_color=0.7,
         )
+    return
 
 
 def test_extract_uv_texture_map_from_single_image_returns_image_row_order() -> None:
@@ -883,6 +895,7 @@ def test_extract_uv_texture_map_from_single_image_returns_image_row_order() -> N
         "the image-row-ordered weight map. "
         f"{extracted_uv_texture_map['weight'][0, :, :, 0]=}"
     )
+    return
 
 
 def test_extract_texture_from_images_keeps_uv_texture_row_order(
@@ -1024,6 +1037,7 @@ def test_extract_texture_from_images_keeps_uv_texture_row_order(
         extracted_texture,
         expected_texture,
     ), f"{extracted_texture=} {expected_texture=}"
+    return
 
 
 def test_extract_texture_from_images_rejects_out_of_range_float_images() -> None:
@@ -1076,3 +1090,4 @@ def test_extract_texture_from_images_rejects_out_of_range_float_images() -> None
             cameras=cameras,
             weights_cfg={"weights": "visible"},
         )
+    return

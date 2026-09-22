@@ -71,9 +71,10 @@ def test_compute_v_visibility_mask_keeps_some_front_facing_triangle_visibility()
     )
     faces = torch.tensor([[0, 2, 1]], dtype=torch.long, device="cuda")
 
+    camera = _build_one_camera()
     visibility_mask = compute_v_visibility_mask(
         mesh=Mesh(verts=verts, faces=faces),
-        camera=_build_one_camera(),
+        camera=camera,
         image_height=2,
         image_width=2,
     )
@@ -83,6 +84,7 @@ def test_compute_v_visibility_mask_keeps_some_front_facing_triangle_visibility()
         "to the one-view rasterized visibility mask. "
         f"{visibility_mask=}"
     )
+    return
 
 
 def test_compute_v_visibility_mask_filters_back_facing_triangle_verts() -> None:
@@ -106,9 +108,10 @@ def test_compute_v_visibility_mask_filters_back_facing_triangle_verts() -> None:
     )
     faces = torch.tensor([[0, 1, 2]], dtype=torch.long, device="cuda")
 
+    camera = _build_one_camera()
     visibility_mask = compute_v_visibility_mask(
         mesh=Mesh(verts=verts, faces=faces),
-        camera=_build_one_camera(),
+        camera=camera,
         image_height=2,
         image_width=2,
     )
@@ -119,3 +122,4 @@ def test_compute_v_visibility_mask_filters_back_facing_triangle_verts() -> None:
         "removed from the visible set before vertex-color extraction. "
         f"{visibility_mask=} {expected_visibility_mask=}"
     )
+    return

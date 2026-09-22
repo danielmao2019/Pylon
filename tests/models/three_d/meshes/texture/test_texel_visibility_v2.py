@@ -110,7 +110,7 @@ def test_compute_f_visibility_mask_v2_maps_texel_centers_through_identity_face()
         ],
         dtype=torch.float32,
     )
-    cameras = _build_one_camera()
+    camera = _build_one_camera()
     texel_face_map = _build_texel_face_map_with_three_texels(
         face_index=0,
         occupied_positions=((0, 0), (0, 1), (1, 0)),
@@ -129,7 +129,7 @@ def test_compute_f_visibility_mask_v2_maps_texel_centers_through_identity_face()
         verts=verts,
         faces=faces,
         face_verts_uvs=face_verts_uvs,
-        camera=cameras,
+        camera=camera,
         image_height=2,
         image_width=2,
         texel_face_map=texel_face_map,
@@ -141,6 +141,7 @@ def test_compute_f_visibility_mask_v2_maps_texel_centers_through_identity_face()
         "UV-to-world mapping with one texel per camera pixel. "
         f"{visibility_mask=} {expected_uv_mask=}"
     )
+    return
 
 
 def test_compute_f_visibility_mask_v2_filters_back_facing_face_texels() -> None:
@@ -172,7 +173,7 @@ def test_compute_f_visibility_mask_v2_filters_back_facing_face_texels() -> None:
         ],
         dtype=torch.float32,
     )
-    cameras = _build_one_camera()
+    camera = _build_one_camera()
     texel_face_map = _build_texel_face_map_with_three_texels(
         face_index=0,
         occupied_positions=((0, 0), (0, 1), (1, 0)),
@@ -186,7 +187,7 @@ def test_compute_f_visibility_mask_v2_filters_back_facing_face_texels() -> None:
         verts=verts,
         faces=faces,
         face_verts_uvs=face_verts_uvs,
-        camera=cameras,
+        camera=camera,
         image_height=2,
         image_width=2,
         texel_face_map=texel_face_map,
@@ -197,6 +198,7 @@ def test_compute_f_visibility_mask_v2_filters_back_facing_face_texels() -> None:
         "camera-space visibility projection in v2. "
         f"{visibility_mask=} {expected_visibility_mask=}"
     )
+    return
 
 
 def test_select_visible_depth_clusters_per_camera_pixel_stops_at_first_large_gap() -> (
@@ -245,6 +247,7 @@ def test_select_visible_depth_clusters_per_camera_pixel_stops_at_first_large_gap
         "each camera pixel stack. "
         f"{selection_mask=} {expected_selection_mask=}"
     )
+    return
 
 
 def test_select_visible_depth_clusters_per_camera_pixel_rejects_larger_second_cluster() -> (
@@ -295,6 +298,7 @@ def test_select_visible_depth_clusters_per_camera_pixel_rejects_larger_second_cl
         "camera-pixel stack. "
         f"{selection_mask=} {expected_selection_mask=}"
     )
+    return
 
 
 def test_select_visible_depth_clusters_per_camera_pixel_rejects_smaller_second_cluster() -> (
@@ -343,6 +347,7 @@ def test_select_visible_depth_clusters_per_camera_pixel_rejects_smaller_second_c
         "later cluster is smaller than the front cluster. "
         f"{selection_mask=} {expected_selection_mask=}"
     )
+    return
 
 
 def test_select_visible_depth_clusters_per_camera_pixel_rejects_equal_second_cluster() -> (
@@ -391,6 +396,7 @@ def test_select_visible_depth_clusters_per_camera_pixel_rejects_equal_second_clu
         "first large gap regardless of later cluster size. "
         f"{selection_mask=} {expected_selection_mask=}"
     )
+    return
 
 
 def test_compute_front_depth_gap_threshold_relative_splits_bimodal_gaps() -> None:
@@ -430,6 +436,7 @@ def test_compute_front_depth_gap_threshold_relative_splits_bimodal_gaps() -> Non
         "within-surface gaps and the large inter-layer gaps. "
         f"{threshold_relative=}"
     )
+    return
 
 
 def test_compute_texel_visibility_mask_from_world_coords_keeps_front_depth_prefix() -> (
@@ -487,12 +494,13 @@ def test_compute_texel_visibility_mask_from_world_coords_keeps_front_depth_prefi
         ],
         dtype=torch.float32,
     )
+    camera = _build_one_camera()
     visibility_mask = _compute_texel_visibility_mask_from_world_coords(
         world_coords=world_coords,
         valid_texel_indices=valid_texel_indices,
         valid_texel_mask=valid_texel_mask,
         mesh_diagonal=1.0,
-        camera=_build_one_camera(),
+        camera=camera,
         image_height=1,
         image_width=2,
     )
@@ -507,3 +515,4 @@ def test_compute_texel_visibility_mask_from_world_coords_keeps_front_depth_prefi
         "pixel stack. "
         f"{visibility_mask=} {expected_visibility_mask=}"
     )
+    return

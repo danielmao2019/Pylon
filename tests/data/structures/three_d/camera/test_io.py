@@ -82,6 +82,7 @@ def test_single_camera_json_round_trip(tmp_path: Path) -> None:
     method_loaded = Camera.load(camera_path=json_path, device="cpu")
     _assert_camera_fields_equal(loaded=loaded, original=camera)
     _assert_camera_fields_equal(loaded=method_loaded, original=camera)
+    return
 
 
 def test_single_camera_npz_round_trip(tmp_path: Path) -> None:
@@ -122,6 +123,7 @@ def test_single_camera_npz_round_trip(tmp_path: Path) -> None:
     method_loaded = Camera.load(camera_path=npz_path, device="cpu")
     _assert_camera_fields_equal(loaded=loaded, original=camera)
     _assert_camera_fields_equal(loaded=method_loaded, original=camera)
+    return
 
 
 def _make_single_camera() -> Camera:
@@ -193,6 +195,7 @@ def test_multi_cameras_json_round_trip(tmp_path: Path) -> None:
     )
     loaded = load_cameras(cameras_path=json_path, device="cpu")
     _assert_cameras_fields_equal(loaded=loaded, original=cameras)
+    return
 
 
 def test_multi_cameras_npz_round_trip(tmp_path: Path) -> None:
@@ -231,6 +234,7 @@ def test_multi_cameras_npz_round_trip(tmp_path: Path) -> None:
         )
     loaded = load_cameras(cameras_path=npz_path, device="cpu")
     _assert_cameras_fields_equal(loaded=loaded, original=cameras)
+    return
 
 
 def test_broadcast_intrinsics_round_trip() -> None:
@@ -447,6 +451,7 @@ def test_the_intr_convention_and_resolution_survive_round_trip() -> None:
             f"{format=} {loaded.intrinsics.intr_convention=} "
             f"{loaded.extrinsics.extr_convention=}"
         )
+    return
 
 
 def test_model_and_params_survive_round_trip(tmp_path: Path) -> None:
@@ -512,6 +517,7 @@ def test_model_and_params_survive_round_trip(tmp_path: Path) -> None:
                 "Expected the intrinsics params to survive the round trip. "
                 f"{format=} {loaded.intrinsics.params=} {params=}"
             )
+    return
 
 
 def test_tensor_intrinsics_params_round_trip_as_serialized_values(
@@ -555,6 +561,7 @@ def test_tensor_intrinsics_params_round_trip_as_serialized_values(
                 "Expected the loaded params to equal the source tensor values. "
                 f"{format=} {key=} {loaded.intrinsics.params[key]=} {value=}"
             )
+    return
 
 
 def test_extrinsics_and_extr_convention_survive_round_trip(tmp_path: Path) -> None:
@@ -605,6 +612,7 @@ def test_extrinsics_and_extr_convention_survive_round_trip(tmp_path: Path) -> No
                 "Expected the extr_convention to survive the round trip. "
                 f"{format=} {loaded.extrinsics.extr_convention=} {extr_convention=}"
             )
+    return
 
 
 def _make_extrinsics(
@@ -645,6 +653,7 @@ def _assert_cameras_fields_equal(loaded: Cameras, original: Cameras) -> None:
     )
     for index in range(len(original)):
         _assert_camera_fields_equal(loaded=loaded[index], original=original[index])
+    return
 
 
 def _assert_camera_fields_equal(loaded: Camera, original: Camera) -> None:
@@ -682,3 +691,4 @@ def _assert_camera_fields_equal(loaded: Camera, original: Camera) -> None:
     assert (
         loaded.id == original.id
     ), f"Expected the loaded id to equal the original's. {loaded.id=} {original.id=}"
+    return

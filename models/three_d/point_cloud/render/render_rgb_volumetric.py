@@ -259,22 +259,28 @@ def gen_auxiliary_cameras(
         assert direction_unit.shape == (3,), "Auxiliary camera direction must be 3D"
 
         position = camera_position + direction_unit * step
-        aux_standard = torch.zeros((4, 4), device=device, dtype=torch.float32)
-        aux_standard[3, 3] = 1.0
-        aux_standard[:3, :3] = extrinsics_standard[:3, :3]
-        aux_standard[:3, 3] = position
+        # The rotation of extrinsics_standard beside position as its translation column, over a [0, 0, 0, 1] bottom row, copied into a float32 block.
+        aux_standard = torch.zeros((4, 4), device=device, dtype=torch.float32).copy_(
+            torch.vstack(
+                (
+                    torch.hstack((extrinsics_standard[:3, :3], position.unsqueeze(1))),
+                    torch.tensor([0.0, 0.0, 0.0, 1.0], device=device),
+                )
+            )
+        )
 
         aux_extrinsics = CameraExtrinsics(
             extrinsics=aux_standard,
             extr_convention="standard",
             device=device,
         )
-        aux_camera = Camera(
-            intrinsics=camera.intrinsics,
-            extrinsics=aux_extrinsics,
-            device=device,
-        ).to(extr_convention=camera.extrinsics.extr_convention)
-        auxiliary_cameras.append(aux_camera)
+        auxiliary_cameras.append(
+            Camera(
+                intrinsics=camera.intrinsics,
+                extrinsics=aux_extrinsics,
+                device=device,
+            ).to(extr_convention=camera.extrinsics.extr_convention)
+        )
 
     return auxiliary_cameras
 

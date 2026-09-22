@@ -381,8 +381,10 @@ class Cameras:
 
         index = _normalize_inputs(index=index)
 
-        # A component that broadcasts over the batch broadcasts over any slice of it, so it is carried whole; a length-1 component of a length-1 batch is that batch rather than a broadcast, so it is indexed.
-        if not self._intrinsics.is_batched or len(self._intrinsics) < len(self):
+        # An intrinsics that broadcasts over the batch broadcasts over any slice of it, so it is carried whole; a length-1 intrinsics of a length-1 batch is that batch, so it is indexed.
+        if not self._intrinsics.is_batched or (
+            len(self._intrinsics) == 1 and len(self) > 1
+        ):
             intrinsics = self._intrinsics
         else:
             intrinsics = self._intrinsics[index]

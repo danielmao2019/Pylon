@@ -524,7 +524,7 @@ def compare_single_camera_to_main(
                                     }
                                 )
 
-    # Above one pixel this branch's dilation grows a centred disc taking the nearest neighbour, and its depth entry applies it, where main did neither; at a tied depth this branch keeps the lowest point index, where main keeps whichever tied point comes last in its own depth-sorted order, since it sorts depths descending and then scatters, the last write standing: on cpu that is the last in point order, and on cuda, whose sort does not keep tied points in order, which one it keeps varies pair by pair.
+    # Above one pixel this branch's dilation grows a centred disc taking the nearest neighbour, and its depth entry applies it, where main did neither; at a tied depth this branch keeps the lowest point index, where main keeps whichever tied point its descending depth sort puts last, the last in point order on cpu and varying pair by pair on cuda.
     for record in records:
         record["required"] = record["point_size"] == 1.0 and record["scene"] != "ties"
     return records

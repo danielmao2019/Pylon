@@ -208,10 +208,14 @@ def test_extrinsics_w2c_is_inverse_of_extrinsics(extr_convention: str) -> None:
         None.
     """
     extrinsics = _build_extrinsics(extr_convention=extr_convention)
-    product_matrix = extrinsics.w2c @ extrinsics.extrinsics
-    identity = torch.eye(4, dtype=extrinsics.extrinsics.dtype)
-    assert torch.allclose(product_matrix, identity, atol=1.0e-05, rtol=0.0), (
-        "Expected w2c @ extrinsics to equal the 4x4 identity. " f"{product_matrix=}"
+    assert torch.allclose(
+        extrinsics.w2c @ extrinsics.extrinsics,
+        torch.eye(4, dtype=extrinsics.extrinsics.dtype),
+        atol=1.0e-05,
+        rtol=0.0,
+    ), (
+        "Expected w2c @ extrinsics to equal the 4x4 identity. "
+        f"{extrinsics.w2c @ extrinsics.extrinsics=}"
     )
     return
 
@@ -1108,7 +1112,14 @@ def test_a_camera_model_with_no_focal_rule_is_refused() -> None:
     """
     with pytest.raises(NotImplementedError):
         transform_intr_convention(
-            params=_build_pinhole_params(),
+            params={
+                "fx": 400.0,
+                "fy": 410.0,
+                "cx": 150.0,
+                "cy": 110.0,
+                "h": 240,
+                "w": 320,
+            },
             model="fisheye",
             source_intr_convention="standard",
             target_intr_convention="opengl",
@@ -1389,7 +1400,7 @@ def test_extrinsics_constructor_applies_requested_device_dtype() -> None:
         None.
     """
     extrinsics = CameraExtrinsics(
-        extrinsics=_build_extrinsics_matrix(),
+        extrinsics=torch.eye(4, dtype=torch.float32),
         extr_convention="standard",
         device="cpu",
         dtype=torch.float64,
@@ -1423,9 +1434,8 @@ def test_extrinsics_to_follows_tensor_to_semantics() -> None:
         None.
     """
     extrinsics = CameraExtrinsics(
-        extrinsics=_build_extrinsics_matrix(),
+        extrinsics=torch.eye(4, dtype=torch.float32),
         extr_convention="standard",
-        device="cpu",
     )
     moved = extrinsics.to(device="cpu", dtype=torch.float64, copy=True)
     assert moved.extrinsics.device == torch.device("cpu"), (
