@@ -95,18 +95,21 @@ prepare_points_for_rendering.py
 │   ├── impls render_intrinsics = camera.intrinsics      # the CameraIntrinsics carries the camera-to-image projection
 │   ├── impls extrinsics = camera.extrinsics.extrinsics  # the [..., 4, 4] cam2world matrix, one per camera the batch carries
 │   ├── impls N = points.shape[0]
+│   ├── impls chunks = an empty list
 │   ├── for each chunk start i of range(0, N, chunk_size)  # chunked over points for memory; the camera batch axis passes through whole
 │   │   ├── impls j = min(N, i + chunk_size)
-│   │   └── calls _prepare_points_for_rendering(points=points[i:j], render_intrinsics=render_intrinsics, extrinsics=extrinsics, resolution=resolution, cull_func=cull_func)
+│   │   ├── calls _prepare_points_for_rendering(points=points[i:j], render_intrinsics=render_intrinsics, extrinsics=extrinsics, resolution=resolution, cull_func=cull_func)
+│   │   └── impls append the three it returned to chunks
+│   ├── impls points_chunks, valid_chunks, indices_chunks = chunks unzipped into its three columns, strict on their lengths
 │   ├── if no point of any camera survived
 │   │   └── raise AssertionError
-│   ├── impls points_2d = the per-chunk points concatenated along the point axis
+│   ├── impls points_2d = points_chunks concatenated along the point axis
 │   ├── if the chunks carry validity  # a batch, whose chunks mark each camera's survivors
-│   │   ├── impls valid = the per-chunk validity concatenated along the point axis
+│   │   ├── impls valid = valid_chunks concatenated along the point axis
 │   │   └── impls original_data_indices = None
 │   ├── else  # a single camera, whose chunks carry only their survivors
 │   │   ├── impls valid = None
-│   │   └── impls original_data_indices = the per-chunk indices, each offset by its chunk's start, concatenated
+│   │   └── impls original_data_indices = indices_chunks, each offset by its chunk's start, concatenated
 │   └── return  # (points_2d, valid, original_data_indices): [..., N, 3], [..., N] and None for a batch; [M, 3], None and [M] for a single camera
 ├── def _prepare_points_for_rendering(points: torch.Tensor, render_intrinsics: CameraIntrinsics, extrinsics: torch.Tensor, resolution: Tuple[int, int], cull_func: Callable[[torch.Tensor, torch.Tensor, int, int], None] = _frustum_cull) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[torch.Tensor]]
 │   ├── # Preprocesses one chunk of world-space points: world-to-camera transform, positive-depth filter, camera-to-image projection, then image-bounds cull, a batch marking each camera's survivors and a single camera dropping its culled points.
@@ -457,10 +460,12 @@ render_rgb_volumetric.py
 │   │   ├── impls log the ns-train stage duration
 │   │   ├── impls stage_start = time.time()
 │   │   ├── calls _assert_checkpoint_exists(model_dir=model_dir)
-│   │   ├── impls pipeline = the model load_splatfacto_model loads from str(model_dir) onto target_device
+│   │   ├── calls load_splatfacto_model(str(model_dir), target_device)
+│   │   ├── impls pipeline = the model it loaded
 │   │   ├── impls log the model-load stage duration
 │   │   ├── impls stage_start = time.time()
-│   │   ├── impls rendered_image = the image render_rgb_from_splatfacto renders of pipeline through camera at resolution
+│   │   ├── calls render_rgb_from_splatfacto(pipeline, camera, resolution)
+│   │   ├── impls rendered_image = the image it rendered
 │   │   └── impls log the evaluation-render stage duration
 │   ├── finally
 │   │   └── if cleanup_fn is not None
