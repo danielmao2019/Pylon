@@ -330,10 +330,10 @@ test_conventions.py
 ├── def test_extrinsics_constructor_applies_requested_device_dtype
 │   ├── # CameraExtrinsics.__init__ builds its tensors on the requested device and dtype.
 │   ├── calls CameraExtrinsics(extrinsics=a valid cam2world tensor, extr_convention="standard", device=a valid device, dtype=a floating torch dtype)
-│   ├── impls assert extrinsics.extrinsics has the requested device
-│   ├── impls assert extrinsics.extrinsics has the requested dtype
-│   ├── impls assert extrinsics.device matches its tensor state
-│   ├── impls assert extrinsics.dtype matches its tensor state
+│   ├── assert extrinsics.extrinsics has the requested device
+│   ├── assert extrinsics.extrinsics has the requested dtype
+│   ├── assert extrinsics.device matches its tensor state
+│   ├── assert extrinsics.dtype matches its tensor state
 │   └── return
 ├── def test_extrinsics_to_follows_tensor_to_semantics
 │   ├── # CameraExtrinsics.to applies Tensor.to-style device / dtype / copy semantics to the cam2world tensor.
@@ -422,7 +422,8 @@ test_io.py
 │   ├── calls _make_multi_cameras
 │   ├── calls serialize_cameras(cameras=cameras, format="json")
 │   ├── impls serialized = the payload it produced
-│   ├── impls assert serialized is a dict whose keys are the json key set, its name and id one entry per camera
+│   ├── assert serialized is a dict whose keys are the json key set
+│   ├── assert its name and id each hold one entry per camera
 │   ├── calls deserialize_cameras(payload=serialized, device="cpu", format="json")
 │   ├── calls _assert_cameras_fields_equal(loaded=what it returned, original=cameras)
 │   ├── calls save_cameras(cameras=cameras, cameras_path=a .json path under tmp_path)

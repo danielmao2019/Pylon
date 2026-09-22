@@ -94,7 +94,7 @@ test_intrinsics.py
 │   ├── calls _tensor_params(params=ortho's key set at a negative cx and cy)
 │   ├── for each model in {simple_pinhole, pinhole, ortho}
 │   │   ├── calls validate_camera_intrinsics_params(model=this model, intr_convention="opengl", params=its own key set at a negative cx and cy)
-│   │   └── impls assert the returned params dict equals the accepted one
+│   │   └── assert the returned params dict equals the accepted one
 │   └── return
 ├── def test_a_frame_that_scales_the_axes_apart_cannot_hold_a_shared_focal
 │   ├── # A model states as many focal params as it has axes to scale independently, so opengl and vulkan, which normalize each axis by its own side, hold a simple_pinhole only on a square image.
@@ -139,11 +139,11 @@ test_intrinsics.py
 ├── def test_intrinsics_constructor_applies_requested_device_dtype
 │   ├── # CameraIntrinsics.__init__ builds its tensors on the requested device and dtype.
 │   ├── calls _tensor_params(params=a pinhole key set)
-│   ├── calls build_camera_intrinsics(model=a supported model, params=tensor scalar params, device=a valid device, dtype=a floating torch dtype)
-│   ├── impls assert every param tensor has the requested device
-│   ├── impls assert every param tensor has the requested dtype
-│   ├── impls assert intrinsics.device matches the returned param tensors
-│   ├── impls assert intrinsics.dtype matches the returned param tensors
+│   ├── calls build_camera_intrinsics(model=a supported model, params=tensor scalar params, intr_convention="standard", device=a valid device, dtype=a floating torch dtype)
+│   ├── assert every param tensor has the requested device
+│   ├── assert every param tensor has the requested dtype
+│   ├── assert intrinsics.device matches the returned param tensors
+│   ├── assert intrinsics.dtype matches the returned param tensors
 │   └── return
 ├── def test_intrinsics_to_follows_tensor_to_semantics
 │   ├── # CameraIntrinsics.to applies Tensor.to-style device / dtype / copy semantics to every scalar param tensor.
@@ -323,8 +323,8 @@ test_intrinsics.py
 │   ├── for each of the opengl and vulkan frames
 │   │   ├── calls build_camera_intrinsics(model="pinhole", params=its own key set, intr_convention=this frame)  # a shared focal is what a change of aspect ratio has nowhere to put, so the model carrying two is the one this reads
 │   │   ├── calls intrinsics.scale_intrinsics(resolution=a target resolution of a different aspect ratio)
-│   │   ├── impls assert every param but h and w comes back equal to the one it was given  # impls-node-one-step:skip
-│   │   └── impls assert its h and w params are the target ones                            # impls-node-one-step:skip
+│   │   ├── assert every param but h and w comes back equal to the one it was given
+│   │   └── assert its h and w params are the target ones
 │   └── return
 ├── def test_the_pytorch3d_frames_params_move_when_the_aspect_ratio_does
 │   ├── # pytorch3d normalizes both axes by the shorter side alone, so its params hold under a resize that keeps the aspect ratio and are restated by one that does not.
