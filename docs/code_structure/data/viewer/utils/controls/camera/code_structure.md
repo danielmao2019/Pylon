@@ -532,20 +532,26 @@ trackball_camera_controls.ts
 │   │   ├── impls threeControls.noRotate = true, so the roll-locked left-drag below replaces three's free rotation while its right-drag pan and wheel zoom stay
 │   │   ├── impls heldEyeOffset = a zero vector, the eye offset each hold below leaves behind for the next
 │   │   ├── calls holdRollLockedCameraPose({ camera, target: threeControls.target, rollLockAxis, heldEyeOffset })  # the framing the controls are constructed on
-│   │   ├── impls leftDrag = no left drag active, the drag state the handlers below share
+│   │   ├── impls leftDrag = no left drag active, the drag state (the dragging pointer's pointerId and its last position) the handlers below share
 │   │   ├── function startRollLockedLeftDrag(event: PointerEvent): void [local]  # event: a pointer press on renderer.domElement
-│   │   │   ├── # Starts a roll-locked left drag at the pointer a left-button press lands on.
+│   │   │   ├── # Starts a roll-locked left drag at the pointer a left-button press lands on, and ends it when a second pointer presses mid-drag.
+│   │   │   ├── if a left drag is already active  # a second touch contact turns the gesture into three's two-pointer zoom and pan
+│   │   │   │   ├── impls leftDrag = no left drag active
+│   │   │   │   └── return
 │   │   │   ├── if event is not a left-button press
 │   │   │   │   └── return
-│   │   │   └── impls leftDrag = active, from the event's pointer position
+│   │   │   └── impls leftDrag = active, from the event's pointerId and pointer position
 │   │   ├── impls renderer.domElement.addEventListener("pointerdown", startRollLockedLeftDrag)
-│   │   ├── function endRollLockedLeftDrag(): void [local]
-│   │   │   ├── # Ends the roll-locked left drag wherever the pointer is released.
+│   │   ├── function endRollLockedLeftDrag(event: PointerEvent): void [local]  # event: a pointer release or cancel anywhere on the page
+│   │   │   ├── # Ends the roll-locked left drag when the pointer driving it is released or cancelled.
+│   │   │   ├── if no left drag is active or event.pointerId is not the drag's pointerId
+│   │   │   │   └── return
 │   │   │   └── impls leftDrag = no left drag active
 │   │   ├── impls window.addEventListener("pointerup", endRollLockedLeftDrag)
+│   │   ├── impls window.addEventListener("pointercancel", endRollLockedLeftDrag)
 │   │   ├── function turnRollLockedLeftDrag(event: PointerEvent): void [local]  # event: a pointer move anywhere on the page
 │   │   │   ├── # Turns the camera by one left-drag pointer move, as yaw about rollLockAxis plus pitch about the camera right axis.
-│   │   │   ├── if no left drag is active
+│   │   │   ├── if no left drag is active or event.pointerId is not the drag's pointerId
 │   │   │   │   └── return
 │   │   │   ├── impls radiansPerPixel = threeControls.rotateSpeed / (0.5 × renderer.domElement.clientWidth), the free trackball's own rotation per pixel
 │   │   │   ├── calls resolveRollLockBandedOffset({ offset: camera.position minus threeControls.target, rollLockAxis })   → bandedOffset
@@ -555,7 +561,7 @@ trackball_camera_controls.ts
 │   │   │   ├── impls pitchAngle = minus the vertical pointer delta from leftDrag times radiansPerPixel
 │   │   │   ├── impls pitchAngle = pitchAngle clamped so polarAngle + pitchAngle stays inside [ROLL_LOCKED_POLAR_ANGLE_EPSILON, π − ROLL_LOCKED_POLAR_ANGLE_EPSILON]  # a drag stops short of either pole
 │   │   │   ├── impls pitches bandedOffset about cameraRightAxis by pitchAngle
-│   │   │   ├── impls leftDrag = the event's pointer position, the one the next move's delta is measured from
+│   │   │   ├── impls leftDrag = the drag's pointerId with the event's pointer position, the one the next move's delta is measured from
 │   │   │   ├── impls camera.position = threeControls.target + bandedOffset
 │   │   │   ├── calls holdRollLockedCameraPose({ camera, target: threeControls.target, rollLockAxis, heldEyeOffset })
 │   │   │   └── impls threeControls.dispatchEvent({ type: "change" })
@@ -578,7 +584,7 @@ trackball_camera_controls.ts
 │   ├── impls offset = camera.position minus target
 │   ├── if offset has zero length  # an eye written onto the target, or the target onto the eye, names no view direction
 │   │   └── impls offset = heldEyeOffset
-│   ├── calls resolveRollLockBandedOffset({ offset, rollLockAxis })
+│   ├── calls resolveRollLockBandedOffset({ offset, rollLockAxis })   → bandedOffset
 │   ├── impls heldEyeOffset = bandedOffset, overwritten in place for the next hold
 │   ├── impls cameraRightAxis = normalize(cross(-bandedOffset, rollLockAxis))
 │   ├── impls camera.position = target + bandedOffset
