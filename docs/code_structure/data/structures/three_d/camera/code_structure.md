@@ -414,12 +414,15 @@ io.py
 ├── def deserialize_cameras(payload: Dict[str, Any], device: Optional[Union[str, torch.device]] = None, format: str = "json") -> Union["Camera", "Cameras"]
 │   ├── # Deserialize the canonical payload back into cameras, the inverse of serialize_cameras.
 │   ├── def _validate_inputs [local]
-│   │   ├── impls assert payload is a dict  # both formats key the payload by field
-│   │   ├── impls assert device is None, a str, or a torch.device
-│   │   └── impls assert format is in _CAMERA_SERIALIZATION_FORMATS  # drawn because this is format's only owner on this path
+│   │   ├── assert payload is a dict  # both formats key the payload by field
+│   │   ├── assert device is None, a str, or a torch.device
+│   │   └── assert format is in _CAMERA_SERIALIZATION_FORMATS  # drawn because this is format's only owner on this path
 │   ├── calls _validate_inputs
 │   ├── def _normalize_inputs [local]
-│   │   ├── impls device = torch.device(device) if device is not None else torch.device("cpu")
+│   │   ├── if device is not None
+│   │   │   └── impls device = torch.device(device)
+│   │   ├── else
+│   │   │   └── impls device = torch.device("cpu")
 │   │   └── return device
 │   ├── calls _normalize_inputs(device=device)
 │   ├── impls device = the returned value from _normalize_inputs
@@ -438,7 +441,10 @@ io.py
 │   ├── # Map a Camera or a Cameras to the json payload: its intrinsics and extrinsics fields as the components hold them, beside its dtype and its name and id.
 │   ├── calls _serialize_camera_intrinsics(intrinsics=cameras.intrinsics)  # -> model, params, intr_convention
 │   ├── calls _serialize_camera_extrinsics(extrinsics=cameras.extrinsics)  # -> matrix, extr_convention
-│   ├── impls name, id = cameras.name and cameras.id for a Camera, cameras.names and cameras.ids for a Cameras
+│   ├── if cameras.extrinsics.is_batched  # a Cameras
+│   │   └── impls name, id = cameras.names and cameras.ids
+│   ├── else  # a Camera
+│   │   └── impls name, id = cameras.name and cameras.id
 │   ├── impls payload = {"model": model, "params": params, "intr_convention": intr_convention, "extrinsics": matrix as a nested list, "extr_convention": extr_convention, "dtype": cameras.dtype spelled by its torch name (e.g. "float64"), "name": name, "id": id}  # the resolution rides inside params
 │   └── return payload
 ├── def _deserialize_cameras_json(payload: Dict[str, Any], device: torch.device) -> Union["Camera", "Cameras"]
@@ -456,7 +462,10 @@ io.py
 │   ├── # Map a Camera or a Cameras to the npz payload: the json payload's fields, each held as an array.
 │   ├── calls _serialize_camera_intrinsics(intrinsics=cameras.intrinsics)  # -> model, params, intr_convention
 │   ├── calls _serialize_camera_extrinsics(extrinsics=cameras.extrinsics)  # -> matrix, extr_convention
-│   ├── impls name, id = cameras.name and cameras.id for a Camera, cameras.names and cameras.ids for a Cameras
+│   ├── if cameras.extrinsics.is_batched  # a Cameras
+│   │   └── impls name, id = cameras.names and cameras.ids
+│   ├── else  # a Camera
+│   │   └── impls name, id = cameras.name and cameras.id
 │   ├── impls payload = {"model": model, "params": params json-encoded, "intr_convention": intr_convention, "extrinsics": matrix, "extr_convention": extr_convention, "dtype": cameras.dtype spelled by its torch name (e.g. "float64"), "name": name json-encoded, "id": id json-encoded}  # a dict, a list or a null has no typed-array form, so those three ride json-encoded
 │   ├── for each key, value of payload
 │   │   └── impls payload[key] = value as an np.ndarray  # 0-d for every key but extrinsics, whose [4, 4] or [N, 4, 4] keeps the batch's own dtype
