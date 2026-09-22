@@ -106,7 +106,7 @@ validation.py
 │   ├── calls _validate_principal_point_within_image(model=model, intr_convention=intr_convention, params=params)
 │   ├── calls _validate_model_is_representable_in_frame(model=model, intr_convention=intr_convention, params=params)
 │   └── return
-├── def _validate_principal_point_within_image(model: str, intr_convention: str, params: Dict[str, torch.Tensor]) -> None
+├── def _validate_principal_point_within_image(model: str, intr_convention: str, params: Dict[str, Union[int, float, np.ndarray, torch.Tensor]]) -> None
 │   ├── # Bounds a perspective camera's principal point the way the frame it is stated in measures it.
 │   ├── if model == "ortho"
 │   │   └── return  # a weak-perspective cx / cy is where the world origin lands rather than where an axis pierces, and a fit drives that off the frame while the camera stays valid
@@ -120,7 +120,7 @@ validation.py
 │   │   ├── impls assert abs(cx) <= w / min(h, w) and abs(cy) <= h / min(h, w)  # impls-node-one-step:skip; the shorter side alone reaches 1, so the longer axis's bound is the larger
 │   │   └── return
 │   └── assert 0, "Should not reach here."
-└── def _validate_model_is_representable_in_frame(model: str, intr_convention: str, params: Dict[str, torch.Tensor]) -> None
+└── def _validate_model_is_representable_in_frame(model: str, intr_convention: str, params: Dict[str, Union[int, float, np.ndarray, torch.Tensor]]) -> None
     ├── # A model states as many focal params as it has axes to scale independently, so a frame that scales the two axes differently can hold only the models carrying two of them.
     ├── if model == "simple_pinhole" and intr_convention in {"opengl", "vulkan"}
     │   └── impls assert h == w  # these frames normalize each axis by its own side, and one shared f cannot carry two different units, so a non-square image has no simple_pinhole in them
